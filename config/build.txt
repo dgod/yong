@@ -1,0 +1,64 @@
+var SRCS=['config_ui.c','config_main.c','translate.c',
+	'sync.c','gz.c','session.c','aes.c','update.c'];
+var SRCS_WIN=['config_win.c','lpng.c'];
+var SRCS_LIN=['config_gtk.c'];
+var DIRS=['l32-gtk2','l64-gtk2','l32-gtk3','l64-gtk3','w32','w64'];
+
+env("VPATH+=$(TOPDIR)/config");
+env("CFLAGS+=$(LLIB_CFLAGS)");
+env("LDFLAGS+=$(LLIB_LDFLAGS)");
+env("LIBS+=$(LLIB_LDADD)");
+
+env("CFLAGS+=-DCFG_CUSTOM_XML");
+
+function run(target){
+	cd(target);
+	include("../../rules.txt");
+	if(target=="w32" || target=="w64"){
+		var srcs=SRCS.concat(SRCS_WIN);
+	} else {
+		var srcs=SRCS.concat(SRCS_LIN);
+		var ARCH=target.split('-')[0];
+		var GTK=target.split('-')[1];
+		if(GTK=="gtk2")
+			env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
+		else
+			env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
+		if(ARCH=="l32")
+			process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
+		else
+			process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
+	}
+	var OBJS=wildcard(srcs,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+	begin();
+	cc(srcs,OBJS);
+	if(target=="w32" || target=="w64"){
+		cr('yong-config.rc','yong-config.res','$(WINDRES) -i $^ -o $@ -O coff');
+		OBJS.push("yong-config.res");
+		env("LDFLAGS+=-mwindows");
+		env("LIBS+=-lgdi32 -lcomctl32 -lcomdlg32 -lws2_32");
+	} else {
+		env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
+		if(GTK=="gtk2")
+			env("LIBS+=-lglib-2.0 -lgobject-2.0 -lcairo -lX11 -lpango-1.0 -lpangocairo-1.0 -lgdk_pixbuf-2.0 -lgdk-x11-2.0 -lgtk-x11-2.0");
+		else
+			env("LIBS+=`pkg-config --libs gtk+-3.0`");
+	}
+	end(function(){
+		ld(OBJS,'$(DESTDIR)/yong-config$(EXE)');
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+} else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+} else if(target=="xml") {
+	bin2c("custom.xml","custom.c",{static:true,zero:true,name:"config_custom"});
+	bin2c("sync.xml","custom_sync.c",{static:true,zero:true,name:"config_sync"});
+	bin2c("update.xml","custom_update.c",{static:true,zero:true,name:"config_update"});
+} else {
+	run(target);
+}

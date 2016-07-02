@@ -1,0 +1,64 @@
+env("TOPDIR","=",path.dirname($("BUILD_FILE")));
+
+env("BUILD","?=",path.basename(process.cwd()).split('-')[0]);
+var BUILD=$("BUILD");
+
+if(BUILD=="w32"){
+	env("CROSS_COMPILE=i686-w64-mingw32-");
+	env("CFLAGS+=-D_UNICODE -DUNICODE -march=i686");
+	env("LDFLAGS+=-static-libgcc");
+	env("EXE=.exe");
+	env("DESTDIR=$(TOPDIR)/winim/yong");
+	env("CC=$(CROSS_COMPILE)gcc");
+	env("CXX=$(CROSS_COMPILE)g++");
+}else if(BUILD=="l32"){
+	env("LDFLAGS+=-Wl,--hash-style=sysv -m32");
+	env("EXE=");
+	env("DESTDIR=.");
+	env("CC=$(CROSS_COMPILE)gcc -m32 -march=i686");
+	env("CXX=$(CROSS_COMPILE)g++");
+	env("PICFLAGS=-fPIC");
+}else if(BUILD=="w64"){
+	env("CROSS_COMPILE=x86_64-w64-mingw32-");
+	env("CFLAGS+=-D_UNICODE -DUNICODE");
+	env("LDFLAGS+=-static-libgcc");
+	env("EXE=.exe");
+	env("DESTDIR=$(TOPDIR)/winim/yong/w64");
+	env("CC=$(CROSS_COMPILE)gcc");
+	env("CXX=$(CROSS_COMPILE)g++");
+}else if(BUILD=="l64"){
+	env("LDFLAGS+=-Wl,--hash-style=sysv -m64");
+	env("EXE=");
+	env("DESTDIR=.");
+	env("CC=$(CROSS_COMPILE)gcc -m64");
+	env("CXX=$(CROSS_COMPILE)g++ -m64");
+	env("PICFLAGS=-fPIC");
+}else if(BUILD=="js"){
+	env("LDFLAGS+=-m32");
+	env("EXE=.bin");
+	env("DESTDIR=.");
+	env("CROSS_COMPILE=/home/dgod/git/emscripten/");
+	env("CC:=$(CROSS_COMPILE)emcc");
+	env("CFLAGS+=-Wno-invalid-source-encoding");
+}else if(BUILD=="loongson"){
+	env("CFLAGS+=-march=mips64r2 -mabi=64");
+	env("EXE=");
+	env("DESTDIR=.");
+	env('CROSS_COMPILE=mips64el-unknown-linux-gnu-');
+	env("CC=$(CROSS_COMPILE)gcc");
+	env("AR=ar cr");
+}
+
+env("VPATH+=$(TOPDIR)/common");
+env("AR?=$(CROSS_COMPILE)ar cr");
+env("RANLIB:=$(CROSS_COMPILE)ranlib");
+env("WINDRES:=$(CROSS_COMPILE)windres");
+env("STRIPL=$(CROSS_COMPILE)strip");
+env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
+
+env("CFLAGS+=-Wall -g -O2 -fms-extensions -fno-strict-aliasing -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
+
+env("LLIB_PATH:=$(TOPDIR)/llib");
+env("LLIB_CFLAGS:=-I$(LLIB_PATH)");
+env("LLIB_LDFLAGS:=-L$(LLIB_PATH)/$(BUILD)");
+env("LLIB_LDADD:=-ll");

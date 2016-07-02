@@ -1,0 +1,76 @@
+
+function copy_data(){
+	mkdir(["yong","yong/skin","yong/mb","yong/locale"]);
+	
+	exec("cp -f ../im/yong-tool.sh yong/yong-tool.sh");
+	exec("cp -f ../im/yong.xml yong/yong.xml");
+	exec("cp -f ../im/yong.ini yong");
+	exec("cp -rf ../im/skin/* yong/skin");
+	
+	exec("msgfmt -c ../im/gtk-im/zh_CN.po -o yong/locale/zh_CN.mo");
+	
+	exec("cp -f ../data/README.txt yong");
+	exec("cp -f ../data/yong.chm yong");
+	exec("cp -f ../data/keyboard.ini yong");
+	exec("cp -f ../data/bihua.bin yong");
+	exec("cp -f ../data/normal.txt yong");
+	exec("cp -f ../data/mb/wbx-n.txt yong/mb/wbx.txt");
+	exec("cp -f ../data/mb/wbx.ini yong/mb");
+	exec("cp -f ../data/mb/wbpy.ini yong/mb");
+	exec("cp -f ../data/mb/erbi.txt yong/mb");
+	exec("cp -f ../data/mb/zhengma.txt yong/mb");
+	exec("cp -f ../data/mb/english.txt yong/mb");
+	exec("cp -f ../data/mb/pinyin.ini yong/mb");
+	exec("cp -f ../data/mb/sp.ini yong/mb");
+	exec("cp -f ../data/mb/pinyin.txt yong/mb");
+	exec("cp -f ../data/mb/pypre.bin yong/mb");
+	exec("cp -f ../data/mb/yong.txt yong/mb");
+	exec("cp -rf ../data/entry yong/");
+}
+
+function copy_build(build){
+	env("BUILD","=",build);
+	mkdir(["yong/$(BUILD)","yong/$(BUILD)/gtk-im"]);
+	exec("cp -f ../llib/$(BUILD)/libl.so yong/$(BUILD)");
+	exec("cp -f ../im/$(BUILD)-gtk2/yong yong/$(BUILD)/yong-gtk2");
+	exec("cp -f ../im/$(BUILD)-gtk3/yong yong/$(BUILD)/yong-gtk3");
+	exec("cp -f ../config/$(BUILD)-gtk2/yong-config yong/$(BUILD)/yong-config-gtk2");
+	exec("cp -f ../config/$(BUILD)-gtk3/yong-config yong/$(BUILD)/yong-config-gtk3");
+	exec("cp -f ../vim/$(BUILD)/yong-vim yong/$(BUILD)");
+	exec("cp -f ../mb/$(BUILD)/libmb.so yong/$(BUILD)");
+	exec("cp -f ../gbk/$(BUILD)/libgbk.so yong/$(BUILD)");
+	exec("cp -f ../cloud/$(BUILD)/libcloud.so yong/$(BUILD)");
+	exec("cp -f ../im/gtk-im/$(BUILD)-gtk2/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk2.so");
+	exec("cp -f ../im/gtk-im/$(BUILD)-gtk3/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk3.so");
+
+	exec("strip yong/$(BUILD)/gtk-im/*.so");
+	exec("strip yong/$(BUILD)/*.so");
+	exec("strip yong/$(BUILD)/yong-gtk2");
+	exec("strip yong/$(BUILD)/yong-gtk3");
+	exec("strip yong/$(BUILD)/yong-config-gtk2");
+	exec("strip yong/$(BUILD)/yong-config-gtk3");
+	exec("strip yong/$(BUILD)/yong-vim");
+
+}
+
+
+
+function set_ver(){
+	if(process.env.VER)
+		var VER=process.env.VER;
+	else
+		var VER=shell("date +%Y%m%d");
+	env("VER",":=",VER);
+}
+
+if(target=="copy"){
+	copy_data();
+	copy_build("l32");
+	copy_build("l64");
+} else if(target=="dist"){
+	set_ver();
+	exec("7za a yong-lin-$(VER).7z yong");	
+} else if(target=="rpm"){
+	exec('rpmbuild -bb yong.spec --target=i686 --define "_rpmdir `pwd`"');
+}
+

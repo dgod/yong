@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- filename: yong.xml -->
+<component>
+  <name>org.freedesktop.IBus.Yong</name>
+  <description>Yong Component</description>
+  <exec>/usr/bin/yong --ibus</exec>
+  <version>2.3.0</version>
+  <author>dgod</author>
+  <homepage>http://yong.dgod.net</homepage>
+  <textdomain>yong</textdomain>
+  <engines>
+    <engine>
+      <name>yong</name>
+      <language>zh_CN</language>
+      <author>dgod</author>
+      <icon>/usr/share/yong/skin/tray1.png</icon>
+      <layout>us</layout>
+      <longname>Yong</longname>
+      <description>Yong Input Method</description>
+      <setup>/usr/bin/yong-config</setup>
+      <locale name="zh_CN">
+        <longname>Yong</longname>
+        <description>Yong输入法</description>
+      </locale>
+    </engine>
+  </engines>
+</component>
+

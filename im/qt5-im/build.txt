@@ -1,0 +1,52 @@
+var SRCS_CXX=['qyongplatforminputcontext.cpp','main.cpp'];
+var SRCS_C=['lcall.c'];
+var OBJS=[
+	'qyongplatforminputcontext.o',
+	'main.o',
+	'lcall.o',
+	'moc_main.o',
+	'moc_qyongplatforminputcontext.o'];
+var DIRS=['l64-qt5'];
+
+env("VPATH+=$(TOPDIR)/im/qt5-im $(TOPDIR)/im");
+env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
+env("CFLAGS+=-DL_CALL_GLIB_CLIENT -fvisibility=hidden -I$(TOPDIR)/im");
+env("LDFLAGS+=-shared");
+
+env("CFLAGS+=`pkg-config --cflags glib-2.0`");
+env("CFLAGS+=`pkg-config --cflags QtCore Qt5Gui`");
+var QT_VER=shell("pkg-config --modversion Qt5Gui");
+env("QT_VER+="+QT_VER);
+env("CFLAGS","+=","-I/usr/include/qt5/QtGui/"+QT_VER+"/QtGui/");
+env("LIBS+=`pkg-config --libs Qt5Core Qt5Gui glib-2.0`");
+env("LIBS+=-ldl -lstdc++");
+var MOC=shell("pkg-config --variable=moc Qt5");
+env("MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I/usr/lib64/qt5/mkspecs/linux-g++ -I/usr/include/qt5/QtGui/$(QT_VER) -I/usr/include/qt5/QtGui/$(QT_VER)/QtGui -I/usr/include/qt5 -I/usr/include/qt5/QtGui -I/usr/include/qt5/QtDBus -I/usr/include/qt5/QtCore");
+env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
+
+function run(target){
+	cd(target);
+	include("../../../rules.txt");
+	env("CFLAGS+=-I$(TOPDIR)/im/qt-im/"+target);
+	
+	cr('../main.h','moc_main.cpp',
+		MOC+' $(MOCFLAGS) $^ -o $@');
+	cr('../qyongplatforminputcontext.h','moc_qyongplatforminputcontext.cpp',
+		MOC+' $(MOCFLAGS) $^ -o $@');
+	begin();
+	cxx('moc_main.cpp');
+	cxx('moc_qyongplatforminputcontext.cpp');
+	cxx(SRCS_CXX);
+	cc(SRCS_C);
+	end(function(){
+		ld(OBJS,'$(DESTDIR)/libyongplatforminputcontextplugin.so');
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+} else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+} else {
+	run(target);
+}

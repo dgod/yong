@@ -1,0 +1,13 @@
+var DIRS=[
+	'llib',
+	'gbk',
+	'cloud',
+	'config',
+	'im',
+
+	'mb',
+	'vim'
+];
+
+
+	build(DIRS);

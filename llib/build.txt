@@ -1,0 +1,63 @@
+var SRCS=dir('.','*.c');
+var DIRS=['l32','l64','w32','w64'];
+
+function run(target){
+	if(target=='w32') {
+		env('CROSS_COMPILE=i686-w64-mingw32-');
+		env('DLL=.dll');
+		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
+		env('LDFLAGS=-static-libgcc');
+		env('LDFLAGS+=-Wl,--out-implib=w32/libl.a');
+	}else if(target=='w64'){
+		env('CROSS_COMPILE=x86_64-w64-mingw32-');
+		env('DLL=.dll');
+		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
+		env('LDFLAGS=-static-libgcc');
+		env('LDFLAGS+=-Wl,--out-implib=w64/libl.a');
+	}else if(target=='l32'){
+		env('LDFLAGS=-Wl,--hash-style=sysv -m32');
+		env('DLL=.so');
+		env('CFLAGS=-m32 -fpic');
+	}else if(target=='l64'){
+		env('LDFLAGS=-Wl,--hash-style=sysv -m64');
+		env('DLL=.so');
+		env('CFLAGS=-m64 -fpic');
+	}else if(target=='js'){
+		env('LDFLAGS=-m32');
+		env('CFLAGS=-m32');
+		env('DLL=.so');
+		env('CROSS_COMPILE=/home/dgod/git/emscripten/');
+		env('CC:=$(CROSS_COMPILE)emcc');
+	} else if(target=='loongson') {
+		env("CFLAGS+=-march=mips64r2 -mabi=64");
+		env('DLL=.so');
+		env('CROSS_COMPILE=mips64el-unknown-linux-gnu-');
+		env('LIBS+=-ldl');
+	} else {
+		return;
+	}
+	if(target!='js'){
+		env('CC:=$(CROSS_COMPILE)gcc');
+		env('AR:=$(CROSS_COMPILE)ar');
+		env('STRIP:=$(CROSS_COMPILE)strip');
+		env('DLLTOOL:=$(CROSS_COMPILE)dlltool');
+	}
+	env("CFLAGS+=-Wall -pipe -g -O2");
+	env('LDFLAGS+=-shared');	
+	var OBJS=wildcard(SRCS,function(input){
+		return target+'/'+input.replace(/\.c$/,'.o');
+	});
+	begin();
+	cc(SRCS,OBJS);
+	end(function(){
+		ld(OBJS,target+'/'+'libl$(DLL)');
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+} else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+} else {
+	run(target);
+}

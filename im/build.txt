@@ -1,0 +1,79 @@
+var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
+	'english.c','dict.c','keyboard.c','mapfile.c',
+	'aes.c','book.c','keytool.c',
+	'keydesc.c','ui.c','xim-ibus.c',
+	'fbterm.c','keycode.c','select.c','layout.c','translate.c',
+	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c',
+	'menu.c','history.c','replace.c','ybus-wayland.c'];
+
+var DIRS=['l32-gtk2','l64-gtk2','l32-gtk3','l64-gtk3'];
+
+env("VPATH+=$(TOPDIR)/im");
+env("VPATH+=$(TOPDIR)/im/fbterm");
+
+env("CFLAGS+=$(LLIB_CFLAGS)");
+env("LDFLAGS+=$(LLIB_LDFLAGS)");
+env("LIBS+=$(LLIB_LDADD)");
+
+env("CFLAGS+=-I$(TOPDIR)/im -I$(TOPDIR)/im/IMdkit");
+env("CFLAGS+=-DCFG_XIM_IBUS `pkg-config --cflags ibus-1.0`");
+env("CFLAGS+=-DCFG_XIM_FBTERM -I$(TOPDIR)/im/fbterm");
+env("CFLAGS+=-DL_CALL_GLIB_SERVER");
+
+env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
+env("LIBS+=-ll -ldl -lm -lXimd");
+
+function run(target){
+	cd(target);
+	include("../../rules.txt");
+	var ARCH=target.split('-')[0];
+	var GTK=target.split('-')[1];
+	if("GTK_CFLAGS" in process.env)
+		env("CFLAGS","+=",process.env.GTK_CFLAGS);
+	else if(GTK=="gtk2")
+		env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
+	else
+		env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
+	var OBJS=wildcard(SRCS,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+	if(ARCH=="l32")
+		process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
+	else
+		process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
+	begin();
+	cc(SRCS,OBJS);
+	end(function(){
+		env("LDFLAGS+=-L$(TOPDIR)/im/IMdkit/$(BUILD)");
+		if("GTK_LDFLAGS" in process.env)
+			env("LDFLAGS","+=",process.env.GTK_LDFLAGS);
+		if(GTK=="gtk2")
+			env("LIBS+=-lglib-2.0 -lgobject-2.0 -lcairo -lX11 -lpango-1.0 -lpangocairo-1.0 -lgdk_pixbuf-2.0 -lgdk-x11-2.0 -lgtk-x11-2.0");
+		else
+			env("LIBS+=-lX11 `pkg-config --libs gtk+-3.0`");
+		ld(OBJS,'$(DESTDIR)/yong');
+	});
+}
+
+function bihua(){
+	var SRCS=['bihua.c','mapfile.c'];
+	env("BUILD?=l64");
+	include("../rules.txt");
+	env("CFLAGS=-I$(TOPDIR)/include $(LLIB_CFLAGS) -Wall -DTOOLS_BIHUA");
+	cr(SRCS,'bihua','$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@');
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+	build(["IMdkit","gtk-im","qt5-im"],undefined,'clean');
+} else if(!target || target=="all"){
+	build(["IMdkit","gtk-im","qt5-im"]);
+	build(undefined,undefined,DIRS);
+} else if(target=="bihua") {
+	bihua();
+} else if(target=="l64") {
+	build(undefined,undefined,['l64-gtk2','l64-gtk3']);
+} else {
+	run(target);
+}
+

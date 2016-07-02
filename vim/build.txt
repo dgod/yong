@@ -1,0 +1,22 @@
+var SRCS=['vim.c'];
+var OBJS=wildcard(SRCS,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+var DIRS=['l32','l64','w32','w64'];
+
+env('VPATH+=$(TOPDIR)/vim');
+
+function run(target){
+	cd(target);
+	include("../../rules.txt");
+	cc(SRCS,OBJS);
+	ld(OBJS,'$(DESTDIR)/yong-vim$(EXE)');
+}
+
+if(target=='clean'){
+	rmdir(DIRS,'*');
+} else if(!target || target=='all'){
+	build(undefined,undefined,DIRS);
+} else {
+	run(target);
+}

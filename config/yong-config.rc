@@ -1,0 +1,8 @@
+#include <windows.h>
+
+#ifdef _WIN64
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "XPStyle64.manifest"
+#else
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "XPStyle.manifest" 
+#endif
+

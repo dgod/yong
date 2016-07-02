@@ -1,0 +1,42 @@
+var SRCS=['mb.c','face.c','pinyin.c','learn.c','legend.c','pyzip.c','trie.c','fuzzy.c'];
+var DIRS=['l32','l64','w32','w64'];
+
+env("VPATH+=$(TOPDIR)/mb");
+env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
+env("LDFLAGS+=$(LLIB_LDFLAGS)");
+env("LIBS+=$(LLIB_LDADD)");
+
+function run(target){
+	if(target=="js") {
+		env("LIBS-=$(LLIB_LDADD)");
+	}
+	cd(target);
+	include("../../rules.txt");
+	if(target=="l32" || target=="l64"){
+		env("CFLAGS+=-fvisibility=hidden");
+		env("LIBS=-ldl -ll");
+	}
+	var OBJS=wildcard(SRCS,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+	begin();
+	cc(SRCS,OBJS);	
+	end(function(){
+		push();
+		env("LDFLAGS+=-shared");
+		if(target=="js")
+			ld(OBJS,'$(DESTDIR)/libmb.bc');
+		else
+			ld(OBJS,'$(DESTDIR)/libmb.so');
+		pop();
+
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+} else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+} else {
+	run(target);
+}

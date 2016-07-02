@@ -1,0 +1,46 @@
+var SRCS=['lcall.c','imyong.c','gtkimcontextyong.c'];
+var DIRS=['l32-gtk2','l32-gtk3','l64-gtk2','l64-gtk3'];
+
+env("VPATH+=$(TOPDIR)/im/gtk-im $(TOPDIR)/im");
+env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
+env("CFLAGS+=-DL_CALL_GLIB_CLIENT -fvisibility=hidden -I$(TOPDIR)/im");
+env("LDFLAGS+=-shared");
+
+function run(target){
+	cd(target);
+	include("../../../rules.txt");
+	var ARCH=target.split('-')[0];
+	var GTK=target.split('-')[1];
+	if("GTK_CFLAGS" in process.env)
+		env("CFLAGS","+=",process.env.GTK_CFLAGS);
+	else if(GTK=="gtk2")
+		env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
+	else
+		env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
+	var OBJS=wildcard(SRCS,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+	if(ARCH=="l32")
+		process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
+	else
+		process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
+	begin();
+	cc(SRCS,OBJS);
+	end(function(){
+		if("GTK_LDFLAGS" in process.env)
+			env("LDFLAGS","+=",process.env.GTK_LDFLAGS);
+		if(GTK=="gtk2")
+			env("LIBS+=-lglib-2.0 -lgobject-2.0 -lcairo -lX11 -lpango-1.0 -lpangocairo-1.0 -lgdk_pixbuf-2.0 -lgdk-x11-2.0 -lgtk-x11-2.0");
+		else
+			env("LIBS+=-lX11 `pkg-config --libs gtk+-3.0`");
+		ld(OBJS,'$(DESTDIR)/im-yong.so');
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+} else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+} else {
+	run(target);
+}
