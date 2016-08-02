@@ -68,6 +68,11 @@ static int LaunchSync(CUCtrl,int,char **);
 extern int UpdateDownload(CUCtrl,int,char **);
 static int LaunchUpdate(CUCtrl,int,char **);
 
+#ifdef _WIN32
+static int CheckAutoStart(CUCtrl,int,char **);
+static int SaveAutoStart(CUCtrl,int,char **);
+#endif
+
 const struct{
 	const char *name;
 	int (*action)(struct _CUCtrl*,int arc,char **arv);
@@ -90,6 +95,10 @@ const struct{
 	{"LaunchSync",LaunchSync},
 	{"UpdateDownload",UpdateDownload},
 	{"LaunchUpdate",LaunchUpdate},
+#ifdef _WIN32
+	{"CheckAutoStart",CheckAutoStart},
+	{"SaveAutoStart",SaveAutoStart},
+#endif
 	{NULL,NULL},
 };
 
@@ -233,6 +242,10 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 	int ret;
 	
 	if(!node) return NULL;
+#ifdef __linux__
+	if(l_xml_get_prop(node,"win"))
+		return NULL;
+#endif
 
 	p=l_new0(struct _CUCtrl);
 	p->parent=parent;
@@ -793,10 +806,10 @@ static void cu_save_all(CUCtrl ctrl,void *user)
 {
 	if(!ctrl->visible)
 		return;
-	if(!ctrl->cgroup || !strcmp(ctrl->cgroup,"xxxx"))
-		return;
 	if(!ctrl->save)
 	{
+		if(!ctrl->cgroup || !strcmp(ctrl->cgroup,"xxxx"))
+			return;
 		cu_config_save_default(ctrl);
 	}
 	else
@@ -1316,6 +1329,7 @@ USER:
 
 #ifdef _WIN32
 #include <windows.h>
+#include <tlhelp32.h>
 static int LaunchSync(CUCtrl p,int arc,char **arg)
 {
 	p=cu_ctrl_get_root(p);
@@ -1340,4 +1354,186 @@ static int LaunchUpdate(CUCtrl p,int arc,char **arg)
 	g_spawn_command_line_async("yong-config --update",NULL);
 	return 0;
 }
+#endif
+
+#ifdef _WIN32
+
+#include <windows.h>
+#include <tchar.h>
+#include <shlobj.h>
+#include <stdio.h>
+
+static BOOL CreateFileShortcut(LPCTSTR lpszFileName, LPCTSTR lpszLnkFileDir, LPCTSTR lpszLnkFileName, LPCTSTR lpszWorkDir, WORD wHotkey, LPCTSTR lpszDescription)
+{
+	if (lpszLnkFileDir == NULL)  
+		return FALSE;
+
+	HRESULT hr;
+	IShellLink     *pLink;
+	IPersistFile   *ppf;
+
+ 
+	hr = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLink, (void**)&pLink);  
+	if (FAILED(hr))  
+		return FALSE;  
+
+	hr = pLink->lpVtbl->QueryInterface(pLink,&IID_IPersistFile, (void**)&ppf);  
+	if (FAILED(hr))  
+	{
+		pLink->lpVtbl->Release(pLink);  
+		return FALSE;  
+	}
+
+	pLink->lpVtbl->SetPath(pLink,lpszFileName);  
+
+    if (lpszWorkDir != NULL)  
+        pLink->lpVtbl->SetPath(pLink,lpszWorkDir);  
+
+    if (wHotkey != 0)  
+        pLink->lpVtbl->SetHotkey(pLink,wHotkey);  
+
+    if (lpszDescription != NULL)  
+        pLink->lpVtbl->SetDescription(pLink,lpszDescription);  
+
+    pLink->lpVtbl->SetShowCmd(pLink,SW_SHOWNORMAL);  
+
+    TCHAR szBuffer[MAX_PATH];  
+    
+   	_tcscpy(szBuffer,lpszLnkFileDir);
+   	_tcscat(szBuffer,_T("\\"));
+   	_tcscat(szBuffer,lpszLnkFileName);
+
+#ifndef _UNICODE
+    WCHAR  wsz[MAX_PATH];
+    MultiByteToWideChar(CP_ACP, 0, szBuffer, -1, wsz, MAX_PATH);
+    hr = ppf->lpVtbl->Save(ppf,wsz, TRUE);
+#else
+	hr = ppf->lpVtbl->Save(ppf,szBuffer, TRUE);
+#endif
+    ppf->lpVtbl->Release(ppf);
+    pLink->lpVtbl->Release(pLink);
+    return SUCCEEDED(hr);
+}
+
+BOOL GetStartupPath(LPTSTR pszPath)
+{
+    LPITEMIDLIST  ppidl = NULL;
+
+    if (SHGetSpecialFolderLocation(NULL, CSIDL_STARTUP, &ppidl) == S_OK)  
+    {
+        BOOL flag = SHGetPathFromIDList(ppidl, pszPath);
+        CoTaskMemFree(ppidl);
+        return flag;
+    }
+
+    return FALSE;
+}
+
+static int LinkExist(LPCTSTR path)
+{
+	TCHAR temp[MAX_PATH];
+	DWORD attr;
+	_tcscpy(temp,path);
+	_tcscat(temp,_T("\\yong.lnk"));
+	attr=GetFileAttributes(temp);
+	return attr!=INVALID_FILE_ATTRIBUTES;
+}
+
+
+static int CheckAutoStart(CUCtrl p,int arc,char **arg)
+{
+	TCHAR path[MAX_PATH];
+	GetStartupPath(path);
+	if(!LinkExist(path))
+	{
+		cu_ctrl_set_self(p,"0");
+	}
+	else
+	{
+		cu_ctrl_set_self(p,"1");
+	}
+	return 0;
+}
+
+static void GetYongExeFile(LPTSTR out)
+{
+	if(!l_file_exists("yong.exe"))
+	{
+		DWORD pid=GetCurrentProcessId();
+		HANDLE handle;
+		PROCESSENTRY32 pe;
+		DWORD ppid=0;
+		do{
+			handle=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+			if(!handle) break;
+			memset(&pe,0,sizeof(pe));
+			pe.dwSize = sizeof(PROCESSENTRY32);
+			if(!Process32First(handle,&pe))
+			{
+				CloseHandle(handle);
+				break;
+			}
+			do{
+				if(pid==pe.th32ProcessID)
+				{
+					ppid=pe.th32ParentProcessID;
+					break;
+				}
+			}while(Process32Next(handle,&pe));
+			CloseHandle(handle);
+			if(!ppid)
+				break;
+
+			handle=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+			if(!handle) break;
+			memset(&pe,0,sizeof(pe));
+			pe.dwSize = sizeof(PROCESSENTRY32);
+			if(!Process32First(handle,&pe))
+			{
+				CloseHandle(handle);
+				break;
+			}
+			do{
+				if(ppid==pe.th32ProcessID)
+				{
+					_tcscpy(out,pe.szExeFile);
+					CloseHandle(handle);
+					return;
+				}
+			}while(Process32Next(handle,&pe));
+			CloseHandle(handle);
+		}while(0);
+	}
+	_tcscpy(out,_T("yong.exe"));
+}
+
+static int SaveAutoStart(CUCtrl p,int arc,char **arg)
+{
+	TCHAR path[MAX_PATH];
+	GetStartupPath(path);
+	int exist=LinkExist(path);
+	char *s=cu_ctrl_get_self(p);
+	if(s[0]=='1' && !exist)
+	{
+		TCHAR file[256],*tmp;
+		int ret;
+		ret=GetModuleFileName(NULL,file,256);
+		if(ret<0 || ret>=256)
+			return -1;
+		file[ret]=0;
+		tmp=_tcsrchr(file,'\\');
+		if(!tmp)
+			return -1;
+		GetYongExeFile(tmp+1);
+		CreateFileShortcut(file,path,_T("yong.lnk"),NULL,0,NULL);
+	}
+	else if(s[0]!='1' && exist)
+	{
+		_tcscat(path,_T("\\yong.lnk"));
+		DeleteFile(path);
+	}
+	l_free(s);
+	return 0;
+}
+
 #endif

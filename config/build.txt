@@ -38,7 +38,7 @@ function run(target){
 		cr('yong-config.rc','yong-config.res','$(WINDRES) -i $^ -o $@ -O coff');
 		OBJS.push("yong-config.res");
 		env("LDFLAGS+=-mwindows");
-		env("LIBS+=-lgdi32 -lcomctl32 -lcomdlg32 -lws2_32");
+		env("LIBS+=-lgdi32 -lcomctl32 -lcomdlg32 -lws2_32 -lole32 -luuid");
 	} else {
 		env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
 		if(GTK=="gtk2")

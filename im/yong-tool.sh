@@ -854,7 +854,7 @@ function install64()
 
 function ensure_user_root()
 {
-	if ! [ $USER = "root" -a $UID -eq 0 ] ; then
+	if ! [ $(id -un) = "root" -a $(id -ur) -eq 0 ] ; then
 		echo "This command must run as root"
 		exit 1
 	fi
@@ -862,7 +862,7 @@ function ensure_user_root()
 
 function warn_user_root()
 {
-	if [ $USER = "root" -a $UID -eq 0 ] ; then
+	if [ $(id -un) = "root" -a $(id -ur) -eq 0 ] ; then
 		echo "You are root now, maybe an error"
 	fi
 }

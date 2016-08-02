@@ -41,43 +41,7 @@ static char *eim_get_config(const char *section,const char *key)
 	return ret;
 }
 
-static int set_encrypt_key(void)
-{
-	int mac;
-	char *key;
-	char enc_key[16];
-	int len;
 
-	memset(enc_key,0,16);
-	mac=y_im_gen_mac();
-	key=y_im_get_config_string("table","key");
-	if(!key)
-	{
-		return 0;
-	}
-	len=strlen(key);
-	if(len!=13)
-	{
-		//printf("bad table key\n");
-		return -1;
-	}
-	memcpy(enc_key+3,key,13);
-	l_free(key);
-	if(enc_key[3]=='$')
-	{
-		enc_key[0]=0x77;
-		enc_key[1]=0x66;
-		enc_key[2]=0x55;
-	}
-	else
-	{
-		enc_key[0]=(mac>>16)&0xff;
-		enc_key[1]=(mac>>16)&0xff;
-		enc_key[2]=(mac>>16)&0xff;
-	}
-	y_im_run_tool("tool_set_key",enc_key,0);
-	return 0;
-}
 
 static void eim_beep(int c)
 {
@@ -167,13 +131,7 @@ int y_im_load_extra(IM *im,const char *name)
 	}
 #endif
 	im->eim=eim;
-	if(set_encrypt_key())
-	{
-		y_im_module_close(im->handle);
-		im->handle=NULL;
-		im->eim=NULL;
-		return -1;
-	}
+
 	p=y_im_get_config_string(name,"arg");
 	if(InitExtraIM(im,eim,p))
 	{

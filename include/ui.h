@@ -218,7 +218,7 @@ extern Y_UI y_ui;
 void ui_setup_default(Y_UI *p);
 void ui_setup_fbterm(Y_UI *p);
 
-int y_ui_init(char *name);
+int y_ui_init(const char *name);
 #define y_ui_loop() \
 	y_ui.loop()
 #define y_ui_clean() \

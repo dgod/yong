@@ -392,7 +392,7 @@ void y_xim_enable(int enable)
 }
 
 Y_UI y_ui;
-int y_ui_init(char *name)
+int y_ui_init(const char *name)
 {
 #ifdef CFG_XIM_FBTERM
 	if(name && !strcmp(name,"fbterm"))
@@ -2448,74 +2448,7 @@ int y_im_show_keymap(void)
 	return 0;
 }
 
-#if 0
-int y_im_mac_force;
-#ifdef _WIN32
-int y_im_gen_mac(void)
-{
-	wchar_t file[512],*tmp;
-	int ret;
-	SYSTEM_INFO sys;
-	TCHAR VolumName[32];
-	TCHAR FSName[32];
-	DWORD Serial;
-	char pstr[64];
-	
-	if(y_im_mac_force)
-		return y_im_mac_force;
 
-	BOOL WINAPI (*pGetVolumeInformation)(
-			LPCTSTR lpRootPathName,
-			LPTSTR lpVolumeNameBuffer,
-			DWORD nVolumeNameSize,
-			LPDWORD lpVolumeSerialNumber,
-			LPDWORD lpMaximumComponentLength,
-			LPDWORD lpFileSystemFlags,
-			LPTSTR lpFileSystemNameBuffer,
-			DWORD nFileSystemNameSize);
-	pstr[0]='G';pstr[1]='e';pstr[2]='t';pstr[3]='V';pstr[4]='o';
-	pstr[5]=0;strcat(pstr,"lume");strcat(pstr,"Info");
-	pstr[13]='r';pstr[14]='m';pstr[15]='a';pstr[16]='t';
-	pstr[17]='i';pstr[18]=0;strcat(pstr,"onW");
-	pGetVolumeInformation=(void*)GetProcAddress(GetModuleHandle(L"kernel32.dll"),pstr);
-	
-	GetSystemInfo(&sys);
-	
-	ret=GetModuleFileName(NULL,file,512);
-	if(ret<0 || ret>=512) return 0;
-	tmp=wcschr(file,':');
-	if(!tmp) return 0;tmp+=2;*tmp=0;
-	file[0]='C';
-	ret=pGetVolumeInformation(file,VolumName,32,&Serial,0,0,FSName,32);
-	if(!ret)
-	{
-		//printf("get volume info fail %lu\n",GetLastError());
-		return 0;
-	}
-	Serial^='d'<<24;
-	Serial^='g'<<16;
-	Serial^='o'<<8;
-	Serial^='d';
-	Serial^=sys.wProcessorLevel<<16;
-	Serial^=sys.wProcessorRevision;
-	Serial%=10545547;
-	if(Serial==0) Serial=736;
-	return (int)Serial;
-}
-#else
-int y_im_gen_mac(void)
-{
-	if(y_im_mac_force)
-		return y_im_mac_force;
-	return 0;
-}
-#endif
-#else
-int y_im_gen_mac(void)
-{
-	return 0;
-}
-#endif
 
 static FILE *d_fp;
 void y_im_debug(char *fmt,...)

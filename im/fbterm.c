@@ -7,7 +7,7 @@
 #include "ui.h"
 #include "llib.h"
 
-//#define FBTERM_DEBUG
+#define FBTERM_DEBUG
 
 #include <ctype.h>
 #include <stdlib.h>

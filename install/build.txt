@@ -14,7 +14,7 @@ function copy_data(){
 	exec("cp -f ../data/keyboard.ini yong");
 	exec("cp -f ../data/bihua.bin yong");
 	exec("cp -f ../data/normal.txt yong");
-	exec("cp -f ../data/mb/wbx-n.txt yong/mb/wbx.txt");
+	exec("cp -f ../data/mb/wbx.txt yong/mb/wbx.txt");
 	exec("cp -f ../data/mb/wbx.ini yong/mb");
 	exec("cp -f ../data/mb/wbpy.ini yong/mb");
 	exec("cp -f ../data/mb/erbi.txt yong/mb");

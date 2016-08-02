@@ -2321,11 +2321,13 @@ int main(int arc,char *arg[])
 	y_im_load_book();
 	y_im_history_init();
 	
-	VERBOSE("load dict\n");
-	local_dic=y_dict_open("dict.txt");
-	y_dict_query_and_show(local_dic,0);
-	
-	
+	if(!xim || strcmp(xim,"fbterm"))
+	{
+		VERBOSE("load dict\n");
+		local_dic=y_dict_open("dict.txt");
+		y_dict_query_and_show(local_dic,0);
+	}
+
 	VERBOSE("load soft keyboard\n");
 	y_kbd_init("keyboard.ini");
 	im.Index=y_im_get_config_int("IM","default");

@@ -2868,6 +2868,7 @@ caoshou 操守
 caoshu 草书
 caoshuai 草率
 caosuan 草酸
+caotaibanzi 草台班子
 caotu 草图
 caoxin 操心
 caoxing 操行
@@ -3480,6 +3481,7 @@ chengpin 成品 诚聘
 chengpinyou 成品油
 chengqi 撑起 称奇
 chengqian 成千
+chengqianbihou 惩前毖后
 chengqiang 城墙 逞强
 chengqianqihou 承前启后
 chengqibubei 乘其不备
@@ -4920,7 +4922,7 @@ dagan 大干
 dagang 大纲
 dagao 大搞
 dagaotegao 大搞特搞
-dage 大哥
+dage 大哥 打嗝
 dageche 打个车
 dageda 大哥大
 dageming 大革命
@@ -5668,6 +5670,7 @@ dayang 大洋 打烊
 dayangbian 大洋彼岸
 dayangzhou 大洋洲
 dayaodabai 大摇大摆
+dayazhitang 大雅之堂
 daye 大业 大爷
 dayi 大意 答疑 大义
 dayilinran 大义凛然	
@@ -10321,6 +10324,7 @@ guzhang 故障 鼓掌 股长
 guzhangnanming 孤掌难鸣
 guzhe 骨折
 guzhi 固执 估值
+guzhijijian 固执己见
 guzhu 雇主
 guzhuang 古装
 guzhuangju 古装剧
@@ -10566,6 +10570,7 @@ hanmao 汗毛
 hanmei 寒梅 韩媒 韩美
 hanmen 寒门
 hannanqu 汉南区
+hanniuchongdong 汗牛充栋
 hanqi 寒气
 hanqing 旱情 汗青
 hanqingmomo 含情脉脉
@@ -11540,6 +11545,7 @@ huanglehuang 晃了晃
 huangli 黄鹂 皇历
 huanglian 黄连
 huangliang 荒凉 皇粮
+huangliangyimeng 黄粱一梦
 huanglianpo 黄脸婆
 huanglihuangzhang 慌里慌张
 huangluan 慌乱
@@ -18576,6 +18582,7 @@ liubing 溜冰
 liubingchang 溜冰场
 liubocheng 刘伯承
 liubu 留步
+liubuzhu 留不住
 liuchan 流产
 liuchang 流畅
 liucheng 流程
@@ -32789,6 +32796,7 @@ tongshan 通山 铜山
 tongshang 同上 通商
 tongshen 通身
 tongsheng 童声
+tongshengchuanyi 同声传译
 tongshengfuhe 同声附和
 tongshenggongsi 同生共死
 tongshi 同时 同事 通史 痛失 同是
@@ -40404,6 +40412,7 @@ yixueyuan 医学院
 yixun 依循
 yiyahuanya 以牙还牙
 yiyan 一眼 遗言 义演 一言
+yiyanbizhi 一言蔽之
 yiyanbufa 一言不发
 yiyang 一样 异样 宜阳
 yiyangduncuo 抑扬顿挫

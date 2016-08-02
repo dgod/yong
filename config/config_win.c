@@ -939,6 +939,9 @@ int cu_init(void)
 	if(dpi>96)
 		CU_SCALE=dpi/96.0;
 	//printf("%f\n",CU_SCALE);
+	
+	CoInitialize(NULL);
+	
 	return 0;
 }
 
