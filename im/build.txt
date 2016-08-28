@@ -71,7 +71,14 @@ if(target=="clean"){
 	build(undefined,undefined,DIRS);
 } else if(target=="bihua") {
 	bihua();
+} else if(target=="l32") {
+	build("IMdkit",undefined,"l32");
+	build("gtk-im",undefined,['l32-gtk2','l32-gtk3']);
+	build(undefined,undefined,['l32-gtk2','l32-gtk3']);
 } else if(target=="l64") {
+	build("IMdkit",undefined,"l64");
+	build("gtk-im",undefined,['l64-gtk2','l64-gtk3']);
+	build("qt5-im",undefined,['l64-qt5']);
 	build(undefined,undefined,['l64-gtk2','l64-gtk3']);
 } else {
 	run(target);

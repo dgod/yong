@@ -10,4 +10,4 @@ var DIRS=[
 ];
 
 
-	build(DIRS);
+	build(DIRS,undefined,target);

@@ -67,17 +67,18 @@ static int key_crab;
 static Y_KEY_TOOL *key_tools;
 #endif
 
-static int enter_mode;
-static int num_mode;
-static int space_mode;
-static int auto_show;
-static int kp_mode;
-static int abcd_mode;
-static int cnen_mode;
+static uint8_t enter_mode;
+static uint8_t num_mode;
+static uint8_t space_mode;
+static uint8_t auto_show;
+static uint8_t kp_mode;
+static uint8_t abcd_mode;
+static uint8_t cnen_mode;
+static uint8_t caps_bd_mode;
 
-static int alt_bd_disable;
+static uint8_t alt_bd_disable;
 
-static int tip_main;
+static uint8_t tip_main;
 
 EXTRA_IM *YongCurrentIM(void)
 {
@@ -181,24 +182,6 @@ void YongSetLang(int lang)
 		}
 		else if(im.eim)
 		{
-			/*
-			EXTRA_IM *eim=y_english_eim();
-			char temp[MAX_CODE_LEN+1];
-			
-			im.EnglishMode=0;
-			strcpy(temp,im.CodeInputEngine);
-			y_im_str_strip(temp);
-			eim->CandWordCount=0;
-			eim->CaretPos=-1;
-			eim->StringGet[0]=0;
-			eim->Reset();
-			strcpy(im.CodeInputEngine,temp);
-			eim=im.eim;
-			eim->CodeLen=strlen(im.CodeInputEngine);
-			eim->CaretPos=eim->CodeLen;
-			if(!YongKeyInput(YK_VIRT_REFRESH))
-				YongResetIM();
-			*/
 			EXTRA_IM *eim=y_english_eim();
 			char temp[MAX_CODE_LEN+1];
 			
@@ -212,7 +195,7 @@ void YongSetLang(int lang)
 			eim=im.eim;
 			eim->CodeLen=strlen(im.CodeInputEngine);
 			eim->CaretPos=eim->CodeLen;
-			if(!YongKeyInput(YK_VIRT_REFRESH))
+			if(!YongKeyInput(YK_VIRT_REFRESH,0))
 			{
 				YongSetLang(-1);
 			}
@@ -927,6 +910,7 @@ void update_im(void)
 	kp_mode=y_im_get_config_int("IM","keypad");
 	abcd_mode=y_im_get_config_int("IM","ABCD");
 	cnen_mode=y_im_get_config_int("IM","CNen_commit");
+	caps_bd_mode=y_im_get_config_int("IM","caps_bd");
 	
 	l_strfreev(sym_select);
 	sym_select=NULL;
@@ -1388,7 +1372,7 @@ static int YongAppendPunc(CONNECT_ID *id,char *res,int key)
 	return 0;
 }
 
-int YongKeyInput(int key)
+int YongKeyInput(int key,int mod)
 {
 	CONNECT_ID *id;
 	int ret=IMR_NEXT;
@@ -1440,6 +1424,10 @@ int YongKeyInput(int key)
 		{
 			YongFlushResult();
 			return 0;
+		}
+		if(key>='A' && key<='Z' && (mod&KEYM_CAPS))
+		{
+			key+='a'-'A';
 		}
 	}
 	if(im.EnglishMode==0 && 
@@ -1845,7 +1833,7 @@ IMR_TEST:
 			{
 				y_xim_send_string2(eim->GetCandWord(eim->SelectIndex),false);
 				YongResetIM();
-				ret=YongKeyInput(key);
+				ret=YongKeyInput(key,0);
 				y_xim_send_string2("",true);
 				return ret;
 			}
@@ -1919,7 +1907,11 @@ IMR_TEST:
 		
 		if(im.Bing && key=='+')
 			return 0;
-		biaodian=YongGetPunc(key,id->biaodian,0);
+
+		if(caps_bd_mode==LANG_EN && (mod&KEYM_CAPS))
+			biaodian=YongGetPunc(key,LANG_EN,0);
+		else
+			biaodian=YongGetPunc(key,id->biaodian,0);
 		last=y_im_last_key(0);
 		last&=~KEYM_KEYPAD;
 		if(last<='9' && last>='0' && key=='.')

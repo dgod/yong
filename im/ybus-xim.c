@@ -726,6 +726,8 @@ int GetKey(int KeyCode,int KeyState)
 		ret|=KEYM_SUPER;
 	if(KeyState & Mod2Mask)
 		ret|=KEYM_KEYPAD;
+	if(KeyState & LockMask)
+		ret|=KEYM_CAPS;
 
 	mask=ret&KEYM_MASK;
 	if(mask && mask!=KEYM_SHIFT)

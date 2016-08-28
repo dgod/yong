@@ -198,13 +198,7 @@ static int process_key(int keyval,int modifiers,int down)
 	case YK_LSHIFT:
 	case YK_RSHIFT:
 	{
-		if(!YongHotKey(key))
-		{
-			int ret;
-			ret=YongKeyInput(key);
-			if(ret)
-				y_im_speed_update(key,0);
-		}
+		y_im_input_key(key);
 		return FALSE;
 	}
 	default:
@@ -215,8 +209,9 @@ static int process_key(int keyval,int modifiers,int down)
 	}}
 	if(id->state && down)
 	{
-		//fb_debug("%c\n",key);
-		if(YongKeyInput(key))
+		int mod=key&KEYM_MASK;
+		key&=~KEYM_CAPS;
+		if(YongKeyInput(key,mod))
 		{
 			y_im_speed_update(key,0);
 			return TRUE;

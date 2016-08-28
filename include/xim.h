@@ -48,7 +48,7 @@ void YongMoveInput(int x,int y);
 void YongShowInput(int show);
 void YongShowMain(int show);
 int YongHotKey(int key);
-int YongKeyInput(int key);
+int YongKeyInput(int key,int mod);
 void YongForwardKey(int key);
 void YongSendString(const char *s,int flags);
 int YongInitXIM(void);

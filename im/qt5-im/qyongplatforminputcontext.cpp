@@ -466,6 +466,8 @@ static int GetKey(int sym,int modifiers)
 		res=KEYM_SUPER|toupper(res);
 	if((modifiers&0x10))
 		res=KEYM_KEYPAD|toupper(res);
+	if((modifiers&0x02))
+		res=KEYM_CAPS|toupper(res);
 	
 	return res;
 }
@@ -530,11 +532,11 @@ void QYongPlatformInputContext::cursorRectChanged()
 {
 	//printf("cursorRectChanged\n");
 	QWindow *inputWindow = qApp->focusWindow();
-    if (!inputWindow)
-        return;
+	if (!inputWindow)
+		return;
 	QRect r = qApp->inputMethod()->cursorRectangle().toRect();
-    if(!r.isValid())
-        return;
+	if(!r.isValid())
+		return;
 	r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
 	qreal scale = inputWindow->devicePixelRatio();
 	cursor_area.setX(r.x()*scale);

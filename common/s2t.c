@@ -320,7 +320,7 @@ int s2t_is_enable(void)
 	return 0;
 }
 
-char *s2t_conv(char *s)
+const char *s2t_conv(const char *s)
 {
 	return s;
 }

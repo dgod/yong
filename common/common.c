@@ -122,6 +122,19 @@ static int encrypt_clipboard_cb(const char *s)
 	y_xim_send_string2(temp,SEND_FLUSH);
 	return 0;
 }
+
+static void y_im_strip_key_useless(char *gb)
+{
+	char *s;
+	int key=0;
+	s=strrchr(gb,'$');
+	if(s)
+	{
+		key=y_im_str_to_key(s+1);
+		if(key>0) *s=0;
+	}
+}
+
 void y_xim_send_string2(const char *s,int flag)
 {
 	int key=0;
@@ -214,6 +227,10 @@ void y_xim_send_string2(const char *s,int flag)
 		}
 		else if(s[0])
 		{
+			if(!(flag&SEND_RAW))
+			{
+				y_im_strip_key_useless(temp_output);
+			}
 COPY:
 			strcat(temp_output,s);
 			if(!(flag&SEND_BIAODIAN))
@@ -325,7 +342,9 @@ int y_im_input_key(int key)
 {
 	int ret;
 	int bing=key&KEYM_BING;
-	//key&=~KEYM_BING;
+	int mod=key&KEYM_MASK;
+	key&=~KEYM_CAPS;
+
 	ret=YongHotKey(key);
 	if(ret)
 	{
@@ -333,12 +352,12 @@ int y_im_input_key(int key)
 			return FALSE;
 		return ret;
 	}
-	ret=YongKeyInput(key);
+	ret=YongKeyInput(key,mod);
 	if(ret)
 	{
 		y_im_speed_update(key,0);
 		if(bing && im.Bing && !im.EnglishMode)
-			YongKeyInput(KEYM_BING|'+');
+			YongKeyInput(KEYM_BING|'+',0);
 	}
 	return ret;
 }
@@ -2478,7 +2497,7 @@ int y_im_request(int cmd)
 {
 	switch(cmd){
 	case 1:
-		YongKeyInput(YK_VIRT_REFRESH);
+		YongKeyInput(YK_VIRT_REFRESH,0);
 		break;
 	default:
 		break;

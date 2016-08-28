@@ -243,13 +243,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	case YK_LSHIFT:
 	case YK_RSHIFT:
 	{
-		if(!YongHotKey(key))
-		{
-			int ret;
-			ret=YongKeyInput(key);
-			if(ret)
-				y_im_speed_update(key,0);
-		}
+		y_im_input_key(key);
 		return FALSE;
 	}
 	default:
@@ -260,7 +254,9 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	}}
 	if(id->state && !(modifiers & IBUS_RELEASE_MASK))
 	{
-		if(YongKeyInput(key))
+		int mod=KEYM_MASK&key;
+		key&=~KEYM_CAPS;
+		if(YongKeyInput(key,mod))
 		{
 			y_im_speed_update(key,0);
 			return TRUE;

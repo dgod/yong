@@ -791,6 +791,8 @@ static int GetKey(guint KeyCode,guint KeyState)
 		ret|=KEYM_KEYPAD;
 	if(KeyState & GDK_RELEASE_MASK)
 		ret|=KEYM_UP;
+	if(KeyState & GDK_LOCK_MASK)
+		ret|=KEYM_CAPS;
 
 	mask=ret&KEYM_MASK;
 	if(mask && mask!=KEYM_SHIFT)

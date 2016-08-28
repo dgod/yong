@@ -118,15 +118,16 @@ typedef struct {
 #define IM_FLAG_ASYNC		0x01
 #define IM_FLAG_CAPITAL		0x02
 
-#define KEYM_MASK	0xff0000
-#define KEYM_CTRL	0x010000
-#define KEYM_SHIFT	0x020000
-#define KEYM_ALT	0x040000
-#define KEYM_SUPER	0x080000
-#define KEYM_KEYPAD	0x100000
-#define KEYM_BING	0x200000
-#define KEYM_UP		0x400000
-#define KEYM_VIRT	0x800000
+#define KEYM_MASK	0x1ff0000
+#define KEYM_CTRL	0x0010000
+#define KEYM_SHIFT	0x0020000
+#define KEYM_ALT	0x0040000
+#define KEYM_SUPER	0x0080000
+#define KEYM_KEYPAD	0x0100000
+#define KEYM_BING	0x0200000
+#define KEYM_UP		0x0400000
+#define KEYM_VIRT	0x0800000
+#define KEYM_CAPS	0x1000000
 
 #define YK_CODE(x)	((x)&0xffff)
 
