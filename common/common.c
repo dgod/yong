@@ -266,11 +266,13 @@ COPY:
 			goto out;
 		if(!y_im_send_file(s))
 			goto out;
+#ifndef CFG_XIM_ANDROID
 		if(strstr(s,"$/"))
 		{
 			YongSendClipboard(s);
 			goto out;
 		}
+#endif
 	}
 
 	y_im_speed_update(0,s);
@@ -348,8 +350,8 @@ int y_im_input_key(int key)
 	ret=YongHotKey(key);
 	if(ret)
 	{
-		if(is_mask_key(key))
-			return FALSE;
+		if(is_mask_key(YK_CODE(key)))
+			return 0;
 		return ret;
 	}
 	ret=YongKeyInput(key,mod);
@@ -358,6 +360,8 @@ int y_im_input_key(int key)
 		y_im_speed_update(key,0);
 		if(bing && im.Bing && !im.EnglishMode)
 			YongKeyInput(KEYM_BING|'+',0);
+		if(is_mask_key(YK_CODE(key)))
+			return 0;
 	}
 	return ret;
 }
@@ -529,13 +533,49 @@ int y_im_config_path(void)
 	return 0;
 }
 
+#if defined(CFG_XIM_ANDROID)
+static void get_so_path(const char *file,char *out)
+{
+	FILE *fp;
+	char line[1024];
+	if(out!=NULL)
+		strcpy(out,"/data/data/net.dgod.yong/lib");
+	fp=fopen("/proc/self/maps","r");
+	if(!fp)
+		return;
+	while(l_get_line(line,sizeof(line),fp)>=0)
+	{
+		char *p;
+		if((p=strstr(line,file)))
+		{
+			if(p==line)
+				break;
+			p[-1]=0;
+			p=strchr(line,'/');
+			if(p==NULL)
+				break;
+			//YongLogWrite("%s\n",p);
+			if(out!=NULL)
+				strcpy(out,p);
+			break;
+		}
+	}
+	fclose(fp);
+	
+}
+#endif
+
 const char *y_im_get_path(const char *type)
 {
 	const char *ret;
 #if defined(CFG_XIM_ANDROID)
 	if(!strcmp(type,"LIB"))
 	{
-		ret="/data/data/net.dgod.yong/lib";
+		static char lib_path[128];
+		//ret="/data/data/net.dgod.yong/lib";
+		if(!lib_path[0])
+			get_so_path("libyong.so",lib_path);
+		ret=lib_path;			
 	}
 	else if(!strcmp(type,"HOME"))
 	{
@@ -552,8 +592,10 @@ const char *y_im_get_path(const char *type)
 				sprintf(home_path,"%s/yong/.yong",p);
 			}
 		}
-		if(!l_file_exists(ret))
-			l_mkdir(ret,0700);
+		if(!l_file_exists(home_path))
+		{
+			int res=l_mkdir(home_path,0700);
+		}
 		ret=home_path;
 	}
 	else
@@ -836,8 +878,8 @@ static void str_replace(char *s1,int l1,const char *s2)
 
 static char *num2hz(int n,const char *fmt,int flag)
 {
-	static char *ch0="零一二三四五六七八九";
-	static char *ch1="〇一二三四五六七八九";
+	const char *ch0="零一二三四五六七八九";
+	const char *ch1="〇一二三四五六七八九";
 	static char hz[64];
 	char t[32];
 
@@ -1908,9 +1950,9 @@ void y_im_about_self(void)
 	y_ui_show_message(temp);
 }
 
-char *y_im_speed_stat(void)
+static char *y_im_speed_stat(void)
 {
-	static char res[2048];
+	char *res=l_alloc(2048);
 	char format[1024];
 	int len=0;
 	double zi;
@@ -2628,6 +2670,7 @@ int y_im_handle_menu(const char *cmd)
 		if(stat)
 		{
 			y_ui_show_message(stat);
+			l_free(stat);
 		}
 	}
 	else if(!strncmp(cmd,"$HELP(",6))

@@ -7,7 +7,7 @@
 #include "llib.h"
 #include "legend.h"
 
-static int TableInit(char *arg);
+static int TableInit(const char *arg);
 static void TableReset(void);
 static char *TableGetCandWord(int index);
 static int TableGetCandWords(int mode);
@@ -136,6 +136,10 @@ typedef struct{
 	uint8_t begin;
 	uint8_t end;
 	uint8_t user;
+#ifdef _WIN32
+	// FIXME: bug of mingw or msvcrt, l_sscanf
+	uint32_t resv0;
+#endif
 }AUTO_PHRASE_CONFIG;
 static AUTO_PHRASE_CONFIG ap_conf;
 
@@ -232,7 +236,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 	char *name;
 	if(!mb->pinyin)
 		return;
-		
+
 	if(!EIM.GetConfig)
 	{
 		py_init(mb->split,NULL);
@@ -273,6 +277,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 			extern int l_predict_sp;
 			SP=1;
 			l_predict_sp=1;
+			mb->ctx.sp=1;
 		}
 	}
 	else
@@ -313,7 +318,7 @@ static Y_BIHUA_INFO *TableGetBihuaConfig(void)
 	return NULL;
 }
 
-static int TableInit(char *arg)
+static int TableInitReal(const char *arg)
 {
 	char *name;
 	struct y_mb_arg mb_arg;
@@ -336,9 +341,17 @@ static int TableInit(char *arg)
 	mb_arg.dicts=EIM.GetConfig(NULL,"dicts");
 	if(!mb_arg.dicts || !mb_arg.dicts[0])
 		mb_arg.dicts=EIM.GetConfig("table","dicts");
-	mb=y_mb_load(arg,mb_flag,&mb_arg);
-	if(!mb)
+	mb=y_mb_new();
+	if(0!=y_mb_load_to(mb,arg,mb_flag,&mb_arg))
+	{
+		y_mb_free(mb);
+		mb=NULL;
 		return -1;
+	}
+	if(mb->cancel)
+	{
+		return -1;
+	}
 	
 	strcpy(EIM.Name,mb->name);
 		
@@ -393,19 +406,8 @@ static int TableInit(char *arg)
 	
 	tip_exist=TableGetConfigInt(0,"tip_exist",0);
 	tip_simple=TableGetConfigInt(0,"tip_simple",0);
-#if 0	
-	name=EIM.GetConfig("table","wildcard");
-	if(name && !(name[0]&0x80))
-	{
-		mb->wildcard=name[0];
-		//mb->map[(int)mb->wildcard]=Y_MB_WILDCARD;
-		y_mb_key_map_init(mb->key,mb->wildcard,mb->map);
-		mb->key[Y_MB_WILDCARD]=mb->wildcard;
-	}
-#endif
 
 	EIM.Bihua=TableGetBihuaConfig();
-	
 	if(!mb->english)
 	{
 		if(SP || (mb->pinyin && mb->split==2) || mb->capital)
@@ -421,8 +423,66 @@ static int TableInit(char *arg)
 	return 0;
 }
 
+static uint8_t TableReady=0;
+#ifdef __linux__
+#include <pthread.h>
+static void *init_thread(void *arg)
+{
+	TableInitReal(arg);
+	l_free(arg);
+	TableReady=1;
+	return NULL;
+}
+#else
+#include <windows.h>
+typedef HANDLE pthread_t;
+#define pthread_create(a,b,c,d) \
+	(*a)=CreateThread(NULL,0,(c),(d),0,0)
+#define pthread_detach(a) CloseHandle(a)
+#define usleep(a) Sleep(a/1000)
+static DWORD WINAPI init_thread(void *arg)
+{
+	//DWORD start=GetTickCount();
+	TableInitReal(arg);
+	l_free(arg);
+	TableReady=1;
+	//printf("%lu\n",GetTickCount()-start);
+	return 0;
+}
+#endif
+
+static int TableInit(const char *arg)
+{
+	int thread=TableGetConfigInt(NULL,"thread",0);
+	if(!thread)
+	{
+		TableReady=1;
+		return TableInitReal(arg);
+	}
+	else
+	{
+		pthread_t th;
+		pthread_create(&th,NULL,init_thread,l_strdup(arg));
+		pthread_detach(th);
+		return 0;
+	}
+}
+
 static int TableDestroy(void)
 {
+	if(!TableReady)
+	{
+		if(mb)
+		{
+			mb->cancel=1;
+			if(mb->ass)
+				mb->ass->cancel=1;
+			printf("cancel\n");
+		}
+		do{
+			usleep(10*1000);
+		}while(!TableReady);
+	}
 	y_mb_learn_free(NULL);
 	y_mb_free(mb);
 	mb=NULL;
@@ -444,14 +504,17 @@ static void TableReset(void)
 	SuperPhrase[0]=0;
 	PredictPhrase[0]=0;
 	hz_filter_temp=hz_filter;
-	/* clean left info at mb */
-	if(!zi_mode)
+	if(TableReady)
 	{
-		y_mb_set_zi(mb,0);
+		/* clean left info at mb */
+		if(!zi_mode)
+		{
+			y_mb_set_zi(mb,0);
+		}
+		mb->ctx.input[0]=0;
+		mb->ctx.result_filter_ext=0;
+		mb->ctx.result_match=0;
 	}
-	mb->ctx.input[0]=0;
-	mb->ctx.result_filter_ext=0;
-	mb->ctx.result_match=0;
 	key_last=0;
 	assoc_mode=0;
 }
@@ -886,6 +949,10 @@ static int TableDoInput(int key)
 	int ret=IMR_DISPLAY;
 	struct y_mb *active_mb;
 	int bing,space=0;
+	
+	if(!TableReady)
+		return IMR_NEXT;
+
 	bing=key&KEYM_BING;
 	key&=~KEYM_BING;
 	if(bing && key_last==key)
@@ -2119,7 +2186,7 @@ static int PinyinDoSearch(int adjust)
 	PredictCount=0;
 	ExtraZiReset();
 
-	while(!adjust && !AssistMode && (mb->ass || mb->yong) &&
+	while(!adjust && !AssistMode && //(mb->ass || mb->yong) &&
 			CodeGetLen==0 && mb->split>=2 && (EIM.CodeLen%mb->split==1) && 
 			EIM.CaretPos==EIM.CodeLen &&
 			(EIM.CodeLen==mb->split+1 || (EIM.CodeLen>=2*mb->split+1 && CodeMatch==EIM.CodeLen-1)))
@@ -2127,6 +2194,7 @@ static int PinyinDoSearch(int adjust)
 		char code[128];
 		int clen=EIM.CodeLen-1;
 		int count;
+
 		if(mb->yong && EIM.CodeLen<mb->split*2+1)
 			break;
 			
@@ -2626,6 +2694,9 @@ static int PinyinGetCandwords(int mode)
 static int PinyinDoInput(int key)
 {
 	int i;
+	
+	if(!TableReady)
+		return IMR_NEXT;
 
 	key&=~KEYM_BING;
 	

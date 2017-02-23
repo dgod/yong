@@ -1030,8 +1030,13 @@ static int mmseg_split(MMSEG *mm)
 		if(i+w[0]+w[1] > mm->count) continue;
 		if(w[1] && !mmseg_exist(mm,mm->input+i+w[0],w[1]))
 		{
+			/* 即使单字不存在，仍然继续查询其他组合
+			 * 对正常输入法来说，单字必然存在，减少一个判断反而会让输入法的速度提升
 			if(w[1]==1)
+			{
 				return -1;
+			}
+			*/
 			continue;
 		}
 		for(w[2]=7;w[2]>=0;w[2]--){
@@ -1039,10 +1044,12 @@ static int mmseg_split(MMSEG *mm)
 		if(!w[1] && w[2]) continue;
 		if(w[2] && !mmseg_exist(mm,mm->input+i+w[0]+w[1],w[2]))
 		{
+			/*
 			if(w[2]==1)
 			{
 				return -2;
 			}
+			*/
 			continue;
 		}
 		{

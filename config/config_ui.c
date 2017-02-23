@@ -940,8 +940,8 @@ static int LoadSkinList(CUCtrl p,int arc,char **arg)
 	LDir *dir;
 	LKeyFile *skin_file;
 
-	char **list=l_alloc0(64*sizeof(char*));
-	char **rlist=l_alloc0(64*sizeof(char*));
+	char **list=l_alloc0(128*sizeof(char*));
+	char **rlist=l_alloc0(128*sizeof(char*));
 	int count=0;
 	int use_user=0;
 	
@@ -959,7 +959,7 @@ USER:
 	if(dir!=0)
 	{
 		char *file,*name;
-		while(count<56 && (file=(char*)l_dir_read_name(dir))!=NULL)
+		while(count<120 && (file=(char*)l_dir_read_name(dir))!=NULL)
 		{
 			sprintf(skin,"%s/%s",home,file);
 			if(!l_file_is_dir(skin) && !l_str_has_suffix(skin,".zip"))

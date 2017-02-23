@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int SelInit(char *arg);
+static int SelInit(const char *arg);
 static void SelReset(void);
 static char *SelGetCandWord(int index);
 static int SelGetCandWords(int mode);
@@ -21,7 +21,7 @@ static EXTRA_IM EIM={
 	.Destroy		=	SelDestroy,
 };
 
-static int SelInit(char *arg)
+static int SelInit(const char *arg)
 {
 	return 0;
 }

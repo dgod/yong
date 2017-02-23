@@ -11,7 +11,7 @@
 #define PhraseListCount EIM.CandWordTotal
 static const char tip[16]="0123456789abcdef";
 
-static int GbkInit(char *arg);
+static int GbkInit(const char *arg);
 static void GbkReset(void);
 static char *GbkGetCandWord(int index);
 static int GbkGetCandWords(int mode);
@@ -28,7 +28,7 @@ L_EXPORT(EXTRA_IM EIM)={
 	.Destroy		=	GbkDestroy,
 };
 
-static int GbkInit(char *arg)
+static int GbkInit(const char *arg)
 {
 	return 0;
 }

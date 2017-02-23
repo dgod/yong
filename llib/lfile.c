@@ -425,11 +425,10 @@ int l_mkdir(const char *name,int mode)
 #ifdef _WIN32
 	WCHAR temp[MAX_PATH];
 	l_utf8_to_utf16(name,temp,sizeof(temp));
-	CreateDirectory(temp,NULL);
+	return CreateDirectory(temp,NULL)?0:-1;
 #else
-	mkdir(name,mode);
+	return mkdir(name,mode);
 #endif
-	return 0;
 }
 
 int l_remove(const char *name)

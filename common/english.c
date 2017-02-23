@@ -6,7 +6,7 @@
 #include "common.h"
 #include "english.h"
 
-static int EnglishInit(char *arg);
+static int EnglishInit(const char *arg);
 static void EnglishReset(void);
 static char *EnglishGetCandWord(int index);
 static int EnglishGetCandWords(int mode);
@@ -50,19 +50,26 @@ static int HexSet(const char *s);
 static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_hex={HexSet,HexGet};
 
+static void DictLoad(void);
+static void DictFree(void);
+static int DictSet(const char *s);
+static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
+static ENGLISH_IM eim_dict={DictSet,DictGet};
+
 extern ENGLISH_IM eim_book;
 
 static ENGLISH_IM *enim[]={
-	&eim_num,&eim_calc,&eim_url,&eim_bd,&eim_money,&eim_book,&eim_hex
+	&eim_num,&eim_calc,&eim_url,&eim_bd,&eim_money,&eim_book,&eim_hex,&eim_dict
 };
 #define ENIM_COUNT	(sizeof(enim)/sizeof(ENGLISH_IM*))
 
-static int EnglishInit(char *arg)
+static int EnglishInit(const char *arg)
 {
 	key_temp_english=y_im_get_key("tEN",-1,YK_NONE);
 	if(key_temp_english!=YK_NONE)
 		key_temp_english=tolower(key_temp_english);
 	EnglishReset();
+	DictLoad();
 	return 0;
 }
 
@@ -84,6 +91,50 @@ static void EnglishReset(void)
 	}
 }
 
+static int AutoCompleteByDict(int index)
+{
+	int check=0;
+	if(index==YK_SPACE)
+	{
+		check=1;
+		index=EIM.SelectIndex;
+	}
+	if(EIM.CandWordCount==0 || eim_dict.Count==0)
+		return 0;
+	char *phrase=&EIM.CandTable[index][0];
+	int pos=EIM.CandWordMaxReal*EIM.CurCandPage+index;
+	int i;
+	
+	for(i=0;i<ENIM_COUNT;i++)
+	{
+		ENGLISH_IM *e=enim[i];
+		int ec=e->Count;
+		if(ec==0)
+			continue;
+		if(e!=&eim_dict)
+		{
+			pos-=ec;
+			if(pos<0)
+				return 0;
+		}
+		else
+		{
+			if(pos>=e->Count)
+				return 0;
+			if(check)
+				return 1;
+			char *p=LINT_TO_PTR(e->Priv1);
+			int len=strlen(p);
+			if(strlen(phrase)<=len)
+				return 2;
+			strcat(p,phrase+len);
+			EIM.CaretPos=EIM.CodeLen=strlen(EIM.CodeInput);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static char *EnglishGetCandWord(int index)
 {
 	char *ret;
@@ -93,6 +144,10 @@ static char *EnglishGetCandWord(int index)
 	if(index==-1)
 		index=EIM.SelectIndex;
 	ret=&EIM.CandTable[index][0];
+	if(AutoCompleteByDict(index))
+	{
+		return NULL;
+	}
 	strcpy(EIM.StringGet,ret);
 	return ret;
 }
@@ -144,6 +199,7 @@ static int EnglishGetCandWords(int mode)
 
 static int EnglishDestroy(void)
 {
+	DictFree();
 	return 0;
 }
 
@@ -178,7 +234,7 @@ static int EnglishDoInput(int key)
 	key&=~KEYM_BING;
 	if(key==YK_SPACE)
 	{
-		if(EIM.CandWordCount)
+		if(EIM.CandWordCount && !AutoCompleteByDict(YK_SPACE))
 			return IMR_NEXT;
 	}
 	if(key==YK_BACKSPACE)
@@ -1028,4 +1084,176 @@ void y_english_key_desc(const char *code,char *res)
 		res[pos]='*';
 	}
 	res[pos]=0;
+}
+
+
+typedef struct{
+	char *content;
+	LArray *index[26];
+}Dict;
+static Dict *dict;
+
+static int DictPhraseCampare(const uint32_t *p1,const uint32_t *p2)
+{
+	const char *s1=dict->content+*p1;
+	const char *s2=dict->content+*p2;
+	return strcasecmp(s1,s2);
+}
+
+static inline int DictIndex(int i)
+{
+	if(i>='A' && i<='Z')
+		i-='A';
+	else if(i>='a' && i<='z')
+		i-='a';
+	else
+		return -1;
+	return i;
+}
+
+static void DictLoad(void)
+{
+	char *content,*p;
+	int i;
+	if(dict)
+		return;
+	content=l_file_get_contents("mb/english.txt",NULL,
+				y_im_get_path("HOME"),
+				y_im_get_path("DATA"),NULL);
+	if(!content)
+		return;
+	p=strchr(content,']');
+	if(!p)
+		return;
+	p++;
+	while(isspace(*p))
+		p++;
+	dict=l_new(Dict);
+	dict->content=content;
+	for(i=0;i<26;i++)
+	{
+		dict->index[i]=l_array_new(1000,sizeof(uint32_t));
+	}
+	while(*p!='\0')
+	{
+		char line[128];
+		uint32_t pos=(uint32_t)(size_t)(p-content);
+		LArray *a;
+		
+		for(i=0;i<sizeof(line)-1 && *p!=0;)
+		{
+			int c=*p++;
+			if(c=='\r')
+			{
+				p[-1]=0;
+				continue;
+			}
+			if(c=='\n')
+			{
+				p[-1]=0;
+				break;
+			}
+			line[i++]=c;
+		}
+		line[i]=0;
+		i=DictIndex(line[0]);
+		if(i==-1)
+			continue;
+		a=dict->index[i];
+		if(a->len==0 || DictPhraseCampare(&pos,l_array_nth(a,a->len-1))>=0)
+			l_array_append(a,&pos);
+		else
+			l_array_insert_sorted(a,&pos,(LCmpFunc)DictPhraseCampare);
+	}
+}
+
+static void DictFree(void)
+{
+	int i;
+	if(!dict)
+		return;
+	l_free(dict->content);
+	for(i=0;i<26;i++)
+	{
+		l_array_free(dict->index[i],NULL);
+	}
+	l_free(dict);
+}
+
+static int DictSet(const char *s)
+{
+	int i;
+	const char *p,*t;
+	LArray *a;
+	ENGLISH_IM *e=&eim_dict;
+	e->Count=0;
+	if(!dict)
+		return 0;
+	// 只有光标在最后的位置，才启用这个功能
+	if(!(EIM.CaretPos==-1 || EIM.CaretPos==EIM.CodeLen))
+	{
+		return 0;
+	}
+	if(!strncasecmp(s,"key ",4) || !strncasecmp(s,"miyao ",6))
+		return 0;
+	// 寻找最后一个单词的开始位置
+	p=s;
+	do{
+		t=strchr(p,' ');
+		if(!t)
+			break;
+		p=t+1;
+	}while(1);
+	// 检查最后一个字符串是否是纯英文字母组成
+	for(t=p;*t!=0;t++)
+	{
+		if(*t&0x80)
+			return 0;
+		if(!isalpha(*t))
+			return 0;
+	}
+	i=DictIndex(p[0]);
+	if(i==-1)
+		return 0;
+	a=dict->index[i];
+	
+	int len=strlen(p);
+	int left=-1;
+	for(i=0;i<a->len;i++)
+	{
+		char *item=dict->content+*(uint32_t*)l_array_nth(a,i);
+		if(!strncasecmp(p,item,len))
+		{
+			left=i;
+			break;
+		}
+	}
+	if(left==-1)
+		return 0;
+	for(i++;i<a->len;i++)
+	{
+		char *item=dict->content+*(uint32_t*)l_array_nth(a,i);
+		if(strncasecmp(p,item,len))
+			break;
+	}
+	e->Priv1=(uintptr_t)p;
+	e->Priv2=left;
+	e->Count=i-left;
+	return e->Count;
+}
+
+static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
+{
+	ENGLISH_IM *e=&eim_dict;
+	if(e->Count==0)
+		return 0;
+	const char *p=(const char *)(size_t)e->Priv1;
+	int i=DictIndex(p[0]);
+	LArray *a=dict->index[i];
+	uint32_t *left=l_array_nth(a,(int)e->Priv2+pos);
+	for(i=0;i<count;i++)
+	{
+		strcpy(cand[i],dict->content+left[i]);
+	}
+	return 0;
 }

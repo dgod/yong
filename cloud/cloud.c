@@ -17,7 +17,7 @@
 #define rand() (int)lrand48()
 #endif
 
-static int SGY_Init(char *arg);
+static int SGY_Init(const char *arg);
 static void SGY_Reset(void);
 static char *SGY_GetCandWord(int index);
 static int SGY_GetCandWords(int mode);
@@ -837,7 +837,7 @@ static int PhraseCalcCount;
 static int SP=0;
 static int ASSIST=0;
 
-static int SGY_Init(char *arg)
+static int SGY_Init(const char *arg)
 {
 	char scheme[256];
 	char *p;

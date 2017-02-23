@@ -69,8 +69,8 @@ typedef struct{
 /* this one defined at main.c */
 extern IM im;
 
-int InitExtraIM(IM *im,EXTRA_IM *eim,char *arg);
-int LoadExtraIM(IM *im,char *fn);
+int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg);
+int LoadExtraIM(IM *im,const char *fn);
 const char *YongFullChar(int key);
 const char *YongGetPunc(int key,int bd,int peek);
 EXTRA_IM *YongCurrentIM(void);

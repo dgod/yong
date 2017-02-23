@@ -541,7 +541,7 @@ static UI_FONT ui_font_parse(UI_WINDOW w,const char *s)
 	
 	list=l_strsplit(s,' ');
 	res=l_strv_length(list);
-	if(res>=2 && res<=6)
+	if(res>=2 && res<=8)
 	{
 		int i,len;
 		size=atoi(list[res-1]);
@@ -1228,6 +1228,7 @@ struct{
 	int x,y;
 	int tran;
 	double line_width;
+	int onspot;
 }InputTheme;
 
 struct{
@@ -1417,7 +1418,7 @@ int ui_button_update(int id,UI_BUTTON *param)
 	return 0;
 }
 
-int ui_button_show(int id,int show)
+static int ui_button_show(int id,int show)
 {
 	btns[id].visible=show;
 	if(!show)
@@ -1426,7 +1427,7 @@ int ui_button_show(int id,int show)
 	return 0;
 }
 
-int ui_button_label(int id,const char *text)
+static int ui_button_label(int id,const char *text)
 {
 	if(!btns[id].rc.w)
 		return 0;
@@ -1435,7 +1436,7 @@ int ui_button_label(int id,const char *text)
 	return 0;
 }
 
-void ui_skin_path(const char *p)
+static void ui_skin_path(const char *p)
 {
 	strncpy(skin_path,p,63);
 	skin_path[63]=0;
@@ -1547,8 +1548,7 @@ static void ui_draw_input_win(UI_DC cr)
 	EXTRA_IM *eim=CURRENT_EIM();
 		
 #ifndef _WIN32
-	//if(InputTheme.bg[1] || InputTheme.line_width==1 || InputTheme.line_width==2)
-		cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
+	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
 #endif
 
 	if(eim)
@@ -1591,13 +1591,13 @@ static void ui_draw_input_win(UI_DC cr)
 		ui_draw_line(cr,4,h/2-1,w-7,h/2-1,InputTheme.sep,InputTheme.line_width*ui_scale);
 	}
 
-	if(eim && eim->StringGet[0])
+	if(eim && eim->StringGet[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
 	{
 		ui_draw_text(cr,InputTheme.layout,im.CodePos[0],InputTheme.CodeY,
 			im.StringGet,InputTheme.text[6]);
 
 	}
-	if(im.CodeInput[0])
+	if(im.CodeInput[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
 	{
 		ui_draw_text(cr,InputTheme.layout,im.CodePos[1],InputTheme.CodeY,
 			im.CodeInput,InputTheme.text[5]);

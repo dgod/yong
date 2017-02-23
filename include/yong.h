@@ -63,7 +63,7 @@ typedef struct {
 	int (*DoInput) (int);
 	int (*GetCandWords)(int);
 	char *(*GetCandWord) (int);
-	int (*Init) (char *arg);
+	int (*Init) (const char *arg);
 	int (*Destroy) (void);
 	int (*Call)(int,...);
 	void *Bihua;

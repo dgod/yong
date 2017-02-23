@@ -474,28 +474,27 @@ static Bool set_cursor_location_default(CONN_ID conn_id,CLIENT_ID client_id)
 	Window child;
 	Window window;
 	
+
 	conn=ybus_find_connect(&plugin,conn_id);
 	if(!conn) return True;
 	client=ybus_find_client(conn,client_id);
 	if(!client) return True;
-	
+
 	if(client->track)
 		return True;
-	if(client->x<=0 || client->y<=0)
-	{
-		priv=(YBUS_CLIENT_PRIV*)client->priv;
 
-		window=priv->focus_window?priv->focus_window:priv->client_window;
-		if(!window) return True;
-		XGetWindowAttributes (dpy, window, &xwa);
-		XTranslateCoordinates (dpy, window,
-				xwa.root,
-				0,
-				xwa.height,
-				&client->x,
-				&client->y,
-				&child);
-	}
+	priv=(YBUS_CLIENT_PRIV*)client->priv;
+	window=priv->focus_window?priv->focus_window:priv->client_window;
+	if(!window) return True;
+	XGetWindowAttributes (dpy, window, &xwa);
+	XTranslateCoordinates (dpy, window,
+			xwa.root,
+			0,
+			xwa.height,
+			&client->x,
+			&client->y,
+			&child);
+
 	YongMoveInput(client->x,client->y);
 	return True;
 }

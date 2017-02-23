@@ -79,6 +79,58 @@ static void forward_key(SERV_KEY *kev,int handled)
 	}
 }
 
+#include <gtk/gtk.h>
+#include <gdk/gdkx.h>
+static void set_cursor_location_default(YBUS_CONNECT *yconn,YBUS_CLIENT *client)
+{
+	GdkDisplay *dpy;
+	Display *xdpy;
+	Window root;
+	Window window;
+	Window child;
+	XWindowAttributes xwa;
+	
+	if(client->track)
+		return;
+	
+	dpy=gdk_display_get_default();
+#if GTK_CHECK_VERSION(3,0,0)
+	if(!GDK_IS_X11_DISPLAY(dpy))
+		return;
+#endif
+	xdpy=GDK_DISPLAY_XDISPLAY(dpy);
+	root=DefaultRootWindow(xdpy);
+	Atom a= XInternAtom (xdpy, "_NET_ACTIVE_WINDOW", True);
+	Atom type;
+	int format;
+	unsigned long items,bytes;
+	unsigned char *prop=NULL;
+	if(Success!=XGetWindowProperty(xdpy,root,a,0,4,False,AnyPropertyType,&type,&format,&items,&bytes,&prop))
+	{
+		return;
+	}
+	if(format!=32)
+	{
+		XFree(prop);
+		return;
+	}
+	memcpy(&window,prop,4);
+	XFree(prop);
+	if(window==0 || window==(Window)-1)
+		return;
+	
+	XGetWindowAttributes (xdpy, window, &xwa);
+	XTranslateCoordinates (xdpy, window,
+			xwa.root,
+			0,
+			xwa.height,
+			&client->x,
+			&client->y,
+			&child);
+
+	YongMoveInput(client->x,client->y);
+}
+
 static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 {
 	int Key=kev->key;
@@ -91,6 +143,8 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	
 	if(kev->status==0)
 	{
+		set_cursor_location_default(yconn,client);
+
 		if(im.Bing && ((Key>='a' && Key<='z') || Key==' '))
 		{
 			int diff=y_im_diff_hand(bing,Key);

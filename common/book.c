@@ -217,7 +217,7 @@ static int BookGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 		char *p=cand[pos];
 		char *s=(char*)e->Priv2;
 		int ret=sprintf(p,"$[");
-		ret+=sprintf(p+ret,"%s",YT("…Ë÷√√ÿ‘ø"));
+		ret+=sprintf(p+ret,"%s",YT("…Ë÷√√‹‘ø"));
 		ret+=sprintf(p+ret,"]$KEY(");
 		l_base64_encode(p+ret,(const uint8_t*)s,strlen(s));
 		strcat(p,")");

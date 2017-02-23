@@ -6,13 +6,14 @@
 #include "yong.h"
 #include "ltricky.h"
 
-#define YONG_IGNORED_MASK		(1<<25)
+#define YONG_IGNORED_MASK		(1<<26)
 
 enum{
 	APP_NORMAL=0,
 	APP_MOZILLA,
 	APP_GEANY,
 	APP_GEDIT,
+	APP_SUBLIME
 };
 
 struct _GtkIMContextYong{
@@ -150,6 +151,11 @@ static int check_app_type(void)
 		type=APP_GEDIT;
 		goto out;
 	}
+	else if(strstr(exec,"sublime"))
+	{
+		type=APP_SUBLIME;
+		goto out;
+	}
   }
 out:
   return type;
@@ -183,7 +189,7 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   l_call_client_dispatch(client_dispatch);
   l_call_client_set_connect(client_connect);
   
-  if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT))
+  if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT || _app_type==APP_SUBLIME))
     _key_snooper_id=gtk_key_snooper_install(key_snooper_cb,NULL);
 }
 
@@ -313,6 +319,21 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 		return res;
 		
 	}
+	if(ctx->app_type==APP_SUBLIME)
+	{
+		int release=(event->type == GDK_KEY_RELEASE);
+		int key;
+		int res=FALSE;
+		
+		key=GetKey(event->keyval,event->state);
+		if(!key || (key!=YK_BACKSPACE && key!=YK_ENTER))
+			return FALSE;
+		if(release) key|=KEYM_UP;
+		if(_enable)
+			res=client_input_key(ctx->id,key,event->time);
+		return res;
+		
+	}
 	return FALSE;
 }
 
@@ -380,7 +401,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			}
 		}
 	}
-	if(res==FALSE && !release && !(KEYM_MASK&key&~(KEYM_SHIFT|KEYM_KEYPAD)))
+	if(res==FALSE && !release && !(KEYM_MASK&key&~(KEYM_SHIFT|KEYM_KEYPAD|KEYM_CAPS)))
 	{
 		gunichar ch;
 		ch=gdk_keyval_to_unicode(event->keyval);

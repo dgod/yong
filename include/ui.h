@@ -149,31 +149,6 @@ extern UI_KBD y_ui_kbd;
 #define UI_BTN_MENU		10
 #define UI_BTN_COUNT		(UI_BTN_MENU+1)
 
-int ui_init(void);
-void ui_clean(void);
-int ui_loop(void);
-int ui_main_update(UI_MAIN *param);
-void *ui_main_win(void);
-int ui_input_update(UI_INPUT *param);
-int ui_input_redraw(void);
-int ui_button_update(int id,UI_BUTTON *param);
-int ui_button_show(int id,int show);
-int ui_main_show(int show);
-int ui_input_show(int show);
-int ui_input_move(int off,int *x,int *y);
-void ui_tray_update(UI_TRAY *param);
-void ui_tray_status(int which);
-void ui_tray_tooltip(const char *tip);
-char *ui_get_select(int (*)(const char*));
-void ui_setup_config(void);
-void ui_select_type(char *type);
-void ui_update_menu(void);
-void ui_skin_path(const char *p);
-void ui_cfg_ctrl(char *name,...);
-void ui_show_message(const char *s);
-void ui_show_image(char *name,char *file,int top,int tran);
-int ui_button_label(int id,const char *text);
-
 typedef struct{
 	int (*init)(void);
 	void (*clean)(void);
@@ -212,6 +187,12 @@ typedef struct{
 	int (*request)(int cmd);
 	
 	double (*get_scale)(void);
+
+	int (*timer_add)(unsigned,void (*cb)(void *),void *arg);
+	void (*timer_del)(void (*cb)(void *),void *arg);
+	
+	int (*idle_add)(void (*cb)(void *),void *arg);
+	void (*idle_del)(void (*cb)(void *),void *arg);
 }Y_UI;
 
 extern Y_UI y_ui;
@@ -257,9 +238,7 @@ int y_ui_init(const char *name);
 	do{if(y_ui.tray_status)y_ui.tray_status(a);}while(0)
 #define y_ui_tray_tooltip(a) \
 	do{if(y_ui.tray_tooltip)y_ui.tray_tooltip(a);}while(0)
-	
-#define y_ui_select_type(a) \
-	do{if(y_ui.select_type)y_ui.select_type(a);}while(0)
+
 #define y_ui_get_select(a) \
 	(y_ui.get_select?y_ui.get_select(a):0)
 
@@ -286,5 +265,17 @@ int y_ui_init(const char *name);
 	
 #define y_ui_get_scale() \
 	(y_ui.get_scale?y_ui.get_scale():1)
-	
+
+#define y_ui_timer_add(a,b,c) \
+	(y_ui.timer_add?y_ui.timer_add(a,b,c):-1)
+
+#define y_ui_timer_del(a,b) \
+	do{if(y_ui.timer_del) y_ui.timer_del(a,b);}while(0)
+
+#define y_ui_idle_add(a,b) \
+	(y_ui.idle_add?y_ui.idle_add(a,b):-1)
+
+#define y_ui_idle_del(a,b) \
+	do{if(y_ui.idle_del) y_ui.idle_del(a,b);}while(0)
+
 #endif/*_UI_H_*/

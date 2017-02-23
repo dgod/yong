@@ -113,7 +113,6 @@ struct y_im_speed{
 
 void y_im_speed_reset(void);
 void y_im_speed_update(int key,const char *s);
-char *y_im_speed_stat(void);
 int y_im_input_key(int key);
 
 #define SEND_FLUSH			0x01

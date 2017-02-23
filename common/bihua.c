@@ -298,7 +298,7 @@ static char BihuaInput[64];
 static int PhraseListCount;
 static int BihuaKey;
 
-static int BihuaInit(char *arg);
+static int BihuaInit(const char *arg);
 static void BihuaReset(void);
 static char *BihuaGetCandWord(int index);
 static int BihuaGetCandWords(int mode);
@@ -325,7 +325,7 @@ int y_bihua_good(void)
 	return !!trunc;
 }
 
-static int BihuaInit(char *arg)
+static int BihuaInit(const char *arg)
 {
 	char temp[256];
 	const char *data;

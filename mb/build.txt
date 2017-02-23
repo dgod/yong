@@ -14,7 +14,7 @@ function run(target){
 	include("../../rules.txt");
 	if(target=="l32" || target=="l64"){
 		env("CFLAGS+=-fvisibility=hidden");
-		env("LIBS=-ldl -ll");
+		env("LIBS=-ldl -ll -lpthread");
 	}
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');

@@ -49,13 +49,13 @@ static void eim_beep(int c)
 		y_ui_beep(c);
 }
 
-int InitExtraIM(IM *im,EXTRA_IM *eim,char *arg)
+int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 {
 	eim->CodeInput=im->CodeInputEngine;
 	eim->StringGet=im->StringGetEngine;
 	eim->CandTable=im->CandTableEngine;
 	eim->CodeTips=im->CodeTipsEngine;
-	eim->GetSelect=ui_get_select;
+	eim->GetSelect=y_ui.get_select;
 	eim->GetPath=y_im_get_path;
 	eim->CandWordMax=im->CandWord;
 	eim->CandWordMaxReal=im->CandWord;
@@ -117,6 +117,7 @@ int y_im_load_extra(IM *im,const char *name)
 	if(!im->handle)
 	{
 		printf("eim: open %s fail\n",p);
+		y_ui_show_tip(YT("¼ÓÔØ¶¯Ì¬¿â%sÊ§°Ü"),p);
 		l_free(p);
 		return -1;
 	}
@@ -206,7 +207,7 @@ int y_im_load_extra(IM *im,const char *name)
 	return 0;
 }
 
-int LoadExtraIM(IM *im,char *fn)
+int LoadExtraIM(IM *im,const char *fn)
 {
 	if(im->CandWord<2 || im->CandWord>10)
 		im->CandWord=5;

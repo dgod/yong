@@ -35,7 +35,30 @@ typedef struct ui_menu{
 
 static ui_menu_t *ui_build_menu(LKeyFile *kf);
 
+static void ui_clean(void);
+static int ui_loop(void);
+static int ui_main_update(UI_MAIN *param);
+static void *ui_main_win(void);
+static int ui_input_update(UI_INPUT *param);
+static int ui_input_redraw(void);
+static int ui_button_update(int id,UI_BUTTON *param);
+static int ui_button_show(int id,int show);
+static int ui_main_show(int show);
+static int ui_input_show(int show);
+static int ui_input_move(int off,int *x,int *y);
+static void ui_tray_update(UI_TRAY *param);
+static void ui_tray_status(int which);
+static void ui_tray_tooltip(const char *tip);
+static char *ui_get_select(int (*)(const char*));
+static void ui_update_menu(void);
+static void ui_skin_path(const char *p);
+static void ui_cfg_ctrl(char *name,...);
+static void ui_show_message(const char *s);
+static void ui_show_image(char *name,char *file,int top,int tran);
+static int ui_button_label(int id,const char *text);
+
 #include "ui-common.c"
+#include "ui-timer.c"
 
 static int MainWin_over;
 
@@ -49,8 +72,6 @@ static void (*my_status_icon_set_title)(GtkStatusIcon *status_icon,const gchar *
 static void (*my_status_icon_position_menu)(GtkMenu *menu,gint *x,gint *y,gboolean *push_in,gpointer user_data);
 static void (*my_ca_gtk_play_for_widget)(GtkWidget *,uint32_t id,...);
 static void (*my_gdk_window_beep)(GdkWindow *window);
-
-static GdkAtom SelectMode;
 
 static GtkWidget *ImageWin;
 static UI_IMAGE ImageWin_bg;
@@ -1363,7 +1384,10 @@ int YongDrawInput(void)
 		YongShowInput(0);
 		return 0;
 	}
-	CodeWidth=YongCodeWidth();
+	if(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1)
+		CodeWidth=0;
+	else
+		CodeWidth=YongCodeWidth();
 	if(InputTheme.page)
 		PageWidth=YongPageWidth();
 	if(eim) count=eim->CandWordCount;
@@ -1715,11 +1739,6 @@ void ui_tray_status(int which)
 	}
 }
 
-void ui_select_type(char *type)
-{
-	SelectMode=GDK_SELECTION_CLIPBOARD;
-}
-
 static gboolean YongSendFile_real(char *fn)
 {
 	if(strstr(fn,".txt"))
@@ -1807,44 +1826,6 @@ void YongSendClipboard(const char *s)
 	g_idle_add_full(G_PRIORITY_DEFAULT,(GSourceFunc)YongSendClipboard_real,utf8,g_free);
 }
 
-/*char *ui_get_select(int (*cb)(const char *))
-{
-	GtkClipboard *clipboard;
-	gchar *utf8;
-	gsize len;
-	char *gb;
-	static char phrase[64];
-
-	clipboard=gtk_clipboard_get(SelectMode);
-	if(!clipboard)
-	{
-		printf("yong: get clipboard fail\n");
-		return NULL;
-	}
-	utf8=gtk_clipboard_wait_for_text(clipboard);
-	if(!utf8)
-	{
-		return NULL;
-	}
-	if(strpbrk(utf8,"\r\n\t\v\b") || strlen(utf8)>50)
-	{
-		g_free(utf8);
-		return NULL;
-	}
-	gb=g_malloc0(128);
-	y_im_str_encode_r(utf8,gb);
-	g_free(utf8);
-	len=strlen(gb);
-	if(len<=0 || len>63)
-	{
-		g_free(gb);
-		return NULL;
-	}
-	strcpy(phrase,gb);
-	g_free(gb);
-	return phrase;
-}*/
-
 static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)(const char*))
 {
 	char phrase[128];
@@ -1870,7 +1851,7 @@ static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)
 char *ui_get_select(int (*cb)(const char *))
 {
 	GtkClipboard *clipboard;
-	clipboard=gtk_clipboard_get(SelectMode);
+	clipboard=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(!clipboard)
 	{
 		printf("yong: get clipboard fail\n");
@@ -1909,7 +1890,7 @@ void ui_show_message(const char *s)
 	gtk_widget_destroy(dlg);
 }
 
-#if !GTK_CHECK_VERSION(3,0,0)
+#if 1//!GTK_CHECK_VERSION(3,0,0)
 static UI_COLOR ui_sys_color(GtkWidget *w,int index)
 {
 	if(index==0)
@@ -1951,13 +1932,14 @@ static gboolean on_tip_draw(GtkWidget *window,cairo_t *cr)
 	
 	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
 	cairo_set_line_width(cr,1.0);
-	
+
 	//color=ui_color_parse("#FFFFFF");
 	color=ui_sys_color(window,0);
 	ui_fill_rect(cr,0,0,w,h,color);
 	//color=ui_color_parse("#CBCAE6");
 	color=ui_sys_color(window,1);
 	ui_draw_rect(cr,0,0,w,h,color,MainTheme.line_width);
+
 	//color=ui_color_parse("#0042C8");
 	color=ui_sys_color(window,2);
 	if(text) ui_draw_text(cr,InputTheme.layout,5,5,text,color);
@@ -2020,8 +2002,18 @@ void ui_show_tip(const char *fmt,...)
 	g_object_set_data_full(G_OBJECT(tip),"tip",g_strdup(text),g_free);
 	ui_text_size(NULL,InputTheme.layout,text,&w,&h);
 	w+=10;h+=10;
-	x=(gdk_screen_width()-w)/2;
-	y=(gdk_screen_height()-h)/2;
+	
+	CONNECT_ID *id=y_xim_get_connect();
+	if(id && id->x>0 && id->y>0 && id->x!=POSITION_ORIG && id->y!=POSITION_ORIG)
+	{
+		x=id->x;
+		y=id->y;
+	}
+	else
+	{
+		x=(gdk_screen_width()-w)/2;
+		y=(gdk_screen_height()-h)/2;
+	}
 	gtk_window_move(GTK_WINDOW(tip),x,y);
 	gtk_window_resize(GTK_WINDOW(tip),w,h);
 	gtk_widget_set_size_request(tip,w,h);
@@ -2596,6 +2588,10 @@ void ui_cfg_ctrl(char *name,...)
 		if(res)
 			*res=ui_calc_with_metrics(s);
 	}
+	else if(!strcmp(name,"onspot"))
+	{
+		InputTheme.onspot=va_arg(ap,int);
+	}
 	va_end(ap);
 }
 
@@ -2769,7 +2765,6 @@ void ui_setup_default(Y_UI *p)
 	p->tray_tooltip=ui_tray_tooltip;
 	
 	p->get_select=ui_get_select;
-	p->select_type=ui_select_type;
 	
 	p->update_menu=ui_update_menu;
 	p->skin_path=ui_skin_path;
@@ -2782,4 +2777,9 @@ void ui_setup_default(Y_UI *p)
 	p->request=ui_request;
 	
 	p->get_scale=ui_get_scale;
+	
+	p->timer_add=ui_timer_add;
+	p->timer_del=ui_timer_del;
+	p->idle_add=ui_idle_add;
+	p->idle_del=ui_idle_del;
 }

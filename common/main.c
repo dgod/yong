@@ -30,6 +30,7 @@ bool InputShow;
 bool RootMode;
 int InputNoShow;
 bool MainNoShow;
+bool CaretUpdate;
 
 IM im;
 
@@ -625,6 +626,8 @@ void update_input_window(void)
 	l_free(param.sep);
 	for(i=0;i<L_ARRAY_SIZE(param.text);i++)
 		l_free(param.text[i]);
+		
+	y_ui_cfg_ctrl("onspot",y_im_get_config_int("IM","onspot"));
 }
 
 static void update_config_translate(void)
@@ -687,7 +690,7 @@ static void update_config_skin(void)
 		}
 		if(!ConfigSkin)
 		{
-			l_sscanf(tmp,"%s %d",path,&line);
+			l_sscanf(tmp,"%s",path);
 			strcat(path,"/skin.ini");
 			ConfigSkin=l_key_file_open(path,1,y_im_get_path("HOME"),
 					y_im_get_path("DATA"),NULL);
@@ -806,6 +809,15 @@ void update_key_config(void)
 		sprintf(temp,"switch_%c",i+'0');
 		key_switch_to[i]=y_im_get_key(temp,-1,0);
 	}
+	for(i=0;i<10;i++)
+	{
+		char *s;
+		s=y_im_get_im_config_string(i,"switch");
+		if(!s)
+			continue;
+		key_switch_to[i]=y_im_str_to_key(s);
+		l_free(s);
+	}
 
 #ifndef CFG_NO_KEYTOOL
 	y_key_tools_free(key_tools);
@@ -824,9 +836,6 @@ void update_im(void)
 	bim=y_bihua_eim();
 
 	/* use eim as temp here*/
-	eim=y_im_get_config_string("IM","select");
-	y_ui_select_type(eim);
-	l_free(eim);
 
 	eim=y_im_get_config_string("IM","num");
 	if(eim && !strcmp(eim,"push"))
@@ -987,6 +996,8 @@ void YongMoveInput(int x,int y)
 	id=y_xim_get_connect();
 	if(!id) return;
 	
+	CaretUpdate=true;
+	
 	if(RootMode)
 	{
 		if(id->x!=POSITION_ORIG)
@@ -1015,6 +1026,12 @@ void YongMoveInput(int x,int y)
 }
 
 void DOUT(const char *fmt,...);
+static void HideInputLater(void *unused)
+{
+	y_ui_input_show(0);
+	InputShow=0;
+}
+
 void YongShowInput(int show)
 {
 	EXTRA_IM *eim=CURRENT_EIM();
@@ -1023,9 +1040,9 @@ void YongShowInput(int show)
 	if(!InputShow && show && id && !id->state)
 		return;
 
-	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0]) ||
+	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])/* ||
 		(InputNoShow==2 && MainShow && 
-		id && id->lang!=LANG_EN && id->corner!=CORNER_FULL)))
+		id && id->lang!=LANG_EN && id->corner!=CORNER_FULL)*/))
 	{
 		YongMoveInput(POSITION_ORIG,POSITION_ORIG);
 		if(InputNoShow!=1 || im.CodeInputEngine[0]=='`' || im.EnglishMode)
@@ -1039,6 +1056,10 @@ void YongShowInput(int show)
 	{
 		y_ui_input_show(0);
 		InputShow=FALSE;
+	}
+	else if(!show && InputShow && InputNoShow==2)
+	{
+		y_ui_timer_add(3000,HideInputLater,NULL);
 	}
 	if(InputNoShow==1 && auto_show && eim)
 	{
@@ -1065,6 +1086,16 @@ void YongShowInput(int show)
 	}
 }
 
+static void ShowLangTipLater(void *tip)
+{
+	CONNECT_ID *id=y_xim_get_connect();
+	if(!id)
+		return;
+	if(!CaretUpdate)
+		id->x=id->y=POSITION_ORIG;
+	y_ui_show_tip(tip);	
+}
+
 void YongShowMain(int show)
 {
 	CONNECT_ID *id=y_xim_get_connect();
@@ -1074,7 +1105,17 @@ void YongShowMain(int show)
 		MainShow=TRUE;
 		YongUpdateMain(NULL);
 		if(!MainNoShow)
+		{
 			y_ui_main_show(1);
+		}
+		else
+		{
+			if(id && tip_main)
+			{
+				CaretUpdate=false;
+				y_ui_timer_add(100,ShowLangTipLater,id->lang==0?YT("ÖÐÎÄ"):YT("Ó¢ÎÄ"));
+			}
+		}
 	}
 	else if(!show && MainShow)
 	{
@@ -1303,11 +1344,13 @@ int YongHotKey(int key)
 	{
 		int d=y_im_get_config_int("IM","default");
 		YongSwitchIM(d);
+		return 1;
 	}
 #ifndef CFG_NO_REPLACE
 	else if(key==key_crab)
 	{
 		y_replace_enable(-1);
+		return 1;
 	}
 #endif
 	else if(key&KEYM_MASK)
@@ -1694,6 +1737,11 @@ IMR_TEST:
 				{
 					y_ui_input_draw();
 				}
+				if(im.InAssoc)
+				{
+					YongResetIM();
+					return 0;
+				}
 				YongResetIM();
 				return 1;
 			}
@@ -1854,8 +1902,17 @@ IMR_TEST:
 				}
 				if(im.EnglishMode && key>='1' && key<'1'+eim->CandWordCount)
 				{
-					y_xim_send_string(eim->GetCandWord(key-'1'));
-					YongResetIM();
+					char *p=eim->GetCandWord(key-'1');
+					if(p!=NULL)
+					{
+						y_xim_send_string(p);
+						YongResetIM();
+					}
+					else
+					{
+						ret=IMR_DISPLAY;
+						goto IMR_TEST;
+					}
 					return 1;
 				}
 			}
@@ -2231,7 +2288,7 @@ int main(int arc,char *arg[])
 				info.lpFile=cmd;
 				info.lpParameters=param;
 				info.nShow=SW_SHOWNORMAL;
-				info.hwnd=ui_main_win();
+				info.hwnd=y_ui_main_win();
 				info.lpVerb="open";
 #ifdef _WIN64
 				info.lpDirectory="..";

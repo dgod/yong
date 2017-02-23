@@ -93,6 +93,7 @@ struct y_mb_index{
 };
 
 struct y_mb_context{
+	int sp;
 	int result_match;
 	int result_dummy;
 	int result_count;
@@ -230,6 +231,9 @@ struct y_mb{
 	
 	/* context of current input */
 	struct y_mb_context ctx;
+	
+	/* cancel mb load */
+	volatile uint8_t cancel;
 };
 
 #define MB_DUMP_MAIN	0x01
@@ -262,7 +266,9 @@ struct y_mb_arg{
 
 void y_mb_init(void);
 void y_mb_cleanup(void);
+struct y_mb *y_mb_new(void);
 void y_mb_free(struct y_mb *mb);
+int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg);
 struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg);
 int y_mb_set(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_get(struct y_mb *mb,int at,int num,

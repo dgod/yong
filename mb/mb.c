@@ -2004,7 +2004,7 @@ static struct y_mb_ci *mb_app_one(struct y_mb *mb,struct y_mb_ci *pos,const char
 	return c;
 }
 
-static bool  mb_ci_test_pos(void *p)
+static bool mb_ci_test_pos(void *p)
 {
 	struct y_mb_ci *c=p;
 	return c->del==0;
@@ -2035,7 +2035,7 @@ static inline struct y_mb_ci *mb_add_one_ci(
 	struct y_mb_ci *a_node=NULL;
 	struct y_mb_ci *p=it->phrase;
 	struct y_mb_ci *c=NULL;
-	
+
 	if(!p)
 	{
 		a_head=1;
@@ -2054,8 +2054,14 @@ static inline struct y_mb_ci *mb_add_one_ci(
 						if(p->zi)
 							mb_add_zi(mb,code,clen,data,dlen,0);
 					}
-					p->dic=dic;
-					return p;
+					if(dic!=Y_MB_DIC_ASSIST)
+					{
+						p->dic=dic;
+					}
+					// 如果返回p，同一行中其他词会跟在返回的p后面
+					// 所以返回NULL，让后面的词自动到最后去，速度会稍慢
+					// 这是位置准确性和速度的一个平衡
+					return NULL;
 				}
 				if(p->next==NULL)
 				{
@@ -2859,7 +2865,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 	struct y_mb_ci *c;
 	int in_data=(dic==Y_MB_DIC_MAIN || dic==Y_MB_DIC_USER || dic==Y_MB_DIC_PIN);
 
-	while(1)
+	while(!mb->cancel)
 	{
 
 			if(mb->encode==0)
@@ -3244,10 +3250,16 @@ static int mb_load_sub_dict(struct y_mb *mb,const char *dict)
 	return 0;
 }
 
-struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg)
+struct y_mb *y_mb_new(void)
+{
+	struct y_mb *mb;
+	mb=calloc(1,sizeof(*mb));
+	return mb;
+}
+
+int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 {
 	FILE *fp;
-	struct y_mb *mb;
 	char line[4096];
 	int len,lines;
 
@@ -3256,12 +3268,11 @@ struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg)
 	{
 		if(!(flag &MB_FLAG_ASSIST))
 			printf("yong: open mb %s fail\n",fn);
-		return NULL;
+		return -1;
 	}
-	mb=calloc(1,sizeof(*mb));
 	
 	mb->flag=flag;
-	mb->main=strdup(fn);
+	mb->main=l_strdup(fn);
 	mb->dirty_max=2;
 
 	/* set some default config here */
@@ -3611,6 +3622,18 @@ struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg)
 	mb_mark_simple(mb);
 	mb_half_index(mb);
 
+	return 0;
+}
+
+struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg)
+{
+	struct y_mb *mb;
+	mb=y_mb_new();
+	if(0!=y_mb_load_to(mb,fn,flag,arg))
+	{
+		y_mb_free(mb);
+		return NULL;
+	}
 	return mb;
 }
 
@@ -4358,23 +4381,35 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char
 	return ret;
 }
 
-static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,const char *pinyin)
+static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const char *sep)
 {
-	const char *p;
-	if((p=strchr(pinyin,'\''))==NULL)
-		return 1;
-	if(c->zi)
-		return 0;
-	if(c->len==4)
+	if(sep==NULL)
 	{
+		if(c->zi || !mb->ctx.sp || c->len!=4)
+			return 1;
 		struct y_mb_zi *z=mb_find_zi(mb,(char*)&c->data+2);
-		p++;
 		if(z)
 		{
 			struct y_mb_code *code=z->code;
 			for(;code!=NULL;code=code->next)
 			{
-				if(*p==y_mb_code_n_key(mb,code,0))
+				if(code->len==clen)
+					return 1;
+			}
+		}
+		return 0;
+	}
+	if(c->zi)
+		return 0;
+	if(c->len==4)
+	{
+		struct y_mb_zi *z=mb_find_zi(mb,(char*)&c->data+2);
+		if(z)
+		{
+			struct y_mb_code *code=z->code;
+			for(;code!=NULL;code=code->next)
+			{
+				if(*sep==y_mb_code_n_key(mb,code,0))
 					return 1;
 			}
 			return 0;
@@ -4395,9 +4430,10 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 	int filter,filter_zi,filter_ext;
 	int got=0;
 	int i;
-	int (*extern_match)(struct y_mb *,struct y_mb_ci *,const char *)=NULL;
+	int (*extern_match)(struct y_mb *,struct y_mb_ci *,int clen,const char*)=NULL;
 	int last[4]={0};
 	int count=0;
+	const char *sep=NULL;
 	
 	index=ctx->result_index;
 	item=ctx->result_first;
@@ -4409,11 +4445,13 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 	filter=ctx->result_filter;
 	filter_zi=ctx->result_filter_zi;
 	filter_ext=ctx->result_filter_ext;
-	if(mb->pinyin==1 && mb->split=='\'' && strchr(s,'\''))
+	if(mb->pinyin==1 && mb->split=='\'')
 	{
 		char *temp=alloca(len+1);
 		const char*p;
 		int i;
+		sep=strchr(s,'\'');
+		if(sep) sep++;
 		for(p=s,i=0;p<s+len;p++)
 		{
 			if(*p=='\'') continue;
@@ -4454,7 +4492,7 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 					if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
 					if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
 				}
-				if(extern_match && !extern_match(mb,c,ctx->input)) continue;
+				if(extern_match && !extern_match(mb,c,len,sep)) continue;
 				
 				/* 限制每个模糊音的候选，避免太多候选导致输入法长时间失去响应 */
 				count++;
@@ -4608,9 +4646,10 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 	int count=0,count_zi=0,count_ci_ext=0;
 	uintptr_t key;
 	struct y_mb_context *ctx=&mb->ctx;
-	int (*extern_match)(struct y_mb *,struct y_mb_ci *,const char *)=NULL;
+	int (*extern_match)(struct y_mb *,struct y_mb_ci *,int,const char *)=NULL;
 	const char *orig=s;
 	int orig_len=len;
+	const char *sep=NULL;
 	int assist_mode;
 
 	ctx->result_dummy=0;
@@ -4647,11 +4686,13 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 	}
 	assist_mode=(s[0]==mb->lead && mb->ass)||(s[0]==mb->quick_lead && mb->quick_mb);
 	
-	if(mb->pinyin==1 && mb->split=='\'' && strchr(s,'\''))
+	if(mb->pinyin==1 && mb->split=='\'')
 	{
 		char *temp=alloca(len+1);
 		const char*p;
 		int i;
+		sep=strchr(s,'\'');
+		if(sep) sep++;
 		for(p=s,i=0;p<s+len;p++)
 		{
 			if(*p=='\'') continue;
@@ -4729,7 +4770,6 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 			{
 				int clen;
 				struct y_mb_ci *c;
-				
 				ret=mb_key_cmp_direct(key,p->code,(ctx->result_match?Y_MB_KEY_SIZE:left));
 				if(ret>0) continue;
 				if(mb->nsort && ret<0) continue;
@@ -4747,7 +4787,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 					}
 					if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
 					if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
-					if(extern_match && !extern_match(mb,c,orig)) continue;
+					if(extern_match && !extern_match(mb,c,len,sep)) continue;
 					count++;
 					if(c->zi)
 						count_zi++;
@@ -4909,7 +4949,8 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 	struct y_mb_item *item;
 	int skip=0,got=0;
 	struct y_mb_context *ctx=&mb->ctx;
-	int (*extern_match)(struct y_mb *,struct y_mb_ci *,const char *)=NULL;
+	int (*extern_match)(struct y_mb *,struct y_mb_ci *,int,const char *)=NULL;
+	const char *sep=NULL;
 	
 	if(num==0) return 0;
 
@@ -4938,11 +4979,13 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 	}
 	assert(at+num<=ctx->result_count);
 	
-	if(mb->pinyin==1 && mb->split=='\'' && strchr(s,'\''))
+	if(mb->pinyin==1 && mb->split=='\'')
 	{
 		char *temp=alloca(len+1);
 		const char*p;
 		int i;
+		sep=strchr(s,'\'');
+		if(sep) sep++;
 		for(p=s,i=0;p<s+len;p++)
 		{
 			if(*p=='\'') continue;
@@ -5099,7 +5142,7 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 						if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
 						if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
 					}
-					if(extern_match && !extern_match(mb,c,ctx->input)) continue;
+					if(extern_match && !extern_match(mb,c,len,sep)) continue;
 					/* 跳过不需要取的部分 */
 					if(skip<at)
 					{
@@ -5143,6 +5186,7 @@ int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c)
 {
 	struct y_mb_context *ctx=&mb->ctx;
 	struct y_mb_ci *p;
+	
 	if(ctx->result_ci)
 	{
 		LArray *arr=ctx->result_ci;
@@ -5152,7 +5196,7 @@ int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c)
 			p=l_ptr_array_nth(arr,i);
 			if(!p->zi || p->del)
 				continue;
-			if(p->data==c->data)
+			if(mb_ci_equal(p,(const char*)c->data,c->len))
 			{
 				return 1;
 			}
@@ -5165,7 +5209,7 @@ int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c)
 	{
 		if(!p->zi || p->del)
 			continue;
-		if(p->data==c->data)
+		if(mb_ci_equal(p,(const char*)c->data,c->len))
 		{
 			return 1;
 		}
@@ -6636,13 +6680,14 @@ L_EXPORT(int tool_main(int arc,char **arg))
 				}
 				l_strfreev(list);
 			}
-			else if(!strncmp(arg[i],"--add=",5))
+			else if(!strncmp(arg[i],"--add=",6))
 			{
 				FILE *tmp;
-				tmp=fopen(arg[i]+5,"r");
+				tmp=fopen(arg[i]+6,"r");
 				if(tmp)
 				{
 					mb_load_data(mb,tmp,Y_MB_DIC_TEMP);
+					option|=MB_DUMP_TEMP;
 					fclose(tmp);
 				}
 			}

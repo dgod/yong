@@ -171,6 +171,7 @@ static int allow_update(const char *file)
 	int allow=0;
 	char line[256];
 
+	if(file[0]=='/') file++;
 	if(strncmp(file,"mb/",3) || !l_str_has_suffix(file,".txt"))
 	{
 		return 1;
@@ -309,6 +310,11 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 		FITEM *it=l_ptr_array_nth(remote,i);
 		char *md5;
 		uint32_t size;
+		
+		if(!allow_update(it->file))
+		{
+			continue;
+		}
 		md5=md5_file(it->file,&size);
 		if(!md5)
 		{
@@ -341,25 +347,6 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
-static void warn_update()
-{
-	char temp[256];
-	struct stat st;
-	int c_yong_txt=0;
-	sprintf(temp,"%s/mb/yong.txt",y_im_get_path("DATA"));
-	if(0==stat(temp,&st))
-	{
-		if(st.st_size<600*1024 || st.st_size>=700*1024)
-			c_yong_txt=1;
-	}
-	if(!c_yong_txt)
-		return;
-	temp[0]=0;
-	if(c_yong_txt) strcat(temp,"yong.txt ");
-	strcat(temp,"是自定义的，升级后将被覆盖");
-	status(temp);
-}
-
 int UpdateMain(void)
 {
 	CUCtrl win;
@@ -373,7 +360,6 @@ int UpdateMain(void)
 	custom=l_xml_load((const char*)config_update);
 	win=cu_ctrl_new(NULL,custom->root.child);
 	cu_ctrl_show_self(win,1);
-	warn_update();
 	cu_loop();
 	cu_ctrl_free(win);
 	l_xml_free(custom);
