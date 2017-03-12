@@ -684,7 +684,7 @@ static int y_expr_calc(const char *s,char *res,int len)
 		snprintf(res,len,"%ld",var.v_int);
 		break;
 	case L_TYPE_FLOAT:
-		snprintf(res,len,"%f",var.v_float);
+		snprintf(res,len,"%g",var.v_float);
 		break;
 	default:
 		return -1;

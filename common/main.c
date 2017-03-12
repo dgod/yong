@@ -64,6 +64,7 @@ static int key_keyboard_s;
 static int key_bihua;
 static int key_dict=ALT_ENTER;
 static int key_crab;
+static char sym_in_num[8];
 #ifndef CFG_NO_KEYTOOL
 static Y_KEY_TOOL *key_tools;
 #endif
@@ -101,6 +102,13 @@ static void *local_dic;
 #endif
 
 static void YongResetIM_(void);
+
+static bool is_sym_in_num(int key)
+{
+	if(key&KEYM_MASK)
+		return false;
+	return strchr(sym_in_num,key)?true:false;
+}
 
 static int y_im_virt_key_conv(int key)
 {
@@ -921,6 +929,9 @@ void update_im(void)
 	cnen_mode=y_im_get_config_int("IM","CNen_commit");
 	caps_bd_mode=y_im_get_config_int("IM","caps_bd");
 	
+	eim=(char*)y_im_get_config_data("IM","sym_in_num");
+	snprintf(sym_in_num,sizeof(sym_in_num),"%s",eim?:".");
+	
 	l_strfreev(sym_select);
 	sym_select=NULL;
 	sym_select_count=0;
@@ -1395,7 +1406,7 @@ static int YongAppendPunc(CONNECT_ID *id,char *res,int key)
 	const char *biaodian=YongGetPunc(key,id->biaodian,0);
 	int last=y_im_last_key(0);
 	last&=~KEYM_KEYPAD;
-	if(last<='9' && last>='0' && !res[0] && key=='.')
+	if(last<='9' && last>='0' && !res[0] && is_sym_in_num(key))
 		return 0;
 	if(biaodian)
 	{
@@ -1440,7 +1451,7 @@ int YongKeyInput(int key,int mod)
 	{
 		key&=~KEYM_KEYPAD;
 	}
-	if(key!='.' && key!=(KEYM_ALT|'.'))
+	if(!is_sym_in_num(key&~(KEYM_ALT|KEYM_SHIFT)))
 	{
 		// now only m.x mode used last, so clean it here
 		// should change it future
@@ -1457,6 +1468,7 @@ int YongKeyInput(int key,int mod)
 		YongResetIM();
 		return 1;
 	}
+
 	if((key&KEYM_MASK)==KEYM_SHIFT)
 	{
 		int temp=YK_CODE(key);
@@ -1929,7 +1941,7 @@ IMR_TEST:
 			{
 				const char *s;
 				key=YK_CODE(key);
-				if(key=='.')
+				if(is_sym_in_num(key))
 				{
 					int last=y_im_last_key(0)&~KEYM_KEYPAD;
 					if(last>='0' && last<='9' && id->biaodian==LANG_CN)
@@ -1971,9 +1983,10 @@ IMR_TEST:
 			biaodian=YongGetPunc(key,id->biaodian,0);
 		last=y_im_last_key(0);
 		last&=~KEYM_KEYPAD;
-		if(last<='9' && last>='0' && key=='.')
+
+		if(last<='9' && last>='0' && is_sym_in_num(key))
 			return 0;
-		
+
 		if(biaodian)
 		{
 			EXTRA_IM *eim=CURRENT_EIM();
