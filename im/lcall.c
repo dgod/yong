@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <errno.h>
 	
 #include "lcall.h"
 #include "ltricky.h"
@@ -476,6 +477,20 @@ static gboolean serv_accept(GIOChannel *channel,GIOCondition condition,LCallServ
 	return TRUE;
 }
 
+/*void show_watch(const char *s)
+{
+	int i;
+	fprintf(stderr,"%s\n",s);
+	for(i=1;i<100;i++)
+	{
+		GSource *s=g_main_context_find_source_by_id(NULL,i);
+		if(!s)
+			continue;
+		const char *p=g_source_get_name(s);
+		fprintf(stderr,"id:%d name:%s destroyed:%d\n",i,p?p:"",g_source_is_destroyed(s));
+	}
+}*/
+
 LCallServ *l_call_serv_new(void *arg,LCallUser *user)
 {
 	LCallServ *serv;
@@ -485,7 +500,7 @@ LCallServ *l_call_serv_new(void *arg,LCallUser *user)
 	serv->user=user;
 	serv->ch=l_call_server_new();
 	serv->id=g_io_add_watch(serv->ch,G_IO_IN,(GIOFunc)serv_accept,serv);
-	
+	g_source_set_name_by_id(serv->id,"ybus-lcall");
 	return serv;
 }
 
@@ -525,7 +540,7 @@ GIOChannel *l_call_client_new(void)
 	
 	if(0!=connect(s,(struct sockaddr*)&sa,sizeof(sa)))
 	{
-		//printf("client conn fail\n");
+		//printf("client conn fail %s %d\n",sa.sun_path,errno);
 		close(s);
 		return NULL;
 	}

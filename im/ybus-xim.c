@@ -1009,8 +1009,7 @@ static gboolean xim_source_dispatch (GSource *source,GSourceFunc callback,gpoint
 	{
 		XEvent e;
 		XNextEvent(dpy,&e);
-		if(XFilterEvent(&e, 0) == True)
-			continue;
+		XFilterEvent(&e,None);
 	}
 	return TRUE;
 }
@@ -1027,6 +1026,7 @@ static guint xim_poll_display_fd(Display *dpy)
 {
 	XIMSource *s;
 	s=(XIMSource*)g_source_new(&xim_source_funcs,sizeof(XIMSource));
+	g_source_set_name(s,"ybus-xim");
 	s->poll.fd=ConnectionNumber(dpy);
 	s->poll.events=G_IO_IN;
 	g_source_add_poll((GSource*)s,&s->poll);
@@ -1041,7 +1041,7 @@ static int xim_init(void)
 	char *p,*imname;
 	Window im_window;
 	guint source;
-	
+
 	is_utf8=!strcmp(nl_langinfo(CODESET),"UTF-8");
 	
 	imname = getenv ("XMODIFIERS");
@@ -1107,7 +1107,7 @@ static int xim_init(void)
 	free(encodings);
 	free(input_styles);
 
-	if (ims == (XIMS) NULL)
+	if(!ims)
 	{
 		fprintf (stderr, "yong start fail, may XIM daemon named \"%s\" there\n", imname);
 		g_source_remove(source);

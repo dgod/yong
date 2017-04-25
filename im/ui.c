@@ -137,19 +137,31 @@ int ui_init(void)
 	
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 		setenv("GDK_BACKEND","x11",1);
+	if(getenv("GDK_SCALE"))
+	{
+		double scale1=strtod(getenv("GDK_SCALE"),NULL);
+		double scale2=1;
+		if(getenv("GDK_DPI_SCALE"))
+			scale2=strtod(getenv("GDK_DPI_SCALE"),NULL);
+		char temp[64];
+		sprintf(temp,"%.1f",scale1*scale2);
+		setenv("GDK_DPI_SCALE",temp,1);
+	}
+	setenv("GDK_SCALE","1",1);
 
 #if !GTK_CHECK_VERSION(3,0,0)
 	gtk_set_locale();
 #endif
 	gtk_init(NULL,NULL);
-	
+
 	set_opacity=dlsym(NULL,"gdk_window_set_opacity");
 	is_composited=dlsym(NULL,"gtk_widget_is_composited");
 	load_sound_system();
 		
 	pipe(im_pipe);
 	chn=g_io_channel_unix_new(im_pipe[0]);
-	g_io_add_watch(chn,G_IO_IN,im_pipe_cb,NULL);
+	guint src=g_io_add_watch(chn,G_IO_IN,im_pipe_cb,NULL);
+	g_source_set_name_by_id(src,"yong-comm");
 	p=gtk_settings_get_default();
 	if(p)
 	{
@@ -993,7 +1005,19 @@ int ui_input_update(UI_INPUT *param)
 	InputTheme.OffX=param->off.x;
 	InputTheme.OffY=param->off.y;
 	
-	InputTheme.layout=ui_font_parse(InputWin,param->font);
+	InputTheme.scale=param->scale;
+	
+	if(InputTheme.scale==1 && ui_scale!=1)
+	{
+		double temp=ui_scale;
+		ui_scale=1;
+		InputTheme.layout=ui_font_parse(InputWin,param->font);
+		ui_scale=temp;
+	}
+	else
+	{
+		InputTheme.layout=ui_font_parse(InputWin,param->font);
+	}
 	
 	InputTheme.line_width=param->line_width;
 

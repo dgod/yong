@@ -56,6 +56,23 @@ static void dict_item_free(void *p)
 	l_free(item);
 }
 
+static void escape_space(char *s)
+{
+	int i;
+	int len=strlen(s);
+	for(i=0;i<len;i++)
+	{
+		if(s[i]=='$' && s[i+1]=='_')
+		{
+			s[i]=' ';
+			i++;
+			len--;
+			memmove(s+i,s+i+1,len-i);
+		}
+	}
+	s[i]=0;
+}
+
 void *y_dict_open(const char *file)
 {
 	struct y_dict *dic;
@@ -102,13 +119,19 @@ void *y_dict_open(const char *file)
 			len=strlen(line);
 			if(len<1) continue;
 		}
-		if(len>2) key=l_strdup(line);
+		if(len>2)
+		{
+			escape_space(line);
+			key=l_strdup(line);
+		}
 		else
 		{
+			key=NULL;		// avoid an valgrind warning
 			strcpy((char*)&key+1,line);
 			*((char*)&key)=1;
 		}
 		item=l_new(struct dict_item);
+		item->next=NULL;
 		item->key=(uintptr_t)key;
 		item->pos=pos;
 		item=l_hash_table_replace(dic->index,item);
@@ -157,6 +180,7 @@ char *y_dict_query(void *p,char *s)
 	s=strstr(data,"\n\n");
 	if(!s) s=strstr(data,"\r\n\r\n");
 	if(s) *s=0;
+	escape_space(data);
 	return l_strdup(data);
 }
 

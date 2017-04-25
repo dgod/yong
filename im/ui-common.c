@@ -1016,6 +1016,12 @@ static UI_FONT ui_font_parse(UI_WINDOW w,const char *s)
 
 	desc=pango_font_description_from_string(s);
 	assert(desc!=NULL);
+	// NOTE: GDK_DPI_SCALE not affect this, so scale the size by ourself
+	if(ui_scale!=1)
+	{
+		gint size=pango_font_description_get_size(desc);
+		pango_font_description_set_size(desc,(int)size*ui_scale);
+	}
 	cr=gdk_cairo_create(window);
 	res=pango_cairo_create_layout(cr);
 	cairo_destroy(cr);
@@ -1543,6 +1549,7 @@ static void ui_draw_main_win(UI_DC cr)
 
 static void ui_draw_input_win(UI_DC cr)
 {
+	double scale=InputTheme.scale!=1?ui_scale:1;
 	UI_COLOR color;
 	int count=0,i;
 	EXTRA_IM *eim=CURRENT_EIM();
@@ -1560,7 +1567,7 @@ static void ui_draw_input_win(UI_DC cr)
 		double h=InputTheme.RealHeight;
 		//int line=InputTheme.line;
 		ui_fill_rect(cr,0,0,w,h,InputTheme.bg_color);
-		ui_draw_rect(cr,0,0,w,h,InputTheme.border,InputTheme.line_width*ui_scale);
+		ui_draw_rect(cr,0,0,w,h,InputTheme.border,InputTheme.line_width*scale);
 	}
 	else/* if(InputTheme.line!=2)*/
 	{
@@ -1588,7 +1595,7 @@ static void ui_draw_input_win(UI_DC cr)
 	{
 		double w=InputTheme.RealWidth;
 		double h=InputTheme.Height;
-		ui_draw_line(cr,4,h/2-1,w-7,h/2-1,InputTheme.sep,InputTheme.line_width*ui_scale);
+		ui_draw_line(cr,4,h/2-1,w-7,h/2-1,InputTheme.sep,InputTheme.line_width*scale);
 	}
 
 	if(eim && eim->StringGet[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))

@@ -781,6 +781,7 @@ banyuan 半圆
 banyue 半月
 banyuekan 半月刊
 banyun 搬运
+banyungong 搬运工
 banzhang 班长
 banzhe 伴着 板着
 banzhebanyan 半遮半掩
@@ -10051,6 +10052,7 @@ guizai 跪在 贵在
 guize 规则
 guizhan 贵站
 guizhang 规章
+guizhe 跪着
 guizhong 贵重 闺中
 guizhou 贵州
 guizhousheng 贵州省
@@ -12372,6 +12374,7 @@ jiachangliduan 家长里短
 jiachao 假钞
 jiache 驾车
 jiacheng 加成
+jiachi 加持
 jiachong 甲虫 假充
 jiachoubukewaiyang 家丑不可外扬
 jiachu 家畜
@@ -24573,6 +24576,7 @@ qibing 骑兵
 qiboqi 起搏器
 qibu 起步 岂不
 qibuchengsheng 泣不成声
+qibuchuan 气不喘
 qibudayichulai 气不打一处来
 qibuguaizai 岂不怪哉
 qibushi 岂不是
@@ -29970,6 +29974,7 @@ shuichanpin 水产品
 shuichanye 水产业
 shuiche 水车
 shuicheng 水城
+shuichengxiang 谁成想
 shuichi 水池
 shuichuli 水处理
 shuidai 睡袋 水带
@@ -30827,6 +30832,7 @@ songshou 松手
 songshu 松树 松鼠
 songsi 送死
 songsongkuakua 松松垮垮
+songta 送她 送他
 songtao 松涛 松桃
 songti 宋体
 songwang 送往
@@ -36806,6 +36812,7 @@ xijiang 西江
 xijiao 洗脚 西郊 犀角
 xijiaobei 犀角杯
 xijiaomanyan 细嚼慢咽
+xijiaoshui 洗脚水
 xijie 细节 洗劫 西街
 xijielianli 喜结连理
 xijierqi 喜极而泣
@@ -37831,7 +37838,7 @@ xize 细则
 xizhan 西站
 xizhang 细账
 xizhao 夕照
-xizhe 系着
+xizhe 吸着 系着
 xizhi 细致 锡纸 系指
 xizhong 戏中
 xizhou 西周

@@ -90,13 +90,14 @@ void *gz_extract(const void *input,int len,int *olen)
 	p+=4;len-=4;
 	// ISIZE
 	int isize=(int)(p[0]|(p[1]<<8)|(p[2]<<16)|(p[3]<<24));
-	void *res=malloc(isize);
+	uint8_t *res=malloc(isize+1);
 	if(olen) *olen=isize;
 	if(isize!=l_zlib_decode(res,isize,zdata,zlen,0))
 	{
 		free(res);
 		return NULL;
 	}
+	res[isize]=0;
 	return res;
 }
 

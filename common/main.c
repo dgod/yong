@@ -105,7 +105,7 @@ static void YongResetIM_(void);
 
 static bool is_sym_in_num(int key)
 {
-	if(key&KEYM_MASK)
+	if(key&(KEYM_MASK|0x80))
 		return false;
 	return strchr(sym_in_num,key)?true:false;
 }
@@ -1208,7 +1208,7 @@ static int YongCallDict(void)
 		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
 	else
 	{
-		char cand[64];
+		char cand[128];
 		y_im_get_real_cand(eim->CandTable[eim->SelectIndex],cand,sizeof(cand));
 		y_im_url_encode(cand,temp);
 	}

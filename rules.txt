@@ -56,7 +56,7 @@ env("WINDRES:=$(CROSS_COMPILE)windres");
 env("STRIPL=$(CROSS_COMPILE)strip");
 env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
 
-env("CFLAGS+=-Wall -g -O2 -fms-extensions -fno-strict-aliasing -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
+env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
 
 env("LLIB_PATH:=$(TOPDIR)/llib");
 env("LLIB_CFLAGS:=-I$(LLIB_PATH)");

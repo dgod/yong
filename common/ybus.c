@@ -42,19 +42,25 @@ void ybus_add_plugin(YBUS_PLUGIN *plugin)
 
 int ybus_init_plugins(void)
 {
-	YBUS_PLUGIN *p;
+	YBUS_PLUGIN *p,*n;
 	int trigger;
 		
 	trigger=y_im_get_key("trigger",-1,CTRL_SPACE);
 	onspot=y_im_get_config_int("IM","onspot");
 	def_lang=y_im_get_config_int("IM","lang");
-	for(p=plugin_list;p!=NULL;p=p->next)
+	for(p=plugin_list;p!=NULL;p=n)
 	{
+		n=p->next;
 		p->config(0,0,"trigger",trigger);
 		p->config(0,0,"onspot",onspot);
 		if(0!=p->init())
-			return -1;
+		{
+			plugin_list=l_slist_remove(plugin_list,p);
+			//return -1;
+		}
 	}
+	if(l_slist_length(plugin_list)==0)
+		return -1;
 	return 0;
 }
 
