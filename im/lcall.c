@@ -192,7 +192,7 @@ static void l_call_build_path(char *path)
 static int conn_read_data(LCallConn *conn)
 {
 	gchar *buf=(gchar*)conn->buf.data+conn->buf.size;
-	gsize count=L_CALL_BUF_SIZE-conn->buf.pos;
+	gsize count=L_CALL_BUF_SIZE-conn->buf.size;
 	ssize_t bytes_read;
 	int fd=g_io_channel_unix_get_fd(conn->ch);
 	bytes_read=recv(fd,buf,count,0);
