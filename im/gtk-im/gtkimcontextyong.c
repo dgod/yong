@@ -1,6 +1,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <string.h>
+#include <dlfcn.h>
 #include "gtkimcontextyong.h"
 #include "lcall.h"
 #include "yong.h"
@@ -84,6 +85,10 @@ static GtkIMContextYong *_focus_ctx;
 static int _trigger;
 
 static guint _key_snooper_id;
+
+#if GTK_CHECK_VERSION(3,0,0)
+static gint (*p_gdk_window_get_scale_factor)(GdkWindow *window);
+#endif
 
 void gtk_im_context_yong_register_type (GTypeModule *type_module)
 {
@@ -191,6 +196,9 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   
   if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT || _app_type==APP_SUBLIME))
     _key_snooper_id=gtk_key_snooper_install(key_snooper_cb,NULL);
+#if GTK_CHECK_VERSION(3,0,0)
+  p_gdk_window_get_scale_factor=dlsym(NULL,"gdk_window_get_scale_factor");
+#endif
 }
 
 static void gtk_im_context_yong_init(GtkIMContextYong *ctx)
@@ -245,6 +253,19 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
     gdk_window_get_root_coords (ctx->client_window,
                                 area.x, area.y,
                                 &area.x, &area.y);
+#if GTK_CHECK_VERSION(3,0,0)
+	if(ctx->client_window && p_gdk_window_get_scale_factor)
+	{
+		gint scale=p_gdk_window_get_scale_factor(ctx->client_window);
+		if(scale!=1)
+		{
+			area.x*=scale;
+			area.y*=scale;
+			area.width*=scale;
+			area.height*=scale;
+		}
+	}
+#endif
 	client_set_cursor_location(ctx->id,&area);
     return FALSE;
 }

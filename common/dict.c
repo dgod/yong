@@ -240,9 +240,9 @@ static LRESULT CALLBACK dict_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam
 		switch(LOWORD(wParam)){
 		case ID_LOCAL:
 		{
-			TCHAR temp[32];
+			TCHAR temp[64];
 			if(!dict) break;
-			GetWindowText(l_entry,temp,32);
+			GetWindowText(l_entry,temp,64);
 			if(temp[0])
 			{
 				char gb[128],*res;
@@ -264,8 +264,8 @@ static LRESULT CALLBACK dict_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam
 		}
 		case ID_NETWORK:
 		{
-			TCHAR temp[32];
-			GetWindowText(l_entry,temp,32);
+			TCHAR temp[64];
+			GetWindowText(l_entry,temp,64);
 			if(temp[0])
 			{
 				char gb[128];
@@ -358,7 +358,7 @@ int dict_ui_new_real(void)
 		
 	l_entry=CreateWindowEx(WS_EX_CLIENTEDGE,WC_EDIT,_T(""),WS_CHILD|WS_VISIBLE|WS_TABSTOP,
 				0,2*scale,w-100*scale,26*scale,l_dict,0,GetModuleHandle(0),0);
-	Edit_LimitText(l_entry,32);
+	Edit_LimitText(l_entry,64);
 	y_im_str_encode(YT("±¾µØ"),temp,0);
 	l_local=CreateWindowEx(0,WC_BUTTON,temp,WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_DEFPUSHBUTTON,
 				w-100*scale,2*scale,50*scale,26*scale,l_dict,(HMENU)ID_LOCAL,GetModuleHandle(0),0);
@@ -472,7 +472,7 @@ static void dict_ui_creat(void)
 
 	l_entry=gtk_entry_new();
 	//gtk_editable_set_editable(GTK_EDITABLE(l_entry),FALSE);
-	gtk_entry_set_max_length(GTK_ENTRY(l_entry),32);
+	gtk_entry_set_max_length(GTK_ENTRY(l_entry),64);
 	//gtk_widget_set_usize(l_entry,DICT_WIDTH-100,26);
 	gtk_widget_set_size_request(l_entry,(DICT_WIDTH-110)*scale,26*scale);
 	gtk_fixed_put(GTK_FIXED(w),l_entry,0,2*scale);
