@@ -470,8 +470,8 @@ static int GetKey(int sym,int modifiers)
 		res=KEYM_ALT|toupper(res);
 	if((modifiers&0x40))
 		res=KEYM_SUPER|toupper(res);
-	if((modifiers&0x10))
-		res=KEYM_KEYPAD|toupper(res);
+	//if((modifiers&0x10))
+	//	res=KEYM_KEYPAD|toupper(res);
 	if((modifiers&0x02))
 		res=KEYM_CAPS|toupper(res);
 	
