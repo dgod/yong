@@ -540,7 +540,7 @@ GIOChannel *l_call_client_new(void)
 	
 	if(0!=connect(s,(struct sockaddr*)&sa,sizeof(sa)))
 	{
-		//printf("client conn fail %s %d\n",sa.sun_path,errno);
+		printf("yong: client conn fail %s %d %s\n",sa.sun_path,errno,strerror(errno));
 		close(s);
 		return NULL;
 	}

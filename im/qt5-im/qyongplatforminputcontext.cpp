@@ -56,6 +56,7 @@ static GSList *_ctx_list;
 static guint _ctx_id;
 static QYongPlatformInputContext *_focus_ctx;
 static int _trigger;
+static gboolean _debug;
 
 static void client_focus_in(guint id)
 {
@@ -296,6 +297,8 @@ static void client_connect(void)
 {
 	QYongPlatformInputContext *ctx;
 	GSList *p;
+	if(_debug)
+		printf("yong: connected\n");
 	if(!_ctx_list)
 		return;
 	for(p=_ctx_list;p!=NULL;p=p->next)
@@ -319,6 +322,9 @@ static void client_connect(void)
 QYongPlatformInputContext::QYongPlatformInputContext()
 {
 	//printf("QYongPlatformInputContext\n");
+	
+	if(getenv("Y_DEBUG_QT"))
+		_debug=1;
 	
 	if(_ctx_id==0)
 	{
@@ -488,6 +494,8 @@ bool QYongPlatformInputContext::filterEvent(const QEvent* event)
 			break;
 		const QKeyEvent* keyEvent = static_cast<const QKeyEvent*>(event);
 		int key=GetKey(keyEvent->nativeVirtualKey(),keyEvent->nativeModifiers());
+		if(_debug)
+			printf("yong: key %x %d\n",key,release);
 		if(!key) break;
 		if(release) key|=KEYM_UP;
 		if(!_enable)
