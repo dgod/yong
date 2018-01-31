@@ -104,7 +104,8 @@ struct y_mb_context{
 	int result_filter_ext;		/* only allow ext zi */
 	int result_filter_ci_ext;	/* allow ext ci */
 	int result_wildcard;
-	int result_compat;
+	int result_compact;
+	int result_has_next;
 	struct y_mb_item *result_first;
 	struct y_mb_index *result_index;
 	void *result_ci;
@@ -197,7 +198,7 @@ struct y_mb{
 
 	uint8_t match:1;
 	uint8_t simple:2;
-	uint8_t compat:2;
+	uint8_t compact:2;
 	uint8_t yong:2;
 	uint8_t pinyin:2;
 	uint8_t auto_clear:4;
@@ -310,7 +311,7 @@ struct y_mb_ci *y_mb_ci_exist(struct y_mb *mb,const char *data,int dic);
 int y_mb_is_good_code(struct y_mb *mb,const char *code,const char *s);
 char *y_mb_ci_string(struct y_mb_ci *ci);
 char *y_mb_ci_string2(struct y_mb_ci *ci,char *out);
-int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char *));
+int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*freq)(const char *));
 struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
 struct y_mb_ci *y_mb_get_first_zi(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c);

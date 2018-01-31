@@ -1198,12 +1198,31 @@ static int DictSet(const char *s)
 		return 0;
 	// 寻找最后一个单词的开始位置
 	p=s;
+#if 0
 	do{
 		t=strchr(p,' ');
 		if(!t)
 			break;
 		p=t+1;
 	}while(1);
+#else
+	t=p+strlen(p)-1;
+	while(t>p)
+	{
+		int c=*t;
+		if(c>='A' && c<='Z' && !(t[-1]>='A' && t[-1]<='Z'))
+		{
+			p=t;
+			break;
+		}
+		if(c==' ')
+		{
+			p=t+1;
+			break;
+		}
+		t--;
+	}
+#endif
 	// 检查最后一个字符串是否是纯英文字母组成
 	for(t=p;*t!=0;t++)
 	{

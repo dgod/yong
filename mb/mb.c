@@ -2058,10 +2058,7 @@ static inline struct y_mb_ci *mb_add_one_ci(
 					{
 						p->dic=dic;
 					}
-					// 如果返回p，同一行中其他词会跟在返回的p后面
-					// 所以返回NULL，让后面的词自动到最后去，速度会稍慢
-					// 这是位置准确性和速度的一个平衡
-					return NULL;
+					return p;
 				}
 				if(p->next==NULL)
 				{
@@ -2709,7 +2706,7 @@ static void mb_mark_simple(struct y_mb *mb)
 	struct y_mb_zi *z;
 	
 	/* 只考虑简码处理和全码不重复显示的情况 */
-	if(!mb->simple && !mb->compat)
+	if(!mb->simple && !mb->compact)
 		return;
 	/* 只考虑单字的情况 */
 	if(!mb->zi)
@@ -2750,7 +2747,7 @@ static void mb_mark_simple(struct y_mb *mb)
 				else if(mb->simple==1 || mb->simple==2)
 				{
 					/* 对“重码时隐藏简码”和“出简不出全“功能，标记简码 */
-					if(mb_zi_has_simple(z,len))
+					if(c->dic!=Y_MB_DIC_ASSIST && mb_zi_has_simple(z,len))
 					{
 						c->simp=1;
 						index->ci_count--;
@@ -2782,7 +2779,7 @@ static void mb_mark_simple(struct y_mb *mb)
 			}
 		}
 	}
-	if(mb->compat)  for(index=mb->index;index;index=index->next)
+	if(mb->compact)  for(index=mb->index;index;index=index->next)
 	{
 		struct y_mb_item *it;
 		for(it=index->item;it;it=it->next)
@@ -2928,6 +2925,8 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 				c=mb_add_one(mb,line,clen,data,dlen,Y_MB_APPEND,dic);
 				if(L_UNLIKELY(!c))
 					break;
+				// move to end, let next phrase append at end
+				while(c->next) c=c->next;
 			}
 			else
 			{
@@ -3390,11 +3389,11 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 		}
 		else if(!strncmp(line,"compat=",7))
 		{
-			mb->compat=atoi(line+7)&0x03;
+			mb->compact=atoi(line+7)&0x03;
 		}
 		else if(!strncmp(line,"compact=",8))
 		{
-			mb->compat=atoi(line+8)&0x03;
+			mb->compact=atoi(line+8)&0x03;
 		}
 		else if(!strncmp(line,"yong=",5))
 		{
@@ -3886,6 +3885,9 @@ int y_mb_has_next(struct y_mb *mb,int dext)
 {
 	struct y_mb_item *it,*p;
 	int len=strlen(mb->ctx.input);
+	
+	if(mb->ctx.result_has_next)
+		return 1;
 
 	if(mb->ass && mb->ctx.input[0]==mb->lead)
 	{
@@ -4319,7 +4321,7 @@ static int _s_item_cmpar(struct _s_item *it1,struct _s_item *it2)
 	if(m) return m;
 	return it2->f-it1->f;
 }
-int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char *))
+int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*freq)(const char *))
 {
 	int len=strlen(s);
 	struct y_mb_index *index;
@@ -4331,7 +4333,7 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char
 
 	if(len<=1) return 0;
 	
-	array=l_array_new(51,sizeof(struct _s_item));	
+	array=l_array_new(26,sizeof(struct _s_item));	
 	index_val=mb_ci_index(mb,s,1,0);
 	for(index=mb->index;index;index=index->next)
 	{
@@ -4356,10 +4358,10 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char
 				item.f=(freq && ci->len<15)?freq(c):0;
 				item.m=(ci->len==2*len);
 				l_array_insert_sorted(array,&item,(LCmpFunc)_s_item_cmpar);
-				if(!freq && array->len>50)
-					array->len=50;
-				if(freq && array->len>20)
-					array->len=20;
+				if(!freq && array->len>25)
+					array->len=25;
+				if(freq && array->len>10)
+					array->len=10;
 			}
 		}
 	}
@@ -4378,6 +4380,8 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int (*freq)(const char
 	}
 	out[len]=0;
 	l_array_free(array,NULL);
+	if(out_len)
+		*out_len=len+1;
 	return ret;
 }
 
@@ -4487,10 +4491,10 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 				if(filter_zi && !c->zi) continue;
 				if(c->zi && mb->simple && c->simp) continue;
 				if(filter_ext && c->zi && !c->ext) continue;
-				if(ctx->result_compat==0)
+				if(ctx->result_compact==0)
 				{
-					if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
-					if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
+					if(c->zi && mb->compact && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
+					if(!c->zi && mb->compact && clen>len+mb->compact-1) continue;
 				}
 				if(extern_match && !extern_match(mb,c,len,sep)) continue;
 				
@@ -4653,6 +4657,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 	int assist_mode;
 
 	ctx->result_dummy=0;
+	ctx->result_has_next=0;
 	if(mb->ctx.result_ci!=NULL)
 	{
 		l_ptr_array_free(mb->ctx.result_ci,NULL);
@@ -4754,7 +4759,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 				}
 			}
 		}
-		else if(mb->match || ctx->result_match || len>base || mb->compat || ctx->result_filter_ci_ext)
+		else if(mb->match || ctx->result_match || len>base || mb->compact || ctx->result_filter_ci_ext)
 		{
 			struct y_mb_item *p;
 			if((p=index->half)!=NULL)
@@ -4780,14 +4785,22 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 					if(c->del) continue;
 					if(filter && c->zi && c->ext) continue;
 					if(c->zi && mb->simple && c->simp) continue;
+					if(extern_match && !extern_match(mb,c,len,sep)) continue;
 					if(!item)
 					{
 						item=p;
 						index_first=index;
 					}
-					if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
-					if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
-					if(extern_match && !extern_match(mb,c,len,sep)) continue;
+					if(c->zi && mb->compact && c->simp && clen>len && mb_simple_exist(mb,s,len,c))
+					{
+						ctx->result_has_next=1;
+						continue;
+					}
+					if(!c->zi && mb->compact && clen>len+mb->compact-1)
+					{
+						ctx->result_has_next=1;
+						continue;
+					}
 					count++;
 					if(c->zi)
 						count_zi++;
@@ -4800,7 +4813,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 					}
 					if((mb->match || ctx->result_match) && index->index!=index_val)
 						break;
-					if(mb->compat && len==1 && clen!=1)
+					if(mb->compact && len==1 && clen!=1)
 						break;
 				}
 				if(ctx->result_filter_zi)
@@ -4814,7 +4827,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 				{
 					break;
 				}
-				if(mb->compat && len==1 && clen!=1)
+				if(mb->compact && len==1 && clen!=1)
 				{
 					/* not detect if found at this index, so problem
 					 * will happen, when first item have no valid 
@@ -4859,16 +4872,16 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 		ctx->result_dummy=1;
 		return 1;
 	}
-	if(!count && item && mb->compat && !wildcard)
+	if(!count && item && mb->compact && !wildcard)
 	{
 		/* in compact mode, if nothing found, but have normal match,
 		 * just use the first normal match one */
 		count=1;
-		ctx->result_compat=1;
+		ctx->result_compact=1;
 	}
 	else
 	{
-		ctx->result_compat=0;
+		ctx->result_compact=0;
 	}
 
 	if(count)
@@ -5137,18 +5150,18 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 					if(c->zi && mb->simple && c->simp) continue;
 					/* 只要非常用汉字，而当前非字或者是常用汉字 */
 					if(filter_ext && c->zi && !c->ext) continue;
-					if(ctx->result_compat==0)
-					{
-						if(c->zi && mb->compat && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
-						if(!c->zi && mb->compat && clen>len+mb->compat-1) continue;
-					}
 					if(extern_match && !extern_match(mb,c,len,sep)) continue;
+					if(ctx->result_compact==0)
+					{
+						if(c->zi && mb->compact && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
+						if(!c->zi && mb->compact && clen>len+mb->compact-1) continue;
+					}
 					/* 跳过不需要取的部分 */
 					if(skip<at)
 					{
 						skip++;
 						/* 在一简的时候，每一个非完全匹配的编码只需要一个 */
-						if(mb->compat && len==1 && clen!=1) break;
+						if(mb->compact && len==1 && clen!=1) break;
 						continue;
 					}
 					y_mb_ci_string2(c,cand[got]);
@@ -5168,11 +5181,11 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 					}
 					got++;
 					if(got==num) break;
-					if(mb->compat && len==1 && clen!=1)
+					if(mb->compact && len==1 && clen!=1)
 						break;
 				}
 				if(got==num) break;
-				if(mb->compat && len==1 && clen!=1)
+				if(mb->compact && len==1 && clen!=1)
 					break;
 			}
 			if(got==num) break;
@@ -6001,8 +6014,8 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 			fprintf(fp,"english=1\n");
 		if(mb->simple)
 			fprintf(fp,"simple=%d\n",mb->simple);
-		if(mb->compat)
-			fprintf(fp,"compact=%d\n",mb->compat);
+		if(mb->compact)
+			fprintf(fp,"compact=%d\n",mb->compact);
 		if(mb->yong)
 			fprintf(fp,"yong=%d\n",mb->yong);
 		if(mb->pinyin)

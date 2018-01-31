@@ -1426,7 +1426,7 @@ static inline int zrm_csh_mohu(int in,int out)
 struct _p_item{struct y_mb_ci *c;int f;int m;};
 static int _p_item_cmpar(struct _p_item *it1,struct _p_item *it2)
 {int m=it2->m-it1->m;if(m) return m;return it2->f-it1->f;}
-static int predict_quanpin_simple(struct y_mb *mb,py_item_t *item,int count,char *out)
+static int predict_quanpin_simple(struct y_mb *mb,py_item_t *item,int count,char *out,int *out_len)
 {
 	int ret,len;
 	char temp[128];
@@ -1443,7 +1443,7 @@ static int predict_quanpin_simple(struct y_mb *mb,py_item_t *item,int count,char
 	if(!(c=strchr(temp,'\'')) || !c[1])
 		return 0;
 	
-	array=l_array_new(51,sizeof(struct _p_item));
+	array=l_array_new(26,sizeof(struct _p_item));
 retry:
 	n=trie_iter_path_first(&iter,trie,NULL,64);
 	while(n!=NULL)
@@ -1473,10 +1473,10 @@ retry:
 				item.f=(l_predict_data && ci->len<15)?ci_freq_get(c):0;
 				item.m=(ci->len==depth);
 				l_array_insert_sorted(array,&item,(LCmpFunc)_p_item_cmpar);
-				if(!l_predict_data && array->len>50)
-					array->len=50;
-				if(l_predict_data && array->len>20)
-					array->len=20;
+				if(!l_predict_data && array->len>25)
+					array->len=25;
+				if(l_predict_data && array->len>10)
+					array->len=10;
 			}
 		}
 		n=trie_iter_path_next(&iter);
@@ -1509,6 +1509,8 @@ retry:
 	}
 	out[len]=0;
 	l_array_free(array,NULL);
+	if(out_len)
+		*out_len=len+1;
 	return ret;
 }
 
@@ -1622,6 +1624,10 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	int len;
 	int tmp;
 	char temp[256];
+	
+	char simple_data[256];
+	int simple_count=0;
+	int simple_size;
 
 	mm.mb=mb;
 	mm.setence_begin=begin;
@@ -1637,13 +1643,14 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 		{
 			mm.count=py_parse_sp_simple(s,mm.input);
 			if(mm.count>1)
-				len=predict_quanpin_simple(mb,mm.input,mm.count,out);
+				simple_count=predict_quanpin_simple(mb,mm.input,mm.count,simple_data,&simple_size);
 			else
-				len=y_mb_predict_simple(mb,temp,out,l_predict_data?ci_freq_get:0);
-			if(len>0)
+				simple_count=y_mb_predict_simple(mb,temp,simple_data,&simple_size,l_predict_data?ci_freq_get:0);
+			if(simple_count>0)
 			{
+				memcpy(out,simple_data,simple_size);
 				s[caret]=tmp;
-				return len;
+				return simple_count;
 			}
 		}
 		len=py_conv_from_sp(s,temp,sizeof(temp),'\'');
@@ -1701,16 +1708,19 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	}
 	
 	py_build_string(temp,mm.input,mm.count);
-	//printf("%s\n",temp);
 	py_prepare_string(temp,temp,0);
 
 	if(!l_predict_sp && l_predict_simple)
 	{
 		if(mb->trie)
-			len=predict_quanpin_simple(mb,mm.input,mm.count,out);
+			simple_count=predict_quanpin_simple(mb,mm.input,mm.count,simple_data,&simple_size);
 		else
-			len=y_mb_predict_simple(mb,temp,out,l_predict_data?ci_freq_get:0);
-		if(len>0) return len;
+			simple_count=y_mb_predict_simple(mb,temp,simple_data,&simple_size,l_predict_data?ci_freq_get:0);
+		if(simple_count>0)
+		{
+			memcpy(out,simple_data,simple_size);
+			return simple_count;
+		}
 	}
 
 	mm.cand=out;

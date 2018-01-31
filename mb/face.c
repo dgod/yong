@@ -120,6 +120,7 @@ static void *assoc_handle;
 
 static short tip_exist;
 static short tip_simple;
+static short tip_main;
 
 static short zi_output;
 
@@ -406,6 +407,7 @@ static int TableInitReal(const char *arg)
 	
 	tip_exist=TableGetConfigInt(0,"tip_exist",0);
 	tip_simple=TableGetConfigInt(0,"tip_simple",0);
+	tip_main=TableGetConfigInt("main","tip",0);
 
 	EIM.Bihua=TableGetBihuaConfig();
 	if(!mb->english)
@@ -533,7 +535,7 @@ static void DoTipWhenCommit(void)
 		{
 			zi_output=0;
 			
-			if(ap_conf.user && len>=ap_conf.begin && len<ap_conf.end)
+			if(ap_conf.user && len>=ap_conf.begin && len<=ap_conf.end)
 			{
 				struct y_mb_ci *c;
 				c=y_mb_ci_exist(mb,EIM.StringGet,Y_MB_DIC_TEMP);
@@ -1530,7 +1532,7 @@ commit_simple:
 				{
 					stop=1;
 				}
-				if(!stop && l_str_has_suffix(EIM.CandTable[0],"$SPACE"))
+				if(l_str_has_suffix(EIM.CandTable[0],"$SPACE"))
 				{
 					char *p=EIM.CandTable[0];
 					size_t len=strlen(p);
@@ -1600,6 +1602,13 @@ commit_simple:
 		{
 			zi_mode&=0x01;
 			zi_mode=!zi_mode;
+			if(tip_main)
+			{
+				if(zi_mode)
+					EIM.ShowTip("进入单字模式");
+				else
+					EIM.ShowTip("离开单字模式");
+			}
 			zi_mode|=0x02;
 			return IMR_CLEAN;
 		}
@@ -2948,6 +2957,8 @@ static int PinyinDoInput(int key)
 		int pos;
 		if(InsertMode)
 			return IMR_BLOCK;
+		if(EIM.CandWordCount==0)
+			return IMR_NEXT;
 		pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
 		if(ExtraZi.count>0 && !PhraseCalcCount && pos>=PhraseListCount-ExtraZi.count)
 		{

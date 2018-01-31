@@ -1,6 +1,6 @@
 #pragma once
 
-#include <qpa/qplatforminputcontextplugin_p.h>
+#include <QtGui/qpa/qplatforminputcontextplugin_p.h>
 
 #include "qyongplatforminputcontext.h"
 

@@ -742,7 +742,7 @@ banquanju 版权局
 banquansuoyou 版权所有
 banri 半日
 banru 搬入
-banshang 班上
+banshang 班上 搬上
 banshangdingding 板上钉钉
 banshanyao 半山腰
 banshenbusui 半身不遂
@@ -863,6 +863,7 @@ baoguang 曝光
 baogui 宝贵
 baoguo 包裹 报国
 baohan 包含 包涵 饱含
+baohanbuzhiehanji 饱汉不知饿汉饥
 baohe 饱和
 baohen 抱恨
 baohu 保护
@@ -2260,6 +2261,7 @@ bujuan 不倦
 bujubei 不具备
 bujue 不觉 不绝
 bujueyuer 不绝于耳
+bujueyutu 不绝于途
 bujun 不均
 bujuxiaojie 不拘小节
 bujuyige 不拘一格
@@ -3984,6 +3986,7 @@ chuanghu 窗户
 chuanghua 窗花
 chuanghui 创汇
 chuanghuo 闯祸
+chuanghuzhi 窗户纸
 chuangjian 创建
 chuangjiang 闯将
 chuangjilu 创纪录
@@ -4071,6 +4074,7 @@ chuantong 传统 串通
 chuantou 穿透
 chuanwei 传为
 chuanwen 传闻
+chuanwu 船坞
 chuanxi 喘息
 chuanxian 船舷
 chuanxiao 传销
@@ -5133,6 +5137,7 @@ dakuan 大款
 dakui 大亏
 dala 耷拉 打蜡
 dalai 打来 达赖
+dalangtaosha 大浪淘沙
 dalanqiu 打篮球
 dalao 打捞
 dalaoban 大老板
@@ -5609,7 +5614,7 @@ dashanghua 搭上话
 dashangnaojin 大伤脑筋
 dashatesha 大杀特杀
 dashe 大赦
-dashen 大婶
+dashen 大神 大婶
 dasheng 大声 大胜
 dashengjihu 大声疾呼
 dashequ 大社区
@@ -5676,6 +5681,7 @@ daxing 大型 打醒
 daxingqidao 大行其道
 daxingquan 大型犬
 daxinyanli 打心眼里
+daxiongbaodian 大雄宝殿
 daxiongmao 大熊猫
 daxiyang 大西洋
 daxuan 大选
@@ -5925,6 +5931,7 @@ diangong 电工
 diangu 典故
 dianguang 电光
 dianguanghuoshi 电光火石
+dianguangshihuo 电光石火
 dianhan 电焊
 dianhangong 电焊工
 dianhe 电荷 电贺
@@ -9954,6 +9961,7 @@ gugua 孤寡
 guguai 古怪
 gugualaoren 孤寡老人
 guguo 故国 古国
+guguzhuidi 呱呱坠地
 guhua 古话
 guhui 骨灰
 guhunyegui 孤魂野鬼
@@ -10419,6 +10427,7 @@ hailang 海浪
 haili 海里
 hailiang 海量
 hailin 海林
+hailu 海陆
 hailukong 海陆空
 hailun 海伦
 hailunna 海伦娜
@@ -11363,7 +11372,7 @@ houzhong 厚重
 houzhui 后缀
 houzi 猴子
 houzuo 后座
-hu 乎 护 户 忽 呼 胡 湖 互 糊 虎 壶 狐 沪 惚 浒 唬 葫 弧 蝴 囫 瑚 斛 祜 猢 鹄 醐 戽 扈 唿 笏 琥 滹 鹕 轷 烀 冱 岵 怙 鹘 槲 觳 瓠 鹱 煳 淴 胍 虍 縠
+hu 乎 护 户 忽 呼 胡 湖 互 糊 虎 壶 狐 沪 惚 浒 唬 葫 弧 蝴 囫 瑚 斛 祜 猢 鹄 醐 戽 扈 唿 笏 琥 滹 鹕 轷 烀 冱 岵 怙 鹘 槲 觳 瓠 鹱 煳 淴 胍 虍 縠 鄠
 hua 话 花 滑 化 华 划 画 哗 桦 猾 砉 铧 骅
 huabai 花白
 huaban 花瓣 滑板
@@ -11766,6 +11775,7 @@ huatu 画图
 huatuanjincu 花团锦簇
 huatuo 华佗
 huawai 画外
+huawaiyin 画外音
 huawei 化为 华为
 huaweiwuyou 化为乌有
 huawen 花纹 华文
@@ -15861,6 +15871,7 @@ kaoshan 靠山
 kaoshang 考上 犒赏
 kaosheng 考生
 kaoshi 考试
+kaoshiti 考试题
 kaoshizhidu 考试制度
 kaoti 考题
 kaotian 靠天
@@ -17286,6 +17297,7 @@ laosheng 老生
 laoshengchangtan 老生常谈
 laoshenzaizai 老神在在
 laoshi 老师 老是 老实 老式
+laoshibajiao 老实巴交
 laoshidongzhong 劳师动众
 laoshifu 老师傅
 laoshimen 老师们
@@ -21511,6 +21523,7 @@ nanchong 南充
 nanchu 难处
 nanchuan 南川
 nanciqijiu 难辞其咎
+nandadanghun 男大当婚
 nandan 男单 南丹
 nandang 难当
 nandao 难道 难倒
@@ -21706,6 +21719,7 @@ naodianbo 脑电波
 naofan 闹翻
 naoge 闹个
 naogui 闹鬼
+naoguo 闹过
 naohai 脑海
 naohen 恼恨
 naohou 脑后
@@ -21722,6 +21736,7 @@ naolilaodong 脑力劳动
 naolilaodongzhe 脑力劳动者
 naolu 瑙鲁
 naoluanzi 闹乱子
+naomanchangfei 脑满肠肥
 naomaodun 闹矛盾
 naomen 脑门
 naomenzi 脑门子
@@ -21932,7 +21947,7 @@ nengkan 能看
 nengli 能力
 nengliang 能量
 nenglinengwai 能里能外
-nengnai 能奈
+nengnai 能耐
 nengqu 能去
 nengrang 能让
 nengren 能人
@@ -22658,6 +22673,7 @@ nvbannanzhuang 女扮男装
 nvbing 女兵
 nvce 女厕
 nvdabuzhongliu 女大不中留
+nvdadangjia 女大当嫁
 nvdan 女单
 nvdashibabian 女大十八变
 nvde 女的
@@ -24912,11 +24928,13 @@ qinggan 情感
 qinggang 轻钢 青冈
 qinggao 清高
 qingge 情歌
+qinggemanwu 轻歌曼舞
 qinggenshenzhong 情根深种
 qinggong 庆功 轻工 请功 轻功
 qinggongbu 轻工部
 qinggongchanpin 轻工产品
 qinggonghui 庆功会
+qinggongjiu 庆功酒
 qinggongju 轻工局
 qinggongxi 清宫戏
 qinggongye 轻工业
@@ -26433,6 +26451,7 @@ renwuhua 人物画
 renwukeren 忍无可忍
 renwulan 任务栏
 renwumiaoxie 人物描写
+renwurenliu 人五人六
 renwushu 任务书
 renwuwanren 人无完人
 renwuzhi 人物志
@@ -28317,6 +28336,7 @@ shenggao 升高
 shengge 升格
 shenggen 生根
 shenggu 圣姑
+shengguadanzi 生瓜蛋子
 shengguan 升官
 shengguanfacai 升官发财
 shengguang 圣光 声光
@@ -29688,6 +29708,7 @@ shouxiang 首相 手相 受降
 shouxiao 收效 瘦小
 shouxidaibiao 首席代表
 shouxie 手写
+shouxihu 瘦西湖
 shouxin 手心 守信
 shouxing 寿星 受刑 兽性
 shouxinren 收信人
@@ -30282,6 +30303,7 @@ shuobuguoqu 说不过去
 shuobulai 说不来
 shuobuqing 说不清
 shuobushang 说不上
+shuobushanghua 说不上话
 shuobuzhun 说不准
 shuochang 说唱
 shuocheng 说成
@@ -30568,6 +30590,7 @@ sijiache 私家车
 sijiao 死角 四角 嘶叫 私交
 sijidu 四季度
 sijie 四届
+sijin 丝巾
 sijiu 四旧 私酒
 sijiyingbei 死记硬背
 sijuji 司局级
@@ -33402,6 +33425,7 @@ tukou 吐口
 tukuman 土库曼
 tukumansitan 土库曼斯坦
 tulao 徒劳
+tulaowugong 徒劳无功
 tule 吐了 涂了
 tuli 图例 土里
 tuliao 涂料
@@ -35151,6 +35175,7 @@ wulian 五莲
 wuliang 无量 无良 五两 屋梁
 wuliangshoufo 无量寿佛
 wuliangye 五粮液
+wulianwang 物联网
 wuliao 无聊 物料
 wulibuqizao 无利不起早
 wuliguangxue 物理光学
@@ -36084,6 +36109,7 @@ xianxingzhe 先行者
 xianxingzhengce 现行政策
 xianxingzhidu 现行制度
 xianxue 鲜血 献血
+xianxuexianmai 现学现卖
 xianxuezhe 先学着 献血者
 xianya 县衙
 xianyan 鲜艳 显眼
@@ -36284,6 +36310,7 @@ xiaokangshenghuo 小康生活
 xiaokangshuiping 小康水平
 xiaoke 小可
 xiaokong 小孔
+xiaokouchangkai 笑口常开
 xiaokuai 小块
 xiaokuang 小筐
 xiaola 笑啦
@@ -36452,6 +36479,7 @@ xiaoya 小鸭
 xiaoyan 消炎 硝烟 小燕
 xiaoyang 小样
 xiaoyanmiman 硝烟弥漫
+xiaoyanyao 消炎药
 xiaoyao 逍遥 小妖
 xiaoyaozizai 逍遥自在
 xiaoye 宵夜 笑靥
@@ -38304,6 +38332,7 @@ xunyan 巡演
 xunyang 驯养 旬阳
 xunyangjian 巡洋舰
 xunye 巡夜
+xunyicao 薰衣草
 xunyu 逊于
 xunzang 殉葬
 xunzhan 巡展
@@ -38448,6 +38477,7 @@ yalishanda 亚历山大
 yalishiduode 亚里士多德
 yalujiang 鸭绿江
 yaluzangbujiang 雅鲁藏布江
+yalvjiang 鸭绿江
 yama 亚麻
 yamaijia 牙买加
 yamaxun 亚马逊
@@ -39182,6 +39212,7 @@ yehen 也很
 yehu 业户
 yehua 液化 野花
 yehuaqi 液化气
+yehuaqiguan 液化气罐
 yehuaqizhan 液化气站
 yehuashiyouqi 液化石油气
 yehuchan 野狐禅
@@ -40332,6 +40363,7 @@ yishanglai 一上来
 yishantianhai 移山填海
 yishen 一身 一审
 yisheng 一声 一生 医生
+yishengbukeng 一声不吭
 yishengzhong 一生中
 yishenshifa 以身试法
 yishenxunzhi 以身殉职
@@ -41190,6 +41222,7 @@ youxixiangdong 由西向东
 youxu 有序
 youxuan 优选 右旋
 youxuanfa 优选法
+youxueyourou 有血有肉
 youxun 又讯
 youya 优雅 幽雅 幼芽
 youyan 油烟 右眼
@@ -41781,7 +41814,7 @@ yulian 雨帘
 yuliang 雨量 余粮
 yuliao 预料 余料
 yulie 欲裂 渔猎
-yulin 鱼鳞 雨林
+yulin 鱼鳞 雨林 榆林
 yuling 育龄 逾龄
 yulinweishan 与邻为善
 yuliu 预留
@@ -41803,6 +41836,7 @@ yumiao 育苗 鱼苗
 yumin 渔民 裕民
 yuming 域名
 yuminzhengce 愚民政策
+yuminzhengli 与民争利
 yumizhixiang 鱼米之乡
 yumou 预谋
 yumuhunzhu 鱼目混珠
@@ -42045,6 +42079,7 @@ yuzhu 预祝
 yuzhuang 预装
 yuzixielao 与子偕老
 yuzu 遇阻 狱卒
+yuzunjianggui 纡尊降贵
 z 在 这 中 之 最
 za 杂 砸 咋 匝 扎 咱 咂 拶 啈 啐 喒 嘁 噈 囃 囋 囐 帀 桚 沞 沯 濽 灒 磼 籴 紥 紮 臜 臢 襍 鉔 雑 雜 雥 韴 魳
 zaban 咋办 杂拌
@@ -42863,6 +42898,7 @@ zhangpi 账皮
 zhangping 漳平
 zhangpu 漳浦
 zhangqi 瘴气
+zhangqian 张骞
 zhangqiu 章丘
 zhangquan 掌权
 zhangren 丈人
@@ -43073,6 +43109,7 @@ zhaodaifei 招待费
 zhaodaihui 招待会
 zhaodaisuo 招待所
 zhaodaiyuan 招待员
+zhaodanquanshou 照单全收
 zhaodao 找到 照到
 zhaodeng 照登
 zhaodezhe 找得着
@@ -44937,6 +44974,7 @@ zhuangzaiji 装载机
 zhuangzhe 装着
 zhuangzhen 装帧
 zhuangzhi 装置 壮志
+zhuangzhiweichou 壮志未酬
 zhuangzhong 庄重
 zhuangzhoumengdie 庄周梦蝶
 zhuangzhu 庄主

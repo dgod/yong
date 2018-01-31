@@ -101,7 +101,7 @@ int y_legend_get(void *handle,const char *src,int slen,
 	uint32_t pos;
 	const uint8_t *s=(const uint8_t *)src;
 	const uint8_t *end;
-	
+
 	p->src[0]=0;
 	if(slen<2 || !gb_is_gbk((uint8_t*)src) || max<1)
 		return 0;
@@ -128,7 +128,7 @@ int y_legend_get(void *handle,const char *src,int slen,
 				to[i]=c;
 			}
 			to[i]=0;
-			if(i>0 && i>dlen)
+			if(i>0 && i>=dlen)
 			{
 				count++;
 				if(count>=max) break;

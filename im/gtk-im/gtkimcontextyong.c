@@ -14,7 +14,8 @@ enum{
 	APP_MOZILLA,
 	APP_GEANY,
 	APP_GEDIT,
-	APP_SUBLIME
+	APP_SUBLIME,
+	APP_CHROME
 };
 
 struct _GtkIMContextYong{
@@ -161,6 +162,12 @@ static int check_app_type(void)
 		type=APP_SUBLIME;
 		goto out;
 	}
+	else if(strstr(exec,"chromium-browser") || strstr(exec,"chrome")
+		||strstr(exec,"opera") || strstr(exec,"vivaldi"))
+	{
+		type=APP_CHROME;
+		goto out;
+	}
   }
 out:
   return type;
@@ -254,7 +261,7 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
                                 area.x, area.y,
                                 &area.x, &area.y);
 #if GTK_CHECK_VERSION(3,0,0)
-	if(ctx->client_window && p_gdk_window_get_scale_factor)
+	if(ctx->client_window && p_gdk_window_get_scale_factor && ctx->app_type!=APP_CHROME)
 	{
 		gint scale=p_gdk_window_get_scale_factor(ctx->client_window);
 		if(scale!=1)

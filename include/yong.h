@@ -128,6 +128,8 @@ typedef struct {
 #define KEYM_UP		0x0400000
 #define KEYM_VIRT	0x0800000
 #define KEYM_CAPS	0x1000000
+#define KEYM_ON		0x0000000
+#define KEYM_OFF	KEYM_UP
 
 #define YK_CODE(x)	((x)&0xffff)
 
@@ -233,7 +235,11 @@ typedef struct {
 #define YK_VIRT_DEL		(KEYM_VIRT|3)
 #define YK_VIRT_REFRESH	(KEYM_VIRT|4)
 #define YK_VIRT_TIP		(KEYM_VIRT|5)
+#define YK_VIRT_TRIGGER	(KEYM_VIRT|6)
 #define YK_VIRT_SELECT	(KEYM_VIRT|10)
 #define YK_VIRT_CARET	(KEYM_VIRT|20)
+
+#define YK_VIRT_TRIGGER_ON	(KEYM_ON|YK_VIRT_TRIGGER)
+#define YK_VIRT_TRIGGER_OFF	(KEYM_OFF|YK_VIRT_TRIGGER)
 
 #endif/*_YONG_H_*/

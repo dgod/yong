@@ -588,8 +588,12 @@ function detect_path()
 		PATH_LIB32=/usr/lib
 	else
 		if [ -d /usr/lib64 ]; then
-			PATH_LIB32=/usr/lib
-			PATH_LIB64=/usr/lib64
+			if [ -e /lib/ld-linux.so.2 ] ; then
+				PATH_LIB32=/usr/lib
+			fi
+			if [ -e /lib64/ld-linux-x86-64.so.2 ] ; then
+				PATH_LIB64=/usr/lib64
+			fi
 			if [ -d /usr/lib32 ]; then
 				PATH_LIB32N=/usr/lib32
 			fi
@@ -854,7 +858,7 @@ function install64()
 
 function ensure_user_root()
 {
-	if ! [ $(id -un) = "root" -a $(id -ur) -eq 0 ] ; then
+	if ! [ $(id -un) = "root" -o $(id -ur) -eq 0 ] ; then
 		echo "This command must run as root"
 		exit 1
 	fi
@@ -862,7 +866,7 @@ function ensure_user_root()
 
 function warn_user_root()
 {
-	if [ $(id -un) = "root" -a $(id -ur) -eq 0 ] ; then
+	if [ $(id -un) = "root" -o $(id -ur) -eq 0 ] ; then
 		echo "You are root now, maybe an error"
 	fi
 }

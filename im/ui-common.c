@@ -1334,8 +1334,14 @@ static int ui_button_event(UI_WINDOW win,UI_EVENT *event,UI_BTN_REAL **under)
 		}
 		break;
 	case UI_EVENT_MOVE:
-		if(last) last->state=UI_STATE_NORMAL;
-		if(cur) cur->state=UI_STATE_OVER;
+		if(last && last!=cur)
+		{
+			last->state=UI_STATE_NORMAL;
+		}
+		if(cur && cur->state!=UI_STATE_DOWN)
+		{
+			cur->state=UI_STATE_OVER;
+		}
 		break;
 	case UI_EVENT_LEAVE:
 		if(last)

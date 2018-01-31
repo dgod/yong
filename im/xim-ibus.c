@@ -715,6 +715,23 @@ int xim_ibus_preedit_draw(const char *s,int len)
 	return 0;
 }
 
+static void xim_explore_url(const char *s)
+{
+	char temp[256];
+	y_im_str_encode(s,temp,0);
+	if(y_im_is_url(temp))
+	{
+		char *args[]={"xdg-open",temp,0};
+		g_spawn_async(NULL,args,NULL,
+			G_SPAWN_SEARCH_PATH|G_SPAWN_STDOUT_TO_DEV_NULL,
+			0,0,0,0);
+	}
+	else
+	{
+		g_spawn_command_line_async(temp,NULL);
+	}
+}
+
 int y_xim_init_ibus(Y_XIM *x)
 {
 	x->init=xim_ibus_init;
@@ -727,6 +744,7 @@ int y_xim_init_ibus(Y_XIM *x)
 	x->preedit_draw=xim_ibus_preedit_draw;
 	x->get_connect=xim_ibus_get_connect;
 	x->put_connect=xim_ibus_put_connect;
+	x->explore_url=xim_explore_url;
 	x->name="ibus";
 	return 0;
 }

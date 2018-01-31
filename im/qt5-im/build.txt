@@ -22,7 +22,9 @@ env("LIBS+=-ldl -lstdc++");
 var MOC=shell("pkg-config --variable=libdir Qt5Core")+'/qt5/bin/moc';
 var LIBDIR=shell("pkg-config --variable=libdir Qt5Core");
 var INCDIR=shell("pkg-config --variable=includedir Qt5Core");
-env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui/`);
+env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
+env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
+env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
 env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${LIBDIR}/qt5/mkspecs/linux-g++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore`);
 env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
 

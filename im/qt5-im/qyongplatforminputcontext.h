@@ -1,6 +1,6 @@
 #pragma once
 
-#include <qpa/qplatforminputcontext.h>
+#include <QtGui/qpa/qplatforminputcontext.h>
 #include <QWindow>
 #include <glib.h>
 

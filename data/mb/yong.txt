@@ -3297,7 +3297,6 @@ clac 材
 clap 才
 clb 财
 clbc 财
-clbj 财办
 clbk 财宝
 clbm 采编
 clbt 此路不通
@@ -3981,7 +3980,7 @@ daty 大厅 打听
 daua 大厦
 daub 大寿 打手 大手
 daue 大赦
-dauf 大婶
+dauf 大神 大婶
 daug 大声 大胜
 dauh 打伤
 daui 大事 大师 大使 大势
@@ -5100,6 +5099,7 @@ dlmj 怠慢
 dlmk 玳瑁 骀
 dlmy 待命
 dlnm 歹念
+dloh 叠罗汉
 dlp 待
 dlpc 待
 dlpd 多伦多
@@ -5916,6 +5916,7 @@ duvp 打水漂
 duvq 多事之秋
 duvr 杜撰
 duvu 堵住 赌注
+duwj 读完
 duwu 读物
 duxd 独享
 duxn 笃信
@@ -6047,7 +6048,7 @@ dwzd 低纬度
 dx 爹 跌 叠 迭 碟 谍 蝶 喋 佚 踮 牒 耋 蹀 堞 瓞 揲 垤 鲽 绖
 dx' 东西
 dxb 爹
-dxbd 大小不等
+dxbd 大小不等 大雄宝典
 dxbk 谍报
 dxbx 爹
 dxby 大小不一
@@ -7121,6 +7122,7 @@ fhub 防守 放手
 fhue 放射
 fhuf 防身
 fhug 放生 仿生
+fhuh 放上
 fhui 方式 房事
 fhuk 放哨
 fhul 防晒 发号施令
@@ -9656,6 +9658,7 @@ gvut 硅
 gvuu 归属
 gvv 癸 簋 贵
 gvvb 贵州 贵
+gvve 跪着
 gvvh 规章
 gvvm 簋
 gvvs 贵重 闺中
@@ -10768,6 +10771,7 @@ hlbk 海报 害
 hlbm 海边
 hlbn 海滨
 hlbu 还不
+hlbw 何乐不为
 hlcg 还曾
 hlde 还得 害得
 hldi 海底 海地
@@ -11381,7 +11385,7 @@ htuw 虎头蛇尾
 htxd 欢天喜地
 htxj 滑天下之大稽
 htyw 互通有无
-hu 乎 护 户 忽 呼 胡 湖 互 糊 虎 壶 狐 沪 惚 浒 唬 葫 弧 蝴 囫 瑚 斛 祜 猢 鹄 醐 戽 扈 唿 笏 琥 滹 鹕 轷 烀 冱 岵 怙 鹘 槲 觳 瓠 鹱 煳 淴 胍 虍 縠
+hu 乎 护 户 忽 呼 胡 湖 互 糊 虎 壶 狐 沪 惚 浒 唬 葫 弧 蝴 囫 瑚 斛 祜 猢 鹄 醐 戽 扈 唿 笏 琥 滹 鹕 轷 烀 冱 岵 怙 鹘 槲 觳 瓠 鹱 煳 淴 胍 虍 縠 鄠
 hu; 湖 沪 浒 滹 淴
 hu;h 沪 滹
 hu;o 湖
@@ -11535,8 +11539,9 @@ huxt 虎穴
 huxu 胡须 浑身解数
 huxx 惚
 huxy 户型
-huy 醐
+huy 醐 鄠
 huyb 忽悠
+huye 鄠
 huyh 火树银花
 huyi 狐疑
 huyj 胡言
@@ -11808,7 +11813,7 @@ hwlo 滑落
 hwlp 滑轮
 hwlq 滑溜 花柳
 hwlx 红外线
-hwly 华凌
+hwly 华凌 画外音
 hwlz 花蕾
 hwm 骅
 hwmm 画面
@@ -14448,6 +14453,7 @@ jigw 记挂
 jigz 寄给
 jih 积 季 稽 稷 嵇
 jihb 积
+jihc 家常菜
 jihd 饥荒
 jihe 集合 几何 稽核 吉合
 jihf 嫉恨
@@ -16292,7 +16298,7 @@ jwde 假的
 jwdg 甲等
 jwdh 家当
 jwdi 家底 价低
-jwdk 夹道
+jwdk 驾到 夹道
 jwdl 夹带
 jwdm 家电 加点
 jwdo 加多
@@ -16331,6 +16337,7 @@ jwia 加查 价差
 jwie 驾车
 jwig 加成
 jwih 加长 家常
+jwii 加持
 jwij 家产 蛱
 jwik 假钞
 jwip 甲醇
@@ -16747,6 +16754,7 @@ jxwz 结尾 皆为 结为 解围
 jxx 桀
 jxxa 桀
 jxxc 揭晓
+jxxd 街巷
 jxxh 机械化
 jxxi 解析 机械厂
 jxxk 军械库
@@ -18921,6 +18929,7 @@ lbjw 漏加
 lbk 喽
 lbkb 漏扣
 lbkn 喽
+lbkp 牢不可破
 lbku 蓝宝石
 lbl 耧
 lblb 四楼 走喽
@@ -21126,7 +21135,7 @@ lubc 路标
 lube 零售额
 lubf 乱收费
 lubi 卢比 留守处
-lubj 鲁班 零售价 临时抱佛脚
+lubj 鲁班 零售价 老实巴交 临时抱佛脚
 lubk 赂
 lubm 路边 炉边
 lubu 卢布 屡试不爽
@@ -23734,6 +23743,7 @@ myly 命令 明令
 myma 明码
 mymf 名门 命门
 myml 命脉
+mymo 明末
 mymu 名目 明目 瞑目
 mymy 命名 明明 冥冥
 mymz 明媚
@@ -24176,6 +24186,8 @@ ndau 娜达莎
 ndbg 年度报告
 ndbl 女大不中留
 ndby 娘病
+nddh 男大当婚
+nddj 女大当嫁
 ndeq 弄得清
 nder 娘儿
 ndge 南丁格尔
@@ -24610,6 +24622,7 @@ njyt 南乐
 njyu 难于
 njyy 男婴
 njzi 男子
+njzo 难做
 nk 脑 闹 恼 挠 瑙 淖 呶 猱 铙 孬 硇 蛲 垴
 nk; 淖
 nk;v 淖
@@ -24793,6 +24806,7 @@ nmhu 那么回事
 nmhv 年会 黏
 nmhw 年画 年华
 nmi 辗
+nmif 脑满肠肥
 nmig 年成
 nmih 年长
 nmij 年产
@@ -25208,6 +25222,7 @@ nurs 怒容
 nuse 怒色
 nuui 怒视
 nuvr 纳税人
+nuww 内圣外王
 nuxv 逆水行舟
 nuxy 奴性
 nuyi 奴役
@@ -27629,6 +27644,7 @@ qgjl 清规戒律
 qgjq 前功尽弃
 qgjx 勤工俭学
 qgjz 枪杆子
+qgmw 轻歌曼舞
 qgoi 全过程
 qgox 全国性
 qgqi 倾国倾城
@@ -31019,6 +31035,7 @@ siiu 四处
 sij 锶
 sijc 死角 四角 嘶叫 私交
 siji 死机 司机 四季 四级 死寂 伺机
+sijn 丝巾
 sijq 四旧 私酒
 sijw 四家
 sijx 四届 锶
@@ -32698,6 +32715,7 @@ thuh 烫伤
 thui 唐诗 倘使
 thuj 唐山
 thuk 汤勺
+thul 糖葫芦
 thup 饧
 thut 堂
 thuu 躺
@@ -33332,6 +33350,7 @@ tlve 抬着
 tlvh 台长
 tlvl 天伦之乐
 tlvs 太重 台中
+tlwg 徒劳无功
 tlwj 台湾 太晚
 tlwx 脱离危险
 tlwz 台位
@@ -33827,6 +33846,7 @@ tsfg 通风 痛风
 tsfh 同房
 tsfr 统分
 tsfu 同付
+tsfv 胎死腹中
 tsfy 捅
 tsfz 铜肥
 tsgb 统购
@@ -43846,6 +43866,7 @@ xkch 信口雌黄
 xkej 新科技
 xkev 许可证
 xkfl 学科分类
+xkik 笑口常开
 xkkh 信口开河
 xklu 新开设
 xkly 新开业
@@ -45707,7 +45728,7 @@ xxwz 象形文字
 xxx 懈
 xxxg 息息相关
 xxxi 歇息 血洗
-xxxm 斜线
+xxxm 斜线 现学现卖
 xxxn 写信 谢谢你 懈
 xxxr 欣欣向荣
 xxxt 线性系统 信息系统
@@ -49745,6 +49766,7 @@ yzid 原子弹
 yzij 扬子江
 yzin 原子能
 yziy 养尊处优
+yzjg 纡尊降贵
 yzli 原则立场
 yzlv 一走了之
 yzmh 油渍麻花

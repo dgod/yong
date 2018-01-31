@@ -45,6 +45,8 @@ char key_select_n[11];
 static char **sym_select;
 static int sym_select_count;
 static int key_cnen[2]={YK_LCTRL,YK_NONE};
+static int key_corner=SHIFT_SPACE;
+static int key_biaodian=KEYM_CTRL|'.';
 static int key_switch=CTRL_LSHIFT;
 static int key_switch_default;
 static int key_switch_to[10];
@@ -786,6 +788,9 @@ void update_key_config(void)
 	key_temp_english=y_im_get_key("tEN",-1,YK_NONE);
 	if(key_temp_english>='A' && key_temp_english<='Z')
 		key_temp_english=key_temp_english-'A'+'a';
+		
+	key_corner=y_im_get_key("corner",-1,SHIFT_SPACE);
+	key_biaodian=y_im_get_key("biaodian",-1,KEYM_CTRL|'.');
 
 	key_switch=y_im_get_key("switch",-1,CTRL_LSHIFT);
 	key_s2t=y_im_get_key("s2t",-1,CTRL_ALT_F);
@@ -1103,7 +1108,11 @@ static void ShowLangTipLater(void *tip)
 	if(!id)
 		return;
 	if(!CaretUpdate)
-		id->x=id->y=POSITION_ORIG;
+	{
+		//id->x=id->y=POSITION_ORIG;
+		// FIXME: without caret, don't show the lang tip
+		return;
+	}
 	y_ui_show_tip(tip);	
 }
 
@@ -1241,8 +1250,12 @@ int YongHotKey(int key)
 	if(!key)
 		return 0;
 
-	if(key==key_trigger)
+	if(key==key_trigger || key==YK_VIRT_TRIGGER_ON || key==YK_VIRT_TRIGGER_OFF)
 	{
+		if(key==YK_VIRT_TRIGGER_ON && id->state)
+			return 0;
+		if(key==YK_VIRT_TRIGGER_OFF && !id->state)
+			return 0;
 		if(id->state)
 		{
 			y_xim_enable(0);
@@ -1275,7 +1288,7 @@ int YongHotKey(int key)
 			return 1;
 		}
 	}
-	else if(key==SHIFT_SPACE)
+	else if(key==key_corner)
 	{
 		if(id->state/* && id->lang==LANG_CN*/)
 		{
@@ -1285,7 +1298,7 @@ int YongHotKey(int key)
 			return 1;
 		}
 	}
-	else if(key==(KEYM_CTRL|'.'))
+	else if(key==key_biaodian)
 	{
 		if(id->state && id->lang==LANG_CN)
 		{
@@ -1749,7 +1762,7 @@ IMR_TEST:
 				{
 					y_ui_input_draw();
 				}
-				if(im.InAssoc)
+				if(im.InAssoc && enter_mode!=1)
 				{
 					YongResetIM();
 					return 0;

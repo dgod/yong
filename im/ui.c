@@ -2045,7 +2045,7 @@ void ui_show_tip(const char *fmt,...)
 	gtk_widget_show(tip);
 	if(tip_timer_id>0)
 		g_source_remove(tip_timer_id);
-	tip_timer_id=g_timeout_add(1500,(GSourceFunc)on_tip_timeout,tip);
+	tip_timer_id=g_timeout_add(1000,(GSourceFunc)on_tip_timeout,tip);
 }
 
 #if 0

@@ -2,9 +2,9 @@
 #include <QKeyEvent>
 #include <QInputMethod>
 #include <QTextCharFormat>
-#include <qpa/qplatformscreen.h>
-#include <qpa/qplatformcursor.h>
-#include <qpa/qwindowsysteminterface.h>
+#include <QtGui/qpa/qplatformscreen.h>
+#include <QtGui/qpa/qplatformcursor.h>
+#include <QtGui/qpa/qwindowsysteminterface.h>
 
 #include <xkbcommon/xkbcommon.h>
 #include <dlfcn.h>
