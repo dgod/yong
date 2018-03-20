@@ -1597,7 +1597,7 @@ void y_im_str_encode_r(const void *in,char *gb)
 #endif
 }
 
-void y_im_url_encode(char *gb,char *out)
+void y_im_url_encode(const char *gb,char *out)
 {
 	int i;
 	char temp[256];

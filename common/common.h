@@ -53,7 +53,7 @@ void y_im_str_encode_r(const void *in,char *gb);
 int y_im_strip_key(char *gb);
 void y_im_load_punc(void);
 int y_im_forward_key(const char *s);
-void y_im_url_encode(char *gb,char *out);
+void y_im_url_encode(const char *gb,char *out);
 int y_im_go_url(const char *s);
 int y_im_send_file(const char *s);
 int y_im_str_desc(const char *s,void *out);
@@ -155,6 +155,7 @@ void *y_dict_open(const char *file);
 void y_dict_close(void *p);
 char *y_dict_query(void *p,char *s);
 int y_dict_query_and_show(void *p,char *s);
+int y_dict_query_network(const char *s);
 
 void y_im_debug(char *fmt,...);
 

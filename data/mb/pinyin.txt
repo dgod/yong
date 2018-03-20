@@ -2227,6 +2227,7 @@ bujiangtiaojian 不讲条件
 bujianguancaibuluolei 不见棺材不落泪
 bujiantuzibusaying 不见兔子不撒鹰
 bujiao 不叫 补交 不交
+bujiaoerzhu 不教而诛
 bujiasisuo 不假思索
 bujibuxu 不疾不徐
 bujibuzao 不急不躁
@@ -22602,6 +22603,7 @@ nuanrongrong 暖融融
 nuanse 暖色
 nuanshi 暖室
 nuantong 暖通
+nuanxin 暖心
 nuanyangyang 暖洋洋
 nuanyi 暖意
 nubi 奴婢
@@ -32202,6 +32204,7 @@ tianyang 田阳
 tianyanmiyu 甜言蜜语
 tianye 田野
 tianyi 天意
+tianyiliang 天一亮
 tianyiwufeng 天衣无缝
 tianyong 填用
 tianyoujiacu 添油加醋
@@ -32940,6 +32943,7 @@ tongwei 同为 通渭
 tongwu 痛恶
 tongxi 痛惜 同喜 童席
 tongxia 统辖
+tongxiajuexin 痛下决心
 tongxian 铜线
 tongxiang 通向 同乡 铜像 同享 桐乡
 tongxiao 通宵 通晓 统销
@@ -36461,6 +36465,7 @@ xiaoxianghua 肖像画
 xiaoxiangquan 肖像权
 xiaoxiao 小小 笑笑 萧萧 宵小
 xiaoxiaohuo 消消火
+xiaoxiaoqi 消消气
 xiaoxibise 消息闭塞
 xiaoxie 消协 小写 小些 小鞋
 xiaoxilingtong 消息灵通

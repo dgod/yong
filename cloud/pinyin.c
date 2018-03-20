@@ -572,13 +572,31 @@ void py_init(int split,char *sp)
 				if(!shuang) break;
 				*shuang++=0;
 				len=strcspn(shuang," ");shuang[len]=0;
-				if(len!=2)
+				if(len>2)
 				{
-					//printf("%s != 2\n",shuang);
+					printf("%s>2\n",shuang);
 					continue;
 				}
 				it.len=strlen(quan);
 				it.quan=quan;
+				if(len==0)
+				{
+					int i;
+					for(i=0;i<PY_COUNT;i++)
+					{
+						res=py_all+i;
+						if(res->yun!=it.len)
+							continue;
+						if(res->len!=it.len)
+							continue;
+						if(strcmp(res->quan,it.quan))
+							continue;
+						res->val=0;
+						//printf("mask %s\n",it.quan);
+						break;
+					}
+					continue;
+				}
 				res=bsearch(&it,py_all,PY_COUNT,sizeof(struct py_item),item_cmpr);
 				if(!res)
 				{
@@ -1271,7 +1289,7 @@ int py_conv_from_sp(const char *in,char *out,int size,int split)
 		{
 			p=*pp;
 			if(pos+p->len+1>size)
-					break;
+				break;
 			memcpy(out+pos,p->quan,p->len);
 			pos+=p->len;
 			i++;

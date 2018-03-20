@@ -1,5 +1,5 @@
 %define name		yong
-%define version		2.4.0
+%define version		2.5.0
 %define release		0
 
 %define prefix		/opt

@@ -184,7 +184,7 @@ char *y_dict_query(void *p,char *s)
 	return l_strdup(data);
 }
 
-int y_dict_query_network(char *s)
+int y_dict_query_network(const char *s)
 {
 	char url[256];
 	char temp[256];
@@ -203,7 +203,7 @@ int y_dict_query_network(char *s)
 	else
 	{
 		site=eng?"http://www.iciba.com/%s/":
-				"http://hanyu.iciba.com/hy/%s/";
+				"http://www.zdic.net/search/default.asp?q=%s";
 		sprintf(url,site,temp);
 	}
 	y_xim_explore_url(url);

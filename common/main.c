@@ -1213,7 +1213,7 @@ static int YongCallDict(void)
 		}
 	}
 #endif
-	if(im.EnglishMode)
+	/*if(im.EnglishMode)
 		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
 	else
 	{
@@ -1229,12 +1229,17 @@ static int YongCallDict(void)
 	}
 	else
 	{
-		site=im.EnglishMode?"http://www.iciba.com/%s/":
-			"http://hanyu.iciba.com/hy/%s/";
+		site=im.EnglishMode?"http://www.iciba.com/%s":
+			"http://www.zdic.net/search/default.asp?q=%s";
 		sprintf(url,site,temp);
 	}
 	y_xim_explore_url(url);
-	YongResetIM();
+	YongResetIM();*/
+	if(im.EnglishMode)
+		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
+	else
+		y_im_get_real_cand(eim->CandTable[eim->SelectIndex],temp,sizeof(temp));
+	y_dict_query_network(temp);
 	return 1;
 }
 #endif

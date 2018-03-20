@@ -235,7 +235,7 @@ bool local_assist_match(const char *p,int c)
 
 bool local_is_assist_key(int key)
 {
-	if(key<=0 || (key&0x80))
+	if(key<=0 || (key&~0x7f))
 		return false;
 	return l_assist_key[key]?true:false;
 }
