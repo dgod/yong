@@ -9,7 +9,8 @@
 系统中需要安装好相关的开发环境，比如gtk3-devel，gtk2-devel，ibus-devel，libxkbcommon-devel。
 准备好 [build.js](https://github.com/dgod/build.js)
 
-Ubuntu 下編譯：
+## Ubuntu 下編譯：
+
 - 安装基本编译工具 `apt install build-essential git`
 - 下载源码 `git clone https://github.com/dgod/yong.git`
 - 安装 lib `apt install libgtk-3-dev libgtk2.0-dev libxkbcommon-dev libibus-1.0-dev libc6-dev-amd64`
