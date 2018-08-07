@@ -14,7 +14,7 @@
 - 安装基本编译工具 `apt install build-essential git`
 - 下载源码 `git clone https://github.com/dgod/yong.git`
 - 安装 lib `apt install libgtk-3-dev libgtk2.0-dev libxkbcommon-dev libibus-1.0-dev libc6-dev-amd64`
-- 安装 [Node.js] 0.12 以上版本 (https://nodejs.org/en/download/package-manager/)
+- 安装 [Node.js](https://nodejs.org/en/download/package-manager/) 0.12 以上版本
 - 下载 `build.js`: `wget https://raw.githubusercontent.com/dgod/build.js/master/build.js`
 - 由于`git`不能存储空目录，所以下载到的源代码缺少一些目录结构，编译前需要先创建好一些目录
 ```sh
