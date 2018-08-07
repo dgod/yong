@@ -4,12 +4,12 @@
 
 小小输入法在 Linux 下开发和编译。没有测试过在其他操作系统下进行编译。
 需要是64位系统，32位系统某些模块就没法编译，需要自己手工调整。
-`gcc` 编译器，需要支持c99以上版本。clang应该也行。编译 Windows 版本需要 mingw-w64 工具链（Windows版暫時閉源）。
+`gcc` 编译器，需要支持c99以上版本。clang应该也行。编译 Windows 版本需要 mingw-w64 工具链（Windows版暂时闭源）。
 `nodejs` 需要0.12版本及以上。
 系统中需要安装好相关的开发环境，比如gtk3-devel，gtk2-devel，ibus-devel，libxkbcommon-devel。
 准备好 [build.js](https://github.com/dgod/build.js)
 
-## Ubuntu 下編譯：
+## Ubuntu 下编译：
 
 - 安装基本编译工具 `apt install build-essential git`
 - 下载源码 `git clone https://github.com/dgod/yong.git`
