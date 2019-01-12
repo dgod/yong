@@ -2145,7 +2145,7 @@ void y_im_setup_config(void)
 #if !defined(CFG_NO_HELPER)
 	char config[256];
 	char *args[3]={0,config,0};
-	char prog[256];
+	char prog[512];
 
 #ifdef _WIN32
 	char *setup="yong-config.exe";
@@ -2181,7 +2181,7 @@ void y_im_setup_config(void)
 #else
 	if(!args[0]) args[0]="notepad.exe";
 #endif
-	sprintf(prog,"%s %s",args[0],config);
+	snprintf(prog,sizeof(prog),"%s %s",args[0],config);
 
 	if(strstr(args[0],"yong-config"))
 	{

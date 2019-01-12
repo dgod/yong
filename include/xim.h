@@ -22,7 +22,7 @@ typedef struct _CONNECT_ID{
 	unsigned int trad:1;
 	unsigned int track:1;
 	unsigned int focus:1;
-	unsigned short x,y;
+	int x,y;
 	time_t last_active;
 }CONNECT_ID;
 

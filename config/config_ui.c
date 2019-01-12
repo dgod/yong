@@ -961,11 +961,11 @@ USER:
 		char *file,*name;
 		while(count<120 && (file=(char*)l_dir_read_name(dir))!=NULL)
 		{
-			sprintf(skin,"%s/%s",home,file);
+			snprintf(skin,sizeof(skin),"%s/%s",home,file);
 			if(!l_file_is_dir(skin) && !l_str_has_suffix(skin,".zip"))
 				continue;
 			l_utf8_to_gb(skin,temp,256);
-			sprintf(real,"%s/skin.ini",skin);
+			snprintf(real,sizeof(real),"%s/skin.ini",skin);
 			skin_file=l_key_file_open(real,0,NULL);
 			if(!skin_file)
 			{
@@ -1286,11 +1286,11 @@ USER:
 			const char *name;
 			if(l_str_has_suffix(file,".zip"))
 			{
-				sprintf(path,"%s/%s/entry.ini",home,file);
+				snprintf(path,sizeof(path),"%s/%s/entry.ini",home,file);
 			}
 			else if(l_str_has_suffix(file,"ini"))
 			{
-				sprintf(path,"%s/%s",home,file);
+				snprintf(path,sizeof(path),"%s/%s",home,file);
 			}
 			else
 			{

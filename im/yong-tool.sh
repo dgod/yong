@@ -127,12 +127,10 @@ function debian_install2()
 	cat >$CFG.conf <<EOF
 IM_CONFIG_SHORT="Yong Input Method"
 IM_CONFIG_LONG="Yong Input Method"
-function package_menu()
-{
+function package_menu () {
 	return 0
 }
-function package_auto()
-{
+function package_auto () {
 	return 0
 }
 EOF
@@ -456,7 +454,7 @@ function gtk_uninstall64()
 		elif [ -x /usr/bin/gtk-query-immodules-2.0 ] ;then
 			/usr/bin/gtk-query-immodules-2.0 >$GTK2_IMMODULES64
 		elif [ -x /usr/lib/$HOST_TRIPLET64/libgtk2.0-0/gtk-query-immodules-2.0 ] ; then
-			/usr/lib/$HOST_TRIPLET64/libgtk2.0-0/gtk-query-immodules-2.0 >$GTK2_IMMODULES64
+			/usr/lib/$HOST_TRIPLET64/libgtk2.0-0/gtk-query-immodules-2.0 --update-cache
 		else
 			echo "update gtk2-im cache fail"
 		fi
@@ -470,7 +468,7 @@ function gtk_uninstall64()
 		elif [ -x /usr/bin/gtk-query-immodules-3.0 ] ;then
 			/usr/bin/gtk-query-immodules-3.0 --update-cache
 		elif [ -x /usr/lib/$HOST_TRIPLET64/libgtk-3-0/gtk-query-immodules-3.0 ] ; then
-			/usr/lib/$HOST_TRIPLET64/libgtk-3-0/gtk-query-immodules-3.0 >$GTK3_IMMODULES64
+			/usr/lib/$HOST_TRIPLET64/libgtk-3-0/gtk-query-immodules-3.0 --update-cache
 		else
 			echo "update gtk3-im cache fail"
 		fi

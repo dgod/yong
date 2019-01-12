@@ -109,6 +109,7 @@ static LEARN_DATA *l_predict_data;
 static int l_force_mmseg;
 int l_predict_simple;
 int l_predict_sp;
+extern int PySwitch;
 
 void y_mb_learn_free(LEARN_DATA *data)
 {
@@ -1639,7 +1640,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	if(l_predict_sp)
 	{
 		py_prepare_string(temp,s,0);
-		if(l_predict_simple)
+		if(l_predict_simple && !PySwitch)
 		{
 			mm.count=py_parse_sp_simple(s,mm.input);
 			if(mm.count>1)
@@ -1710,7 +1711,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	py_build_string(temp,mm.input,mm.count);
 	py_prepare_string(temp,temp,0);
 
-	if(!l_predict_sp && l_predict_simple)
+	if(!l_predict_sp && l_predict_simple  && !PySwitch)
 	{
 		if(mb->trie)
 			simple_count=predict_quanpin_simple(mb,mm.input,mm.count,simple_data,&simple_size);

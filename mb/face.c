@@ -1225,6 +1225,7 @@ static int TableDoInput(int key)
 				}
 				PhraseCalcCount=0;
 				ret=IMR_COMMIT_DISPLAY;
+				DoTipWhenCommit();
 			}
 			else
 			{
@@ -1312,6 +1313,7 @@ LIST:
 				PhraseListCount=0;
 				TableGetCandWords(PAGE_FIRST);
 				ret=IMR_COMMIT_DISPLAY;
+				DoTipWhenCommit();
 				break;
 			}
 			if(auto_english && (auto_english==2 || EIM.CodeLen<=mb->len))
@@ -1376,6 +1378,7 @@ LIST:
 					SuperPhrase[0]=0;
 					PhraseCalcCount=0;
 					ret=IMR_COMMIT_DISPLAY;
+					DoTipWhenCommit();
 					break;
 				}
 			}
@@ -1394,6 +1397,7 @@ LIST:
 					SuperPhrase[0]=0;
 					PhraseCalcCount=0;
 					ret=IMR_COMMIT_DISPLAY;
+					DoTipWhenCommit();
 					break;
 				}
 			}*/
@@ -1454,6 +1458,8 @@ commit_simple:
 				strcpy(EIM.CodeInput,temp);
 				EIM.CodeLen=temp_len;
 				count=temp_count;
+				
+				DoTipWhenCommit();
 			}
 			else
 			{
@@ -1478,6 +1484,7 @@ commit_simple:
 						{
 							y_mb_auto_move(mb,EIM.CodeInput,EIM.StringGet,auto_move);
 						}
+						DoTipWhenCommit();
 					}
 					else
 					{
@@ -1681,7 +1688,7 @@ static int CodeGetCount;					// 选择了多少此拼音
 static int CodeMatch;						// 匹配的拼音长度
 static int AssistMode;						// 是否处于输入辅助码状态
 static uint8_t PinyinStep[MAX_CODE_LEN];	// 拼音切分的长度
-static uint8_t PySwitch;					// 拼音是否经过手工切分
+uint8_t PySwitch;							// 拼音是否经过手工切分
 
 
 typedef struct {
@@ -3077,6 +3084,14 @@ static int PinyinDoInput(int key)
 			PinyinMoveCaretTo(key);
 		else
 			return IMR_NEXT;
+	}
+	else if(key>=YK_VIRT_CARET && key<=YK_VIRT_CARET+MAX_CODE_LEN)
+	{
+		int i=key-YK_VIRT_CARET;
+		if(i<EIM.CodeLen)
+		{
+			EIM.CaretPos=i;
+		}
 	}
 	else
 	{

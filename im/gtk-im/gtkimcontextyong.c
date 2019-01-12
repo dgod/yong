@@ -22,8 +22,12 @@ struct _GtkIMContextYong{
 	GtkIMContext object;
 	
 	guint id;
+#if GTK_CHECK_VERSION(3,92,0)
+	GtkWidget *client_window;
+#else
 	GdkWindow *client_window;
-	
+#endif
+
 	guint has_focus:1;
 	guint use_preedit:1;
 	guint app_type:4;
@@ -37,8 +41,13 @@ static void     gtk_im_context_yong_class_init         (GtkIMContextYongClass  *
 static void     gtk_im_context_yong_class_fini         (GtkIMContextYongClass  *class);
 static void     gtk_im_context_yong_init               (GtkIMContextYong       *ctx);
 static void     gtk_im_context_yong_finalize           (GObject               *obj);
+#if GTK_CHECK_VERSION(3,92,0)
+static void     gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
+						       GtkWidget             *client_window);
+#else
 static void     gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
 						       GdkWindow             *client_window);
+#endif
 static gboolean gtk_im_context_yong_filter_keypress    (GtkIMContext          *context,
 						       GdkEventKey           *key);
 static void     gtk_im_context_yong_reset              (GtkIMContext          *context);
@@ -67,7 +76,9 @@ static void client_del_ic(guint id);
 static int GetKey(guint KeyCode,guint KeyState);
 static void ForwardKey(GtkIMContextYong *ctx,int key);
 
+#if !GTK_CHECK_VERSION(3,92,0)
 static gint key_snooper_cb(GtkWidget *widget,GdkEventKey *event,gpointer user_data);
+#endif
 
 static GObjectClass *parent_class;
 GType gtk_type_im_context_yong = 0;
@@ -85,7 +96,9 @@ static guint _ctx_id;
 static GtkIMContextYong *_focus_ctx;
 static int _trigger;
 
+#if !GTK_CHECK_VERSION(3,92,0)
 static guint _key_snooper_id;
+#endif
 
 #if GTK_CHECK_VERSION(3,0,0)
 static gint (*p_gdk_window_get_scale_factor)(GdkWindow *window);
@@ -115,11 +128,13 @@ void gtk_im_context_yong_register_type (GTypeModule *type_module)
 
 static void gtk_im_context_yong_class_fini(GtkIMContextYongClass *class)
 {
+#if !GTK_CHECK_VERSION(3,92,0)
 	if(_key_snooper_id != 0)
 	{
 		gtk_key_snooper_remove (_key_snooper_id);
 		_key_snooper_id = 0;
 	}
+#endif
 }
 
 GtkIMContext *gtk_im_context_yong_new (void)
@@ -179,7 +194,11 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   GObjectClass *gobject_class = G_OBJECT_CLASS (class);
 
   parent_class = g_type_class_peek_parent (class);
+#if GTK_CHECK_VERSION(3,92,0)
+  im_context_class->set_client_widget = gtk_im_context_yong_set_client_window;
+#else
   im_context_class->set_client_window = gtk_im_context_yong_set_client_window;
+#endif
   im_context_class->filter_keypress = gtk_im_context_yong_filter_keypress;
   im_context_class->reset = gtk_im_context_yong_reset;
   im_context_class->get_preedit_string = gtk_im_context_yong_get_preedit_string;
@@ -200,9 +219,12 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   _ctx_id=1;
   l_call_client_dispatch(client_dispatch);
   l_call_client_set_connect(client_connect);
-  
+ 
+#if !GTK_CHECK_VERSION(3,92,0)
   if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT || _app_type==APP_SUBLIME))
     _key_snooper_id=gtk_key_snooper_install(key_snooper_cb,NULL);
+#endif
+
 #if GTK_CHECK_VERSION(3,0,0)
   p_gdk_window_get_scale_factor=dlsym(NULL,"gdk_window_get_scale_factor");
 #endif
@@ -246,7 +268,10 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
 
     area = ctx->cursor_area;
     if (area.x == -1 && area.y == -1 && area.width == 0 && area.height == 0) {
-#if GTK_CHECK_VERSION (2, 91, 0)
+#if GTK_CHECK_VERSION(3,92,0)
+		area.x=0;
+		area.y+=gdk_window_get_height (gtk_widget_get_window(ctx->client_window));
+#elif GTK_CHECK_VERSION (2, 91, 0)
         area.x = 0;
         area.y += gdk_window_get_height (ctx->client_window);
 #else
@@ -257,10 +282,28 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
 #endif
     }
 
+#if GTK_CHECK_VERSION(3,92,0)
+	gdk_window_get_root_coords (gtk_widget_get_window(ctx->client_window),
+                                area.x, area.y,
+                                &area.x, &area.y);
+#else
     gdk_window_get_root_coords (ctx->client_window,
                                 area.x, area.y,
                                 &area.x, &area.y);
-#if GTK_CHECK_VERSION(3,0,0)
+#endif
+#if GTK_CHECK_VERSION(3,92,0)
+	if(ctx->client_window && p_gdk_window_get_scale_factor && ctx->app_type!=APP_CHROME)
+	{
+		gint scale=gtk_widget_get_scale_factor(ctx->client_window);
+		if(scale!=1)
+		{
+			area.x*=scale;
+			area.y*=scale;
+			area.width*=scale;
+			area.height*=scale;
+		}
+	}
+#elif GTK_CHECK_VERSION(3,0,0)
 	if(ctx->client_window && p_gdk_window_get_scale_factor && ctx->app_type!=APP_CHROME)
 	{
 		gint scale=p_gdk_window_get_scale_factor(ctx->client_window);
@@ -277,6 +320,22 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
     return FALSE;
 }
 
+#if GTK_CHECK_VERSION(3,92,0)
+static void gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
+						       GtkWidget             *client_window)
+{
+	GtkIMContextYong *ctx=GTK_IM_CONTEXT_YONG(context);
+	if(ctx->client_window)
+	{
+		g_object_unref(ctx->client_window);
+		ctx->client_window=NULL;
+	}
+	if(client_window)
+	{
+		ctx->client_window=g_object_ref(client_window);
+	}
+}
+#else
 static void gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
 						       GdkWindow             *client_window)
 {
@@ -291,20 +350,28 @@ static void gtk_im_context_yong_set_client_window  (GtkIMContext          *conte
 		ctx->client_window=g_object_ref(client_window);
 	}
 }
+#endif
 
+#if !GTK_CHECK_VERSION(3,92,0)
 static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_data)
 {
 	GtkIMContextYong *ctx=_focus_ctx;
 	if(!ctx)
 		return FALSE;
-	if((event->state&YONG_IGNORED_MASK)!=0)
+	GdkModifierType state;
+#if GTK_CHECK_VERSION(3,92,0)
+	gdk_event_get_state((GdkEvent*)event,&state);
+#else
+	state=event->state;
+#endif
+	if((state&YONG_IGNORED_MASK)!=0)
 		return FALSE;
 	if(ctx->app_type==APP_GEANY)
 	{
 		int release=(event->type == GDK_KEY_RELEASE);
 		int key;
 		int res=FALSE;
-		if((event->state&GDK_CONTROL_MASK)==0 &&
+		if((state&GDK_CONTROL_MASK)==0 &&
 					event->keyval!=GDK_KEY_Control_L &&
 					event->keyval!=GDK_KEY_Control_R &&
 					event->keyval!=GDK_KEY_Shift_L &&
@@ -364,20 +431,38 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 	}
 	return FALSE;
 }
+#endif
 
 static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEventKey *event)
 {
 	GtkIMContextYong *ctx=GTK_IM_CONTEXT_YONG(context);
+#if GTK_CHECK_VERSION(3,92,0)
+	int release=gdk_event_get_event_type((GdkEvent*)event)==GDK_KEY_RELEASE;
+#else
 	int release=(event->type == GDK_KEY_RELEASE);
+#endif
 	int key=0;
 	gboolean res=FALSE;
-	if(!ctx->has_focus && !release && !(event->state&YONG_IGNORED_MASK))
+	GdkModifierType state;
+	guint keyval;
+	guint32 event_time;
+#if GTK_CHECK_VERSION(3,92,0)
+	gdk_event_get_state((GdkEvent*)event,&state);
+	gdk_event_get_keyval((GdkEvent*)event,&keyval);
+	event_time=gdk_event_get_time((GdkEvent*)event);
+#else
+	state=event->state;
+	keyval=event->keyval;
+	event_time=event->time;
+#endif
+	if(!ctx->has_focus && !release && !(state&YONG_IGNORED_MASK))
 	{
 		gtk_im_context_yong_focus_in(context);
 	}
 
-	key=GetKey(event->keyval,event->state);
-	if(ctx->has_focus && !(event->state&YONG_IGNORED_MASK))
+
+	key=GetKey(keyval,state);
+	if(ctx->has_focus && !(state&YONG_IGNORED_MASK))
 	{
 		if(!key)
 			return FALSE;
@@ -415,11 +500,11 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			if(key==_trigger) l_call_client_connect();
 			if(_app_type==APP_MOZILLA && (key=='\r' || key==(YK_ENTER|KEYM_UP)))
 			{
-				res=client_input_key_async(ctx->id,key,event->time);
+				res=client_input_key_async(ctx->id,key,event_time);
 			}
 			else
 			{
-				res=client_input_key(ctx->id,key,event->time);
+				res=client_input_key(ctx->id,key,event_time);
 				if(key==_trigger && !release && res==0)
 				{
 					client_enable(ctx->id);
@@ -432,7 +517,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 	if(res==FALSE && !release && !(KEYM_MASK&key&~(KEYM_SHIFT|KEYM_KEYPAD|KEYM_CAPS)))
 	{
 		gunichar ch;
-		ch=gdk_keyval_to_unicode(event->keyval);
+		ch=gdk_keyval_to_unicode(keyval);
 		if(ch!=0)
 		{
 			gchar buf[10];
@@ -930,7 +1015,9 @@ static guint16 lookup_keycode(GtkIMContextYong *ctx,guint keyval)
 	guint16 res=0;
 	if(keyval!=GDK_KEY_BackSpace)
 		return 0;
-#if GTK_CHECK_VERSION(3,0,0)
+#if GTK_CHECK_VERSION(3,92,0)
+	dpy=gtk_widget_get_display(ctx->client_window);
+#elif GTK_CHECK_VERSION(3,0,0)
 	if(ctx->client_window)
 		dpy=gdk_window_get_display(ctx->client_window);
 	else
@@ -947,6 +1034,16 @@ static guint16 lookup_keycode(GtkIMContextYong *ctx,guint keyval)
 	return res;
 }
 
+#if GTK_CHECK_VERSION(3,92,0)
+static GdkEventKey *
+_create_gdk_event (GtkIMContextYong *ctx,
+                   guint keyval,
+                   guint state)
+{
+	// TODO: gtk4 not provide api to create the event now
+	return NULL;
+}
+#else
 static GdkEventKey *
 _create_gdk_event (GtkIMContextYong *ctx,
                    guint keyval,
@@ -1031,6 +1128,7 @@ _create_gdk_event (GtkIMContextYong *ctx,
 out:
     return event;
 }
+#endif
 
 static void ForwardKey(GtkIMContextYong *ctx,int key)
 {
@@ -1041,8 +1139,13 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	if(key==CTRL_V && ctx->client_window)
 	{
 		GtkWidget *widget;
+#if GTK_CHECK_VERSION(3,92,0)
+		widget=ctx->client_window;
+		if(GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget))
+#else
 		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
 		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
+#endif
 		{
 			g_signal_emit_by_name(widget,"paste-clipboard",NULL);
 			return;
@@ -1051,8 +1154,13 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	if(key==YK_LEFT && ctx->client_window)
 	{
 		GtkWidget *widget;
+#if GTK_CHECK_VERSION(3,92,0)
+		widget=ctx->client_window;
+		if(GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget))
+#else
 		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
 		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
+#endif
 		{
 			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
 			return;
@@ -1089,6 +1197,9 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 		state|=GDK_RELEASE_MASK;
 	
 	event=_create_gdk_event(ctx,keyval,state);
-	gdk_event_put ((GdkEvent *)event);
-    gdk_event_free ((GdkEvent *)event);
+	if(event!=NULL)
+	{
+		gdk_event_put ((GdkEvent *)event);
+		gdk_event_free ((GdkEvent *)event);
+	}
 }

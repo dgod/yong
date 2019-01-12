@@ -1,2 +1,2 @@
 #pragma once
-#define YONG_VERSION "2018-3-4 13:59"
+#define YONG_VERSION "2019-1-12 10:39"

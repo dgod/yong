@@ -1212,6 +1212,7 @@ bjdw 班
 bjdx 北京大学
 bje 阪
 bjef 阪
+bjev 不教而诛
 bjf 扮 搬 拌 扳
 bjfa 办法 颁发
 bjfb 拌
@@ -1309,7 +1310,7 @@ bjtu 版图
 bjty 不见兔子不撒鹰
 bjub 扳手 不具备
 bjug 半生
-bjuh 班上
+bjuh 班上 搬上
 bjui 办事
 bjuj 北京时间
 bjuu 半数
@@ -3980,7 +3981,7 @@ daty 大厅 打听
 daua 大厦
 daub 大寿 打手 大手
 daue 大赦
-dauf 大神 大婶
+dauf 大婶
 daug 大声 大胜
 dauh 打伤
 daui 大事 大师 大使 大势
@@ -8271,7 +8272,7 @@ gfzi 根子
 gfzl 跟在
 gfzs 跟踪
 gfzu 孤芳自赏
-gg 更 耿 耕 颈 庚 羹 梗 哽 赓 鲠 埂 绠 鹒
+gg 更 耿 耕 颈 庚 羹 梗 哽 赓 粳 鲠 埂 绠 鹒
 gg' 刚刚
 gga 梗 更
 ggag 梗
@@ -8313,7 +8314,10 @@ gglj 耕
 ggll 光怪陆离
 gglr 孤寡老人
 gglu 滚瓜烂熟
+ggm 粳
 ggma 耿马
+ggmg 粳
+ggmi 粳米
 ggmy 更名
 ggng 更能
 ggnj 更难
@@ -9903,6 +9907,7 @@ hbft 魂不附体
 hbfx 还本付息
 hbg 骺
 hbgh 骺
+hbgl 后盖
 hbgo 后果
 hbgs 后宫
 hbhr 后患
@@ -13358,6 +13363,7 @@ irvk 船
 irvv 巛
 irvw 趁人之危
 irwf 传闻
+irwu 船坞
 irx 舛 惴
 irxc 传销
 irxe 惴
@@ -34443,7 +34449,7 @@ txjn 贴近 贴金
 txju 痛心疾首 铁
 txjv 帖
 txjw 铁甲 铁架
-txjx 天劫
+txjx 天劫 痛下决心
 txkd 铁矿
 txky 铁块
 txlb 袒胸露背
@@ -38110,6 +38116,7 @@ vdpj 装盘
 vdpm 撞骗
 vdpz 装配
 vdql 正当权利
+vdqu 照单全收
 vdqy 正当权益
 vdr 僮
 vdrl 僮
@@ -45819,6 +45826,7 @@ xyhv 幸会 行贿
 xyhw 兴化 杏花
 xyhy 喜洋洋
 xyib 腥臭 下一步
+xyic 薰衣草
 xyid 下一代 新一代
 xyie 行车
 xyif 星辰 嫌疑犯 洗衣粉 心悦诚服
@@ -49465,7 +49473,7 @@ yxxd 由西向东
 yxxu 由下向上 有消息说
 yxxx 英雄形象
 yxyd 一心一德 英雄有用武之地
-yxyr 一行人
+yxyr 一行人 有血有肉
 yxys 烟消云散 欲仙欲死
 yxyu 越陷越深
 yxyv 言行一致

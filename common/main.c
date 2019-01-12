@@ -1013,7 +1013,6 @@ void YongMoveInput(int x,int y)
 	if(!id) return;
 	
 	CaretUpdate=true;
-	
 	if(RootMode)
 	{
 		if(id->x!=POSITION_ORIG)
@@ -1182,9 +1181,7 @@ static void YongFlushResult(void)
 #if !defined(CFG_NO_DICT)
 static int YongCallDict(void)
 {
-	char url[128];
 	char temp[128];
-	char *site;
 	EXTRA_IM *eim=YongCurrentIM();
 	
 	if(!eim) return 0;
@@ -1213,28 +1210,6 @@ static int YongCallDict(void)
 		}
 	}
 #endif
-	/*if(im.EnglishMode)
-		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
-	else
-	{
-		char cand[128];
-		y_im_get_real_cand(eim->CandTable[eim->SelectIndex],cand,sizeof(cand));
-		y_im_url_encode(cand,temp);
-	}
-	site=y_im_get_config_string("IM",im.EnglishMode?"dict_en":"dict_cn");
-	if(site)
-	{
-		sprintf(url,site,temp);
-		l_free(site);
-	}
-	else
-	{
-		site=im.EnglishMode?"http://www.iciba.com/%s":
-			"http://www.zdic.net/search/default.asp?q=%s";
-		sprintf(url,site,temp);
-	}
-	y_xim_explore_url(url);
-	YongResetIM();*/
 	if(im.EnglishMode)
 		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
 	else

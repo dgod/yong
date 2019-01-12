@@ -1047,6 +1047,7 @@ baxianzhuo 八仙桌
 baxiaoshi 八小时
 baxin 把心 把信 靶心
 baxiu 罢休
+baya 拔牙
 bayi 八一 八亿
 bayidui 八一队
 bayin 八音
@@ -5059,7 +5060,8 @@ daiqu 带去
 dairen 待人
 dairenchushi 待人处事
 dairenjiewu 待人接物
-dairu 带入
+dairu 带入 代入
+dairugan 代入感
 dairuomuji 呆若木鸡
 daishang 带上 戴上
 daishou 代收 代售 待售
@@ -5140,7 +5142,7 @@ dala 耷拉 打蜡
 dalai 打来 达赖
 dalangtaosha 大浪淘沙
 dalanqiu 打篮球
-dalao 打捞
+dalao 打捞 大佬 大牢 打牢
 dalaoban 大老板
 dalaocu 大老粗
 dalaoyuan 大老远
@@ -7172,6 +7174,7 @@ duzuo 读作
 e 恶 额 饿 俄 鹅 扼 愕 遏 噩 娥 峨 呃 厄 鄂 鳄 婀 蛾 轭 颚 讹 锷 谔 屙 锇 垩 腭 苊 鹗 萼 莪 啊 曷 阿 阏
 eba 恶霸
 echou 恶臭
+econgxintouqi 恶从心头起
 edan 鹅蛋
 edanlian 鹅蛋脸
 edu 额度 恶毒
@@ -9140,7 +9143,7 @@ genchu 根除
 gendi 根底
 gendou 跟斗
 genfeng 跟风
-geng 更 耿 耕 颈 庚 羹 梗 哽 赓 鲠 埂 绠 鹒
+geng 更 耿 耕 颈 庚 羹 梗 哽 赓 粳 鲠 埂 绠 鹒
 gengbu 更不
 gengbuyongshuo 更不用说
 gengbuzhi 更不知
@@ -9168,6 +9171,7 @@ gengkuai 更快
 gengkuan 更宽
 gengma 耿马
 gengmei 更美
+gengmi 粳米
 gengming 更名
 gengnan 更难
 gengneng 更能
@@ -11297,6 +11301,7 @@ houduan 后端
 houdun 后盾
 houfang 后方
 houfazhiren 后发制人
+hougai 后盖
 hougong 后宫
 hougubojin 厚古薄今
 houguo 后果
@@ -11493,6 +11498,7 @@ huakan 画刊
 huakang 华康
 huakuai 滑块
 huakuan 划款
+huakui 花魁
 huala 哗啦
 hualaishi 华莱士
 hualan 花篮
@@ -16683,6 +16689,7 @@ kuhan 哭喊 苦寒
 kuhuang 枯黄
 kui 亏 愧 溃 窥 魁 馈 睽 盔 逵 葵 奎 匮 傀 喟 聩 岿 馗 夔 篑 喹 悝 暌 隗 蒉 蝰 愦 揆 跬
 kuibai 溃败
+kuibeike 魁北克
 kuiben 亏本
 kuibuchengjun 溃不成军
 kuibukui 亏不亏
@@ -25527,6 +25534,7 @@ qiuxie 球鞋
 qiuxin 求新 球心
 qiuxing 球星 球形
 qiuxue 求学
+qiuye 秋叶
 qiuyi 球衣 球艺 秋衣 求医
 qiuyin 蚯蚓
 qiuyiwenyao 求医问药
@@ -39700,6 +39708,7 @@ yiliangnian 一两年
 yiliangtian 一两天
 yilianjitian 一连几天
 yiliao 医疗 意料 衣料
+yiliaobailiao 一了百了
 yiliaodui 医疗队
 yiliaofei 医疗费
 yiliaoshigu 医疗事故

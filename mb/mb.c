@@ -2079,6 +2079,8 @@ static inline struct y_mb_ci *mb_add_one_ci(
 				}
 				if(dic==Y_MB_DIC_PIN)
 					p->dic=Y_MB_DIC_PIN;
+				else if(dic==Y_MB_DIC_USER && p->dic==Y_MB_DIC_TEMP)
+					p->dic=Y_MB_DIC_USER;
 				return p;
 			}
 			else
@@ -3652,7 +3654,7 @@ int y_mb_load_fuzzy(struct y_mb *mb,const char *fuzzy)
 void y_mb_rename_user(char *fn)
 {
 	char dest[256];
-	char orig[256];
+	char orig[252];
 	int fd;
 	off_t len;
 
@@ -4385,10 +4387,12 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*fre
 	return ret;
 }
 
+// 在分词可能有问题的情况下，判断某个词是否和全拼是否匹配，存在问题，需要改进
 static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const char *sep)
 {
 	if(sep==NULL)
 	{
+#if 0
 		if(c->zi || !mb->ctx.sp || c->len!=4)
 			return 1;
 		struct y_mb_zi *z=mb_find_zi(mb,(char*)&c->data+2);
@@ -4402,6 +4406,9 @@ static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const cha
 			}
 		}
 		return 0;
+#else
+		return 1;
+#endif
 	}
 	if(c->zi)
 		return 0;
@@ -4447,7 +4454,7 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 	index_val=mb_ci_index_wildcard(mb,s,len,0,&key);
 	left=mb_key_len(key);
 	filter=ctx->result_filter;
-	filter_zi=ctx->result_filter_zi;
+	filter_zi=ctx->result_filter_zi || ctx->result_filter_ext;
 	filter_ext=ctx->result_filter_ext;
 	if(mb->pinyin==1 && mb->split=='\'')
 	{
@@ -4584,6 +4591,7 @@ int y_mb_set_fuzzy(struct y_mb *mb,const char *s,int len,int filter)
 	assert(ft!=NULL);
 	assert(mb->ctx.result_ci==NULL);
 	mb->fuzzy=NULL;
+	
 	list=fuzzy_key_list(ft,s,len,mb->split);
 	if(list->len==1 || mb->nsort || y_mb_has_wildcard(mb,s))
 	{
@@ -4779,6 +4787,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 				if(ret>0) continue;
 				if(mb->nsort && ret<0) continue;
 				if(ret<0) break;
+				
 				clen=mb_key_len(p->code)+base;
 				for(c=p->phrase;c;c=c->next)
 				{
@@ -5013,7 +5022,7 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 	index_val=mb_ci_index_wildcard(mb,s,len,mb->wildcard,&key);
 	left=mb_key_len(key);
 	filter=ctx->result_filter;
-	filter_zi=ctx->result_filter_zi;
+	filter_zi=ctx->result_filter_zi || ctx->result_filter_ext;
 	filter_ext=ctx->result_filter_ext;
 	index=ctx->result_index;
 	item=ctx->result_first;

@@ -57,7 +57,12 @@ static void cu_ctrl_add_to_parent(CUCtrl p)
 int cu_ctrl_init_label(CUCtrl p)
 {
 	p->self=gtk_label_new(p->text);
+#if GTK_CHECK_VERSION(3,92,0)
+	gtk_label_set_xalign(p->self,0);
+	gtk_label_set_yalign(p->self,0.5);
+#else
 	gtk_misc_set_alignment(GTK_MISC(p->self),0,0.5);
+#endif
 	cu_ctrl_add_to_parent(p);
 	return 0;
 }
@@ -172,7 +177,14 @@ static void tree_changed(GtkTreeSelection *w,CUCtrl p)
 
 static gboolean tree_right_click(GtkWidget *treeview, GdkEventButton *event, CUCtrl p)
 {
+#if GTK_CHECK_VERSION(3,92,0)
+	GdkEventType type=gdk_event_get_event_type(event);
+	guint button;
+	gdk_event_get_button(event,&button);
+	if(type==GDK_BUTTON_RELEASE && button==3)
+#else
 	if (event->type == GDK_BUTTON_RELEASE  &&  event->button == 3)
+#endif
 	{
 		GtkTreeSelection *sel;
 		GtkTreeModel *model;
@@ -513,8 +525,12 @@ int cu_init(void)
 {
 	int dpi;
 	GtkWidget *w;
+#if GTK_CHECK_VERSION(3,92,0)
+	gtk_init();
+#else
 	gtk_init(NULL,NULL);
-	
+#endif
+
 	/* just let gtk get dpi from system */
 	w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_widget_destroy(w);

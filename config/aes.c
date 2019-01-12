@@ -11,7 +11,7 @@ static void InvShiftRows();
 static void MixColumns();		//列混淆
 static void InvMixColumns();
 
-static const int Nb=4;	// block size in 32-bit words.  Always 4 for AES.  (128 bits).
+//static const int Nb=4;	// block size in 32-bit words.  Always 4 for AES.  (128 bits).
 static int Nk;	// key size in 32-bit words.  4, 6, 8.  (128, 192, 256 bits).
 static int Nr;	// number of rounds. 10, 12, 14.
 

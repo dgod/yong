@@ -14,9 +14,8 @@ typedef struct expr_item{
 
 static LVariant l_expr_next_token(char *s,char **next)
 {
-	LVariant var;
+	LVariant var={.type=L_TYPE_VOID};
 	int c;
-	var.type=L_TYPE_VOID;
 	if(!s || !s[0] || !next)
 		return var;
 	c=s[0];

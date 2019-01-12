@@ -194,7 +194,7 @@ int y_dict_query_network(const char *s)
 		strcpy(temp,s);
 	else
 		y_im_url_encode(s,temp);
-	site=y_im_get_config_string("IM",eng?"dict:en":"dict_cn");
+	site=y_im_get_config_string("IM",eng?"dict_en":"dict_cn");
 	if(site)
 	{
 		sprintf(url,site,temp);
