@@ -4,7 +4,7 @@
 int xim_ibus_init(void);
 void xim_ibus_destroy(void);
 void xim_ibus_enable(int enable);
-void xim_ibus_forward_key(int key);
+void xim_ibus_forward_key(int key,int repeat);
 int xim_ibus_last_key(void);
 int xim_ibus_trigger_key(int key);
 void xim_ibus_send_string(const char *s,int flags);

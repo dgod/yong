@@ -406,6 +406,7 @@ reload:
 	cu_ctrl_foreach(win,cu_init_all,NULL);
 
 	cu_ctrl_foreach(win,cu_init_all,NULL);
+	cu_show_page("page-im");
 	cu_ctrl_show_self(win,1);
 
 	cu_loop();

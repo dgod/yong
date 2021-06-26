@@ -579,7 +579,7 @@ void xim_ybus_put_connect(CONNECT_ID *id)
 	conn_active->trad=id->trad;
 }
 
-void xim_ybus_forward_key(int key)
+void xim_ybus_forward_key(int key,int repeat)
 {
 	YBUS_CONNECT *conn=conn_active;
 	YBUS_PLUGIN *plugin;
@@ -588,7 +588,9 @@ void xim_ybus_forward_key(int key)
 	plugin=conn->plugin;
 	if(!plugin->send_key)
 		return;
-	plugin->send_key(conn->id,conn->active->id,key);
+	do{
+		plugin->send_key(conn->id,conn->active->id,key);
+	}while(--repeat>0);
 }
 
 void xim_ybus_send_string(const char *s,int flags)

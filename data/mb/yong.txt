@@ -537,6 +537,7 @@ bawu 八五
 baxi 巴西 把戏
 baxq 罢休
 bay 霸 鲅
+baya 拔牙
 bayd 鲅
 bayi 八一 八亿
 bayn 八音
@@ -3917,7 +3918,7 @@ dalb 大楼
 dald 大量 打量
 dale 打了
 dali 大力 打理 大礼 搭理 大理
-dalk 打捞
+dalk 打捞 大佬 大牢 打牢
 dall 打来 达赖
 dalm 大连
 dalo 打落
@@ -5114,7 +5115,7 @@ dlrb 贷
 dlrf 待人
 dlrh 黛
 dlrt 傣
-dlru 带入 岱
+dlru 带入 代入 岱
 dlry 代 袋
 dls 怠 绐
 dlsk 绐
@@ -5613,6 +5614,7 @@ drss 断送
 drtu 短途
 dru 短
 drud 短
+drug 代入感
 drui 短视
 druk 短少
 drv 簖
@@ -11807,6 +11809,7 @@ hwkj 画刊
 hwkl 花开
 hwkr 划款
 hwku 哗
+hwkv 花魁
 hwky 滑块
 hwla 哗啦
 hwlc 化疗
@@ -12515,7 +12518,7 @@ igj 铖
 igjc 成交 城郊
 igji 成绩 乘机 乘积 铖
 igjm 成见 城建 承建
-igjq 成就
+igjq 成就 传感器
 igjw 成家
 igjx 承接 惩戒
 igjy 乘警
@@ -21133,7 +21136,6 @@ lu;k 潞
 lu;l 泸 漉
 lu' 历史
 lua 麓 栌 橹
-luaj 洛杉矶
 lual 栌 麓
 luao 橹
 lub 赂
@@ -21205,6 +21207,7 @@ luj 镥
 lujd 庐江
 lujg 零售价格
 luji 路基
+lujj 洛杉矶
 lujm 孪生姐妹 陆俭
 lujo 镥
 lujp 陆军
@@ -47876,6 +47879,7 @@ ykzu 瑶族
 ykzw 邀
 yl' 原来
 ylak 伊拉克
+ylbl 一了百了
 ylbw 亚拉伯湾
 ylbx 有令不行 养老保险
 ylcd 医疗队
@@ -51681,5 +51685,6 @@ zzzu 自作自受
 ^di 地
 ^gz 给
 ^hv 会
-^qi 奇 骑
+^qi 奇
+^uj 杉
 ^ve 着

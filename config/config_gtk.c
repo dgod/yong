@@ -3,9 +3,23 @@
 
 #include "config_ui.h"
 
+#if GTK_CHECK_VERSION(4,0,0)
+static GMainLoop *main_loop;
+#endif
+
 typedef int (*InitSelfFunc)(CUCtrl p);
 typedef void (*DestroySelfFunc)(CUCtrl p);
 
+#if GTK_CHECK_VERSION(4,0,0)
+// 由于菜单绑定在了主窗口上，那么我们不应该在这儿销毁窗口，否则GTK报错
+static gboolean on_window_del(GtkWindow *widget,CUCtrl p)
+{
+	assert(p->self==widget);
+	g_main_loop_quit(main_loop);
+	cu_quit_ui=1;
+	return TRUE;
+}
+#else
 static gboolean on_window_del(GtkWidget *widget,GdkEvent  *event,CUCtrl p)
 {
 	assert(p->self==widget);
@@ -14,6 +28,30 @@ static gboolean on_window_del(GtkWidget *widget,GdkEvent  *event,CUCtrl p)
 	cu_quit_ui=1;
 	return FALSE;
 }
+#endif
+
+#if GTK_CHECK_VERSION(4,0,0)
+
+int cu_ctrl_init_window(CUCtrl p)
+{
+	GtkWidget *w;
+	w=gtk_window_new();
+	gtk_window_set_title(GTK_WINDOW(w),p->text);
+	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
+	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
+	g_signal_connect(w,"close-request",G_CALLBACK(on_window_del),p);
+	p->self=w;
+	
+	w=gtk_fixed_new();
+	gtk_window_set_child(GTK_WINDOW(p->self),GTK_WIDGET(w));
+	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
+	gtk_widget_show(w);
+	
+	g_object_set_data(G_OBJECT(p->self),"fixed",w);
+	return 0;
+}
+
+#else
 
 int cu_ctrl_init_window(CUCtrl p)
 {
@@ -22,8 +60,12 @@ int cu_ctrl_init_window(CUCtrl p)
 	gtk_window_set_title(GTK_WINDOW(w),p->text);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
 	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
+#if GTK_CHECK_VERSION(3,94,0)
+	g_signal_connect(w,"close-request",G_CALLBACK(on_window_del),p);
+#else
 	gtk_window_set_position(GTK_WINDOW(w),GTK_WIN_POS_CENTER);
 	g_signal_connect(w,"delete-event",G_CALLBACK(on_window_del),p);
+#endif
 	p->self=w;
 	
 	w=gtk_fixed_new();
@@ -35,6 +77,7 @@ int cu_ctrl_init_window(CUCtrl p)
 	
 	return 0;
 }
+#endif
 
 static void cu_ctrl_add_to_parent(CUCtrl p)
 {
@@ -175,12 +218,38 @@ static void tree_changed(GtkTreeSelection *w,CUCtrl p)
 	cu_ctrl_action_run(item,item->action);
 }
 
+#if GTK_CHECK_VERSION(4,0,0)
+static gboolean tree_right_click(GtkGestureClick *gesture,int n_press, double x, double y, CUCtrl p)
+{
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	gint x_bin_window, y_bin_window;
+	gtk_tree_view_convert_widget_to_bin_window_coords (GTK_TREE_VIEW (p->self), (gint) x, (gint) y, &x_bin_window, &y_bin_window);
+	GtkTreePath *path;
+	gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (p->self), x_bin_window, y_bin_window, &path, NULL, NULL, NULL);
+	if(!path)
+		return FALSE;
+	model=gtk_tree_view_get_model(GTK_TREE_VIEW(p->self));
+	gtk_tree_model_get_iter(model,&iter,path);
+	gtk_tree_path_free(path);
+	CUCtrl item;
+	gtk_tree_model_get(model, &iter, 1, &item, -1);
+	if(item->menu!=NULL)
+	{
+		item->menu->x=(int)x;
+		item->menu->y=(int)y;
+		cu_menu_popup(p,item->menu);
+	}
+	return FALSE;
+}
+
+#else
 static gboolean tree_right_click(GtkWidget *treeview, GdkEventButton *event, CUCtrl p)
 {
 #if GTK_CHECK_VERSION(3,92,0)
-	GdkEventType type=gdk_event_get_event_type(event);
+	GdkEventType type=gdk_event_get_event_type((GdkEvent*)event);
 	guint button;
-	gdk_event_get_button(event,&button);
+	gdk_event_get_button((GdkEvent*)event,&button);
 	if(type==GDK_BUTTON_RELEASE && button==3)
 #else
 	if (event->type == GDK_BUTTON_RELEASE  &&  event->button == 3)
@@ -200,6 +269,7 @@ static gboolean tree_right_click(GtkWidget *treeview, GdkEventButton *event, CUC
 	}
 	return FALSE;
 }
+#endif
 
 int cu_ctrl_init_tree(CUCtrl p)
 {
@@ -223,8 +293,15 @@ int cu_ctrl_init_tree(CUCtrl p)
 	select = gtk_tree_view_get_selection (GTK_TREE_VIEW (w));
 	gtk_tree_selection_set_mode (select, GTK_SELECTION_SINGLE);
 	g_signal_connect(G_OBJECT(select),"changed",G_CALLBACK(tree_changed),p);
+#if GTK_CHECK_VERSION(3,94,0)
+	GtkGesture *gesture = gtk_gesture_click_new ();
+    gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), GDK_BUTTON_SECONDARY);
+    GtkEventController *controller = GTK_EVENT_CONTROLLER (gesture);
+    g_signal_connect (controller, "pressed", G_CALLBACK (tree_right_click), p);
+    gtk_widget_add_controller (w, controller);
+#else
 	g_signal_connect(G_OBJECT(w),"button-release-event",G_CALLBACK(tree_right_click),p);
-	
+#endif
 	p->self=w;
 	cu_ctrl_add_to_parent(p);
 	return 0;
@@ -319,7 +396,11 @@ int cu_ctrl_init_self(CUCtrl p)
 
 static void cu_ctrl_destroy_window(CUCtrl p)
 {
+#if GTK_CHECK_VERSION(4,0,0)
+	gtk_window_destroy(p->self);
+#else
 	gtk_widget_destroy(p->self);
+#endif
 }
 
 static void cu_ctrl_destroy_item(CUCtrl p)
@@ -431,19 +512,38 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 		gtk_label_set_text(GTK_LABEL(p->self),s?s:"");
 		break;
 	case CU_EDIT:
+#if GTK_CHECK_VERSION(4,0,0)
+		gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(p->self)),s?s:"",-1);
+#else
 		gtk_entry_set_text(GTK_ENTRY(p->self),s?s:"");
+#endif
 		break;
 	case CU_CHECK:
+#if GTK_CHECK_VERSION(4,0,0)
+		if(!s || !s[0] || s[0]!='1')
+			gtk_check_button_set_active(GTK_CHECK_BUTTON(p->self),FALSE);
+		else
+			gtk_check_button_set_active(GTK_CHECK_BUTTON(p->self),TRUE);
+#else
 		if(!s || !s[0] || s[0]!='1')
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->self),FALSE);
 		else
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(p->self),TRUE);
+#endif
 		break;
 	case CU_COMBO:
+#if GTK_CHECK_VERSION(4,0,0)
+		gtk_entry_buffer_set_text(gtk_entry_get_buffer(GTK_ENTRY(gtk_combo_box_get_child(GTK_COMBO_BOX(p->self)))),s?s:"",-1);
+#else
 		gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(p->self))),s?s:"");
+#endif
 		break;
 	case CU_FONT:
+#if GTK_CHECK_VERSION(3,94,0)
+		gtk_font_chooser_set_font(GTK_FONT_CHOOSER(p->self),s?s:"");
+#else
 		gtk_font_button_set_font_name(GTK_FONT_BUTTON(p->self),s?s:"");
+#endif
 		break;
 	case CU_LIST:
 	{
@@ -491,19 +591,46 @@ char *cu_ctrl_get_self(CUCtrl p)
 	char *res=NULL;
 	switch(p->type){
 	case CU_EDIT:
+#if GTK_CHECK_VERSION(4,0,0)
+		res=l_strdup(gtk_entry_buffer_get_text(gtk_entry_get_buffer(GTK_ENTRY(p->self))));
+#else
 		res=l_strdup(gtk_entry_get_text(GTK_ENTRY(p->self)));
+#endif
 		break;
 	case CU_CHECK:
+#if GTK_CHECK_VERSION(4,0,0)
+		if(gtk_check_button_get_active(GTK_CHECK_BUTTON(p->self)))
+			res=l_strdup("1");
+		else
+			res=l_strdup("0");
+#else
 		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(p->self)))
 			res=l_strdup("1");
 		else
 			res=l_strdup("0");
+#endif
 		break;
 	case CU_FONT:
+#if GTK_CHECK_VERSION(3,94,0)
+	{
+		char *temp=gtk_font_chooser_get_font(GTK_FONT_CHOOSER(p->self));
+		res=l_strdup(temp);
+		g_free(temp);
+	}
+#else
 		res=l_strdup(gtk_font_button_get_font_name(GTK_FONT_BUTTON(p->self)));
+#endif
 		break;
 	case CU_COMBO:
+#if GTK_CHECK_VERSION(4,0,0)
+	{
+		GtkWidget *entry=gtk_combo_box_get_child(p->self);
+		GtkEntryBuffer *buf=gtk_entry_get_buffer(GTK_ENTRY(entry));
+		res=l_strdup(gtk_entry_buffer_get_text(buf));
+	}
+#else
 		res=l_strdup(gtk_entry_get_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(p->self)))));
+#endif
 		break;
 	case CU_LIST:
 	{
@@ -521,15 +648,30 @@ int cu_ctrl_set_prop(CUCtrl p,const char *prop)
 	return 0;
 }
 
+#if GTK_CHECK_VERSION(4,0,0)
+
+int cu_init(void)
+{
+	int dpi;
+	gtk_init();
+	main_loop=g_main_loop_new(NULL,FALSE);
+	dpi=cu_screen_dpi();
+	if(dpi>96)
+		CU_SCALE=dpi/96.0;
+	return 0;
+}
+int cu_loop(void)
+{
+	g_main_loop_run(main_loop);
+	return 0;
+}
+#else
+
 int cu_init(void)
 {
 	int dpi;
 	GtkWidget *w;
-#if GTK_CHECK_VERSION(3,92,0)
-	gtk_init();
-#else
 	gtk_init(NULL,NULL);
-#endif
 
 	/* just let gtk get dpi from system */
 	w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -546,12 +688,45 @@ int cu_loop(void)
 	gtk_main();
 	return 0;
 }
+#endif
 
 int cu_screen_dpi(void)
 {
+#if GTK_CHECK_VERSION(4,0,0)
+	GdkDisplay *dpy=gdk_display_get_default();
+	GtkSettings *p=gtk_settings_get_for_display(dpy);
+	int dpi=96;
+	g_object_get(p,GTK_SYSTEM_SETTING_DPI,&dpi,NULL);
+	return dpi;
+#else
 	return (int)gdk_screen_get_resolution(gdk_screen_get_default());
+#endif
 }
 
+#if GTK_CHECK_VERSION(4,0,0)
+static void _cu_confirm_response(GtkDialog *dlg,int response_id,gpointer userdata)
+{
+	*(int*)userdata=(response_id==GTK_RESPONSE_OK);
+}
+int cu_confirm(CUCtrl p,const char *message)
+{
+	int response=-1;
+	GtkWidget *dlg;
+	p=cu_ctrl_get_root(p);
+	dlg=gtk_message_dialog_new(p->self,
+		GTK_DIALOG_DESTROY_WITH_PARENT | GTK_DIALOG_MODAL,
+		GTK_MESSAGE_INFO,
+		GTK_BUTTONS_OK_CANCEL,
+		message);
+	gtk_window_set_title(GTK_WINDOW(dlg),p->text);
+	g_signal_connect (dlg, "response",  G_CALLBACK (_cu_confirm_response), &response);
+	gtk_widget_show(dlg);
+	while(response==-1)
+		cu_step();
+	gtk_window_destroy(GTK_WINDOW(dlg));
+	return response;
+}
+#else
 int cu_confirm(CUCtrl p,const char *message)
 {
 	GtkWidget *dlg;
@@ -570,7 +745,67 @@ int cu_confirm(CUCtrl p,const char *message)
 		return 1;
 	return 0;
 }
+#endif
 
+#if GTK_CHECK_VERSION(4,0,0)
+void cu_menu_init_self(CUMenu m)
+{
+	if(m->self)
+		return;
+	GMenu *model=g_menu_new();
+	m->self=gtk_popover_menu_new_from_model(G_MENU_MODEL(model));
+	g_object_unref(model);
+	gtk_popover_set_has_arrow(GTK_POPOVER(m->self),FALSE);
+	gtk_widget_set_halign (GTK_WIDGET(m->self), GTK_ALIGN_START);
+}
+void cu_menu_destroy_self(CUMenu m)
+{
+	if(!m->self)
+		return;
+	gtk_widget_unparent(m->self);
+	//g_object_unref(m->self);
+	m->self=NULL;
+}
+static void cu_menu_popup_activate(GSimpleAction *action,GVariant *parameter,CUMenuEntry e)
+{
+	e->cb(NULL,e->arg);
+}
+
+void cu_menu_popup(CUCtrl p,CUMenu m)
+{
+	int i;
+	if(!m)
+		return;
+	cu_menu_init_self(m);
+	GMenu *model=(GMenu*)gtk_popover_menu_get_menu_model(GTK_POPOVER_MENU(m->self));
+	g_menu_remove_all(model);
+	GActionGroup *actions=(GActionGroup*)g_simple_action_group_new();
+	for(i=0;i<m->count;i++)
+	{
+		CUMenuEntry e=m->entries+i;
+		char temp[32];
+		if(!e->text)
+			break;
+		sprintf(temp,"y.test%d",i);
+		g_menu_append(model,e->text,temp);
+		GSimpleAction *action=g_simple_action_new(temp+2,NULL);
+		g_signal_connect(action,"activate",G_CALLBACK(cu_menu_popup_activate),e);
+		g_action_map_add_action(G_ACTION_MAP(actions),G_ACTION(action));
+	}
+	if(!gtk_widget_get_parent(m->self))
+		gtk_widget_set_parent(m->self,GTK_WIDGET(cu_ctrl_get_root(p)->self));	
+	gtk_widget_insert_action_group(GTK_WIDGET(m->self),"y",actions);
+	
+	GdkRectangle rectangle;
+	rectangle.x = m->x;
+	rectangle.y = m->y;
+	rectangle.width = 1;
+	rectangle.height = 1;
+	gtk_popover_set_pointing_to (GTK_POPOVER(m->self), &rectangle);
+	
+	gtk_widget_show(GTK_WIDGET(m->self));
+}
+#else
 void cu_menu_init_self(CUMenu m)
 {
 	cu_menu_destroy_self(m);
@@ -604,18 +839,28 @@ void cu_menu_popup(CUCtrl p,CUMenu m)
 	}
 	gtk_menu_popup(GTK_MENU(m->self),NULL,NULL,NULL,NULL,0,gtk_get_current_event_time());
 }
+#endif
 
 int cu_quit(void)
 {
 	cu_quit_ui=1;
+#if GTK_CHECK_VERSION(4,0,0)
+	g_main_loop_quit(main_loop);
+#else
 	gtk_main_quit();
+#endif
 	return 0;
 }
 
 int cu_step(void)
 {
+#if GTK_CHECK_VERSION(4,0,0)
+	GMainContext *ctx=g_main_context_default();
+	while(g_main_context_pending(ctx))
+		g_main_context_iteration(ctx,TRUE);
+#else
 	while(gtk_events_pending())
 		gtk_main_iteration();
+#endif
 	return 0;
 }
-

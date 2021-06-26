@@ -632,7 +632,7 @@ static Bool YongGetICValuesHandler (IMChangeICStruct * data)
 			p = (char *) sts_attr->value;
 			memmove (p, &base_len, sizeof (CARD16));
 			p += sizeof (CARD16);
-			strncpy (p, "Monospace", base_len);
+			memmove (p, "Monospace", base_len);
 			sts_attr->value_length = total_len;
 
 		}
@@ -1026,7 +1026,7 @@ static guint xim_poll_display_fd(Display *dpy)
 {
 	XIMSource *s;
 	s=(XIMSource*)g_source_new(&xim_source_funcs,sizeof(XIMSource));
-	g_source_set_name(s,"ybus-xim");
+	g_source_set_name((GSource*)s,"ybus-xim");
 	s->poll.fd=ConnectionNumber(dpy);
 	s->poll.events=G_IO_IN;
 	g_source_add_poll((GSource*)s,&s->poll);

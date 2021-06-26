@@ -25,7 +25,7 @@ function run(target){
 		else if(GTK=='gtk3')
 			env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
 		else
-			env("CFLAGS+=`pkg-config --cflags gtk+-4.0`");
+			env("CFLAGS+=`pkg-config --cflags gtk4`");
 		if(ARCH=="l32")
 			process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
 		else
@@ -48,7 +48,7 @@ function run(target){
 		else if(GTK=="gtk3")
 			env("LIBS+=`pkg-config --libs gtk+-3.0`");
 		else
-			env("LIBS+=`pkg-config --libs gtk+-4.0`");
+			env("LIBS+=`pkg-config --libs gtk4`");
 	}
 	end(function(){
 		ld(OBJS,'$(DESTDIR)/yong-config$(EXE)');

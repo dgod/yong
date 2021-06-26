@@ -2721,8 +2721,8 @@ static void mb_mark_simple(struct y_mb *mb)
 		{
 			char *cur=0;
 			int len=0;		/* 不用初始化，但是gcc有一个错误的未初始化警告 */
-			struct y_mb_ci *c,*first=NULL;
-			for(c=it->phrase;c;c=c->next)
+			struct y_mb_ci *c,*first=NULL,*prev=NULL;
+			for(c=it->phrase;c;prev=c,c=c->next)
 			{
 				if(c->del)				/* 已被删除 */
 					continue;
@@ -2762,6 +2762,7 @@ static void mb_mark_simple(struct y_mb *mb)
 				{
 					if(c==first && c->next && mb_zi_has_simple(z,len))
 					{
+#if 0
 						/* 只有多个词组，且自己是第一个词组的时候才考虑简码后置 */
 						/* 由于链表重新排序，导出的码表不会再保持原样 */
 						struct y_mb_ci *h;
@@ -2775,6 +2776,19 @@ static void mb_mark_simple(struct y_mb *mb)
 							it->phrase=h;
 							break;
 						}
+#else
+						do{
+							if(!c->zi || !mb_has_simple(mb,len,(char*)&c->data,c->len))
+								break;
+							struct y_mb_ci *h=c->next;
+							if(prev)
+								prev->next=h;
+							else
+								it->phrase=h;
+							mb_slist_append(h,c);
+							c=h;
+						}while(c!=first && c->next);
+#endif
 					}
 					break;
 				}

@@ -69,6 +69,7 @@ static struct y_mb *mb;
 
 static char SimplePhrase[4][5];
 static char SuperPhrase[MAX_CAND_LEN+1];
+static uint8_t SuperCodeLen;
 static char AutoPhrase[MAX_CAND_LEN+1];
 static char CalcPhrase[Y_MB_DATA_CALC][MAX_CAND_LEN+1];
 static char CodeTips[10][MAX_TIPS_LEN+1];
@@ -1195,6 +1196,7 @@ static int TableDoInput(int key)
 			else if(EIM.CodeLen==4)
 			{
 				strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
+				SuperCodeLen=4;
 				PhraseCalcCount=y_mb_super_get(mb,CalcPhrase,Y_MB_DATA_CALC,key);
 				if(PhraseCalcCount)
 				{
@@ -1316,6 +1318,11 @@ LIST:
 				DoTipWhenCommit();
 				break;
 			}
+			if(auto_english && EIM.CodeLen==1)
+			{
+				EIM.CodeInput[--EIM.CodeLen]=0;
+				return IMR_NEXT;
+			}
 			if(auto_english && (auto_english==2 || EIM.CodeLen<=mb->len))
 			{
 				if(EIM.Beep) EIM.Beep(YONG_BEEP_EMPTY);
@@ -1363,7 +1370,8 @@ LIST:
 			}
 			if(full>=3 && mb->commit_which<EIM.CodeLen)
 			{
-				int which=mb->commit_which?:mb->len;
+				//int which=mb->commit_which?:mb->len;
+				int which=SuperCodeLen;
 				int len=EIM.CodeLen-which;
 				char temp_code[len+1];
 				int temp_count;
@@ -1431,6 +1439,7 @@ LIST:
 				int temp_count;
 				int temp_len;
 				struct y_mb_context ctx;
+				int commit_prev=0;
 commit_simple:
 				strcpy(temp,EIM.CodeInput+mb->commit_which);
 				temp_len=EIM.CodeLen-mb->commit_which;
@@ -1441,10 +1450,28 @@ commit_simple:
 				}
 				temp_count=y_mb_set(mb,temp,temp_len,hz_filter_temp);
 				if(!temp_count)
-					return IMR_BLOCK;
+				{
+					if(key!=YK_TAB)
+					{
+						temp[0]=key;
+						temp[1]=0;
+						temp_count=y_mb_set(mb,temp,1,hz_filter_temp);
+						if(temp_count>0)
+						{
+							temp_len=1;
+							commit_prev=1;
+						}
+					}
+					if(!temp_count)
+						return IMR_BLOCK;
+				}
 				PhraseCalcCount=0;
 				ret=IMR_COMMIT_DISPLAY;
-				if(mb->commit_which<=2)
+				if(commit_prev)
+				{
+					strcpy(EIM.StringGet,EIM.CandTable[EIM.SelectIndex]);
+				}
+				else if(mb->commit_which<=2)
 				{
 					y_mb_get_simple(mb,EIM.CodeInput,EIM.StringGet,mb->commit_which);
 				}
@@ -1452,6 +1479,7 @@ commit_simple:
 				{
 					strcpy(EIM.StringGet,AutoPhrase);
 				}
+	
 				y_mb_push_context(mb,&ctx);
 				TableReset();
 				y_mb_pop_context(mb,&ctx);
@@ -1514,10 +1542,13 @@ commit_simple:
 			int full=y_mb_is_full(mb,EIM.CodeLen);
 			if(full)
 			{
-				if(full==1)
+				if(full==1 || EIM.CodeLen==mb->commit_which)
+				{
 					strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
-				else if(EIM.CodeLen==mb->commit_which)
-					strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
+					SuperCodeLen=EIM.CodeLen;
+				}
+				//else if(EIM.CodeLen==mb->commit_which)
+				//	strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
 				// is not exact match, set full to 0
 				if(CodeTips[EIM.SelectIndex][0])
 					full=0;

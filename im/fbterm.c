@@ -455,7 +455,7 @@ void xim_fbterm_enable(int enable)
 {
 }
 
-void xim_fbterm_forward_key(int key)
+void xim_fbterm_forward_key(int key,int repeat)
 {
 	if(imfd == 0)
 		return;

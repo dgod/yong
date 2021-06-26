@@ -1627,8 +1627,13 @@ IMR_TEST:
 			case IMR_CHINGLISH:
 				im.ChinglishMode=1;
 			case IMR_ENGLISH:
+			{
+				uint8_t old=cnen_mode;
+				cnen_mode=0;
 				YongSetLang(LANG_EN);
+				cnen_mode=old;
 				return 1;
+			}
 			case IMR_PUNC:
 			{
 				const char *t=s2t_conv(eim->StringGet);
@@ -1640,6 +1645,8 @@ IMR_TEST:
 				}
 				else
 				{
+					y_xim_send_string2(eim->StringGet,0);
+					eim->StringGet[0]=0;
 					YongAppendPunc(id,eim->StringGet,key);
 				}
 				y_xim_send_string(eim->StringGet);

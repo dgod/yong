@@ -477,7 +477,6 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const char *group)
 void cu_ctrl_free(CUCtrl p)
 {
 	CUCtrl child,next;
-	
 	if(!p)
 		return;
 	if(p==CUCtrl_type[p->type].list)
@@ -515,7 +514,6 @@ void cu_ctrl_free(CUCtrl p)
 	
 	cu_menu_free(p->menu);
 	p->menu=NULL;
-	
 	cu_ctrl_destroy_self(p);
 	
 	l_free(p->group);
@@ -773,7 +771,7 @@ static int LoadIMList(CUCtrl p,int arc,char **arg)
 		sprintf(temp,"ShowPage(%d);",i);
 		item->action=cu_action_new(temp);
 		
-		item->menu=cu_menu_new(2);
+		item->menu=cu_menu_new(i!=def?2:1);
 		cu_menu_append(item->menu,cu_translate("删除"),cu_delete_im,(void*)(size_t)i,NULL);
 		if(i!=def)
 			cu_menu_append(item->menu,cu_translate("默认"),cu_default_im,(void*)(size_t)i,NULL);
@@ -800,6 +798,23 @@ static int ShowPage(CUCtrl p,int arc,char **arg)
 		}
 	}
 	return 0;
+}
+
+void cu_show_page(const char *name)
+{
+	CUCtrl list,p;
+	list=cu_ctrl_list_from_type(CU_PAGE);
+	for(p=list;p!=NULL;p=p->tlist)
+	{
+		if(strcmp(name,p->group))
+		{
+			cu_ctrl_show_self(p,0);
+		}
+		else
+		{
+			cu_ctrl_show_self(p,1);
+		}
+	}
 }
 
 static void cu_save_all(CUCtrl ctrl,void *user)
@@ -934,8 +949,8 @@ static int SaveFont(CUCtrl p,int arc,char **arg)
 static int LoadSkinList(CUCtrl p,int arc,char **arg)
 {
 	char home[256];
-	char skin[256];
-	char real[256];
+	char skin[400];
+	char real[512];
 	char temp[256];
 	LDir *dir;
 	LKeyFile *skin_file;
@@ -1280,7 +1295,7 @@ USER:
 		char *file;
 		while(count<64 && (file=(char*)l_dir_read_name(dir))!=NULL)
 		{
-			char path[256];
+			char path[512];
 			LKeyFile *e;
 			const char *group;
 			const char *name;
@@ -1381,7 +1396,7 @@ static BOOL CreateFileShortcut(LPCTSTR lpszFileName, LPCTSTR lpszLnkFileDir, LPC
 	if (FAILED(hr))  
 	{
 		pLink->lpVtbl->Release(pLink);  
-		return FALSE;  
+		return FALSE;
 	}
 
 	pLink->lpVtbl->SetPath(pLink,lpszFileName);  

@@ -82,6 +82,7 @@ struct _CUMenuEntry{
 struct _CUMenu{
 	void *self;
 	int count;
+	int x,y;
 	struct _CUMenuEntry entries[];
 };
 
@@ -138,6 +139,8 @@ int cu_init(void);
 int cu_loop(void);
 int cu_quit(void);
 int cu_step(void);
+
+void cu_show_page(const char *name);
 
 int cu_screen_dpi(void);
 

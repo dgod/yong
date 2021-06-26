@@ -61,10 +61,10 @@ char *y_xim_get_name(void)
 	return xim.name?xim.name:"";
 }
 
-void y_xim_forward_key(int key)
+void y_xim_forward_key(int key,int repeat)
 {
 	if(xim.forward_key)
-		xim.forward_key(key);
+		xim.forward_key(key,repeat);
 }
 
 void y_xim_update_config(void)
@@ -135,6 +135,38 @@ static void y_im_strip_key_useless(char *gb)
 	}
 }
 
+static void escape_last(const char *s,char *out)
+{
+	char c;
+	while((c=*s++)!=0)
+	{
+		if(c=='$')
+		{
+			if(s[0]=='$')
+			{
+				*out++=c;
+				*out++=c;
+				s++;
+			}
+			else if(!strncmp(s,"LAST",4))
+			{
+				s+=4;
+				strcpy(out,last_output);
+				out+=strlen(last_output);
+			}
+			else
+			{
+				*out++=c;
+			}
+		}
+		else
+		{
+			*out++=c;
+		}
+	}
+	*out=0;
+}
+
 void y_xim_send_string2(const char *s,int flag)
 {
 	int key=0;
@@ -143,7 +175,11 @@ void y_xim_send_string2(const char *s,int flag)
 		if(flag&SEND_RAW)
 			goto COPY;
 		s+=y_im_str_desc(s,0);
-		if(s[0]=='$')
+		if(strstr(s,"$LAST"))
+		{
+			escape_last(s,temp_output);
+		}
+		else if(s[0]=='$')
 		{
 			if(!strcmp(s,"$LAST"))
 			{
@@ -290,9 +326,13 @@ COPY:
 	}
 	if(key>0)
 	{
+#ifdef WIN32
+		y_xim_forward_key(YK_LEFT,key);
+#else
 		int i;
 		for(i=0;i<key;i++)
-			y_xim_forward_key(YK_LEFT);
+			y_xim_forward_key(YK_LEFT,1);
+#endif
 	}
 out:
 	temp_output[0]=0;
@@ -432,7 +472,7 @@ int y_ui_init(const char *name)
 	return y_ui.init();
 }
 
-int y_im_copy_file(char *src,char *dst)
+int y_im_copy_file(const char *src,const char *dst)
 {
 	int ret;
 	FILE *fds,*fdd;
@@ -980,7 +1020,7 @@ int y_im_forward_key(const char *s)
 	key=y_im_str_to_key(s+1);
 	if(key<=0 || (key&KEYM_MASK))
 		return -1;
-	y_xim_forward_key(key);
+	y_xim_forward_key(key,1);
 	return 0;
 }
 
@@ -1370,7 +1410,7 @@ char *y_im_str_escape(const char *s,int commit)
 		}
 		else if(!strncmp(ps,"LAST",4))
 		{
-			size_t len=ps-line-1;
+			/*size_t len=ps-line-1;
 			if(len>0)
 			{
 				char temp[len];
@@ -1378,7 +1418,7 @@ char *y_im_str_escape(const char *s,int commit)
 				temp[len]=0;
 				str_replace(ps-1,5,temp);
 			}
-			else
+			else*/
 			{
 				str_replace(ps-1,5,last_output);
 			}
@@ -1609,12 +1649,13 @@ void y_im_url_encode(const char *gb,char *out)
 
 int y_im_is_url(const char *s)
 {
-	const char *p1,*p2;
+	const char *p1,*p2,*p3;
 	if(s[0]=='"')
 		return 0;
 	p1=strchr(s,':');
 	p2=strchr(s,' ');
-	if(p1 && (!p2 || p2>p1))
+	p3=strchr(s,'/');
+	if(p1 && p3 && (!p2 || p2>p1))
 		return 1;
 	return 0;
 }
@@ -1786,9 +1827,9 @@ char *y_im_find_url2(char *pre,int next)
 	return NULL;
 }
 
-void y_im_backup_file(char *path,char *suffix)
+void y_im_backup_file(const char *path,const char *suffix)
 {
-	char temp[256];
+	char temp[260];
 	sprintf(temp,"%s%s",path,suffix);
 	l_remove(temp);
 	y_im_copy_file(path,temp);

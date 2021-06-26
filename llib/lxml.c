@@ -210,10 +210,25 @@ static char *load_data(LXml *xml)
 				xml->data+=5;
 				temp[i++]='\"';
 			}
+			else if(!strncmp(xml->data,"apos;",5))
+			{
+				printf("here\n");
+				xml->data+=5;
+				temp[i++]='\'';
+			}
 			else if(!strncmp(xml->data,"nbsp;",5))
 			{
 				xml->data+=5;
 				temp[i++]=' ';
+			}
+			else if(xml->data[0]=='#' && isdigit(xml->data[1]))
+			{
+				char *end;
+				long code=strtol(xml->data+1,&end,10);
+				if(*end!=';')
+					return NULL;
+				xml->data=end+1;
+				temp[i++]=(char)(code&0x7f);
 			}
 			else
 			{
@@ -298,10 +313,25 @@ static char *load_string(LXml *xml)
 				xml->data+=5;
 				temp[i++]='\"';
 			}
+			else if(!strncmp(xml->data,"apos;",5))
+			{
+				printf("here\n");
+				xml->data+=5;
+				temp[i++]='\'';
+			}
 			else if(!strncmp(xml->data,"nbsp;",5))
 			{
 				xml->data+=5;
 				temp[i++]=' ';
+			}
+			else if(xml->data[0]=='#' && isdigit(xml->data[1]))
+			{
+				char *end;
+				long code=strtol(xml->data+1,&end,10);
+				if(*end!=';')
+					return NULL;
+				xml->data=end+1;
+				temp[i++]=(char)(code&0x7f);
 			}
 			else
 			{
@@ -527,12 +557,17 @@ static void dump_string(LString *s,const char *p,int data)
 		case '\"':
 			l_string_append(s,"&quot;",6);
 			break;
+		case '\'':
+			l_string_append(s,"&apos;",6);
+			break;
+/* xml not have space entity
 		case ' ':
 			if(data)
 			{
 				l_string_append(s,"&nbsp;",6);
 				break;
 			}
+*/
 		default:
 			l_string_append_c(s,c);
 			break;

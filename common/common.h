@@ -39,7 +39,7 @@
 #include "mapfile.h"
 #include "llib.h"
 
-int y_im_copy_file(char *src,char *dst);
+int y_im_copy_file(const char *src,const char *dst);
 int y_im_config_path(void);
 const char *y_im_get_path(const char *type);
 int y_im_str_to_key(const char *s);
@@ -62,7 +62,7 @@ void y_im_free_urls(void);
 void y_im_load_urls(void);
 char *y_im_find_url(char *pre);
 char *y_im_find_url2(char *pre,int next);
-void y_im_backup_file(char *path,char *suffix);
+void y_im_backup_file(const char *path,const char *suffix);
 void y_im_copy_config(void);
 void *y_im_module_open(char *path);
 void *y_im_module_symbol(void *mod,char *name);
@@ -123,7 +123,7 @@ int y_im_input_key(int key);
 
 int y_xim_init(const char *name);
 char *y_xim_get_name(void);
-void y_xim_forward_key(int key);
+void y_xim_forward_key(int key,int repeat);
 void y_xim_set_last(const char *s);
 const char *y_xim_get_last(void);
 void y_xim_send_string(const char *s);

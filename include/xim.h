@@ -33,7 +33,7 @@ typedef struct{
 	int (*init)(void);
 	void (*destroy)(void);
 	void (*enable)(int enable);
-	void (*forward_key)(int key);
+	void (*forward_key)(int key,int repeat);
 	int (*trigger_key)(int key);
 	void (*send_string)(const char *s,int flags);
 	int (*preedit_clear)(void);
@@ -49,7 +49,7 @@ void YongShowInput(int show);
 void YongShowMain(int show);
 int YongHotKey(int key);
 int YongKeyInput(int key,int mod);
-void YongForwardKey(int key);
+void YongForwardKey(int key,int repeat);
 void YongSendString(const char *s,int flags);
 int YongInitXIM(void);
 void YongDestroyXIM(void);

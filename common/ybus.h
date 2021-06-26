@@ -87,7 +87,7 @@ void xim_ybus_enable(int enable);
 int xim_ybus_trigger_key(int key);
 CONNECT_ID *xim_ybus_get_connect(void);
 void xim_ybus_put_connect(CONNECT_ID *id);
-void xim_ybus_forward_key(int key);
+void xim_ybus_forward_key(int key,int repeat);
 void xim_ybus_send_string(const char *s,int flags);
 int xim_ybus_preedit_clear(void);
 int xim_ybus_preedit_draw(const char *s,int len);

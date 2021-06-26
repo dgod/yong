@@ -66,7 +66,12 @@ static int sock_nonblock(SOCKET sock,int on)
 	ioctlsocket(sock,FIONBIO,(u_long*)&on);
 	return 0;
 }
-#else	
+#else
+
+#if L_WORD_SIZE==32 && defined(__i686__)
+__asm__(".symver fcntl, fcntl@GLIBC_2.0");
+#endif
+
 static int sock_nonblock(SOCKET sock,int on)
 {
 	int flag;

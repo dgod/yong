@@ -37,12 +37,14 @@ function copy_build(build){
 	exec("cp -f ../im/$(BUILD)-gtk3/yong yong/$(BUILD)/yong-gtk3");
 	exec("cp -f ../config/$(BUILD)-gtk2/yong-config yong/$(BUILD)/yong-config-gtk2");
 	exec("cp -f ../config/$(BUILD)-gtk3/yong-config yong/$(BUILD)/yong-config-gtk3");
+	exec("cp -f ../config/$(BUILD)-gtk4/yong-config yong/$(BUILD)/yong-config-gtk4");
 	exec("cp -f ../vim/$(BUILD)/yong-vim yong/$(BUILD)");
 	exec("cp -f ../mb/$(BUILD)/libmb.so yong/$(BUILD)");
 	exec("cp -f ../gbk/$(BUILD)/libgbk.so yong/$(BUILD)");
 	exec("cp -f ../cloud/$(BUILD)/libcloud.so yong/$(BUILD)");
 	exec("cp -f ../im/gtk-im/$(BUILD)-gtk2/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk2.so");
 	exec("cp -f ../im/gtk-im/$(BUILD)-gtk3/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk3.so");
+	exec("cp -f ../im/gtk4-im/$(BUILD)-gtk4/libimyong.so yong/$(BUILD)/gtk-im/libimyong-gtk4.so");
 
 	exec("strip yong/$(BUILD)/gtk-im/*.so");
 	exec("strip yong/$(BUILD)/*.so");
@@ -50,6 +52,7 @@ function copy_build(build){
 	exec("strip yong/$(BUILD)/yong-gtk3");
 	exec("strip yong/$(BUILD)/yong-config-gtk2");
 	exec("strip yong/$(BUILD)/yong-config-gtk3");
+	exec("strip yong/$(BUILD)/yong-config-gtk4");
 	exec("strip yong/$(BUILD)/yong-vim");
 
 }

@@ -1787,8 +1787,7 @@ static gboolean YongSendFile_real(char *fn)
 					y_im_str_encode(temp,utf8,0);
 					gtk_clipboard_set_text(cb,utf8,-1);
 					g_free(utf8);
-					//YongForwardKey(CTRL_V);
-					y_xim_forward_key(CTRL_V);
+					y_xim_forward_key(CTRL_V,1);
 				}
 			}
 		}
@@ -1805,7 +1804,7 @@ static gboolean YongSendFile_real(char *fn)
 			{
 				gtk_clipboard_set_image(cb,pb);
 				g_object_unref(pb);
-				y_xim_forward_key(CTRL_V);
+				y_xim_forward_key(CTRL_V,1);
 			}
 		}
 	}
@@ -1831,8 +1830,7 @@ static gboolean YongSendClipboard_real(char *utf8)
 	cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(cb!=NULL)
 		gtk_clipboard_set_text(cb,utf8,-1);
-	//YongForwardKey(CTRL_V);
-	y_xim_forward_key(CTRL_V);
+	y_xim_forward_key(CTRL_V,1);
 	return FALSE;
 }
 

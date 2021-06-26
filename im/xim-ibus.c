@@ -649,7 +649,7 @@ static int GetKey_r(int yk)
 	return vk;
 }
 
-void xim_ibus_forward_key(int key)
+void xim_ibus_forward_key(int key,int repeat)
 {
 	int KeyCode,KeyState;
 	if(!cur_engine)
@@ -662,8 +662,10 @@ void xim_ibus_forward_key(int key)
 		KeyState|=IBUS_CONTROL_MASK;
 	if(key & KEYM_SHIFT)
 		KeyState|=IBUS_SHIFT_MASK;
-	p_ibus_engine_forward_key_event((IBusEngine*)cur_engine,KeyCode,TRUE,KeyState);
-	p_ibus_engine_forward_key_event((IBusEngine*)cur_engine,KeyCode,FALSE,KeyState);
+	do{
+		p_ibus_engine_forward_key_event((IBusEngine*)cur_engine,KeyCode,TRUE,KeyState);
+		p_ibus_engine_forward_key_event((IBusEngine*)cur_engine,KeyCode,FALSE,KeyState);
+	}while(--repeat>0);
 }
 
 int xim_ibus_trigger_key(int key)

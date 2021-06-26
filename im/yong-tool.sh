@@ -19,6 +19,8 @@ GTK2_PATH32=
 GTK2_PATH64=
 GTK3_PATH32=
 GTK3_PATH64=
+GTK4_PATH32=
+GTK4_PATH64=
 GTK2_IMMODULES32=
 GTK2_IMMODULES64=
 GTK_IM_DETECT=
@@ -338,6 +340,12 @@ function gtk_install32()
 			echo "update gtk3-im cache fail"
 		fi
 	fi
+	
+	if [ -f gtk-im/libimyong-gtk4.so -a -n "$GTK4_PATH32" ] ; then
+		if [ -d $GTK4_PATH32/4.0.0/immodules ] ; then
+			install gtk-im/libimyong-gtk4.so $GTK4_PATH32/4.0.0/immodules/libimyong.so
+		fi
+	fi
 
 	cd - >/dev/null
 }
@@ -383,6 +391,10 @@ function gtk_uninstall32()
 		else
 			echo "update gtk3-im cache fail"
 		fi
+	fi
+	
+	if [ -f $GTK4_PATH32/4.0.0/immodules/libimyong.so ] ; then
+		rm -rf $GTK4_PATH32/4.0.0/immodules/libimyong.so
 	fi
 }
 
@@ -436,6 +448,12 @@ function gtk_install64()
 		fi
 	fi
 	
+	if [ -f gtk-im/libimyong-gtk4.so -a -n "$GTK4_PATH64" ] ; then
+		if [ -d $GTK4_PATH64/4.0.0/immodules ] ; then
+			install gtk-im/libimyong-gtk4.so $GTK4_PATH64/4.0.0/immodules/libimyong.so
+		fi
+	fi
+	
 	cd - >/dev/null
 }
 
@@ -472,6 +490,10 @@ function gtk_uninstall64()
 		else
 			echo "update gtk3-im cache fail"
 		fi
+	fi
+	
+	if [ -f $GTK4_PATH64/4.0.0/immodules/libimyong.so ] ; then
+		rm -rf $GTK4_PATH64/4.0.0/immodules/libimyong.so
 	fi
 }
 
@@ -535,19 +557,28 @@ function detect_dist()
 
 function detect_arch()
 {
-	if [ `uname -m | grep 64 |wc -l` = 0 ] ; then
-		HOST_MACHINE=32
-	else
-		HOST_MACHINE=64
-	fi
+	HOST_MACHINE=`getconf LONG_BIT`
+	ARCH=`uname -m`;
 	
-	if [ `uname -m | grep mips | wc -l` = 0 ] ; then
+	if [ "$ARCH" = "i386" -o "$ARCH" = "i686" -o "$ARCH" = "x86_64" ] ; then
 		HOST_ARCH=x86
 		HOST_TRIPLET32=i386
 		if [ $HOST_MACHINE -eq 64 ] ; then
 			HOST_TRIPLET64=x86_64
 		fi
-	else
+	elif [ "$ARCH" = "arm" -o "$ARCH" = "armv8l" -o "$ARCH" = "aarch64" ] ; then
+		HOST_ARCH=arm
+		HOST_TRIPLET32=arm
+		if [ $HOST_MACHINE -eq 64 ] ; then
+			HOST_TRIPLET64=aarch64
+		fi
+	elif [ "$ARCH" = "loongarch" -o "$ARCH" = "loongarch64"] ; then
+		HOST_ARCH=loongarch
+		HOST_TRIPLET32=loongarch
+		if [ $HOST_MACHINE -eq 64 ] ; then
+			HOST_TRIPLET64=loongarch64
+		fi
+	elif [ "$ARCH" = "mips" -o "$ARCH" = "mips64" ] ; then
 		HOST_ARCH=mips
 		HOST_TRIPLET32=mipsel
 		if [ $HOST_MACHINE -eq 64 ] ; then
@@ -732,6 +763,40 @@ function detect_gtk3()
 	fi
 }
 
+function detect_gtk4(){
+	if [ -z "$GTK4_PATH32" ] ; then
+		if [ -n "$HOST_TRIPLET32" -a -d /usr/lib/$HOST_TRIPLET32/gtk-4.0 ] ; then
+				GTK3_PATH32=/usr/lib/$HOST_TRIPLET32/gtk-4.0
+		elif [ -d /usr/lib/gtk-4.0/ ] ; then
+			if [ "$DIST" = "debian" -a $HOST_MACHINE -eq 64 ] ; then
+				GTK4_PATH32=
+			else
+				GTK4_PATH32=/usr/lib/gtk-4.0
+			fi
+		fi
+	fi
+	
+	if [ -z "$GTK4_PATH64" -a $HOST_MACHINE -eq 64 ] ; then
+		if [ -n "$HOST_TRIPLET64" -a -d /usr/lib/$HOST_TRIPLET64/gtk-4.0 ] ; then
+			GTK4_PATH64=/usr/lib/$HOST_TRIPLET64/gtk-4.0
+		elif [ -d /usr/lib64/gtk-4.0/ ] ; then
+			GTK4_PATH64=/usr/lib64/gtk-4.0
+		else
+			GTK4_PATH64=/usr/lib/gtk-4.0
+		fi
+		if [ "$GTK4_PATH32" = "$GTK4_PATH64" ] ; then
+			GTK3_PATH32=
+		fi
+	fi
+	
+	if [ -z "$GTK_IM_DETECT" -a -n "$GTK4_PATH64" ] ; then
+		GTK_IM_DETECT=$GTK4_PATH64
+	fi
+	if [ -z "$GTK_IM_DETECT" -a -n "$GTK4_PATH32" ] ; then
+		GTK_IM_DETECT=$GTK4_PATH32
+	fi
+}
+
 function detect_qt5()
 {
 	if [ -z "$QT5_PATH" ] ;then
@@ -752,6 +817,7 @@ function detect_sysinfo()
 	detect_cfg
 	detect_gtk2
 	detect_gtk3
+	detect_gtk4
 	detect_qt5
 }
 
@@ -783,11 +849,17 @@ function display_sysinfo()
 	if ! [ -z "$GTK3_PATH32" ]; then
 		echo "  GTK3_PATH32: $GTK3_PATH32"
 	fi
+	if ! [ -z "$GTK4_PATH32" ]; then
+		echo "  GTK4_PATH32: $GTK4_PATH32"
+	fi
 	if ! [ -z "$GTK2_PATH64" ]; then
 		echo "  GTK2_PATH64: $GTK2_PATH64"
 	fi
 	if ! [ -z "$GTK3_PATH64" ]; then
 		echo "  GTK3_PATH64: $GTK3_PATH64"
+	fi
+	if ! [ -z "$GTK4_PATH64" ]; then
+		echo "  GTK4_PATH64: $GTK4_PATH64"
 	fi
 	echo "  GTK2_IMMODULES32: $GTK2_IMMODULES32"
 	if ! [ -z "$GTK2_IMMODULES64" ]; then
