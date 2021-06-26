@@ -403,6 +403,7 @@ static int GetKey(int sym,int modifiers)
 	case XKB_KEY_Left:
 	case XKB_KEY_Up:
 	case XKB_KEY_Right:
+	case XKB_KEY_Down:
 	case XKB_KEY_Page_Up:
 	case XKB_KEY_Page_Down:
 	case XKB_KEY_End:
