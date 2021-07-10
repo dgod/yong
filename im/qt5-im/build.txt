@@ -13,26 +13,40 @@ env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
 env("CFLAGS+=-DL_CALL_GLIB_CLIENT -fvisibility=hidden -I$(TOPDIR)/im");
 env("LDFLAGS+=-shared");
 
-env("CFLAGS+=`pkg-config --cflags glib-2.0`");
-env("CFLAGS+=`pkg-config --cflags Qt5Core Qt5Gui`");
-var QT_VER=shell("pkg-config --modversion Qt5Gui");
-env("QT_VER+="+QT_VER);
-env("LIBS+=`pkg-config --libs Qt5Core Qt5Gui glib-2.0`");
-env("LIBS+=-ldl -lstdc++");
-var MOC=shell("pkg-config --variable=libdir Qt5Core")+'/qt5/bin/moc';
-var LIBDIR=shell("pkg-config --variable=libdir Qt5Core");
-var INCDIR=shell("pkg-config --variable=includedir Qt5Core");
-env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
-env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
-env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
-env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${LIBDIR}/qt5/mkspecs/linux-g++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore`);
-env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
-
 function run(target){
 	cd(target);
 	include("../../../rules.txt");
-	env("CFLAGS+=-I$(TOPDIR)/im/qt-im/"+target);
-	
+	var ARCH=target.split('-')[0];
+	var QT=target.split('-')[1];
+	var VER=QT.substring(2);
+	env("CFLAGS+=`pkg-config --cflags glib-2.0`");
+	if(VER==5){
+		env("CFLAGS+=`pkg-config --cflags Qt5Core Qt5Gui`");
+	}else{
+		env("CFLAGS+=-I/usr/include/qt6/QtCore -I/usr/include/qt6 -I/usr/include/qt6/QtGui");
+	}
+	var QT_VER=shell(`pkg-config --modversion Qt${VER}`);
+	env("QT_VER+="+QT_VER);
+	if(VER==5){
+		env("LIBS+=`pkg-config --libs Qt5Core Qt5Gui glib-2.0`");
+	}else{
+		env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lglib-2.0`);
+	}
+	env("LIBS+=-ldl -lstdc++");
+	var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
+	var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}`);
+	if(VER==5)
+		var INCDIR=shell("pkg-config --variable=includedir Qt5Core");
+	else
+		var INCDIR=`/usr/include/qt${VER}`;
+	env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
+	env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${LIBDIR}/qt${VER}/mkspecs/linux-g++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore`);
+	env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
+	env("CFLAGS+=-I$(TOPDIR)/im/qt5-im/"+target);
+	if(!_exists(MOC))
+		MOC=LIBDIR+'/qt6/libexec/moc';
 	cr('../main.h','moc_main.cpp',
 		MOC+' $(MOCFLAGS) $^ -o $@');
 	cr('../qyongplatforminputcontext.h','moc_qyongplatforminputcontext.cpp',

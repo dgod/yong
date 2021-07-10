@@ -17,15 +17,9 @@ function run(target){
 		env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
 	else if(GTK=="gtk3")
 		env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
-	else
-		env("CFLAGS+=`pkg-config --cflags gtk+-4.0`");
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});
-	if(ARCH=="l32")
-		process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
-	else
-		process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
 	begin();
 	cc(SRCS,OBJS);
 	end(function(){
@@ -35,8 +29,6 @@ function run(target){
 			env("LIBS+=-lglib-2.0 -lgobject-2.0 -lcairo -lX11 -lpango-1.0 -lpangocairo-1.0 -lgdk_pixbuf-2.0 -lgdk-x11-2.0 -lgtk-x11-2.0");
 		else if(GTK=="gtk3")
 			env("LIBS+=-lX11 `pkg-config --libs gtk+-3.0`");
-		else
-			env("LIBS+=-lX11 `pkg-config --libs gtk+-4.0`");
 		ld(OBJS,'$(DESTDIR)/im-yong.so');
 	});
 }
