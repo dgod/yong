@@ -1245,8 +1245,6 @@ int YongHotKey(int key)
 			/* we should reset before enable */
 			YongResetIM();
 			y_xim_enable(1);
-			id->state=1;
-			YongShowMain(1);
 		}
 #ifdef _WIN32
 		if(MainNoShow && tip_main)
@@ -2382,6 +2380,7 @@ int main(int arc,char *arg[])
 	y_im_load_urls();
 	y_im_load_book();
 	y_im_history_init();
+	y_im_load_app_config();
 	
 	if(!xim || strcmp(xim,"fbterm"))
 	{
@@ -2438,6 +2437,9 @@ int y_main_init(int index)
 	InputNoShow=y_im_get_config_int("input","noshow");
 	y_im_load_urls();
 	y_im_load_book();
+#ifndef CFG_XIM_ANDROID
+	y_im_load_app_config();
+#endif
 	y_xim_init(NULL);
 	if(index>=0)
 		im.Index=index;
@@ -2457,6 +2459,9 @@ void y_main_clean(void)
 	y_im_free_urls();
 	y_im_free_book();
 	y_im_free_config();
+#ifndef CFG_XIM_ANDROID
+	y_im_free_app_config();
+#endif
 }
 
 #endif

@@ -6,6 +6,7 @@
 #include <windowsx.h>
 #include <tchar.h>
 typedef HWND KBD_WIDGET;
+#include "draw.h"
 #else
 #include <gtk/gtk.h>
 typedef GtkWidget *KBD_WIDGET;
@@ -66,12 +67,14 @@ typedef struct{
 
 typedef struct{
 	char *name;
+	char *font_desc;
 #ifdef _WIN32
 	HFONT font;
 #else
 	PangoLayout *font;
 #endif
 	int tran;
+	double scale;
 	BTN_DESC desc[3];
 	KBD_BTN main;
 	KBD_BTN title;
@@ -90,6 +93,10 @@ typedef struct{
 }Y_KBD_STATE;
 
 static Y_KBD_STATE kst;
+
+#ifdef _WIN32
+static DWRITE_CONTEXT *draw_ctx;
+#endif
 
 static void kbd_main_new(void);
 static void kbd_main_show(int b);
@@ -231,7 +238,7 @@ static HFONT font_parse(char *s)
 	l_strfreev(list);
 	
 	hdc=GetDC(NULL);
-	size = -(size*GetDeviceCaps(hdc, LOGPIXELSY)/72); 
+	size = -(size*GetDeviceCaps(hdc, LOGPIXELSY)/72);
 	ReleaseDC(NULL,hdc);
 	memset(&lf,0,sizeof(lf));
 	lf.lfHeight=size;
@@ -265,7 +272,7 @@ static int kbd_select(int pos)
 		return 0;
 		
 	scale=y_ui_get_scale();
-
+	kst.layout.scale=scale;
 	l_free(kst.layout.name);
 	kst.layout.name=0;
 	kst.layout.psel=0;
@@ -372,9 +379,16 @@ static int kbd_select(int pos)
 	}
 	line=l_key_file_get_string(kst.config,data,"shift");
 	if(line)
-		kst.layout.shift.data[0]=line;
+	{
+		char gb[8];
+		l_utf8_to_gb(line,gb,8);
+		l_free(line);
+		kst.layout.shift.data[0]=l_strdup(gb);
+	}
 	else
+	{
 		kst.layout.shift.data[0]=l_strdup("");
+	}
 	
 	kst.layout.shift.rc.x=(short)(scale*x);
 	kst.layout.shift.rc.y=(short)(scale*y);
@@ -455,9 +469,10 @@ static int kbd_select(int pos)
 #else
 		g_object_unref(kst.layout.font);
 #endif
+		l_free(kst.layout.font_desc);
 	}
 	kst.layout.font=font_parse(line);
-	l_free(line);
+	kst.layout.font_desc=line;
 	l_free(layout);
 	
 	/* load button data */
@@ -877,6 +892,80 @@ static void OnKeyboardPaint(HDC hdc,int w,int h)
 	SelectObject(hdc,hFontOld);
 }
 
+static void draw_button_draw(DWRITE_CONTEXT *ctx,KBD_BTN *btn,int sh)
+{
+	RECT rc;
+	void *hPen,*hBrush,*clr;	
+	TCHAR temp[64];
+	int state=btn->state;
+	
+	if(btn==kst.layout.psel) state=KBTN_SELECT;
+	rc.left=btn->rc.x;rc.top=btn->rc.y;
+	rc.right=btn->rc.x+btn->rc.w;
+	rc.bottom=btn->rc.y+btn->rc.h;
+	hBrush=dw_brush_parse(ctx,kst.layout.desc[btn->type].bg[state]);
+	hPen=dw_brush_parse(ctx,kst.layout.desc[btn->type].border[state]);
+	dw_select_brush(ctx,hBrush);
+	dw_select_pen(ctx,hPen);
+	dw_fill_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
+	dw_draw_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
+	clr=dw_brush_parse(ctx,kst.layout.desc[btn->type].fg[state]);
+	if(btn->data[1] && sh)
+		y_im_disp_cand(btn->data[1],(char*)temp,8,0);		
+	else if(btn->data[0])
+		y_im_disp_cand(btn->data[0],(char*)temp,8,0);
+	else
+		temp[0]=0;
+	dw_draw_text2(ctx,temp,&rc,clr);
+	dw_object_delete(hPen);
+	dw_object_delete(hBrush);
+	dw_object_delete(clr);
+
+}
+
+static void OnKeyboardPaint_draw(DWRITE_CONTEXT *ctx,int w,int h)
+{
+	KBD_BTN *sh=&kst.layout.shift;
+	void *hPen,*hBrush,*hFont;
+	int i;
+	
+	hFont=dw_font_parse(kst.layout.font_desc);
+	hBrush=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
+	hPen=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
+	dw_select_font(ctx,hFont);
+	dw_select_brush(ctx,hBrush);
+	dw_select_pen(ctx,hPen);
+	dw_fill_rect(ctx,0,0,w,h);
+	dw_draw_rect(ctx,0,0,w,h);
+	
+	if(sh->rc.w)
+	{
+		draw_button_draw(ctx,sh,0);
+	}
+	for(i=0;i<5;i++)
+	{
+		KBD_BTN *btn=kst.layout.line[i];
+		for(;btn;btn=btn->next)
+		{
+			if(sh->state==KBTN_SELECT) continue;
+			draw_button_draw(ctx,btn,0);
+		}
+	}
+	for(i=0;i<5;i++)
+	{
+		KBD_BTN *btn=kst.layout.line[i];
+		for(;btn;btn=btn->next)
+		{
+			if(sh->state!=KBTN_SELECT) continue;
+			draw_button_draw(ctx,btn,1);
+		}
+	}
+	
+	dw_object_delete(hPen);
+	dw_object_delete(hBrush);
+	dw_object_delete(hFont);
+}
+
 BOOL CALLBACK EnumMenuWin(HWND hWnd ,LPARAM lParam)
 {
 	char name[64];
@@ -890,6 +979,9 @@ BOOL CALLBACK EnumMenuWin(HWND hWnd ,LPARAM lParam)
 LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg){
+	case WM_CREATE:
+		draw_ctx=dw_context_new();
+		break;
 	case WM_SYSCOMMAND:
 		if(wParam==SC_CLOSE)
 		{
@@ -933,23 +1025,34 @@ LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	{
 		PAINTSTRUCT ps;
 		RECT rc;
+		HDC hdc;
 		int w,h;
-		HDC hdc,hmem;
-		HBITMAP bmp,oldbmp;
 		GetClientRect(hWnd,&rc);
-		hdc=BeginPaint(hWnd,&ps);
-		hmem=CreateCompatibleDC(hdc);
 		w=rc.right-rc.left;h=rc.bottom-rc.top;
-		bmp=CreateCompatibleBitmap(hdc,w,h);
-		oldbmp=SelectObject(hmem,bmp);
-		OnKeyboardPaint(hmem,w,h);
-		BitBlt(hdc,0,0,w,h,hmem,0,0,SRCCOPY);
-		SelectObject(hmem,oldbmp);
-		DeleteObject(bmp);
-		DeleteDC(hmem);
+		hdc=BeginPaint(hWnd,&ps);
+		if(draw_ctx)
+		{
+			dw_begin_paint(draw_ctx,hWnd,hdc);
+			OnKeyboardPaint_draw(draw_ctx,w,h);
+			dw_end_paint(draw_ctx);
+		}
+		else
+		{		
+			HBITMAP bmp,oldbmp;			
+			HDC hmem=CreateCompatibleDC(hdc);			
+			bmp=CreateCompatibleBitmap(hdc,w,h);
+			oldbmp=SelectObject(hmem,bmp);
+			OnKeyboardPaint(hmem,w,h);
+			BitBlt(hdc,0,0,w,h,hmem,0,0,SRCCOPY);
+			SelectObject(hmem,oldbmp);
+			DeleteObject(bmp);
+			DeleteDC(hmem);
+		}
 		EndPaint(hWnd,&ps);
 		break;
 	}
+	case WM_DESTROY:
+		dw_context_free(draw_ctx);
 	default:
 		return DefWindowProc(hWnd,msg,wParam,lParam);
 	}
@@ -1033,7 +1136,7 @@ static void draw_button(cairo_t *cr,KBD_BTN *btn,int sh)
 	gdk_cairo_set_source_color(cr,&clr);
 #endif
 #ifdef FIX_CAIRO_LINETO
-	cairo_rectangle(cr,btn->rc.x+0.5,btn->rc.y+0.5,btn->rc.w,btn->rc.h);
+	cairo_rectangle(cr,btn->rc.x+0.5,btn->rc.y+0.5,btn->rc.w-1,btn->rc.h-1);
 #else
 	cairo_rectangle(cr,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
 #endif

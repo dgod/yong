@@ -625,11 +625,19 @@ static char *TableGetCandWord(int index)
 	char *ret;
 
 	if(index>=EIM.CandWordCount)
-		return 0;
+		return NULL;
 	if(index==-1)
 		index=EIM.SelectIndex;
 	ret=&EIM.CandTable[index][0];
 	strcpy(EIM.StringGet,ret);
+	
+	if(InsertMode && EIM.CodeInput[0])
+	{
+		y_mb_add_phrase(mb,EIM.CodeInput,EIM.CandTable[index],0,Y_MB_DIC_USER);
+		TableReset();
+		EIM.StringGet[0]=0;
+		return NULL;
+	}
 
 	if(assoc_mode && assoc_handle && assoc_move)
 	{

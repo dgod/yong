@@ -27,6 +27,51 @@ struct _ldir{
 #endif
 };
 
+#ifdef __linux__
+#if defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,33)
+extern int __xstat(int,const char*,struct stat*);
+extern int __fxstat(int,int,struct stat*);
+#endif
+#endif
+
+static int l_stat(const char *file,struct stat *buf)
+{
+#if defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,33)
+	return __xstat(0,file,buf);
+#else
+	return stat(file,buf);
+#endif
+#else
+	return stat(file,buf);
+#endif
+}
+
+static int l_fstat(int fd,struct stat *buf)
+{
+#if defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,33)
+	// https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/baselib-xstat-1.html
+#ifdef __x86_64__
+	return __fxstat(0,fd,buf);
+#else
+	return __fxstat(3,fd,buf);
+#endif
+#else
+	return fstat(fd,buf);
+#endif
+#else
+	return fstat(fd,buf);
+#endif
+}
+
+#else
+#define l_stat(file,buf) stat(file,buf)
+#define l_fstat(fd,buf) fstat(fd,buf)
+
+#endif/*__linux__*/
+
 int l_zip_goto_file(FILE *fp,const char *name);
 char *l_zip_file_get_contents(FILE *fp,const char *name,size_t *length);
 
@@ -139,7 +184,7 @@ FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size)
 	else if(fp && size)
 	{
 		struct stat st;
-		fstat(fileno(fp),&st);
+		l_fstat(fileno(fp),&st);
 		*size=st.st_size;
 	}
 	return fp;
@@ -219,7 +264,7 @@ char *l_file_vget_contents(const char *file,size_t *length,va_list ap)
 		if(fp!=NULL)
 		{
 			struct stat st;
-			fstat(fileno(fp),&st);
+			l_fstat(fileno(fp),&st);
 			if(st.st_size>1024*1024*1024)
 			{
 				fclose(fp);
@@ -356,7 +401,7 @@ bool l_file_is_dir(const char *path)
 	return (attributes & FILE_ATTRIBUTE_DIRECTORY)?true:false;
 #else
 	struct stat st;
-	if(stat(path,&st))
+	if(l_stat(path,&st))
 		return false;
 	return S_ISDIR(st.st_mode);
 #endif

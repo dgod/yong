@@ -286,7 +286,7 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	gint click=GPOINTER_TO_INT(user_data);
 	GdkCursor *cursor;
 	UI_EVENT ue;
-	
+
 	if(event->type!=GDK_BUTTON_PRESS && event->type!=GDK_BUTTON_RELEASE)
 		return TRUE;
 

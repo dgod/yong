@@ -2675,6 +2675,7 @@ caise 彩色 菜色
 caishen 财神
 caishenye 财神爷
 caishi 才是 才使
+caishichang 菜市场
 caishou 采收
 caishui 财税
 caishuxueqian 才疏学浅
@@ -10244,7 +10245,7 @@ guopan 果盘
 guopin 果品
 guopojiawang 国破家亡
 guopu 果脯
-guoqi 过期 国旗 国企
+guoqi 过期 国旗 国企 过气
 guoqiang 过强 国强
 guoqing 国庆 国情
 guoqingdui 国青队
@@ -39752,8 +39753,6 @@ yimaoquren 以貌取人
 yimapingchuan 一马平川
 yimashi 一码事
 yimei 一枚 溢美
-yimei
-yimeier 伊妹儿
 yimen 一门
 yimenxinsi 一门心思
 yimi 一米 乙醚

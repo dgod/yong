@@ -188,6 +188,17 @@ void l_strup(char *s)
 	}
 }
 
+void l_strdown(char *s)
+{
+	register int c;
+	while((c=*s)!='\0')
+	{
+		if(c>='A' && c<='Z')
+			*s=c-'A'+'a';
+		s++;
+	}
+}
+
 #ifndef _WIN32
 #include <dlfcn.h>
 static int (*p_vsscanf)(const char *buf,const char *fmt,va_list ap);
@@ -258,4 +269,22 @@ char *l_str_trim_right(char *str)
 char *l_str_trim(char *str)
 {
 	return l_str_trim_left(l_str_trim_right(str));
+}
+
+int l_strcpy(char *dest,int dest_size,const char *src)
+{
+	int i;
+	if(!dest || !src || dest_size<=0)
+	{
+		return -1;
+	}
+	for(i=0;i<dest_size-1;i++)
+	{
+		int c=src[i];
+		if(!c)
+			break;
+		dest[i]=c;
+	}
+	dest[i]=0;
+	return i;
 }

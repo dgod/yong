@@ -1019,7 +1019,8 @@ USER:
 
 static int PreviewSkin(CUCtrl p,int arc,char **arg)
 {
-	CUCtrl root=cu_ctrl_get_root(p);
+	//CUCtrl root=cu_ctrl_get_root(p);
+	CUCtrl root=p->parent;
 	CUCtrl name,style,status,input;
 	char *name_val,*style_val;
 	char **preview;

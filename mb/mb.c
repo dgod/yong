@@ -1492,21 +1492,30 @@ int y_mb_find_simple_code(struct y_mb *mb,const char *hz,const char *code,char *
 	return 0;
 }
 
+static const char *mb_skip_display(const char *s,int len)
+{
+	if(s[0]!='$' || s[1]!='[')
+		return s;
+	const char *t=gb_strchr((const uint8_t*)s+2,']');
+	if(!t)
+		return s;
+	t++;
+	if(len>0)
+	{
+		int pos=(int)(size_t)(t-s);
+		if(pos>len)
+			return s;
+	}
+	return t;
+	
+}
+
 struct y_mb_zi *mb_find_zi(struct y_mb*mb,const char *s)
 {
 	struct y_mb_zi *z,kz;
-	if(gb_is_gbk((uint8_t*)s))
-	{
-		kz.data=mb_read_u16(s);
-	}
-	else if(gb_is_gb18030_ext((uint8_t*)s))
-	{
-		kz.data=mb_read_u32(s);
-	}
-	else
-	{
-		return 0;
-	}
+	if(s[0]=='$')
+		s=mb_skip_display(s,-1);
+	kz.data=gb_first((const uint8_t*)s);
 	z=mb_hash_find(mb->zi,&kz);
 	return z;
 }
@@ -1640,12 +1649,8 @@ static struct y_mb_zi *mb_add_zi(struct y_mb *mb,const char *code,int clen,const
 		uint32_t key;
 		if(mv==-1)
 			return 0;
-			
-		if(dlen==2)
-			key=mb_read_u16(data);
-		else
-			key=mb_read_u32(data);
-
+		data=mb_skip_display(data,dlen);			
+		key=gb_first((const uint8_t *)data);
 		z=mb_slice_new(struct y_mb_zi);
 		z->code=0;
 		z->data=key;
@@ -1976,20 +1981,43 @@ static struct y_mb_ci *mb_app_one(struct y_mb *mb,struct y_mb_ci *pos,const char
 	c->del=0;
 	c->zi=c->ext=0;
 	c->simp=0;
-
-	if((dlen==2 && gb_is_gbk((uint8_t*)data)) ||
-				(dlen==4 && gb_is_gb18030_ext((uint8_t*)data)))
+	
+	if(data[0]=='$' && data[1]=='[')
 	{
-		c->zi=1;
-		c->ext=!gb_is_normal((uint8_t*)data);
-		if(revert) c->ext=!c->ext;
-		if(dic==Y_MB_DIC_MAIN)
-			mb_add_zi(mb,code,clen,data,dlen,0);
+	
+		const char *real=mb_skip_display(data,dlen);
+		int rlen=dlen-(int)(size_t)(real-data);
+		if((rlen==2 && gb_is_gbk((uint8_t*)real)) ||
+					(rlen==4 && gb_is_gb18030_ext((uint8_t*)real)))
+		{
+			c->zi=1;
+			c->ext=!gb_is_normal((uint8_t*)real);
+			if(revert) c->ext=!c->ext;
+			if(dic==Y_MB_DIC_MAIN)
+				mb_add_zi(mb,code,clen,real,rlen,0);
+		}
+		else
+		{
+			if(data[0]=='$')
+				c->ext=1;
+		}
 	}
 	else
 	{
-		if(data[0]=='$')
-			c->ext=1;
+		if((dlen==2 && gb_is_gbk((uint8_t*)data)) ||
+					(dlen==4 && gb_is_gb18030_ext((uint8_t*)data)))
+		{
+			c->zi=1;
+			c->ext=!gb_is_normal((uint8_t*)data);
+			if(revert) c->ext=!c->ext;
+			if(dic==Y_MB_DIC_MAIN)
+				mb_add_zi(mb,code,clen,data,dlen,0);
+		}
+		else
+		{
+			if(data[0]=='$')
+				c->ext=1;
+		}
 	}
 	mb_slist_insert_after(NULL,pos,c);
 	index=mb->last_index;
@@ -2155,9 +2183,27 @@ static inline struct y_mb_ci *mb_add_one_ci(
 	{
 		if(!c)
 		{
-			int ishz=revert || (dlen==2 && gb_is_gbk((uint8_t*)data)) ||
-					(dlen==4 && gb_is_gb18030_ext((uint8_t*)data));
 			c=mb_ci_new(data,dlen);
+			
+			int ishz=revert;
+			if(!ishz)
+			{
+				if(data[0]=='$' && data[1]=='[')
+				{
+					const char *real=mb_skip_display(data,dlen);
+					int rlen=dlen-(int)(size_t)(real-data);
+					ishz=(rlen==2 && gb_is_gbk((uint8_t*)real)) ||
+						(rlen==4 && gb_is_gb18030_ext((uint8_t*)real));
+					if(ishz)
+						data=real;
+				}
+				else
+				{
+					 ishz=(dlen==2 && gb_is_gbk((uint8_t*)data)) ||
+						(dlen==4 && gb_is_gb18030_ext((uint8_t*)data));
+				}
+			}
+			
 			c->dic=dic;
 			c->del=0;
 			c->zi=ishz;
@@ -2175,7 +2221,9 @@ static inline struct y_mb_ci *mb_add_one_ci(
 			else
 			{
 				if(data[0]=='$')
+				{
 					c->ext=1;
+				}
 			}
 			index->ci_count++;
 			if(c->zi)
@@ -2335,7 +2383,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 	{
 		int ret;
 		char temp[64];
-		ret=py_conv_to_sp(code,data,temp);
+		ret=py_conv_to_sp(code,mb_skip_display(data,-1),temp);
 		if(ret==0)
 		{
 			trie_node_t *n=trie_tree_add(mb->trie,temp,strlen(temp));
@@ -3294,7 +3342,7 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 	mb->hint=1;
 	mb->len=Y_MB_KEY_SIZE;
 	strcpy(mb->key+1,"abcdefghijklmnopqrstuvwxyz");
-	y_mb_key_map_init(mb->key,0,mb->map);
+	y_mb_key_map_init(mb->key,arg?arg->wildcard:0,mb->map);
 	for(lines=0;(len=l_get_line(line,sizeof(line),fp))>=0;lines++)
 	{
 		if(line[0]=='#')
@@ -3339,14 +3387,16 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 				}
 			}
 			mb->jing_used=strchr(line+4,'#')?1:0;
-			strncpy(mb->key+1,line+4,60);
-			mb->key[61]=0;
+			//strncpy(mb->key+1,line+4,60);
+			//mb->key[61]=0;
+			l_strcpy(mb->key+1,62,line+4);
 			memset(mb->map,0,sizeof(mb->map));
 			y_mb_key_map_init(mb->key,0,mb->map);
 		}
 		else if(!strncmp(line,"key0=",5))
 		{
-			snprintf(mb->key0,sizeof(mb->key0),"%s",line+5);
+			//snprintf(mb->key0,sizeof(mb->key0),"%s",line+5);
+			l_strcpy(mb->key0,sizeof(mb->key0),line+5);
 		}
 		else if(!strncmp(line,"len=",4))
 		{
@@ -3530,7 +3580,8 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 		}
 		else if(!strncmp(line,"skip=",5))
 		{
-			snprintf(mb->skip,8,"%s",line+5);
+			//snprintf(mb->skip,8,"%s",line+5);
+			l_strcpy(mb->skip,9,line+5);
 		}
 		else if(!strncmp(line,"bihua=",6))
 		{
@@ -3628,7 +3679,7 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 			{
 				int flag=MB_FLAG_ASSIST;
 				/*if(mb->pinyin) */flag|=MB_FLAG_ZI;
-				mb->ass=y_mb_load(mb->ass_main,flag,0);
+				mb->ass=y_mb_load(mb->ass_main,flag,NULL);
 			}
 		}
 	}
@@ -5572,7 +5623,24 @@ int y_mb_get_exist_code(struct y_mb *mb,const char *data,char *code)
 				struct y_mb_ci *c;
 				for(c=p->phrase;c;c=c->next)
 				{
-					if(c->del || c->len!=dlen || c->dic==Y_MB_DIC_ASSIST)
+					if(c->del || c->dic==Y_MB_DIC_ASSIST)
+						continue;
+					if(!c->zi &&  c->ext)
+					{
+						const char *s=y_mb_ci_string(c);
+						if(s[0]=='$' && s[1]=='[')
+						{
+							s=mb_skip_display(s,-1);
+							if(dlen==strlen(s) && !memcmp(s,data,dlen))
+							{
+								if(code)
+									strcpy(code,mb_key_conv_r(mb,index->index,p->code));
+								count++;
+								goto out;
+							}
+						}
+					}
+					if(c->len!=dlen )
 						continue;
 					if(!mb_ci_equal(c,data,dlen))
 						continue;
@@ -5656,7 +5724,7 @@ int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char supe
 		if(count>2)
 		{
 			strcpy(temp,calc[2]);
-			strcpy(calc[2],calc[1]);
+			l_strcpy(calc[2],MAX_CAND_LEN+1,calc[1]);
 			strcpy(calc[1],temp);
 		}
 	}
@@ -5672,27 +5740,9 @@ static int mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int
 		return 0;
 	s=y_mb_ci_string(c);
 	if(end!=0)
-		s+=c->len-2;
-	else if(s[0]=='$' && s[1]=='[')
-	{
-		char *temp=gb_strchr((uint8_t*)s+2,']');
-		if(!temp) return 0;
-		s=s+2;
-	}
-	if(gb_is_gbk((uint8_t*)s))
-	{
-		//kz.data=*(uint16_t*)s;
-		kz.data=mb_read_u16(s);
-	}
-	else if(gb_is_gb18030_ext((uint8_t*)s))
-	{
-		//kz.data=*(uint32_t*)s;
-		kz.data=mb_read_u32(s);
-	}
+		kz.data=gb_last((const uint8_t*)s);
 	else
-	{
-		return 0;
-	}
+		kz.data=gb_first((const uint8_t*)mb_skip_display(s,-1));
 	z=mb_hash_find(mb->zi,&kz);
 	if(!z)
 	{
@@ -6618,7 +6668,7 @@ int main(int arc,char *arg[])
 		return 0;
 	y_mb_init();
 	start=clock();
-	mb=y_mb_load(arg[1],0,0);
+	mb=y_mb_load(arg[1],0,NULL);
 	//y_mb_dump(mb,stdout,MB_DUMP_HEAD|MB_DUMP_MAIN,MB_FMT_YONG,NULL);
 	y_mb_free(mb);
 	fprintf(stderr,"load in %.2f seconds\n",((double)(clock()-start))/(double)CLOCKS_PER_SEC);
@@ -6654,7 +6704,7 @@ L_EXPORT(int tool_main(int arc,char **arg))
 		return -1;
 		
 	y_mb_init();
-	mb=y_mb_load(arg[0],MB_FLAG_SLOW,0);
+	mb=y_mb_load(arg[0],MB_FLAG_SLOW,NULL);
 	if(!mb)
 	{
 		y_mb_cleanup();

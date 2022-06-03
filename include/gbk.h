@@ -138,6 +138,75 @@ static inline void *gb_offset(const uint8_t *s,int offset)
 	return (void*)s;
 }
 
+static inline uint32_t gb_first(const uint8_t *s)
+{
+	uint32_t r;
+	
+	if(!(s[0]&0x80))
+	{
+		r=s[0];
+	}
+	else if(gb_is_gbk(s))
+	{
+#if defined(__arm__) || defined(EMSCRIPTEN)
+		r=*(uint16_t*)(s);
+#else
+		r=s[0]|(s[1]<<8);
+#endif
+	}
+	else if(gb_is_gb18030_ext(s))
+	{
+#if defined(__arm__) || defined(EMSCRIPTEN)
+		r=*(uint32_t*)(s);
+#else
+		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
+#endif
+	}
+	else
+	{
+		r=0;
+	}
+	return r;
+}
+
+static inline uint32_t gb_last(const uint8_t *s)
+{
+	uint32_t r=0;
+	
+	while(s[0])
+	{
+		if(!(s[0]&0x80))
+		{
+			r=s[0];
+			s++;
+		}
+		else if(gb_is_gbk(s))
+		{
+	#if defined(__arm__) || defined(EMSCRIPTEN)
+			r=*(uint16_t*)(s);
+	#else
+			r=s[0]|(s[1]<<8);
+	#endif
+			s+=2;
+		}
+		else if(gb_is_gb18030_ext(s))
+		{
+	#if defined(__arm__) || defined(EMSCRIPTEN)
+			r=*(uint32_t*)(s);
+	#else
+			r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
+	#endif
+			s+=4;
+		}
+		else
+		{
+			r=0;
+			break;
+		}
+	}
+	return r;
+}
+
 static inline int gb_strbrk(const uint8_t *s)
 {
 	int len=0;

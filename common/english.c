@@ -578,6 +578,7 @@ out:
 	return ret;
 }
 
+static void parse_decimal(int sel,int64_t val,char *s);
 static int NumSet(const char *s)
 {
 	ENGLISH_IM *e=&eim_num;
@@ -602,6 +603,8 @@ static int NumSet(const char *s)
 	{
 		e->Count=2;
 		e->Priv1=0;
+		if(len>1)
+			e->Count++;
 	}
 	else if(n_is_number(s,len))
 	{
@@ -662,6 +665,11 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 				y_im_nl_day(mktime(&tm),cand[i]+strlen(cand[i]));
 #endif
 			}
+		}
+		else if(e->Priv1==0 && i==2)
+		{
+			cand[i][0]=0;
+			parse_decimal(0,atoi((char*)e->Priv2),cand[i]);;
 		}
 		else
 		{

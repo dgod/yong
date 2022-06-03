@@ -194,6 +194,27 @@ static int allow_update(const char *file)
 	return allow;
 }
 
+#ifdef __linux__
+#if defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,33)
+extern int __xstat(int,const char*,struct stat*);
+#endif
+#endif
+
+static int l_stat(const char *file,struct stat *buf)
+{
+#if defined(__GLIBC__)
+#if __GLIBC_PREREQ(2,33)
+	return __xstat(0,file,buf);
+#else
+	return stat(file,buf);
+#endif
+#else
+	return stat(file,buf);
+#endif
+}
+#endif/*__linux__*/
+
 static int download_remote_file(const FITEM *it)
 {
 	HttpSession *ss;
@@ -253,7 +274,7 @@ static int download_remote_file(const FITEM *it)
 		sprintf(dele,"%s/%s.del",y_im_get_path("DATA"),file);
 #ifdef __linux__
 		struct stat st;
-		stat(path,&st);
+		l_stat(path,&st);
 		chmod(temp,st.st_mode);
 #endif		
 		remove(dele);rename(path,dele);

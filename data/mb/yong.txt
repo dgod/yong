@@ -8983,7 +8983,7 @@ goq 馘 猓
 goqd 过强
 goqg 猓
 goqh 馘
-goqi 过期 国旗 国企
+goqi 过期 国旗 国企 过气
 goqu 过去
 goqy 国庆 国情
 gore 过热
@@ -48007,7 +48007,6 @@ ymyb 跃马扬鞭
 ymyh 艳阳
 ymyv 夜明珠
 ymyy 圆明园 一模一样
-ymze 伊妹儿
 ymzy 有没有
 yn 因 音 印 引 银 隐 饮 阴 姻 瘾 吟 寅 殷 淫 茵 荫 尹 蚓 垠 喑 湮 胤 鄞 氤 霪 圻 铟 狺 吲 夤 堙 龈 洇 茚 窨 廴 訚 愔
 yn; 淫 湮 洇

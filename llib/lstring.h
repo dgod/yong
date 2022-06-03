@@ -25,8 +25,11 @@ void l_string_append(LString *string,const char *val,int len);
 void l_string_append_c(LString *string,int c);
 
 void l_strup(char *s);
+void l_strdown(char *s);
 
 int l_vsscanf(const char * buf, const char * fmt, va_list args);
 int l_sscanf(const char * buf, const char * fmt, ...);
+
+int l_strcpy(char *dest,int dest_size,const char *src);
 
 #endif/*_LSTRING_H_*/

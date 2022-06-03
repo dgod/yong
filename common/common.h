@@ -187,6 +187,14 @@ int y_im_get_config_int(const char *group,const char *key);
 int y_im_has_config(const char *group,const char *key);
 const char *y_im_get_config_data(const char *group,const char *key);
 
+int y_im_load_app_config(void);
+void y_im_free_app_config(void);
+LKeyFile *y_im_get_app_config(const char *exe);
+LKeyFile *y_im_get_app_config_by_pid(int pid);
+#ifdef _WIN32
+LKeyFile *y_im_get_app_config_by_hwnd(HWND w);
+#endif
+
 typedef struct{
 	void *next;
 	char *url;

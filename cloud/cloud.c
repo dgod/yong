@@ -480,7 +480,7 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 	int i,n,ret;
 	char *p;
 	char *res[20];
-	int code[20];	
+	int code[20];
 	
 	s=strstr(s,"[[[");
 	if(!s)
@@ -498,7 +498,7 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 				l_free(res[n]);
 			return NULL;
 		}
-		res[i]=l_strdup(cand);
+		res[i]=u2gb(cand);
 		p+=n;
 #else
 		p+=2;
@@ -507,11 +507,12 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 		cand[n]=0;
 		p+=n+2;
 		code[i]=atoi(p);
-		res[i]=l_strdup(cand);
+		res[i]=u2gb(cand);
 		p=strchr(p,']')+1;
 #endif
 		if(p[0]==']')
 		{
+			i++;
 			p++;
 			break;
 		}
@@ -535,12 +536,19 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 		r->cs[i].l=code[i];
 		r->cs[i].s=res[i];
 	}
-	if(p[0]!=',' || p[1]!='\"')
+	/*if(p[0]!=',' || p[1]!='\"')
 	{
 		sg_res_free(r);
 		return NULL;
 	}
-	p+=2;
+	p+=2;*/
+	p=strstr(s,"\"pinyin\":\"");
+	if(!p)
+	{
+		sg_res_free(r);
+		return NULL;
+	}
+	p+=10;
 	for(i=0;i<63;i++)
 	{
 		while(*p=='\'') p++;

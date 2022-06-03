@@ -104,7 +104,7 @@ LKeyFile *l_key_file_open(const char *file,int create,...)
 	va_end(ap);
 	if(data!=NULL)
 	{
-		key_file=l_key_file_load(data,length);
+		key_file=l_key_file_load(data,(ssize_t)length);
 		l_free(data);
 		key_file->file=l_strdup(file);
 	}
@@ -117,7 +117,7 @@ LKeyFile *l_key_file_open(const char *file,int create,...)
 	return key_file;
 }
 
-LKeyFile *l_key_file_load(const char *data,size_t length)
+LKeyFile *l_key_file_load(const char *data,ssize_t length)
 {
 	LKeyFile *key_file;
 	KeyValue *kv;
@@ -482,6 +482,28 @@ const char *l_key_file_get_start_group(LKeyFile *key_file)
 	return NULL;
 }
 
+char **l_key_file_get_groups(LKeyFile *key_file)
+{
+	LArray *list;
+	KeyValue *p;
+	char **res;
+	
+	list=l_ptr_array_new(8);
+	for(p=key_file->line;p!=NULL;p=p->next)
+	{
+		if(p->value) continue;
+		if(!p->key) continue;
+		l_ptr_array_append(list,l_strdup(p->key));
+	}
+	l_ptr_array_append(list,NULL);
+	res=(char**)list->data;
+	list->data=NULL;
+	list->len=0;
+	list->count=0;
+	l_ptr_array_free(list,NULL);
+	return res;
+}
+
 char **l_key_file_get_keys(LKeyFile *key_file,const char *group)
 {
 	LArray *list;
@@ -496,7 +518,7 @@ char **l_key_file_get_keys(LKeyFile *key_file,const char *group)
 			break;
 		}
 	}
-	if(!p) return 0;
+	if(!p) return NULL;
 	list=l_ptr_array_new(8);
 	for(p=p->next;p!=NULL;p=p->next)
 	{

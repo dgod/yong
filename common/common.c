@@ -714,6 +714,16 @@ const char *y_im_get_path(const char *type)
 			}
 			else
 			{
+				/*char path[256];
+				wchar_t *data=_wgetenv(L"AppData");
+				assert(data!=NULL);
+				l_utf16_to_utf8(data,path,sizeof(path));
+				strcat(path,"/yong");
+				
+				if(l_file_is_dir(path))
+					uac=1;
+				else
+					uac=0;*/
 				uac=0;
 			}
 		}
