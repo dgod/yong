@@ -88,6 +88,11 @@ static void client_set_cursor_location(guint id,const QRect *area)
 	l_call_client_call("cursor",NULL,"iiiii",id,area->x(),area->y(),area->width(),area->height());
 }
 
+static void client_set_cursor_location_relative(guint id,const QRect *area)
+{
+	l_call_client_call("cursor",NULL,"iiiiii",id,area->x(),area->y(),area->width(),area->height(),1);
+}
+
 static gboolean client_input_key(guint id,int key,guint32 time)
 {
 	int ret,res;
@@ -282,7 +287,10 @@ static gboolean _set_cursor_location_internal(QYongPlatformInputContext *ctx)
 
     area = ctx->cursor_area;
 
-	client_set_cursor_location(ctx->id,&area);
+	if(ctx->is_wayland)
+		client_set_cursor_location_relative(ctx->id,&area);
+	else
+		client_set_cursor_location(ctx->id,&area);
     return FALSE;
 }
 
@@ -319,6 +327,14 @@ static void client_connect(void)
 	}
 }
 
+static int in_wayland(void)
+{
+	char *s=getenv("WAYLAND_DISPLAY");
+	if(!s || !s[0])
+		return 0;
+	return 1;
+}
+
 QYongPlatformInputContext::QYongPlatformInputContext()
 {
 	//printf("QYongPlatformInputContext\n");
@@ -342,8 +358,13 @@ QYongPlatformInputContext::QYongPlatformInputContext()
 	has_focus=0;
 	use_preedit=0;
 	skip_cursor=0;
+	//is_wayland=QGuiApplication::platformName() ==
+    //               QLatin1String("wayland");
+	is_wayland=in_wayland();
 	preedit_string=NULL;
 	id=_ctx_id++;
+
+	//fprintf(stderr,"is_wayland %d\n",is_wayland);
 	
 	_ctx_list=g_slist_prepend(_ctx_list,this);
 	client_add_ic(id);
@@ -539,20 +560,29 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 
 void QYongPlatformInputContext::cursorRectChanged()
 {
-	//printf("cursorRectChanged\n");
+	//fprintf(stderr,"cursorRectChanged\n");
 	QWindow *inputWindow = qApp->focusWindow();
 	if (!inputWindow)
 		return;
 	QRect r = qApp->inputMethod()->cursorRectangle().toRect();
 	if(!r.isValid())
 		return;
+	if(is_wayland)
+	{
+		auto margins = inputWindow->frameMargins();
+   		r.translate(margins.left(), margins.top());
+	}
+	auto screenGeometry = inputWindow->screen()->geometry();
 	r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
 	qreal scale = inputWindow->devicePixelRatio();
-	cursor_area.setX(r.x()*scale);
-	cursor_area.setY(r.y()*scale);
+	cursor_area.setX(r.x()*scale+screenGeometry.left());
+	cursor_area.setY(r.y()*scale+screenGeometry.top());
 	cursor_area.setWidth(r.width()*scale);
 	cursor_area.setHeight(r.height()*scale);
-	client_set_cursor_location(id,&cursor_area);
+	if(is_wayland)
+		client_set_cursor_location_relative(id,&cursor_area);
+	else
+		client_set_cursor_location(id,&cursor_area);
 }
 
 QKeyEvent* QYongPlatformInputContext::createKeyEvent(uint keyval, int release)
