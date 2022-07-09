@@ -27,6 +27,7 @@ public:
 	int has_focus:1;
 	int use_preedit:1;
 	int skip_cursor:1;
+	int is_wayland:1;
 	int key_ignore;
 	QRect cursor_area;
 	char *preedit_string;
