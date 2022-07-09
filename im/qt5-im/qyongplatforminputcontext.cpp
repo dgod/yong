@@ -360,6 +360,7 @@ QYongPlatformInputContext::QYongPlatformInputContext()
 	skip_cursor=0;
 	//is_wayland=QGuiApplication::platformName() ==
     //               QLatin1String("wayland");
+	//fprintf(stderr,"%s\n",qApp->platformName().toStdString().data() );
 	is_wayland=in_wayland();
 	preedit_string=NULL;
 	id=_ctx_id++;
@@ -543,8 +544,10 @@ bool QYongPlatformInputContext::filterEvent(const QEvent* event)
 void QYongPlatformInputContext::setFocusObject(QObject* object)
 {
 	//printf("setFocusObject %p\n",object);
+	//fprintf(stderr,"%s\n",qApp->platformName().toStdString().data());
 	if(object!=NULL)
 	{
+		this->is_wayland=qApp->platformName()=="wayland";
 		_focus_ctx=this;
 		client_window=object;
 		client_focus_in(id);
@@ -575,6 +578,7 @@ void QYongPlatformInputContext::cursorRectChanged()
 	auto screenGeometry = inputWindow->screen()->geometry();
 	r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
 	qreal scale = inputWindow->devicePixelRatio();
+	//fprintf(stderr,"%d %d %lf\n",r.x(),r.y(),scale);
 	cursor_area.setX(r.x()*scale+screenGeometry.left());
 	cursor_area.setY(r.y()*scale+screenGeometry.top());
 	cursor_area.setWidth(r.width()*scale);
