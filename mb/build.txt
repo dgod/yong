@@ -1,5 +1,7 @@
 var SRCS=['mb.c','face.c','pinyin.c','learn.c','legend.c','pyzip.c','trie.c','fuzzy.c'];
-var DIRS=['l32','l64','w32','w64'];
+var DIRS=['l32','l64',
+
+	];
 
 env("VPATH+=$(TOPDIR)/mb");
 env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");

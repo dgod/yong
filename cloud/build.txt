@@ -1,5 +1,7 @@
 var SRCS=['pinyin.c','cloud.c','local.c','trie.c','system.c'];
-var DIRS=['l32','l64','w32','w64'];
+var DIRS=['l32','l64',
+
+	];
 
 env("VPATH+=$(TOPDIR)/cloud");
 env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");

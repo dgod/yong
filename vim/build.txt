@@ -2,7 +2,9 @@ var SRCS=['vim.c'];
 var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});
-var DIRS=['l32','l64','w32','w64'];
+var DIRS=['l32','l64',
+
+	];
 
 env('VPATH+=$(TOPDIR)/vim');
 
