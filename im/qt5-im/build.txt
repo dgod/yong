@@ -37,7 +37,7 @@ function run(target){
 	env("LIBS+=-ldl -lstdc++");
 	if(VER==5){
 		//var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
-		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}`);
+		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}Core`);
 		var MOC=LIBDIR+'/qt5/bin/moc';
 	}else{
 		var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
