@@ -7,7 +7,6 @@ function copy_data(){
 	exec("cp -f ../im/yong.xml yong/yong.xml");
 	exec("cp -f ../im/yong.ini yong");
 	exec("cp -rf ../im/skin/* yong/skin");
-	exec("cp -f ../im/gnome-shell/yong@dgod.net.shell-extension.zip yong/gnome-shell");
 	
 	exec("msgfmt -c ../im/gtk-im/zh_CN.po -o yong/locale/zh_CN.mo");
 	

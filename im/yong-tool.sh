@@ -993,7 +993,7 @@ Name=yong
 EOF
 	fi
 
-	if [ -f /usr/bin/gnome-extensions ] ; then
+	if [ -f /usr/bin/gnome-extensions -a -f gnome-shell/yong@dgod.net.shell-extension.zip ] ; then
 		gnome-extensions install --force gnome-shell/yong@dgod.net.shell-extension.zip
 		gnome-extensions enable yong@dgod.net
 	fi
