@@ -12,9 +12,6 @@
 #include "translate.h"
 #include "version.h"
 
-#ifdef CFG_XIM_IBUS
-#include "xim-ibus.h"
-#endif
 #ifdef CFG_XIM_FBTERM
 #include "fbterm.h"
 #endif
@@ -30,19 +27,16 @@ static Y_XIM xim;
 
 int y_xim_init(const char *name)
 {
+#ifdef __linux__
+	if(name && !strcmp(name,"ybus"))
+		name=NULL;
+#endif
 	memset(&xim,0,sizeof(xim));
 	if(!name || !name[0])
 	{
 		int y_xim_init_default(Y_XIM *x);
 		y_xim_init_default(&xim);
 	}
-#ifdef CFG_XIM_IBUS
-	else if(!strcmp(name,"ibus"))
-	{
-		int y_xim_init_ibus(Y_XIM *x);
-		y_xim_init_ibus(&xim);
-	}
-#endif
 #ifdef CFG_XIM_FBTERM
 	else if(!strcmp(name,"fbterm"))
 	{
@@ -2275,6 +2269,7 @@ static struct im_helper helper_list[4];
 
 static time_t y_im_last_mtime(const char *file)
 {
+#if 0
 #ifdef _WIN32
 	struct _stat st;
 	wchar_t temp[MAX_PATH];
@@ -2290,6 +2285,8 @@ static time_t y_im_last_mtime(const char *file)
 		return 0;
 	return st.st_mtime;
 #endif
+#endif
+	return l_file_mtime(file);
 }
 
 #ifdef _WIN32

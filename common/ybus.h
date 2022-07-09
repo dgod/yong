@@ -35,6 +35,11 @@ typedef struct{
 	int (*preedit_draw)(CONN_ID,CLIENT_ID,const char*);
 	void (*send_string)(CONN_ID,CLIENT_ID,const char*,int flags);
 	void (*send_key)(CONN_ID,CLIENT_ID,int key);
+
+	void (*wm_state)(CONN_ID,int);
+	void (*wm_make_above)(CONN_ID,const char *);
+	void (*wm_move)(CONN_ID,const char *,int,int,int);
+	void (*wm_icon)(CONN_ID,const char *,const char*);
 }YBUS_PLUGIN;
 
 typedef struct{
@@ -58,6 +63,10 @@ enum{
 	YBUS_TOOL_NONE=0,
 	YBUS_TOOL_SET_LANG,
 	YBUS_TOOL_GET_LANG,
+	YBUS_TOOL_SET_WM,
+	YBUS_TOOL_TRIGGER,
+	YBUS_TOOL_CONFIG,
+	YBUS_TOOL_WM_FOCUS,
 };
 
 int ybus_init(void);
@@ -70,7 +79,8 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
 int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
 int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
 int ybus_on_close(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
-int ybus_on_tool(YBUS_PLUGIN *plugin,int type,int param);
+int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param);
+int ybus_on_cursor(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int x,int y,int rel);
 
 YBUS_CONNECT *ybus_find_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id);
 YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id);
@@ -91,5 +101,8 @@ void xim_ybus_forward_key(int key,int repeat);
 void xim_ybus_send_string(const char *s,int flags);
 int xim_ybus_preedit_clear(void);
 int xim_ybus_preedit_draw(const char *s,int len);
+
+int ybus_wm_ready(void);
+void ybus_wm_icon(const char *icon1,const char *icon2);
 
 #endif/*_YBUS_H_*/

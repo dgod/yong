@@ -17,7 +17,7 @@
       <layout>us</layout>
       <longname>Yong</longname>
       <description>Yong Input Method</description>
-      <setup>/usr/bin/yong-config</setup>
+      <setup>/usr/bin/yong --config</setup>
       <locale name="zh_CN">
         <longname>Yong</longname>
         <description>Yong输入法</description>

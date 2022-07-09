@@ -599,7 +599,7 @@ static void input_expose(void)
 		if(i==eim->SelectIndex) color=InputTheme.text[1];
 		draw_text(posx[1],posy[1],color,InputTheme.bg_color,im.CandTable[i]);
 
-		if(im.Hint && eim->CodeTips[i] && *im.CodeTips[i])
+		if(im.Hint && *im.CodeTips[i])
 		{
 			color=InputTheme.text[2];
 			draw_text(posx[2],posy[2],color,InputTheme.bg_color,im.CodeTips[i]);

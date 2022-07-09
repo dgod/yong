@@ -24,7 +24,10 @@ GTK4_PATH64=
 GTK2_IMMODULES32=
 GTK2_IMMODULES64=
 GTK_IM_DETECT=
+QT5_PATH32=
 QT5_PATH64=
+QT6_PATH32=
+QT6_PATH64=
 
 function usage()
 {
@@ -342,6 +345,7 @@ function gtk_install32()
 	fi
 	
 	if [ -f gtk-im/libimyong-gtk4.so -a -n "$GTK4_PATH32" ] ; then
+		mkdir -p $GTK4_PATH32/4.0.0/immodules
 		if [ -d $GTK4_PATH32/4.0.0/immodules ] ; then
 			install gtk-im/libimyong-gtk4.so $GTK4_PATH32/4.0.0/immodules/libimyong.so
 		fi
@@ -449,6 +453,7 @@ function gtk_install64()
 	fi
 	
 	if [ -f gtk-im/libimyong-gtk4.so -a -n "$GTK4_PATH64" ] ; then
+		mkdir -p $GTK4_PATH64/4.0.0/immodules
 		if [ -d $GTK4_PATH64/4.0.0/immodules ] ; then
 			install gtk-im/libimyong-gtk4.so $GTK4_PATH64/4.0.0/immodules/libimyong.so
 		fi
@@ -800,10 +805,35 @@ function detect_gtk4(){
 function detect_qt5()
 {
 	if [ -z "$QT5_PATH" ] ;then
+
+		if [ -n "$HOST_TRIPLET32" -a -d /usr/lib/$HOST_TRIPLET32/qt5 ] ; then
+			QT5_PATH32=/usr/lib/$HOST_TRIPLET32/qt5
+		elif [ -d /usr/lib/qt5 ] ; then
+			QT5_PATH32=/usr/lib/qt5
+		fi
+
 		if [ -n "$HOST_TRIPLET64" -a -d /usr/lib/$HOST_TRIPLET64/qt5 ] ; then
 			QT5_PATH64=/usr/lib/$HOST_TRIPLET64/qt5
 		elif [ -d /usr/lib64/qt5 ] ; then
 			QT5_PATH64=/usr/lib64/qt5
+		fi
+	fi
+}
+
+function detect_qt6()
+{
+	if [ -z "$QT6_PATH" ] ;then
+
+		if [ -n "$HOST_TRIPLET32" -a -d /usr/lib/$HOST_TRIPLET32/qt6 ] ; then
+			QT6_PATH32=/usr/lib/$HOST_TRIPLET32/qt6
+		elif [ -d /usr/lib/qt6 ] ; then
+			QT5_PATH32=/usr/lib/qt6
+		fi
+
+		if [ -n "$HOST_TRIPLET64" -a -d /usr/lib/$HOST_TRIPLET64/qt6 ] ; then
+			QT6_PATH64=/usr/lib/$HOST_TRIPLET64/qt6
+		elif [ -d /usr/lib64/qt5 ] ; then
+			QT6_PATH64=/usr/lib64/qt6
 		fi
 	fi
 }
@@ -819,6 +849,7 @@ function detect_sysinfo()
 	detect_gtk3
 	detect_gtk4
 	detect_qt5
+	detect_qt6
 }
 
 function display_sysinfo()
@@ -865,8 +896,17 @@ function display_sysinfo()
 	if ! [ -z "$GTK2_IMMODULES64" ]; then
 		echo "  GTK2_IMMODULES64: $GTK2_IMMODULES64"
 	fi
+	if ! [ -z "$QT5_PATH32" ]; then
+		echo "  QT5_PATH32: $QT5_PATH32"
+	fi
 	if ! [ -z "$QT5_PATH64" ]; then
 		echo "  QT5_PATH64: $QT5_PATH64"
+	fi
+	if ! [ -z "$QT6_PATH32" ]; then
+		echo "  QT5_PATH32: $QT6_PATH32"
+	fi
+	if ! [ -z "$QT6_PATH64" ]; then
+		echo "  QT6_PATH64: $QT6_PATH64"
 	fi
 }
 
@@ -941,6 +981,24 @@ function warn_user_root()
 	fi
 }
 
+function wayland_select()
+{
+	if ! [ -f /usr/bin/ibus-daemon ] ; then
+		mkdir -p ~/.config/autostart/
+		cat >~/.config/autostart/yong.desktop <<EOF
+[Desktop Entry]
+Exec=/usr/bin/yong -d
+Type=Application
+Name=yong
+EOF
+	fi
+
+	if [ -f /usr/bin/gnome-extensions ] ; then
+		gnome-extensions install --force gnome-shell/yong@dgod.net.shell-extension.zip
+		gnome-extensions enable yong@dgod.net
+	fi
+}
+
 if [ $# != 1 ] ; then
 	usage
 	exit 0
@@ -981,6 +1039,11 @@ elif [ $1 = "--uninstall" ] ; then
 	fi
 elif [ $1 = "--select" ] ; then
 	warn_user_root
+	if [ "$XDG_SESSION_TYPE" = "wayland" ] ; then
+		wayland_select
+		echo "--select wayland Done"
+		exit
+	fi
 	if [ $DIST = "fedora" ] ; then
 		fedora_select
 	elif [ $DIST = "debian" ] ; then

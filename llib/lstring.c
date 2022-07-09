@@ -199,6 +199,7 @@ void l_strdown(char *s)
 	}
 }
 
+#if 0
 #ifndef _WIN32
 #include <dlfcn.h>
 static int (*p_vsscanf)(const char *buf,const char *fmt,va_list ap);
@@ -224,6 +225,20 @@ int l_sscanf(const char * buf, const char * fmt, ...)
 	va_end(args);
 	return i;
 }
+
+#else
+
+int l_sscanf(const char * buf, const char * fmt, ...)
+{
+	va_list args;
+	int i;
+	va_start(args,fmt);
+	i=vsscanf(buf,fmt,args);
+	va_end(args);
+	return i;
+}
+
+#endif
 
 bool l_str_has_prefix(const char *str,const char *prefix)
 {

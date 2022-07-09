@@ -15,7 +15,9 @@ enum{
 	APP_GEANY,
 	APP_GEDIT,
 	APP_SUBLIME,
-	APP_CHROME
+	APP_CHROME,
+	APP_GVIM,
+	APP_DOUBLECMD,
 };
 
 struct _GtkIMContextYong{
@@ -31,6 +33,7 @@ struct _GtkIMContextYong{
 	guint has_focus:1;
 	guint use_preedit:1;
 	guint app_type:4;
+	guint is_wayland:1;
 	
 	gboolean skip_cursor;
 	GdkRectangle cursor_area;	
@@ -65,6 +68,7 @@ static void     gtk_im_context_yong_get_preedit_string (GtkIMContext          *c
 static int client_dispatch(const char *name,LCallBuf *buf);
 static void client_connect(void);
 static void client_set_cursor_location(guint id,const GdkRectangle *area);
+static void client_set_cursor_location_relative(guint id,const GdkRectangle *area);
 static gboolean client_input_key(guint id,int key,guint32 time);
 static gboolean client_input_key_async(guint id,int key,guint32 time);
 static void client_focus_in(guint id);
@@ -183,6 +187,16 @@ static int check_app_type(void)
 		type=APP_CHROME;
 		goto out;
 	}
+	else if(strstr(exec,"gvim"))
+	{
+		type=APP_GVIM;
+		goto out;
+	}
+	else if(strstr(exec,"doublecmd"))
+	{
+		type=APP_DOUBLECMD;
+		goto out;
+	}
   }
 out:
   return type;
@@ -230,10 +244,32 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
 #endif
 }
 
+#if GTK_CHECK_VERSION(3,0,0)
+static int is_wayland(void)
+{
+	if(!getenv("WAYLAND_DISPLAY"))
+		return 0;
+	if(_app_type==APP_GVIM)
+		return 0;
+	char *s=getenv("GDK_BACKEND");
+	if(!s)
+		return 1;
+	if(!strcmp(s,"x11"))
+		return 0;
+	return 1;
+}
+#else
+static int is_wayland(void)
+{
+	return 0;
+}
+#endif
+
 static void gtk_im_context_yong_init(GtkIMContextYong *ctx)
 {	
 	ctx->has_focus=0;
 	ctx->use_preedit=1;
+	ctx->is_wayland=is_wayland();
 	ctx->id=_ctx_id++;
 	ctx->cursor_area=(GdkRectangle){-1,-1,0,0};
 	ctx->skip_cursor=FALSE;
@@ -316,7 +352,10 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
 		}
 	}
 #endif
-	client_set_cursor_location(ctx->id,&area);
+	if(ctx->is_wayland)
+		client_set_cursor_location_relative(ctx->id,&area);
+	else
+		client_set_cursor_location(ctx->id,&area);
     return FALSE;
 }
 
@@ -455,11 +494,14 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 	keyval=event->keyval;
 	event_time=event->time;
 #endif
+	if(_app_type==APP_DOUBLECMD && !ctx->has_focus)
+	{
+		return TRUE;
+	}
 	if(!ctx->has_focus && !release && !(state&YONG_IGNORED_MASK))
 	{
 		gtk_im_context_yong_focus_in(context);
 	}
-
 
 	key=GetKey(keyval,state);
 	if(ctx->has_focus && !(state&YONG_IGNORED_MASK))
@@ -504,6 +546,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			}
 			else
 			{
+				static int last_key_used;
 				res=client_input_key(ctx->id,key,event_time);
 				if(key==_trigger && !release && res==0)
 				{
@@ -675,6 +718,11 @@ void gtk_im_context_yong_shutdown(void)
 static void client_set_cursor_location(guint id,const GdkRectangle *area)
 {
 	l_call_client_call("cursor",NULL,"iiiii",id,area->x,area->y,area->width,area->height);
+}
+
+static void client_set_cursor_location_relative(guint id,const GdkRectangle *area)
+{
+	l_call_client_call("cursor",NULL,"iiiiii",id,area->x,area->y,area->width,area->height,1);
 }
 
 static gboolean client_input_key(guint id,int key,guint32 time)

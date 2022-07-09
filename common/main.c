@@ -22,6 +22,9 @@
 #include "select.h"
 #include "translate.h"
 #include "keytool.h"
+#ifdef L_CALL_GLIB_CLIENT
+#include "lcall.h"
+#endif
 
 static LKeyFile *ConfigSkin;
 
@@ -213,7 +216,6 @@ void YongSetLang(int lang)
 		}		
 		return;
 	}
-
 out:
 	id=y_xim_get_connect();
 	if(!id)
@@ -504,12 +506,25 @@ void update_input_window(void)
 	param.line=l_key_file_get_int(ConfigSkin,"input","line");
 	param.caret=l_key_file_get_int(ConfigSkin,"input","caret");
 	param.page=l_key_file_get_int(ConfigSkin,"input","page");
-	param.bg=l_key_file_get_string(ConfigSkin,"input","bg");
-	if(!param.bg) param.bg=l_strdup("#ffffff");
+	tmp=l_key_file_get_string(ConfigSkin,"input","bg");
+	if(!tmp)
+	{
+		param.bg[0]=l_strdup("#ffffff");
+		param.bg[1]=NULL;
+	}
+	else
+	{
+		t=tmp;
+		p=strtok(t,",");
+		param.bg[0]=l_strdup(p?p:"#ffffff");
+		p=strtok(NULL,",");
+		param.bg[1]=p?l_strdup(p):NULL;
+		l_free(tmp);
+	}
 	param.tran=l_key_file_get_int(ConfigSkin,"input","tran");
 	if(param.tran<0 || param.tran>255) param.tran=0;	
 
-	if(param.bg[0]=='#')
+	if(param.bg[0][0]=='#')
 	{
 		tmp=l_key_file_get_string(ConfigSkin,"input","size");
 		if(tmp)
@@ -561,10 +576,10 @@ void update_input_window(void)
 	if(!t) t=tmp=l_key_file_get_string(ConfigSkin,"input","color");
 	if(!t) t=tmp=l_strdup("");
 	p=strtok(t,",");param.text[0]=l_strdup(p?p:"#0042C8");
-	p=strtok(0,",");param.text[1]=l_strdup(p?p:"#161343");
-	p=strtok(0,",");param.text[2]=l_strdup(p?p:"#ff0084");
-	p=strtok(0,",");param.text[3]=l_strdup(p?p:"#669f42");
-	p=strtok(0,",");param.text[4]=l_strdup(p?p:"#008000");
+	p=strtok(NULL,",");param.text[1]=l_strdup(p?p:"#161343");
+	p=strtok(NULL,",");param.text[2]=l_strdup(p?p:"#ff0084");
+	p=strtok(NULL,",");param.text[3]=l_strdup(p?p:"#669f42");
+	p=strtok(NULL,",");param.text[4]=l_strdup(p?p:"#008000");
 	if(p) p=strtok(0,",");
 	param.text[5]=l_strdup(p?p:param.text[0]);
 	if(p) p=strtok(0,",");
@@ -630,7 +645,8 @@ void update_input_window(void)
 	param.cand_max=l_key_file_get_int(ConfigSkin,"input","cand_max");
 
 	y_ui_input_update(&param);
-	l_free(param.bg);
+	for(i=0;i<L_ARRAY_SIZE(param.bg);i++)
+		l_free(param.bg[i]);
 	l_free(param.border);
 	l_free(param.font);
 	l_free(param.sep);
@@ -2139,7 +2155,7 @@ void YongDestroyIM(void)
 #ifndef ATTACH_PARENT_PROCESS
 #define ATTACH_PARENT_PROCESS   ((DWORD)-1)
 #endif
-/*
+
 static void attach_console(void)
 {
 	if (fileno (stdout) != -1 &&
@@ -2162,7 +2178,7 @@ static void attach_console(void)
 			dup2 (fileno (stderr), 2);
 		}
 	}
-}*/
+}
 #endif
 
 #ifndef CFG_BUILD_LIB
@@ -2190,11 +2206,7 @@ int main(int arc,char *arg[])
 {
 	int mb_tool=0;
 	int i;
-	char *xim=0;
-	
-#ifdef _WIN32
-	//attach_console();
-#endif
+	char *xim=NULL;
 	
 	VERBOSE("deal command line\n");
 
@@ -2209,6 +2221,8 @@ int main(int arc,char *arg[])
 			else if(id>0)
 				return EXIT_SUCCESS;
 			else break;
+#else
+			attach_console();
 #endif
 		}
 		else if(!strcmp(arg[i],"-s"))
@@ -2221,23 +2235,26 @@ int main(int arc,char *arg[])
 			xim="ybus";
 		}
 #ifdef CFG_XIM_IBUS
-		else if(!strcmp(arg[i],"--ibus"))
-		{
-			xim="ibus";
-		}
 		else if(!strcmp(arg[i],"--xml"))
 		{
-			extern void xim_ibus_output_xml(void);
+			extern void ybus_ibus_output_xml(void);
 			y_ui_init(xim);
 			y_im_config_path();
 			y_im_update_main_config();
-			xim_ibus_output_xml();
+			ybus_ibus_output_xml();
 			exit(0);
+		}
+		else if(!strcmp(arg[i],"--ibus"))
+		{
+			extern void ybus_ibus_enable(int enable);
+			ybus_ibus_enable(1);
 		}
 		else if(!strcmp(arg[i],"--ibus-menu"))
 		{
-			extern void xim_ibus_menu_enable(int enable);
-			xim_ibus_menu_enable(1);
+			extern void ybus_ibus_enable(int enable);
+			extern void ybus_ibus_menu_enable(int enable);
+			ybus_ibus_enable(1);
+			ybus_ibus_menu_enable(1);
 		}
 #endif
 		else if(!strcmp(arg[i],"--tool=libmb.so"))
@@ -2245,6 +2262,32 @@ int main(int arc,char *arg[])
 			mb_tool=1;
 			arc-=i+1;
 			arg+=i+1;
+		}
+		else if(!strcmp(arg[i],"--config"))
+		{
+#ifdef _WIN32
+			HWND remote;
+			remote=FindWindow(L"yong_main",L"main");
+			if(!remote)
+			{
+				y_im_config_path();
+				ShellExecuteA(NULL,"open","yong-config.exe",NULL,NULL,SW_SHOWNORMAL);
+			}
+			else
+			{
+				PostMessage(remote,WM_COMMAND,1300,0);
+			}
+#else
+			l_call_client_connect();
+			int ret=l_call_client_call("tool",NULL,"ii",5,0);
+			if(ret==-1)
+			{
+				y_im_config_path();
+				char *argv[]={"./yong-config",NULL};
+				g_spawn_async(NULL,argv,NULL,G_SPAWN_DEFAULT,NULL,NULL,NULL,NULL);
+			}
+#endif
+			return 0;
 		}
 #ifdef _WIN32
 		else if(!strcmp(arg[i],"-exec") && i+2==arc)
@@ -2341,10 +2384,7 @@ int main(int arc,char *arg[])
 	if(getenv("FBTERM_IM_SOCKET"))
 		xim="fbterm";
 #endif
-	y_ui_init(xim);
-	
 	VERBOSE("config path\n");
-
 	y_im_config_path();
 
 	if(mb_tool)
@@ -2369,7 +2409,8 @@ int main(int arc,char *arg[])
 		y_im_module_close(handle);
 		return ret;
 	}
-	
+	y_ui_init(xim);
+
 	VERBOSE("update main config\n");
 
 	y_im_update_main_config();

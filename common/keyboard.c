@@ -330,9 +330,9 @@ static int kbd_select(int pos)
 	line=l_key_file_get_string(kst.config,layout,"main");
 	if(!line)
 	{
+		printf("yong: keyboard can't found main of layout %s\n",layout);
 		l_free(data);
 		l_free(layout);
-		printf("yong: keyboard can't found main of layout %s\n",layout);
 		return -1;
 	}
 	ret=l_sscanf(line,"%d,%d %s %d",&w,&h,
@@ -928,8 +928,8 @@ static void OnKeyboardPaint_draw(DWRITE_CONTEXT *ctx,int w,int h)
 	KBD_BTN *sh=&kst.layout.shift;
 	void *hPen,*hBrush,*hFont;
 	int i;
-	
-	hFont=dw_font_parse(kst.layout.font_desc);
+
+	hFont=dw_font_parse(ctx,kst.layout.font_desc);
 	hBrush=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 	hPen=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 	dw_select_font(ctx,hFont);
@@ -980,6 +980,8 @@ LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg){
 	case WM_CREATE:
+		if(l_key_file_get_data(kst.config,"keyboard","color") && l_key_file_get_int(kst.config,"keyboard","color")==0)
+			break;
 		draw_ctx=dw_context_new();
 		break;
 	case WM_SYSCOMMAND:

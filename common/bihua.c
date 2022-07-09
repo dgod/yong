@@ -75,7 +75,7 @@ static struct bihua_trunc *trunc;
 static char *base;
 static struct bihua_result res;
 
-int y_bihua_load(char *fn)
+int y_bihua_load(const char *fn)
 {
 	y_bihua_free();
 	map_file=y_mmap_new(fn);
@@ -337,6 +337,10 @@ static int BihuaInit(const char *arg)
 
 	data=EIM.GetPath("DATA");
 	sprintf(temp,"%s/bihua.bin",data);
+	if(!l_file_exists(temp))
+	{
+		sprintf(temp,"%s/bihua.bin",EIM.GetPath("HOME"));
+	}
 	
 	BihuaKey=y_im_get_key("bihua",-1,'`');
 	return y_bihua_load(temp);

@@ -1,9 +1,8 @@
 var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
 	'english.c','dict.c','keyboard.c','mapfile.c',
 	'aes.c','book.c','keytool.c',
-	'keydesc.c','ui.c','xim-ibus.c',
-	'fbterm.c','keycode.c','select.c','layout.c','translate.c',
-	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c',
+	'keydesc.c','ui.c','fbterm.c','keycode.c','select.c','layout.c','translate.c',
+	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c','ybus-ibus.c',
 	'menu.c','history.c','replace.c','ybus-wayland.c',
 	'app.c'];
 
@@ -19,7 +18,7 @@ env("LIBS+=$(LLIB_LDADD)");
 env("CFLAGS+=-I$(TOPDIR)/im -I$(TOPDIR)/im/IMdkit");
 env("CFLAGS+=-DCFG_XIM_IBUS `pkg-config --cflags ibus-1.0`");
 env("CFLAGS+=-DCFG_XIM_FBTERM -I$(TOPDIR)/im/fbterm");
-env("CFLAGS+=-DL_CALL_GLIB_SERVER");
+env("CFLAGS+=-DL_CALL_GLIB_SERVER -DL_CALL_GLIB_CLIENT");
 
 env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
 env("LIBS+=-ll -ldl -lm -lXimd");

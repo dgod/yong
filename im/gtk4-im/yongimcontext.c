@@ -58,6 +58,7 @@ static void yong_im_context_set_surrounding(GtkIMContext *context,const char *te
 static int client_dispatch(const char *name,LCallBuf *buf);
 static void client_connect(void);
 static void client_set_cursor_location(guint id,const GdkRectangle *area);
+static void client_set_cursor_location_relative(guint id,const GdkRectangle *area);
 static gboolean client_input_key(guint id,int key,guint32 time);
 static gboolean client_input_key_async(guint id,int key,guint32 time);
 static void client_focus_in(guint id);
@@ -299,10 +300,6 @@ static gboolean _set_cursor_location_internal(YongIMContext *ctx)
 		area.y+=offsetY;		
 	}
 	display=gtk_widget_get_display(ctx->client_widget);
-	if(GDK_IS_WAYLAND_DISPLAY(display))
-	{
-		return FALSE;
-	}
 	if(GDK_IS_X11_DISPLAY(display) && native)
 	{
 		GdkSurface *surface=gtk_native_get_surface(native);
@@ -330,7 +327,10 @@ static gboolean _set_cursor_location_internal(YongIMContext *ctx)
 		area.width*=scale;
 		area.height*=scale;
 	}
-	client_set_cursor_location(ctx->id,&area);
+	if(ctx->is_wayland)
+		client_set_cursor_location_relative(ctx->id,&area);
+	else
+		client_set_cursor_location(ctx->id,&area);
 	return FALSE;
 }
 
@@ -430,6 +430,12 @@ static void client_set_cursor_location(guint id,const GdkRectangle *area)
 {
 	l_call_client_call("cursor",NULL,"iiiii",id,area->x,area->y,area->width,area->height);
 }
+
+static void client_set_cursor_location_relative(guint id,const GdkRectangle *area)
+{
+	l_call_client_call("cursor",NULL,"iiiiii",id,area->x,area->y,area->width,area->height,1);
+}
+
 
 static gboolean client_input_key(guint id,int key,guint32 time)
 {

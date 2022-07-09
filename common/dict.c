@@ -77,7 +77,7 @@ void *y_dict_open(const char *file)
 {
 	struct y_dict *dic;
 	FILE *fp;
-	struct stat st;
+	//struct stat st;
 	int i,len,next;
 	long pos;
 	char line[512],*p;
@@ -95,8 +95,9 @@ void *y_dict_open(const char *file)
 	}
 	dic=l_new(struct y_dict);
 	dic->fp=fp;
-	fstat(fileno(fp),&st);
-	dic->mtime=st.st_mtime;
+	//fstat(fileno(fp),&st);
+	//dic->mtime=st.st_mtime;
+	dic->mtime=0;
 	dic->index=l_hash_table_new(7000,dict_item_hash,dict_item_cmp);
 
 	pos=0; /* zero it here to avoid warning */

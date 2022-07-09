@@ -19,9 +19,14 @@ int l_remove(const char *name);
 
 bool l_file_is_dir(const char *path);
 bool l_file_exists(const char *path);
+time_t l_file_mtime(const char *path);
+ssize_t l_file_size(const char *path);
 
 int l_file_copy(const char *dst,const char *src,...);
 
 int l_get_line(char *line, size_t n, FILE *fp);
+
+char *l_getcwd(void);
+char *l_path_resolve(const char *path);
 
 #endif/*_LFILE_H_*/

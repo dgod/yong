@@ -18,8 +18,11 @@
 #include "ui.h"
 #include "translate.h"
 
-#ifdef CFG_XIM_IBUS
-#include "xim-ibus.h"
+#include "ltricky.h"
+
+#ifdef CFG_XIM_YBUS
+#include "ybus.h"
+#include "ybus-ibus.h"
 #endif
 
 #define FIX_CAIRO_LINETO
@@ -134,7 +137,7 @@ int ui_init(void)
 {
 	GtkSettings*p;
 	GIOChannel *chn;
-	
+
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 		setenv("GDK_BACKEND","x11",1);
 	if(getenv("GDK_SCALE"))
@@ -450,6 +453,7 @@ int ui_main_update(UI_MAIN *param)
 			}
 		}
 #endif
+		gtk_window_set_title(GTK_WINDOW(MainWin),"main");
 		gtk_window_set_decorated(GTK_WINDOW(MainWin),FALSE);
 		gtk_window_set_accept_focus(GTK_WINDOW(MainWin),FALSE);
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(MainWin),TRUE);
@@ -929,6 +933,7 @@ int ui_input_update(UI_INPUT *param)
 				gtk_widget_set_visual(InputWin,visual);
 		}
 #endif
+		gtk_window_set_title(GTK_WINDOW(InputWin),"input");
 		gtk_window_set_decorated(GTK_WINDOW(InputWin),FALSE);
 		gtk_window_set_accept_focus(GTK_WINDOW(InputWin),FALSE);
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(InputWin),TRUE);
@@ -1021,7 +1026,7 @@ int ui_input_update(UI_INPUT *param)
 	
 	InputTheme.line_width=param->line_width;
 
-	tmp=param->bg;
+	tmp=param->bg[0];
 	assert(tmp!=NULL);
 	if(tmp[0]=='#')
 	{
@@ -1134,6 +1139,8 @@ int ui_input_update(UI_INPUT *param)
 			g_object_unref(bg);
 		}
 	}
+
+	InputTheme.bg_first=ui_color_parse(param->bg[1]?param->bg[1]:"#00FFFFFF");
 
 	InputTheme.text[0]=ui_color_parse(param->text[0]);
 	InputTheme.text[1]=ui_color_parse(param->text[1]);
@@ -1362,8 +1369,10 @@ int YongCandWidth(void)
 			}
 		}
 		*width=MAX(*width,cur);
+		im.CandWidth[i]=cur-pos[0];
+		im.CandHeight[i]=h;
 		if(i!=count-1)
-			cur+=InputTheme.space;		
+			cur+=InputTheme.space;
 
 		pos=im.CandPosY+i*3;
 		pos[0]=cur_y+(h-h1+1)/2;
@@ -1520,6 +1529,7 @@ int YongDrawInput(void)
 	InputTheme.MaxHeight=MAX(InputTheme.MaxHeight,InputTheme.RealHeight);
 	set_rgn();
 	YongMoveInput(POSITION_ORIG,POSITION_ORIG);
+	ybus_ibus_input_draw(InputTheme.line);
 	YongShowInput(1);
 
 #ifdef G_OS_WIN32
@@ -1646,6 +1656,8 @@ int ui_input_show(int show)
 {
 	if(show)
 	{
+		if(ybus_ibus_input_draw(InputTheme.line)==0)
+			return;
 		// 在这移动窗口是为了修复gtk_widget_hide之后可能自动修改窗口位置的bug
 		gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
 #if GTK_CHECK_VERSION(3,0,0)
@@ -1656,6 +1668,7 @@ int ui_input_show(int show)
 	}
 	else
 	{
+		ybus_ibus_input_hide();	
 		gtk_widget_hide(InputWin);
 	}
 	return 0;
@@ -1681,10 +1694,43 @@ static void on_status_activate(void)
 	y_xim_enable(-1);
 }
 
+static int ui_image_get_path(const char *file,char *out,int size)
+{
+	if(!file || !file[0])
+	{
+		out[0]=0;
+		return 0;
+	}
+	snprintf(out,size,"%s/%s/%s",y_im_get_path("HOME"),skin_path,file);
+	if(l_file_exists(out))
+		return 0;
+	snprintf(out,size,"%s/skin/%s",y_im_get_path("HOME"),file);
+	if(l_file_exists(out))
+		return 0;
+	snprintf(out,size,"%s/%s/%s",y_im_get_path("DATA"),skin_path,file);
+	if(l_file_exists(out))
+		return 0;
+	snprintf(out,size,"%s/skin/%s",y_im_get_path("DATA"),file);
+	if(l_file_exists(out))
+		return 0;
+	return -1;
+}
+
 void ui_tray_update(UI_TRAY *param)
 {
 	int enable;
 	int i;
+
+	{
+		int ret;
+		char icon1[256],icon2[256];
+		ret=ui_image_get_path(param->icon[0],icon1,sizeof(icon1));
+		ret|=ui_image_get_path(param->icon[1],icon2,sizeof(icon2));
+		if(ret==0)
+		{
+			ybus_wm_icon(icon1,icon2);
+		}
+	}
 	
 	if(!my_status_icon_new_from_pixbuf)
 	{
@@ -2437,7 +2483,8 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 		if(!strcmp(exec,"$IMLIST"))
 		{
 			l_free(exec);
-			if(!xim_ibus_use_ibus_menu())
+			int ybus_ibus_use_ibus_menu(void);
+			if(!ybus_ibus_use_ibus_menu())
 			{
 				GtkWidget *me;
 				me=im_list_menu();

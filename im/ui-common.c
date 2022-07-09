@@ -1219,6 +1219,7 @@ struct{
 	GdkRectangle clip;
 #endif
 	UI_COLOR bg_color;
+	UI_COLOR bg_first;
 	UI_COLOR border;
 	UI_COLOR sep;
 	UI_COLOR text[7];
@@ -1634,6 +1635,27 @@ static void ui_draw_input_win(UI_DC cr)
 		double *posx=im.CandPosX+3*i;
 		double *posy=im.CandPosY+3*i;
 
+		if(i==eim->SelectIndex && InputTheme.bg_first.a!=0)
+		{
+			int x,y,w,h;
+			if(InputTheme.line!=2)
+			{
+				x=posx[0];
+				y=MIN(MIN(posy[0],posy[1]),posy[2]);
+				w=im.CandWidth[i];
+				h=im.CandHeight[i];
+			}
+			else
+			{
+				x=InputTheme.WorkLeft;
+				y=MIN(MIN(posy[0],posy[1]),posy[2]);
+				w=InputTheme.RealWidth-InputTheme.WorkLeft-InputTheme.WorkRight;
+				h=im.CandHeight[i];
+			}
+			color=InputTheme.bg_first;
+			ui_fill_rect(cr,x,y,w,h,color);
+		}
+
 		if(InputTheme.no==0)
 		{
 			color=InputTheme.text[0];
@@ -1643,7 +1665,7 @@ static void ui_draw_input_win(UI_DC cr)
 		{
 			color=InputTheme.text[0];
 		}
-
+		
 		if(i==eim->SelectIndex) color=InputTheme.text[1];
 		ui_draw_text(cr,InputTheme.layout,posx[1],posy[1],im.CandTable[i],color);
 

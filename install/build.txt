@@ -1,12 +1,13 @@
 
 function copy_data(){
-	mkdir(["yong","yong/skin","yong/mb","yong/locale"]);
+	mkdir(["yong","yong/skin","yong/mb","yong/locale","yong/gnome-shell"]);
 	
 	exec("cp -f ../im/yong-tool.sh yong/yong-tool.sh");
 	exec("chmod a+x yong/yong-tool.sh");
 	exec("cp -f ../im/yong.xml yong/yong.xml");
 	exec("cp -f ../im/yong.ini yong");
 	exec("cp -rf ../im/skin/* yong/skin");
+	exec("cp -f ../im/gnome-shell/yong@dgod.net.shell-extension.zip yong/gnome-shell");
 	
 	exec("msgfmt -c ../im/gtk-im/zh_CN.po -o yong/locale/zh_CN.mo");
 	
@@ -55,9 +56,9 @@ function copy_build(build){
 	exec("strip yong/$(BUILD)/yong-config-gtk4");
 	exec("strip yong/$(BUILD)/yong-vim");
 
+
+
 }
-
-
 
 function set_ver(){
 	if(process.env.VER)
@@ -77,4 +78,4 @@ if(target=="copy"){
 } else if(target=="rpm"){
 	exec('rpmbuild -bb yong.spec --target=i686 --define "_rpmdir `pwd`"');
 }
-
+/// OS_COMMENT_END

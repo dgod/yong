@@ -15,6 +15,7 @@ static int EnglishDoInput(int key);
 
 static int PhraseListCount;
 static int key_temp_english;
+static int en_commit_select;
 
 static EXTRA_IM EIM={
 	.Name			=	"english",
@@ -68,6 +69,7 @@ static int EnglishInit(const char *arg)
 	key_temp_english=y_im_get_key("tEN",-1,YK_NONE);
 	if(key_temp_english!=YK_NONE)
 		key_temp_english=tolower(key_temp_english);
+	en_commit_select=y_im_get_config_int("IM","en_commit_select");
 	EnglishReset();
 	DictLoad();
 	return 0;
@@ -144,7 +146,7 @@ static char *EnglishGetCandWord(int index)
 	if(index==-1)
 		index=EIM.SelectIndex;
 	ret=&EIM.CandTable[index][0];
-	if(AutoCompleteByDict(index))
+	if(!en_commit_select && AutoCompleteByDict(index))
 	{
 		return NULL;
 	}

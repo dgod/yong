@@ -418,6 +418,22 @@ bool l_file_exists(const char *path)
 #endif
 }
 
+time_t l_file_mtime(const char *path)
+{
+	struct stat st;
+	if(0!=l_stat(path,&st))
+		return 0;
+	return st.st_mtime;
+}
+
+ssize_t l_file_size(const char *path)
+{
+	struct stat st;
+        if(0!=l_stat(path,&st))
+                return -1;
+        return (ssize_t)st.st_size;
+}
+
 int l_file_copy(const char *dst,const char *src,...)
 {
 	int ret;
@@ -499,3 +515,26 @@ int l_rmdir(const char *name)
 #endif
 	return 0;
 }
+
+#ifdef __linux__
+
+char *l_getcwd(void)
+{
+	char temp[256];
+	getcwd(temp,sizeof(temp));
+	return l_strdup(temp);
+}
+
+char *l_path_resolve(const char *path)
+{
+	if(!path || !path[0])
+		return NULL;
+	if(path[0]=='/')
+		return l_strdup(path);
+	char *cwd=l_getcwd();
+	char *ret=l_sprintf("%s/%s",cwd,path);
+	l_free(cwd);
+	return ret;
+}
+#endif
+

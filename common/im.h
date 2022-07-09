@@ -48,6 +48,8 @@ typedef struct{
 	int cursor_h;
 	double CandPosX[33];
 	double CandPosY[33];
+	uint16_t CandWidth[10];
+	uint16_t CandHeight[10];
 	int BihuaMode;
 	int EnglishMode;
 	int ChinglishMode;

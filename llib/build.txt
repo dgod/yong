@@ -28,11 +28,6 @@ function run(target){
 		env('DLL=.so');
 		env('CROSS_COMPILE=/home/dgod/git/emscripten/');
 		env('CC:=$(CROSS_COMPILE)emcc');
-	} else if(target=='loongson') {
-		env("CFLAGS+=-march=mips64r2 -mabi=64");
-		env('DLL=.so');
-		env('CROSS_COMPILE=mips64el-unknown-linux-gnu-');
-		env('LIBS+=-ldl');
 	} else {
 		return;
 	}

@@ -39,7 +39,7 @@ typedef struct{
 	/* line width */
 	double line_width;
 	/* background image or color */
-	char *bg;
+	char *bg[2];
 	/* border color */
 	char *border;
 	/* text colors */

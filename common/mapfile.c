@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #endif
+#include "llib.h"
 
 struct y_mmap{
 	void *addr;
@@ -76,21 +77,22 @@ void *y_mmap_new(const char *fn)
 #else
 	{
 		int fd;
-		struct stat st;
+		//struct stat st;
 		fd=open(fn,O_RDONLY);
 		if(fd==-1)
 		{
 			free(p);
 			return NULL;
 		}
-		fstat(fd,&st);
-		p->size=st.st_size;
-		if(st.st_size<=0)
-		{
-			close(fd);
-			free(p);
-			return NULL;
-		}
+		//fstat(fd,&st);
+		//p->size=st.st_size;
+		//if(st.st_size<=0)
+		//{
+		//	close(fd);
+		//	free(p);
+		//	return NULL;
+		//}
+		p->size=l_file_size(fn);
 		p->addr=mmap(NULL,p->size,PROT_READ,MAP_PRIVATE,fd,0);
 		close(fd);
 		if(!p->addr)

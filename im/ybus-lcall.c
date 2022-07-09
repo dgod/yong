@@ -14,6 +14,11 @@ static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,in
 static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
 static int xim_init(void);
 
+static void wm_state(CONN_ID conn_id,int state);
+static void wm_make_above(CONN_ID conn_id,const char *title);
+static void wm_move(CONN_ID conn_id,const char *title,int x,int y,int rel);
+static void wm_icon(CONN_ID conn_id,const char *icon1,const char *icon2);
+
 static YBUS_PLUGIN plugin={
 	.init=xim_init,
 	.getpid=xim_getpid,
@@ -24,6 +29,11 @@ static YBUS_PLUGIN plugin={
 	.preedit_draw=xim_preedit_draw,
 	.send_string=xim_send_string,
 	.send_key=xim_send_key,
+
+	.wm_state=wm_state,
+	.wm_make_above=wm_make_above,
+	.wm_move=wm_move,
+	.wm_icon=wm_icon,
 };
 
 typedef struct{
@@ -325,7 +335,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		ret=l_call_buf_get_val(buf,type);
 		ret|=l_call_buf_get_val(buf,param);
 		if(ret!=0) return -1;
-		ret=ybus_on_tool(&plugin,type,param);
+		ret=ybus_on_tool(&plugin,(uintptr_t)conn,type,param);
 		if((buf->flag&L_CALL_FLAG_SYNC)!=0)
 		{
 			l_call_conn_return(conn,buf->seq,ret);
@@ -338,9 +348,9 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 
 	if(!strcmp(name,"cursor"))
 	{
-		YBUS_CLIENT *client,*active=NULL;
+		YBUS_CLIENT *client;
 		guint client_id;
-		int x,y,w,h;
+		int x,y,w,h,rel=0;
 		ret=l_call_buf_get_val(buf,client_id);
 		if(ret!=0) return -1;
 		client=ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
@@ -350,13 +360,20 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		ret|=l_call_buf_get_val(buf,w);
 		ret|=l_call_buf_get_val(buf,h);
 		if(ret!=0) return -1;
+		l_call_buf_get_val(buf,rel);
+		//fprintf(stderr,"cursor %d %d %d %d %d\n",x,y,w,h,rel);
+#if 0
 		client->track=1;
 		client->x=x+w;
 		client->y=y+h;
+		YBUS_CLIENT *active=NULL;
 		ybus_get_active(NULL,&active);
 		//printf("\t%d %d\n",client->x,client->y);
 		if(active==client)
 			YongMoveInput(client->x,client->y);
+#else
+		ybus_on_cursor(&plugin,(CONN_ID)conn,client_id,x+w,y+h,rel);
+#endif
 	}
 	else if(!strcmp(name,"input"))
 	{
@@ -522,3 +539,27 @@ static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
 {
 	l_call_conn_call((LCallConn*)conn_id,"forward",0,"ii",(int)client_id,key);
 }
+
+static void wm_state(CONN_ID conn_id,int state)
+{
+	l_call_conn_call((LCallConn*)conn_id,"wm_state",NULL,"i",state);
+}
+
+static void wm_make_above(CONN_ID conn_id,const char *title)
+{
+	l_call_conn_call((LCallConn*)conn_id,"wm_make_above",NULL,"s",title);
+}
+
+static void wm_move(CONN_ID conn_id,const char *title,int x,int y,int rel)
+{
+	l_call_conn_call((LCallConn*)conn_id,"wm_make_above",NULL,"siii",title,x,y,rel);
+}
+
+static void wm_icon(CONN_ID conn_id,const char *icon1,const char *icon2)
+{
+	if(!icon2 || !icon2[0])
+		l_call_conn_call((LCallConn*)conn_id,"wm_icon",NULL,"s",icon1);
+	else
+		l_call_conn_call((LCallConn*)conn_id,"wm_icon",NULL,"ss",icon1,icon2);
+}
+

@@ -924,6 +924,7 @@ int cu_ctrl_set_prop(CUCtrl p,const char *prop)
 HRESULT (WINAPI * p_SetProcessDPIAwareness)(int value);
 int cu_init(void)
 {
+#if 0
 	HINSTANCE hInst;
 	hInst=GetModuleHandle(_T("shcore.dll"));
 	if(hInst)
@@ -934,6 +935,7 @@ int cu_init(void)
 			p_SetProcessDPIAwareness(1);
 		}
 	}
+#endif
 	
 	int dpi=cu_screen_dpi();
 	if(dpi>96)

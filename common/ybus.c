@@ -23,6 +23,14 @@ static int onspot;
 static int def_lang;
 static time_t last_recycle;
 
+static YBUS_CONNECT *conn_wm;
+typedef struct{
+	int valid;
+	int x,y;
+}WM_FOCUS;
+static WM_FOCUS wm_focus;
+static char *wm_icon[2];
+
 int ybus_init(void)
 {
 	return 0;
@@ -33,6 +41,11 @@ void ybus_destroy(void)
 	while(conn_list)
 		ybus_free_connect(conn_list);
 	conn_active=NULL;
+	
+	l_free(wm_icon[0]);
+	wm_icon[0]=NULL;
+	l_free(wm_icon[1]);
+	wm_icon[1]=NULL;
 }
 
 void ybus_add_plugin(YBUS_PLUGIN *plugin)
@@ -131,6 +144,10 @@ void ybus_free_connect(YBUS_CONNECT *conn)
 {
 	YBUS_PLUGIN *plugin;
 	if(!conn) return;
+	if(conn==conn_wm)
+	{
+		conn_wm=NULL;
+	}
 	plugin=conn->plugin;
 	if(conn_active==conn)
 	{
@@ -239,6 +256,20 @@ void *ybus_get_priv(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	return client->priv;
 }
 
+static void wm_notify_state(void *param)
+{
+	if(!conn_wm)
+		return;
+	YBUS_CONNECT *conn;
+	int state=0;
+	int ret=ybus_get_active(&conn,NULL);
+	if(ret==0)
+		state=conn->state;
+	conn_wm->plugin->wm_state(conn_wm->id,state);
+	if(wm_icon[0])
+		conn_wm->plugin->wm_icon(conn_wm->id,wm_icon[0],wm_icon[1]?wm_icon[1]:wm_icon[0]);
+}
+
 int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 {
 	YBUS_CONNECT *conn;
@@ -272,6 +303,7 @@ int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 		YongShowInput(1);
 		YongShowMain(1);
 	}
+	wm_notify_state(NULL);	
 	return 0;
 }
 
@@ -297,6 +329,7 @@ int ybus_on_close(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 		YongShowMain(0);
 		YongResetIM();
 	}
+	wm_notify_state(NULL);
 	return 0;
 }
 
@@ -329,8 +362,10 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	}
 	YongShowInput(conn->state);
 	YongShowMain(conn->state);
-	YongMoveInput(client->x,client->y);
+	if(client->track)
+		YongMoveInput(client->x,client->y);
 	ybus_recycle_connect(now);
+	wm_notify_state(NULL);
 	
 	return 0;
 }
@@ -355,6 +390,7 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YongShowMain(0);
 	if(plugin->preedit_clear)
 		plugin->preedit_clear(conn_id,client_id);
+	wm_notify_state(NULL);
 	return 0;
 }
 
@@ -363,7 +399,48 @@ int ybus_on_key(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int key)
 	return y_im_input_key(key);
 }
 
-int ybus_on_tool(YBUS_PLUGIN *plugin,int type,int param)
+int ybus_on_cursor(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int x,int y,int rel)
+{
+	YBUS_CONNECT *conn;
+	YBUS_CLIENT *client,*active=NULL;
+	conn=ybus_find_connect(plugin,conn_id);
+	if(!conn)
+		return -1;
+	client=ybus_find_client(conn,client_id);
+	if(!client)
+		return -1;
+	if(!rel)
+	{
+		client->track=1;
+		client->x=x;
+		client->y=y;
+	}
+	else
+	{
+		if(wm_focus.valid)
+		{
+			client->track=1;
+			client->x=x+wm_focus.x;
+			client->y=y+wm_focus.y;
+		}
+		else
+		{
+			client->track=0;
+		}
+	}
+	if(client->track)
+	{
+		ybus_get_active(NULL,&active);
+		if(active==client)
+		{
+			//fprintf(stderr,"move %d %d\n",client->x,client->y);
+			YongMoveInput(client->x,client->y);
+		}
+	}
+	return 0;
+}
+
+int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 {
 	int res=0;
 	switch(type){
@@ -391,11 +468,76 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,int type,int param)
 		if(ret!=0) return -1;
 		if(conn->state==0) return -1;
 		res=conn->lang;
+		break;
+	}
+	case YBUS_TOOL_SET_WM:
+	{
+		YBUS_CONNECT *conn;
+		conn=ybus_find_connect(plugin,conn_id);
+		if(!conn)
+			break;
+		conn_wm=conn;
+		res=getpid();
+		y_ui_idle_add(wm_notify_state,NULL);
+		break;
+	}
+	case YBUS_TOOL_TRIGGER:
+	{
+		int ret;
+		YBUS_CONNECT *conn;
+		YBUS_CLIENT *client;
+		ret=ybus_get_active(&conn,&client);
+		if(ret!=0) return -1;
+		if(param==-1){
+			param=!conn->state;
+		}
+		if(param==0)
+			ybus_on_close(plugin,conn->id,client->id);
+		else if(param==1)
+			ybus_on_open(plugin,conn->id,client->id);
+		res=conn->state;
+		break;
+	}
+	case YBUS_TOOL_CONFIG:
+	{
+		y_im_setup_config();
+		break;
+	}
+	case YBUS_TOOL_WM_FOCUS:
+	{
+		if(param==-1)
+		{
+			wm_focus.valid=0;
+			break;
+		}
+		wm_focus.y=(int)(int16_t)(param>>16&0xffff);
+		wm_focus.x=(int)(int16_t)(param&0xffff);
+		wm_focus.valid=1;
+		//fprintf(stderr,"focus %d %d\n",wm_focus.x,wm_focus.y);
+		break;
 	}
 	default:
 		break;
 	}
 	return res;
+}
+
+int ybus_wm_ready(void)
+{
+	return conn_wm?1:0;
+}
+
+void ybus_wm_icon(const char *icon1,const char *icon2)
+{
+	l_free(wm_icon[0]);
+	wm_icon[0]=l_path_resolve(icon1);
+	l_free(wm_icon[1]);
+	wm_icon[1]=l_path_resolve(icon2);
+	if(!conn_wm)
+		return;
+	if(!wm_icon[0])
+		return;
+	conn_wm->plugin->wm_icon(conn_wm->id,wm_icon[0],wm_icon[1]?wm_icon[1]:wm_icon[0]);
 }
 
 static int process_compare(const int *v1,const int *v2)
@@ -655,9 +797,11 @@ int y_xim_init_default(Y_XIM *x)
 	int ybus_xim_init(void);
 	int ybus_lcall_init(void);
 	int ybus_wayland_init(void);
+	int ybus_ibus_init(void);
 	
 	ybus_xim_init();
 	ybus_lcall_init();
+	ybus_ibus_init();
 
 
 	x->init=xim_ybus_init;
