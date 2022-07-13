@@ -1246,7 +1246,7 @@ int YongHotKey(int key)
 	if(!key)
 		return 0;
 
-	if(key==key_trigger || key==YK_VIRT_TRIGGER_ON || key==YK_VIRT_TRIGGER_OFF)
+	if(y_im_key_eq(key,key_trigger) || key==YK_VIRT_TRIGGER_ON || key==YK_VIRT_TRIGGER_OFF)
 	{
 		if(key==YK_VIRT_TRIGGER_ON && id->state)
 			return 0;

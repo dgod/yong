@@ -496,7 +496,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 #endif
 	if(_app_type==APP_DOUBLECMD && !ctx->has_focus)
 	{
-		return TRUE;
+		goto END;
 	}
 	if(!ctx->has_focus && !release && !(state&YONG_IGNORED_MASK))
 	{
@@ -557,6 +557,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			}
 		}
 	}
+END:
 	if(res==FALSE && !release && !(KEYM_MASK&key&~(KEYM_SHIFT|KEYM_KEYPAD|KEYM_CAPS)))
 	{
 		gunichar ch;

@@ -282,15 +282,62 @@ function legacy_select()
 function ibus_install()
 {
 	IBUS_D=/usr/share/ibus/component
-	if [ -d $IBUS_D ] ; then
-		sed "s%\/usr\/share\/yong%`pwd`%" yong.xml >$IBUS_D/yong.xml
+	if ! [ -d $IBUS_D ] ; then
+		return
 	fi
+
+	sed "s%\/usr\/share\/yong%`pwd`%" >$IBUS_D/yong.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<!-- filename: yong.xml -->
+<component>
+  <name>org.freedesktop.IBus.Yong</name>
+  <description>Yong Component</description>
+  <exec>/usr/bin/yong --ibus</exec>
+  <version>2.6.0</version>
+  <author>dgod</author>
+  <homepage>http://yong.dgod.net</homepage>
+  <textdomain>yong</textdomain>
+  <engines>
+    <engine>
+      <name>yong</name>
+      <language>zh_CN</language>
+      <author>dgod</author>
+      <icon>/usr/share/yong/skin/tray1.png</icon>
+      <layout>us</layout>
+      <longname>Yong</longname>
+      <description>Yong Input Method</description>
+      <setup>/usr/bin/yong --config</setup>
+      <locale name="zh_CN">
+        <longname>Yong</longname>
+        <description>Yong输入法</description>
+      </locale>
+    </engine>
+  </engines>
+</component>
+EOF
+
+	sed "s%\/usr\/share\/yong%`pwd`%" >/usr/share/applications/ibus-setup-yong.desktop <<EOF
+[Desktop Entry]
+Name[zh_CN]=Yong输入法法配置工具
+Name=Yong Setup
+Comment[zh_CN]=设置Yong输入法首选项
+Comment=Set Yong Preferences
+Exec=/usr/bin/yong --config
+Icon=/usr/share/yong/skin/tray1.png
+NoDisplay=true
+Type=Application
+StartupNotify=true
+EOF
+
 }
 
 function ibus_uninstall()
 {
 	if [ -f /usr/share/ibus/component/yong.xml ] ; then
 		rm -f /usr/share/ibus/component/yong.xml
+	fi
+	if [ -f /usr/share/applications/ibus-setup-yong.desktop ] ; then
+		rm -f /usr/share/applications/ibus-setup-yong.desktop
 	fi
 }
 

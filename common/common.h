@@ -44,6 +44,7 @@ int y_im_config_path(void);
 const char *y_im_get_path(const char *type);
 int y_im_str_to_key(const char *s);
 int y_im_get_key(const char *name,int pos,int def);
+int y_im_key_eq(int k1,int k2);
 char *y_im_str_escape(const char *s,int commit);
 void y_im_expand_space(char *s);
 void y_im_expand_env(char *s);

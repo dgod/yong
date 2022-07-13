@@ -4,7 +4,6 @@ function copy_data(){
 	
 	exec("cp -f ../im/yong-tool.sh yong/yong-tool.sh");
 	exec("chmod a+x yong/yong-tool.sh");
-	exec("cp -f ../im/yong.xml yong/yong.xml");
 	exec("cp -f ../im/yong.ini yong");
 	exec("cp -rf ../im/skin/* yong/skin");
 	

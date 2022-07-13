@@ -42,7 +42,8 @@ static IBusBus *(*p_ibus_bus_new_async)(void);
 static GDBusConnection *(*p_ibus_bus_get_connection)(IBusBus *bus);
 static guint (*p_ibus_bus_request_name)(IBusBus *bus,const gchar *name,guint flags);
 static gboolean (*p_ibus_bus_register_component)(IBusBus *bus,IBusComponent *component);
-static void  (*p_ibus_component_output_engines)(IBusComponent *component,GString *output,gint indent);
+static void (*p_ibus_component_output)(IBusComponent *component,GString *output,gint indent);
+static void (*p_ibus_component_output_engines)(IBusComponent *component,GString *output,gint indent);
 
 static GType (*p_ibus_engine_get_type)(void);
 #undef IBUS_TYPE_ENGINE
@@ -506,6 +507,7 @@ static int xim_ibus_base_init(void)
 	p_ibus_bus_get_connection=dlsym(ibus_so,"ibus_bus_get_connection");
 	p_ibus_bus_request_name=dlsym(ibus_so,"ibus_bus_request_name");
 	p_ibus_bus_register_component=dlsym(ibus_so,"ibus_bus_register_component");
+	p_ibus_component_output=dlsym(ibus_so,"ibus_component_output");
 	p_ibus_component_output_engines=dlsym(ibus_so,"ibus_component_output_engines");
 
 	p_ibus_engine_get_type=dlsym(ibus_so,"ibus_engine_get_type");
@@ -628,11 +630,11 @@ int ybus_ibus_output_xml(void)
 	
 	component=p_ibus_component_new("org.freedesktop.IBus.Yong",
                                     "Yong input method",
-                                    "2.0.0",
+                                    "2.6.0",
                                     "",
                                     "dgod <dgod@gmail.com>",
                                     "http://yong.dgod.net",
-                                    "",
+                                    "/usr/bin/yong --ibus",
                                     "yong");	
 	if(!component) return -1;
 	 if(!ibus_menu)
@@ -711,7 +713,8 @@ int ybus_ibus_output_xml(void)
 	}
 	
 	output = g_string_new ("");
-    p_ibus_component_output_engines(component, output, 1);
+    //p_ibus_component_output_engines(component, output, 1);
+	p_ibus_component_output(component, output, 1);
     fprintf (stdout, "%s", output->str);
     g_string_free (output, TRUE);
 	g_object_unref(component);

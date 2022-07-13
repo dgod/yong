@@ -886,11 +886,15 @@ int y_im_get_key(const char *name,int pos,int def)
 	if(!strcmp(tmp,"CTRL"))
 	{
 		l_free(tmp);
+		if(pos==-1)
+			return KEYM_CTRL;
 		tmp=l_strdup("LCTRL RCTRL");
 	}
 	else if(!strcmp(tmp,"SHIFT"))
 	{
 		l_free(tmp);
+		if(pos==-1)
+			return KEYM_SHIFT;
 		tmp=l_strdup("LSHIFT RSHIFT");
 	}
 	if(pos==-1)
@@ -910,6 +914,21 @@ int y_im_get_key(const char *name,int pos,int def)
 	if(ret<0) ret=def;
 	l_free(tmp);
 	return ret;
+}
+
+int y_im_key_eq(int k1,int k2)
+{
+	if(k1==k2)
+		return 1;
+	if(k1==KEYM_SHIFT && (k2==YK_LSHIFT || k2==YK_RSHIFT))
+		return 1;
+	if(k2==KEYM_SHIFT && (k1==YK_LSHIFT || k1==YK_RSHIFT))
+		return 1;
+	if(k1==KEYM_CTRL && (k2==YK_LCTRL || k2==YK_RCTRL))
+		return 1;
+	if(k2==KEYM_CTRL && (k1==YK_LCTRL || k1==YK_RCTRL))
+		return 1;
+	return 0;
 }
 
 static void str_replace(char *s1,int l1,const char *s2)
