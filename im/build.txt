@@ -81,7 +81,7 @@ if(target=="clean"){
 	build("IMdkit",undefined,"l64");
 	build("gtk-im",undefined,['l64-gtk2','l64-gtk3']);
 	build("gtk4-im",undefined,['l64-gtk4']);
-	build("qt5-im",undefined,['l64-qt5','l32-qt6']);
+	build("qt5-im",undefined,['l64-qt5','l64-qt6']);
 	build(undefined,undefined,['l64-gtk2','l64-gtk3']);
 } else {
 	run(target);
