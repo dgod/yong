@@ -234,7 +234,6 @@ static inline int TableReplaceKey(int key)
 
 void y_mb_init_pinyin(struct y_mb *mb)
 {
-	extern int l_predict_simple;
 	char *name;
 	if(!mb->pinyin)
 		return;
@@ -276,7 +275,6 @@ void y_mb_init_pinyin(struct y_mb *mb)
 		py_init(mb->split,schema);
 		if(mb->split=='\'' && schema[0])
 		{
-			extern int l_predict_sp;
 			SP=1;
 			l_predict_sp=1;
 			mb->ctx.sp=1;
@@ -1729,7 +1727,6 @@ static int AssistMode;						// 是否处于输入辅助码状态
 static uint8_t PinyinStep[MAX_CODE_LEN];	// 拼音切分的长度
 uint8_t PySwitch;							// 拼音是否经过手工切分
 
-
 typedef struct {
 	int count;								// 额外的候选数量
 	int mark;								// 计算出来的编码中Extra的开始位置
@@ -1857,6 +1854,8 @@ static void PinyinResetPart(void)
 	CodeMatch=0;
 	CodeGetCount=0;
 	AssistMode=0;
+
+	l_predict_simple_mode=-1;
 
 	ExtraZiReset();
 }
@@ -2231,6 +2230,8 @@ static int PinyinDoSearch(int adjust)
 		return AssistDoSearch();
 
 	PySwitch=adjust;
+	if(adjust)
+		l_predict_simple_mode=0;
 	if(SP==1)
 		return SPDoSearch(adjust);
 
@@ -2846,6 +2847,7 @@ static int PinyinDoInput(int key)
 	{
 		if(EIM.CodeLen==0)
 			return IMR_NEXT;
+		l_predict_simple_mode=0;
 		if(CodeMatch>=1)
 			PinyinDoSearch(-1);
 		else
@@ -3068,7 +3070,13 @@ static int PinyinDoInput(int key)
 		EIM.CodeLen++;
 		EIM.CaretPos++;
 		EIM.CodeInput[EIM.CodeLen]=0;
+		l_predict_simple_mode=-1;
 	}
+	else if(SP && key=='\'' && CodeGetLen==0 && EIM.CodeLen>=2 && l_predict_simple)
+	{
+		l_predict_simple_mode=!(l_predict_simple_mode>0);
+	}
+
 /*
  * FIXME: 有人把@当选字键，这里返回的话，会有冲突，暂时禁用了先
 	else if(EIM.CodeLen>0 && EIM.CodeLen<32 && EIM.CaretPos==EIM.CodeLen && key=='@')

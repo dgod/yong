@@ -32,6 +32,7 @@ static int py_split='\'';
 static char py_split_s[2]="'";
 static char sp_semicolon=0;
 static int py_type=0;
+static char ch_sh_zh[3]="iuv";
 
 static struct py_item py_caret=
 	PY_ITEM(0,1,0,0);
@@ -516,6 +517,11 @@ static struct py_item py_all[]={
 static struct py_item *sp_index[PY_COUNT];
 static py_tree_t py_index;
 
+const char * py_sp_get_chshzh(void)
+{
+	return ch_sh_zh;
+}
+
 static int item_cmpr(const void *p1,const void *p2)
 {
 	struct py_item *i1=(struct py_item*)p1;
@@ -603,6 +609,15 @@ void py_init(int split,char *sp)
 					//printf("not found %s\n",quan);
 					continue;
 				}
+				if(res->yun==2)
+				{
+					if(res->quan[0]=='c')
+						ch_sh_zh[0]=shuang[0];
+					else if(res->quan[0]=='s')
+						ch_sh_zh[1]=shuang[0];
+					else
+						ch_sh_zh[2]=shuang[0];
+				}
 				res->val=shuang[0]<<8|shuang[1];
 				if(shuang[1]==';') sp_semicolon=1;
 				//printf("%s %s\n",shuang,quan);
@@ -632,9 +647,9 @@ typedef struct py_parser{
 	py_item_t *token;
 	int count;
 	int caret;
+	int (*check)(int,const char*,void *);
+	void *arg;
 }PY_PARSER;
-
-#if 1
 
 int py_is_valid_code(const char *in)
 {
@@ -657,6 +672,78 @@ int py_is_valid_code(const char *in)
 	{
 		return strlen(in)==py_split;
 	}
+}
+
+static int py_parse_check_r(PY_PARSER *parser,const char *input,int len)
+{
+	struct py_item *res=NULL;
+	
+	while(input[0]==' ')
+	{
+		input++;
+		len--;
+		parser->caret--;
+	}
+	while(input[0]==py_split && input[1]==py_split)
+	{
+		input++;
+		len--;
+		if(parser) parser->caret--;
+	}
+	if(len==0)
+	{
+		return 0;
+	}
+	if(input[0]==py_split)
+	{
+		res=&py_split_item;
+		len-=res->len;
+		input+=res->len;
+		parser->caret-=res->len;
+		parser->token[parser->count++]=res;
+		int ret=py_parse_check_r(parser,input,len);
+		if(ret==-1)
+		{
+			parser->caret+=res->len;
+			parser->count--;
+			return -1;
+		}
+		return ret;
+	}
+	else
+	{
+		int count;
+		int out[6];
+		int i;
+		count=py_tree_get(&py_index,input,out);
+		if(count<=0)
+		{
+			return -1;
+		}
+		for(i=count-1;i>=0;i--)
+		{
+			struct py_item *p=py_all+out[i];
+			if(parser->check(parser->count,p->quan,parser->arg)!=0)
+			{
+				continue;
+			}
+			len-=p->len;
+			input+=p->len;
+			parser->caret-=p->len;
+			parser->token[parser->count++]=p;
+			int ret=py_parse_check_r(parser,input,len);
+			if(ret==-1)
+			{
+				parser->caret+=p->len;
+				parser->count--;
+				input-=p->len;
+				len+=p->len;
+				continue;
+			}
+			return 1;
+		}
+	}
+	return -1;
 }
 
 static int py_parse_r(PY_PARSER *parser,const char *input,int len)
@@ -692,11 +779,18 @@ static int py_parse_r(PY_PARSER *parser,const char *input,int len)
 			int last=input[p->len-1],next=input[p->len];
 			if(!strcmp(p->quan+1,"ve"))			// 分词的时候我们不把nve之类的当作合法拼音
 				continue;
+			if(parser->check)
+			{
+				if(parser->check(parser->count,p->quan,parser->arg)!=0)
+					continue;
+				break;
+			}
 			if(!next || next==py_split)
 				break;
 			/* 下一个字母是iuv就可以认为前面的切分已经出错了 */
 			if(strchr("iuv",next))
 				continue;
+
 			if(!strcmp(p->quan+1,"iao") && !strncmp(input+p->len,"linpike",7))
 			{
 				i--;
@@ -832,98 +926,7 @@ static int py_parse_r(PY_PARSER *parser,const char *input,int len)
 		return res?1:0;
 }
 
-#else
-static int py_parse_r(PY_PARSER *parser,const char *input,int len)
-{
-	struct py_item it,*res;
-	
-	while(input[0]==' ')
-	{
-		input++;
-		len--;
-	}
-	while(input[0]==py_split && input[1]==py_split)
-	{
-		input++;
-		len--;
-	}
-	it.len=MIN(len,MAX_PYLEN);
-	it.quan=input;
-	do{
-		//res=bsearch(&it,py_all,PY_COUNT,
-		//		sizeof(struct py_item),item_cmpr);
-		int left=l_bsearch_left(&it,py_all,PY_COUNT,sizeof(struct py_item),item_cmpr);
-		if(left<PY_COUNT && !item_cmpr(&it,py_all+left))
-		{
-			res=py_all+left;
-			if(left+1<PY_COUNT && (res->val&0xff)==0 && !item_cmpr(&it,res+1))
-				res++;
-		}
-		else
-		{
-			res=NULL;
-		}
-		if(res && it.len>1 && input[it.len]!=0)
-		{
-			int last=input[it.len-1],next=input[it.len];
-			/* 在r后无韵母的情况下er优先结合 */
-			if(last=='e' && next=='r' && !strchr("aeiou",input[it.len+1]))
-				res=0;
-			if(last=='e' && next=='n' && !strchr("aeiouv",input[it.len+1]))
-				res=0;
-			if(res) while((last=='g' && strchr("aeou",next)) ||
-			   (last=='n' && strchr("aeiouv",next)))
-			{
-				/* 添加一些常用的例外 */
-				if(next=='e' && input[it.len+1]=='r' && !strchr("aeiou",input[it.len+1]))
-					break; 
-				if(next=='a' && input[it.len+1]=='\0')	// 末字a比ga常见的多
-					break;
-				if(!strncmp(input,"dian",4))		//这里dia音很罕见
-					break;
-				it.len--;
-				if(bsearch(&it,py_all,PY_COUNT,sizeof(struct py_item),item_cmpr) &&
-						py_parse_r(0,input+it.len,len-it.len)>0)
-				{
-					res=0;
-				}
-				it.len++;
-				break;
-			}
-			if(res && next && strchr("iuv",next))
-				res=0;
-		}
-		if(!res) it.len--;
-	}while(!res && it.len>0);
-	if(res)
-	{
-		len-=it.len;
-		input+=it.len;
-		if(parser)
-		{
-			parser->caret-=it.len;
-			if(parser->count<PY_MAX_TOKEN)
-				parser->token[parser->count++]=res;
-			if(parser->caret<0 && len>0 && parser->count<PY_MAX_TOKEN)
-			{
-				parser->token[parser->count++]=&py_caret;
-				parser->caret=0x7fff;
-			}
-		}
-		if(len>0)
-			return py_parse_r(parser,input,len);
-	}
-	else if(!res && parser && len>1)
-	{
-		len--;
-		input++;
-		return py_parse_r(parser,input,len);
-	}
-	return res?1:0;
-}
-#endif
-
-int py_parse_string(const char *input,py_item_t *token,int caret)
+int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(int,const char*,void *),void *arg)
 {
 	if(py_type==0)
 	{
@@ -932,8 +935,13 @@ int py_parse_string(const char *input,py_item_t *token,int caret)
 		parser.token=token;
 		parser.count=0;
 		parser.caret=(caret>=0)?caret:strlen(input);
+		parser.check=check;
+		parser.arg=arg;
 
-		py_parse_r(&parser,input,strlen(input));
+		if(check)
+			py_parse_check_r(&parser,input,strlen(input));
+		else
+			py_parse_r(&parser,input,strlen(input));
 
 		return parser.count;
 	}
@@ -1022,7 +1030,7 @@ int py_parse_string(const char *input,py_item_t *token,int caret)
 	}
 }
 
-int py_parse_sp_simple(const char *input,py_item_t *token)
+int py_parse_sp_jp(const char *input,py_item_t *token)
 {
 	int i,pos,c;
 	for(i=pos=0;(c=input[i])!=0;i++)
@@ -1059,7 +1067,7 @@ int py_string_step(char *input,int caret,uint8_t step[],int max)
 		int i,count,pos;
 		char temp=input[caret];
 		input[caret]=0;
-		count=py_parse_string(input,token,caret);
+		count=py_parse_string(input,token,caret,NULL,NULL);
 		memset(step,0,max);
 		for(i=0,pos=0;i<count;i++)
 		{
@@ -1314,6 +1322,49 @@ int py_conv_from_sp(const char *in,char *out,int size,int split)
 	return pos;
 }
 
+/* 除了最后一项是单个字母外，其他是完整的双拼，则返回1 */
+int py_sp_unlikely_jp(const char *in)
+{
+	int i=0;
+	int match=2;
+	while(in[i]!=0)
+	{
+		struct py_item it,*p,**pp;
+		if(in[i]==' ')
+		{
+			i++;
+			continue;
+		}
+		if(match==1)
+			return 0;
+		if(in[i] && in[i+1])
+		{
+			p=&it;
+			it.val=in[i]<<8|in[i+1];
+			pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+			if(pp)
+			{
+				match=2;
+				i+=2;
+				continue;
+			}
+		}
+		p=&it;
+		it.val=in[i]<<8;
+		pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+		if(pp)
+		{
+			match=1;
+			i++;
+		}
+		else
+		{
+			return -1;
+		}
+	}
+	return 1;
+}
+
 /* 输入双拼和全拼中的位置，得到在双拼中的位置 */
 int py_pos_of_sp(const char *in,int pos)
 {
@@ -1406,6 +1457,8 @@ int py_is_valid_quanpin(const char *input)
 	parser.token=token;
 	parser.count=0;
 	parser.caret=strlen(input);
+	parser.check=NULL;
+	parser.arg=NULL;
 
 	int ret=py_parse_r(&parser,input,strlen(input));
 	if(parser.count==0 || ret==0)
@@ -1576,11 +1629,11 @@ int main(int arc,char *arg[])
 		py_item_t token[PY_MAX_TOKEN];
 		int count;
 		char display[MAX_DISPLAY];
-		count=py_parse_string(arg[1],token,0);
+		count=py_parse_string(arg[1],token,0,NULL,NULL);
 		py_build_string(display,token,count);
 		printf("%s\n",display);
 		py_prepare_string(display,display,0);
-		count=py_parse_string(display,token,0);
+		count=py_parse_string(display,token,0,NULL,NULL);
 		py_build_string(display,token,count);
 		printf("%s\n",display);
 		py_conv_from_sp(arg[1],display,MAX_DISPLAY,' ');

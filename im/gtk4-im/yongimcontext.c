@@ -227,7 +227,7 @@ static gboolean yong_im_context_filter_keypress(GtkIMContext *context,GdkEvent *
 
 		if(!_enable)
 		{
-			if(key==_trigger && !release)
+			if((key&~KEYM_CAPS)==_trigger && !release)
 			{
 				client_enable(ctx->id);
 				_enable=TRUE;

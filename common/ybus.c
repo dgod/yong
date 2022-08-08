@@ -449,6 +449,7 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		int ret;
 		YBUS_CONNECT *conn;
 		YBUS_CLIENT *client;
+		// fprintf(stderr,"set lang %d\n",param);
 		if(param!=LANG_CN && param!=LANG_EN)
 			break;
 		ret=ybus_get_active(&conn,&client);
@@ -457,6 +458,7 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		if(conn->lang==param) break;
 		YongSetLang(param);
 		res=1;
+		// fprintf(stderr,"changed\n");
 		break;
 	}
 	case YBUS_TOOL_GET_LANG:

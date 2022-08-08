@@ -23,6 +23,7 @@
 #include "lexpr.h"
 #include "lqueue.h"
 #include "lsearch.h"
+#include "lqsort.h"
 #include "lbase64.h"
 #include "lxml.h"
 #include "lzlib.h"

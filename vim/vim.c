@@ -146,6 +146,7 @@ int main(int arc,char *arg[])
 		}
 	}
 	printf("%d\n",res);
+	close(s);
 	return 0;
 }
 #endif

@@ -310,9 +310,14 @@ int main(int arc,char *arg[])
 	char temp[256];
 	char temp2[256];
 #if 1
-	if(arc!=2) return;
+	if(arc!=2)
+		return 0;
 	cp_zip(arg[1],temp);
-	printf("%02x %02x\n",temp[0],temp[1]);
+	int len=strlen(temp);
+	int i;
+	for(i=0;i<len;i++)
+		printf("%02x ",temp[i]);
+	printf("\n");
 	printf("%s\n",temp);
 	cp_unzip(temp,temp2);
 	printf("%s\n",temp2);

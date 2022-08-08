@@ -1573,9 +1573,16 @@ ENGLISH_MODE:
 			if(im.ChinglishMode && ret==IMR_DISPLAY &&
 					key==YK_BACKSPACE && eim->CaretPos==eim->CodeLen)
 			{
+				int old=cnen_mode;
+				cnen_mode=0;
 				YongSetLang(-1);
+				cnen_mode=old;
 				if(!im.EnglishMode)
 					return 1;
+			}
+			else if(ret==IMR_ENGLISH && key==YK_VIRT_REFRESH)
+			{
+				return 0;
 			}
 		}
 		if(url && (ret==IMR_NEXT || ret==IMR_COMMIT_DISPLAY || ret==IMR_BLOCK))
@@ -1639,7 +1646,9 @@ IMR_TEST:
 				im.InAssoc=0;
 				return 1;
 			case IMR_CHINGLISH:
+			{
 				im.ChinglishMode=1;
+			}
 			case IMR_ENGLISH:
 			{
 				uint8_t old=cnen_mode;

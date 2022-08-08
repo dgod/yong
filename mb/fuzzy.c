@@ -312,7 +312,7 @@ LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 	}
 	if(split==0 || split==1)
 		return list;
-	count=py_parse_string(l_ptr_array_nth(list,0),input,-1);
+	count=py_parse_string(l_ptr_array_nth(list,0),input,-1,NULL,NULL);
 	count=py_remove_split(input,count);
 	if(count==0)
 		return list;

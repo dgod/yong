@@ -18,6 +18,7 @@ enum{
 	APP_CHROME,
 	APP_GVIM,
 	APP_DOUBLECMD,
+	APP_ELECTRON,
 };
 
 struct _GtkIMContextYong{
@@ -92,13 +93,17 @@ static guint _signal_preedit_changed_id = 0;
 static guint _signal_preedit_start_id = 0;
 static guint _signal_preedit_end_id = 0;
 
-
 static guint _app_type;
 static gboolean _enable;
 static GSList *_ctx_list;
 static guint _ctx_id;
 static GtkIMContextYong *_focus_ctx;
 static int _trigger;
+
+#if GTK_CHECK_VERSION(3,0,0)
+static gboolean _electron_retrun;
+static char _electron_commit_text[2];
+#endif
 
 #if !GTK_CHECK_VERSION(3,92,0)
 static guint _key_snooper_id;
@@ -150,7 +155,10 @@ GtkIMContext *gtk_im_context_yong_new (void)
 static int check_app_type(void)
 {
   int pid = getpid();
-  static char *moz[]={"firefox", "thunderbird","seamonkey"};
+  static const char *moz[]={"firefox", "thunderbird","seamonkey"};
+#if GTK_CHECK_VERSION(3,0,0)
+  static const char *electron[]={"obsidian","weixin"};
+#endif
   char tstr0[64];
   char exec[256];
   int i;
@@ -166,6 +174,15 @@ static int check_app_type(void)
       type=APP_MOZILLA;
       goto out;
     }
+#if GTK_CHECK_VERSION(3,0,0)
+	for(i=0; i < sizeof(electron)/sizeof(electron[0]); i++)
+    {
+      if(!strstr(exec, electron[i]))
+        continue;
+      type=APP_ELECTRON;
+      goto out;
+    }
+#endif
     if(strstr(exec,"geany"))
     {
 		type=APP_GEANY;
@@ -423,7 +440,7 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 		
 		if(!_enable)
 		{
-			if(key==_trigger && !release)
+			if((key&~KEYM_CAPS)==_trigger && !release)
 			{
 				client_enable(ctx->id);
 				_enable=TRUE;
@@ -465,8 +482,7 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 		if(release) key|=KEYM_UP;
 		if(_enable)
 			res=client_input_key(ctx->id,key,event->time);
-		return res;
-		
+		return res;	
 	}
 	return FALSE;
 }
@@ -544,9 +560,28 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			{
 				res=client_input_key_async(ctx->id,key,event_time);
 			}
+#if GTK_CHECK_VERSION(3,0,0)
+			if(ctx->app_type==APP_ELECTRON && (key=='\r' || key==(YK_ENTER|KEYM_UP)))
+			{
+				if(key=='\r')
+				{
+					_electron_retrun=TRUE;
+					res=client_input_key(ctx->id,key,event_time);
+					_electron_retrun=FALSE;
+				}
+				else
+				{
+					if(_electron_commit_text[0])
+					{
+						g_signal_emit(ctx,_signal_commit_id,NULL,_electron_commit_text);
+						_electron_commit_text[0]=0;
+					}
+				}
+				return res;
+			}
+	#endif
 			else
 			{
-				static int last_key_used;
 				res=client_input_key(ctx->id,key,event_time);
 				if(key==_trigger && !release && res==0)
 				{
@@ -737,7 +772,7 @@ static gboolean client_input_key(guint id,int key,guint32 time)
 static gboolean client_input_key_async(guint id,int key,guint32 time)
 {
 	int ret;
-	ret=l_call_client_call("input",0,"iii",id,key,time);
+	ret=l_call_client_call("input",NULL,"iii",id,key,time);
 	if(ret!=0) return 0;
 	return TRUE;
 }
@@ -826,6 +861,19 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 			g_signal_emit(ctx,_signal_preedit_end_id,0);
 			ctx->skip_cursor=FALSE;
 			//printf("preedit end\n");
+		}
+		else
+		{
+#if GTK_CHECK_VERSION(3,0,0)
+			if(ctx->app_type==APP_ELECTRON && _electron_retrun==TRUE && strlen(text)==1)
+			{
+				ctx->preedit_string=g_strdup(text);
+				ctx->skip_cursor=TRUE;
+				g_signal_emit(ctx,_signal_preedit_start_id,0);
+				ctx->skip_cursor=FALSE;
+				g_signal_emit(ctx,_signal_preedit_changed_id,0);
+			}
+#endif
 		}
 		g_signal_emit(ctx,_signal_commit_id,0,text);
 	}
@@ -1248,7 +1296,7 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	event=_create_gdk_event(ctx,keyval,state);
 	if(event!=NULL)
 	{
-		gdk_event_put ((GdkEvent *)event);
-		gdk_event_free ((GdkEvent *)event);
+		//gdk_event_put ((GdkEvent *)event);
+		//gdk_event_free ((GdkEvent *)event);
 	}
 }

@@ -8,11 +8,11 @@ typedef struct py_item *py_item_t;
 
 void py_init(int split,char *sp);
 
-int py_parse_string(const char *input,py_item_t *token,int caret);
+int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(int,const char*,void *),void *arg);
 int py_build_string(char *out,py_item_t *token,int count);
 int py_build_sp_string(char *out,py_item_t *token,int count);
 int py_prepare_string(char *to,const char *from,int *caret);
-int py_parse_sp_simple(const char *input,py_item_t *token);
+int py_parse_sp_jp(const char *input,py_item_t *token);
 int py_caret_to_pos(py_item_t *token,int count,int caret);
 int py_string_step(char *input,int caret,uint8_t step[],int max);
 int py_conv_from_sp(const char *in,char *out,int size,int split);
@@ -26,5 +26,7 @@ int py_pos_of_sp(const char *in,int pos);
 int py_pos_of_qp(py_item_t *in,int pos);
 int py_sp_has_semi(void);
 int py_get_space_pos(py_item_t *token,int count,int space);
+const char *py_sp_get_chshzh(void);
+int py_sp_unlikely_jp(const char *in);
 
 #endif/*_PINYIN_H_*/

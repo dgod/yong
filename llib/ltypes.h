@@ -30,6 +30,7 @@
 typedef void (*LFunc)(void *data,void *user);
 typedef void (*LFreeFunc)(void *data);
 typedef int (*LCmpFunc)(const void *p1,const void *p2);
+typedef int (*LCmpDataFunc)(const void *p1,const void *p2,void *user);
 typedef unsigned (*LHashFunc)(void *key);
 
 enum{

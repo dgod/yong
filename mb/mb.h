@@ -324,6 +324,7 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin);
 void y_mb_init_pinyin(struct y_mb *mb);
 int y_mb_load_fuzzy(struct y_mb *mb,const char *fuzzy);
 void y_mb_key_map_init(const char *key,int wildcard,char *map);
+int y_mb_zi_has_code(struct y_mb *mb,const char *zi,const char *code);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);

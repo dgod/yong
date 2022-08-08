@@ -310,11 +310,14 @@ int l_call_conn_vcall(LCallConn *conn,const char *name,int *res,const char *para
 	{
 		LCallBuf *p;
 		p=conn_wait_result(conn,seq);
-		if(!p) return -1;
+		if(!p)
+		{
+			return -2;
+		}
 		i=l_call_buf_get_ptr(p,res);
 		if(i!=0)
 		{
-			return -1;
+			return -3;
 		}
 		l_call_buf_next(p);
 		return conn_deal_data(conn);

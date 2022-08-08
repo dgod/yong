@@ -58,6 +58,10 @@ typedef struct{
 	};
 }LEARN_ITEM;
 
+typedef struct{
+	int which;
+}SIMPLE_ITEM;
+
 #ifdef TOOLS_LEARN
 typedef struct{
 	void *next;
@@ -92,16 +96,19 @@ typedef struct{
 	int ci_count;					// 词频数量
 	CI_FREQ_ITEM_S *ci_flat;		// 使用线性数组的词频表
 	LHashTable *ci_index;			// 所有词的哈希索引，只在创建语料库时用
-	int it_count;					// 总的于应料数量
+	int it_count;					// 总的语料数量
 	int it_phrase;					// 三元组语料数量
 	LEARN_ITEM *it_data;			// 语料指针
 	int raw_size;					// 字词等数据大大小
 	uint8_t *raw_data;				// 字词数据
+	SIMPLE_ITEM *sp_data;			// 简码数据
+	int32_t *sp_index;				// 简码首字母索引
 	LEARN_ITEM key;
 	void *user;
 #ifdef TOOLS_LEARN
 	LHashTable *ci_freq;			// 词频表
 	CODE_CACHE *code_cache;
+	int raw_offset;
 #endif
 }LEARN_DATA;
 
@@ -109,7 +116,11 @@ static LEARN_DATA *l_predict_data;
 static int l_force_mmseg;
 int l_predict_simple;
 int l_predict_sp;
-extern int PySwitch;
+int l_predict_simple_mode;
+extern uint8_t PySwitch;
+#ifdef TOOLS_LEARN
+static int l_fast;
+#endif
 
 void y_mb_learn_free(LEARN_DATA *data)
 {
@@ -125,6 +136,8 @@ void y_mb_learn_free(LEARN_DATA *data)
 #endif
 	free(data->it_data);
 	free(data->raw_data);
+	free(data->sp_data);
+	free(data->sp_index);
 	free(data);
 	l_predict_data=NULL;
 }
@@ -192,12 +205,36 @@ LEARN_DATA *y_mb_learn_load(struct y_mb *mb,char *in)
 		fread(data->raw_data,1,data->raw_size,fp);
 		data->key.code=data->raw_size;
 	}
+	if(!feof(fp) && hdr.it_count>0)
+	{
+		data->sp_data=malloc(sizeof(SIMPLE_ITEM)*hdr.it_count);
+		ret=fread(data->sp_data,sizeof(SIMPLE_ITEM),hdr.it_count,fp);
+		if(hdr.it_count!=ret)
+		{
+			free(data->sp_data);
+			data->sp_data=NULL;
+			//fprintf(stderr,"load jp data fail %d\n",ret);
+		}
+		data->sp_index=malloc(8*26);
+		ret=fread(data->sp_index,8,26,fp);
+		if(26!=ret)
+		{
+			free(data->sp_index);
+			data->sp_index=NULL;
+			free(data->sp_data);
+			data->sp_data=NULL;
+			//fprintf(stderr,"load jp index fail %d\n",ret);
+		}
+	}
 	
 	fclose(fp);
 	l_predict_data=data;
 	
 	if(data->ci_count<1000)
 		l_force_mmseg=1;
+#ifdef TOOLS_LEARN
+	data->raw_offset=hdr.raw_offset;
+#endif
 	return data;
 }
 
@@ -376,14 +413,15 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 	int max=0,max2=0;
 	int ext=0;
 	int i;
-	struct y_mb_ci /**first,*/*list,*tmp=0,*tmp2=0;
+	struct y_mb_ci *list,*tmp=0,*tmp2=0;
 	int cpos;
 	int end=((pos+len)==mm->count);
 	
 	cpos=(pos<<3)|len;
 	list=mm->codec[cpos];
-	if(!list) goto out;
-	/*first=*/list=(struct y_mb_ci*)(((uintptr_t)list)&~0x03);
+	if(!list)
+		goto out;
+	list=(struct y_mb_ci*)(((uintptr_t)list)&~0x03);
 	
 	// code只在单字的时候使用
 	code[0]=0;
@@ -615,20 +653,31 @@ static int predict_compar_part(const LEARN_ITEM *p1, const LEARN_ITEM *p2)
 }
 #endif
 
-static int predict_compar_part_cand(const LEARN_ITEM *p1, const LEARN_ITEM *p2)
+static inline int cand_unpack(const void *raw,uint32_t cand,char *temp,int size)
 {
-	char *s1,*s2;
-	int n;
-	s1=(char*)l_predict_data->raw_data+p1->cand;
-	s2=(char*)l_predict_data->raw_data+p2->cand;
-	if(!p1->cand)
+	int len=cand>>28;
+	if(L_UNLIKELY(len>0))
 	{
-		n=strlen(s1);
+		len=len+1;
+		if(size>=0)
+			len=MIN(len,size);
+		len=cz_unzip((const char*)raw+(cand&0xfffffff),temp,len);
 	}
 	else
 	{
-		n=strlen(s2);
+		len=cz_unzip((const char*)raw+cand,temp,size);
 	}
+	return len;
+}
+
+static int predict_compar_part_cand(const LEARN_ITEM *p1, const LEARN_ITEM *p2)
+{
+	char s1[64],s2[64];
+	int n;
+	assert(p1->cand!=0 && p2->cand!=0);
+	cand_unpack(l_predict_data->raw_data,p1->cand,s1,31);
+	cand_unpack(l_predict_data->raw_data,p2->cand,s2,31);
+	n=strlen(s2);
 	return strncmp(s1,s2,n);
 }
 
@@ -639,7 +688,8 @@ static int predict_test_assist(MMSEG *mm,LEARN_ITEM *item,int end)
 	
 	if(!mm || !mm->assist_end || !end)
 		return 1;
-	len=cz_unzip((const char*)(l_predict_data->raw_data+item->cand),temp,sizeof(temp));
+	//len=cz_unzip((const char*)(l_predict_data->raw_data+item->cand),temp,sizeof(temp));
+	len=cand_unpack(l_predict_data->raw_data,item->cand,temp,sizeof(temp));
 	if(len<2) return 1;
 	return y_mb_assist_test_hz(mm->mb,temp+len-2,mm->assist_end);
 }
@@ -701,8 +751,9 @@ static LEARN_ITEM *predict_search(LEARN_DATA *data,MMSEG *mm,const char *code,in
 
 static int predict_copy(LEARN_DATA *data,char *dst,LEARN_ITEM *src,int count)
 {
-	const char *part=(const char*)data->raw_data+src->cand;
-	return cz_unzip(part,dst,count);
+	// const char *part=(const char*)data->raw_data+src->cand;
+	// return cz_unzip(part,dst,count);
+	return cand_unpack(data->raw_data,src->cand,dst,count);
 }
 
 #if 1
@@ -820,7 +871,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 			}
 			key=&l_predict_data->key;
 			temp=(char*)l_predict_data->raw_data+key->code;			
-			for(k=0;k<j;k++) tlen+=seq[i+k];			
+			for(k=0;k<j;k++) tlen+=seq[i+k];
 			py_build_string(temp,mm->input+pos,tlen);
 			py_prepare_string(temp,temp,0);
 			item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+tlen==mm->count);
@@ -853,6 +904,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 				py_build_string(temp,mm->input+pos+seq[i],tlen2);
 				py_prepare_string(temp,temp,0);
 				item2=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,i+j+1==len);
+				
 				// 后续语料优先级高且重合内容不一样，放弃在当前位置进行查找
 				if(item2!=NULL && item2->lf[3]>item->lf[3])
 				{
@@ -863,6 +915,22 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 						break;
 					}
 				}
+				if(i+k+1<len)
+				{
+					tlen2+=seq[i+1+k];
+					py_build_string(temp,mm->input+pos+seq[i],tlen2);
+					py_prepare_string(temp,temp,0);
+					item2=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,i+j+1==len);
+					if(item2!=NULL && item2->lf[3]>item->lf[3])
+					{
+						predict_copy(l_predict_data,temp,item,-1);
+						if(memcmp(predict+2*seq[i],temp,(tlen-seq[i])*2))
+						{
+							predict[0]=0;
+							break;
+						}
+					}
+				}
 			}
 			
 			i+=j;
@@ -871,14 +939,16 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 			// 循环语料联想
 			while(i<len)		// 没有到句尾
 			{
-				// 这里k表示j元组的后几个词
+
 				for(k=j-1;k>=1;k--)
 				{
-					// base是k个词的编码数量，ext表示联想用到的额外词语的数量
+
 					int base,t,ext=1;
 					for(t=0,base=0;t<k;t++) base+=seq[i-k+t];
+					
 					// prefix是k个词的文本
 					char *prefix=predict+strlen(predict)-2*base;
+					//printf("前缀: %d %s\n",base,prefix);
 					py_build_string(temp,mm->input+pos-base,base+seq[i]);
 					py_prepare_string(temp,temp,0);
 					item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+seq[i]==mm->count);
@@ -1619,13 +1689,256 @@ static int y_mb_find_setence(MMSEG *mm,const char *code)
 	return 0;
 }
 
+typedef struct{
+	int len;
+	int from;
+	int freq;
+	char *data;
+}LEARN_RESULT_ITEM;
+
+static void learn_result_item_free(LEARN_RESULT_ITEM *it)
+{
+	l_free(it->data);
+	l_free(it);
+}
+
+static LArray *learn_result_from(const char *s)
+{
+	LArray *arr=l_ptr_array_new(10);
+	if(s)
+	{
+		while(s[0])
+		{
+			LEARN_RESULT_ITEM *it=l_new(LEARN_RESULT_ITEM);
+			it->len=strlen(s);
+			it->from=0;
+			it->freq=0;
+			it->data=l_strdup(s);
+			l_ptr_array_append(arr,it);
+			s+=it->len+1;
+		}
+	}
+	return arr;
+}
+
+static void learn_result_add(LArray *arr,const char *s,int freq)
+{
+	int i;
+	int len=strlen(s);
+	for(i=0;i<arr->len;i++)
+	{
+		LEARN_RESULT_ITEM *it=l_ptr_array_nth(arr,i);
+		if(len==it->len && !strcmp(s,it->data))
+			return;
+	}
+	LEARN_RESULT_ITEM *it=l_new(LEARN_RESULT_ITEM);
+	it->len=len;
+	it->from=1;
+	it->freq=freq;
+	it->data=l_strdup(s);
+	l_ptr_array_append(arr,it);
+}
+
+static int learn_result_item_cmp(LEARN_RESULT_ITEM **pit1,LEARN_RESULT_ITEM **pit2)
+{
+	LEARN_RESULT_ITEM *it1=*pit1,*it2=*pit2;
+	if(it1->len!=it2->len)
+		return it1->len-it2->len;
+	if(it1->from!=it2->from)
+		return it1->from-it2->from;
+	return it1->freq-it2->freq;
+}
+
+static int learn_result_write(LArray *arr,char *simple,int *size)
+{
+	int pos=0;
+	int i;
+	qsort(arr->data,arr->len,sizeof(void*),(LCmpFunc)learn_result_item_cmp);
+	for(i=0;i<arr->len;i++)
+	{
+		LEARN_RESULT_ITEM *it=l_ptr_array_nth(arr,i);
+		if(pos+it->len+2>*size)
+		{
+			break;
+		}
+		char temp[128];
+		l_gb_to_utf8(it->data,temp,128);
+		strcpy(simple+pos,it->data);
+		pos+=it->len+1;
+	}
+	simple[pos]=0;
+	*size=pos+1;
+	return i;
+}
+
+static int simple_code_check(int n,const char *quan,void *args[2])
+{
+	int ret=y_mb_zi_has_code(((LEARN_DATA*)args[0])->mb,(char*)args[1]+2*n,quan)==1?0:-1;
+	return ret;
+}
+
+static int simple_code_from_item(LEARN_DATA *data,LEARN_ITEM *it,char *scode)
+{
+	struct y_mb *mb=data->mb;
+	char code[64];
+	char cand[64];
+	if(!mb->pinyin || mb->split<=1)
+	{
+#ifdef TOOLS_LEARN
+		fprintf(stderr,"invalid mb for simple code\n");
+#endif
+		return -1;
+	}
+	cp_unzip((char*)data->raw_data+it->code,code);
+	//cz_unzip((char*)data->raw_data+it->cand,cand,sizeof(cand));
+	cand_unpack(data->raw_data,it->cand,cand,sizeof(cand));
+	//printf("%s %s\n",code,cand);
+	if(mb->split!='\'')
+	{
+		int len=strlen(code);
+		int i,pos;
+		for(i=0,pos=0;i<len;i+=mb->split,pos++)
+		{
+			scode[pos]=code[i];
+		}
+		scode[pos]=0;
+		return pos;
+	}
+	else
+	{
+		py_item_t input[PY_MAX_TOKEN];
+		//int debug=strcmp(code,"fengchuicaodixianniuyang")==0;
+		void *args[3]={data,cand};
+		int len=py_parse_string(code,input,-1,(void*)simple_code_check,args);
+		if(len*2!=strlen(cand))
+		{
+#ifdef TOOLS_LEARN
+			char temp[256];
+			l_gb_to_utf8(cand,temp,sizeof(temp));
+			fprintf(stderr,"parse code invalid %s %s %d\n",code,temp,len);
+			//if(debug)
+				exit(-1);
+#endif
+			scode[0]=0;
+			return -2;
+		}
+		int i;
+		const char *csz=py_sp_get_chshzh();
+		for(i=0;i<len;i++)
+		{
+			int c=((char*)input[i])[1];
+			if(c==csz[0])
+				c='i';
+			else if(c==csz[1])
+				c='u';
+			else if(c==csz[2])
+				c='v';
+			scode[i]=c;
+		}
+		scode[i]=0;
+		return i;
+	}
+}
+
+static void sp_to_zrm(const char *s,char *code)
+{
+	int i,c;
+	const char *csz=py_sp_get_chshzh();
+	for(i=0;(c=s[i])!='\0';i++)
+	{
+		if(c==csz[0])
+			code[i]='i';
+		else if(c==csz[1])
+			code[i]='u';
+		else if(c==csz[2])
+			code[i]='v';
+		else
+			code[i]=c;
+	}
+	code[i]=0;
+}
+
+static int sp_is_zrm_like(void)
+{
+	const char *csz=py_sp_get_chshzh();
+	return csz[0]=='i' && csz[1]=='u' && csz[2]=='v';
+}
+
+static const char *_predict_jp_s;
+static uint8_t _predict_jp_code_len;
+static int predict_jp_simple_cmp(SIMPLE_ITEM *s1,SIMPLE_ITEM *s2)
+{
+	char c1[64],c2[64];
+	LEARN_DATA *data=l_predict_data;
+	if(s1->which==-1)
+		strcpy(c1,_predict_jp_s);
+	else
+		simple_code_from_item(data,data->it_data+s1->which,c1);
+	if(s2->which==-1)
+		strcpy(c2,_predict_jp_s);
+	else
+		simple_code_from_item(data,data->it_data+s2->which,c2);
+	int ret=strncmp(c1,c2,_predict_jp_code_len);
+	return ret;
+}
+
+static int predict_jp_by_learn(LEARN_DATA *data,const char *s,char simple[],int *size,int count)
+{
+	if(!data || !data->sp_data || !data->sp_index)
+	{
+		return count;
+	}
+	int code_len=strlen(s);
+	if(code_len<3 || code_len>=32)
+		return count;
+	char code[32];
+	int zrm_like=sp_is_zrm_like();
+	if(zrm_like)
+		strcpy(code,s);
+	else
+		sp_to_zrm(s,code);
+	s=code;
+	int32_t *sp_index=data->sp_index+(s[0]-'a')*2;
+	if(sp_index[1]==0)
+		return count;
+	SIMPLE_ITEM key={-1};
+
+	LArray *res=learn_result_from(count>0?simple:NULL);
+	int end=sp_index[0]+sp_index[1];
+	_predict_jp_s=s;
+	_predict_jp_code_len=code_len;
+	int i=sp_index[0]+l_bsearch_left(&key,data->sp_data+sp_index[0],sp_index[1],sizeof(SIMPLE_ITEM),(void*)predict_jp_simple_cmp);
+	_predict_jp_s=NULL;
+	_predict_jp_code_len=0;
+	for(;i<end;i++)
+	{
+		SIMPLE_ITEM *si=data->sp_data+i;
+		LEARN_ITEM *it=data->it_data+si->which;
+		int ret;
+		char code[64],cand[64];
+		simple_code_from_item(data,it,code);
+		//fprintf(stderr,"%d %s\n",i,code);
+		ret=strncmp(code,s,code_len);
+		if(ret!=0)
+			break;
+		//cz_unzip((char*)data->raw_data+it->cand,cand,sizeof(cand));
+		cand_unpack(data->raw_data,it->cand,cand,sizeof(cand));
+		learn_result_add(res,cand,it->freq);
+	}
+	count=learn_result_write(res,simple,size);
+	l_ptr_array_free(res,(LFreeFunc)learn_result_item_free);
+	return count;
+}
+
+
+
 int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,int begin)
 {
 	MMSEG mm;
 	int len;
 	int tmp;
 	char temp[256];
-	
+
 	char simple_data[256];
 	int simple_count=0;
 	int simple_size;
@@ -1640,19 +1953,25 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	if(l_predict_sp)
 	{
 		py_prepare_string(temp,s,0);
-		if(l_predict_simple && !PySwitch)
+		if(l_predict_simple && !PySwitch && l_predict_simple_mode==-1 && py_sp_unlikely_jp(temp))
+			l_predict_simple_mode=0;
+		if(l_predict_simple && !PySwitch && l_predict_simple_mode)
 		{
-			mm.count=py_parse_sp_simple(s,mm.input);
+			mm.count=py_parse_sp_jp(s,mm.input);
 			if(mm.count>1)
 				simple_count=predict_quanpin_simple(mb,mm.input,mm.count,simple_data,&simple_size);
 			else
 				simple_count=y_mb_predict_simple(mb,temp,simple_data,&simple_size,l_predict_data?ci_freq_get:0);
+			simple_size=sizeof(simple_data);
+			simple_count=predict_jp_by_learn(l_predict_data,temp,simple_data,&simple_size,simple_count);
 			if(simple_count>0)
 			{
 				memcpy(out,simple_data,simple_size);
 				s[caret]=tmp;
+				l_predict_simple_mode=1;
 				return simple_count;
 			}
+			l_predict_simple_mode=0;
 		}
 		len=py_conv_from_sp(s,temp,sizeof(temp),'\'');
 		if(tmp==0)
@@ -1669,7 +1988,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 			}
 		}
 		mm.space=get_space_pos(&mm,temp);
-		mm.count=py_parse_string(temp,mm.input,-1);
+		mm.count=py_parse_string(temp,mm.input,-1,NULL,NULL);
 		if(mm.count<=0)
 			return 0;
 		mm.count=py_remove_split(mm.input,mm.count);
@@ -1683,7 +2002,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 				mm.assist_end=0;
 				len=py_conv_from_sp(s,temp,sizeof(temp),'\'');
 				mm.space=get_space_pos(&mm,temp);
-				mm.count=py_parse_string(temp,mm.input,-1);
+				mm.count=py_parse_string(temp,mm.input,-1,NULL,NULL);
 				mm.count=py_remove_split(mm.input,mm.count);
 				mm.space2=py_get_space_pos(mm.input,mm.count,mm.space);
 			}
@@ -1692,7 +2011,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,char *out,int size,i
 	else
 	{
 		mm.space=get_space_pos(&mm,s);
-		mm.count=py_parse_string(s,mm.input,-1);
+		mm.count=py_parse_string(s,mm.input,-1,NULL,NULL);
 		mm.count=py_remove_split(mm.input,mm.count);
 		mm.space2=py_get_space_pos(mm.input,mm.count,mm.space);
 	}

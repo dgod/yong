@@ -32,4 +32,7 @@ int l_sscanf(const char * buf, const char * fmt, ...);
 
 int l_strcpy(char *dest,int dest_size,const char *src);
 
+void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen);
+
 #endif/*_LSTRING_H_*/
+

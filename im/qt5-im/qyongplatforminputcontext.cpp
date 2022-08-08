@@ -523,7 +523,7 @@ bool QYongPlatformInputContext::filterEvent(const QEvent* event)
 		if(release) key|=KEYM_UP;
 		if(!_enable)
 		{
-			if(key==_trigger && !release)
+			if((key&~KEYM_CAPS)==_trigger && !release)
 			{
 				client_enable(this->id);
 				_enable=TRUE;

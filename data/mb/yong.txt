@@ -18,7 +18,7 @@ a/ 爱
 aa 啊 阿 呵 腌 嗄 锕 吖
 aa' 暗暗
 aaba 阿爸
-aadb 阿斗
+aadb 阿斗 嗷嗷待哺
 aae 阿
 aaek 阿
 aafz 阿飞
@@ -1439,6 +1439,7 @@ bkjy 报警 报经 不可救药
 bkkj 报刊 不可开交
 bkkk 报考
 bkko 包括
+bkkr 爆款
 bkku 宝库
 bklg 爆冷
 bkli 暴力 暴利 薄利
@@ -2699,7 +2700,7 @@ bzgg 备耕
 bzgi 不足挂齿
 bzgj 倍感
 bzgk 被告
-bzgo 北国
+bzgo 北国 背锅
 bzgr 悲观
 bzgy 鞴
 bzh 焙
@@ -3917,6 +3918,7 @@ dala 耷拉
 dalb 大楼
 dald 大量 打量
 dale 打了
+dalh 大浪
 dali 大力 打理 大礼 搭理 大理
 dalk 打捞 大佬 大牢 打牢
 dall 打来 达赖
@@ -4442,7 +4444,7 @@ dhan 档案
 dhb 宕
 dhbf 大后方
 dhbg 读后感
-dhbj 党办
+dhbj 挡板 党办
 dhbk 党报
 dhbu 宕
 dhby 当兵
@@ -5298,6 +5300,7 @@ dmyy 电影
 dmz 踮
 dmzd 踮
 dmzi 电子 点子 垫子
+dmzj 点赞
 dmzt 多媒体
 dmzu 电阻
 dn' 电脑
@@ -5498,6 +5501,7 @@ dpx 惇
 dpxc 东拼西凑
 dpxj 独辟蹊径
 dpxw 蹲下
+dpxy 遁形
 dpxz 惇
 dpyk 短平快
 dpym 大屏幕
@@ -5942,6 +5946,7 @@ dv' 地址
 dvan 对岸
 dvat 独占鳌头
 dvba 对吧
+dvbc 对标
 dvbi 对比
 dvbj 对半
 dvbl 对白
@@ -6334,6 +6339,7 @@ eeov 曷
 eepc 饿殍
 eeqi 恶气
 eer 俄
+eerf 恶人
 eerj 愕然
 eerw 俄
 eesi 饿死
@@ -6942,6 +6948,7 @@ fgk 唪
 fgkb 封口
 fgkd 疯狂
 fgkf 唪
+fgks 风控
 fglh 风浪
 fgli 风力 锋利
 fglm 覆盖面
@@ -7477,6 +7484,7 @@ fufb 艴
 fufc 拊
 fuff 拂 麸 扶
 fufh 复方 负方
+fufl 费时费力
 fufr 腐
 fuft 反渗透
 fufu 夫妇
@@ -7798,6 +7806,7 @@ fzle 飞了 废了
 fzli 费力 非礼 肥力
 fzll 飞来
 fzls 飞龙 非
+fzlv 费率
 fzn 匪 妃
 fznc 飞鸟
 fznf 匪
@@ -8654,6 +8663,7 @@ gkde 搞得
 gkdg 高等
 gkdh 高档
 gkdi 高低 高地
+gkdk 搞到
 gkdm 搞点 糕点
 gkdr 高端
 gkdu 高度
@@ -9622,6 +9632,7 @@ gvll 归来
 gvlm 鬼脸
 gvln 桂林
 gvlv 规律
+gvly 归零
 gvlz 归类
 gvm 闺
 gvmi 闺蜜 诡秘
@@ -9700,6 +9711,7 @@ gwa 栝
 gwak 栝
 gwb 寡
 gwbd 寡
+gwbk 攻无不克
 gwcl 挂彩
 gwdr 挂断
 gwf 挂
@@ -10163,7 +10175,7 @@ heg 鞨
 hegb 河沟
 hege 合格
 hegu 河谷 何故
-hegv 鞨
+hegv 鞨 合规
 heh 盉 和
 hehe 呵呵
 hehk 和好 和
@@ -10415,6 +10427,7 @@ hgtk 宏观调控
 hgtl 回过头来
 hguj 宏观世界
 hgun 灰姑娘
+hgus 湖光山色
 hguu 横竖
 hgvy 后顾之忧
 hgw 亨 珩
@@ -10960,6 +10973,7 @@ hohk 和
 hohl 祸害 火海
 hoho 活活
 hohr 祸患
+hohs 火红
 hohu 火狐
 hohw 火花 火化
 hohx 惑
@@ -11164,7 +11178,7 @@ hrd 奂 豢
 hrdc 换掉
 hrdg 幻灯
 hrdh 换挡
-hrdl 换代
+hrdl 换代 还贷
 hrdn 奂
 hrdu 欢度
 hrdv 豢
@@ -12407,6 +12421,7 @@ ifjq 陈旧
 ifjy 沉静
 ifk 嗔
 ifkb 嗔
+iflm 晨练
 iflp 沉沦
 iflx 陈列
 ifmf 沉闷
@@ -13604,6 +13619,7 @@ iuna 出纳
 iund 初生牛犊
 iunh 初生牛犊不怕虎
 iunm 初年
+iung 储能
 iunu 触怒
 iunv 处女
 iup 初 褚
@@ -13616,7 +13632,7 @@ iuqi 初期 出奇 出气 初七
 iuqm 出钱
 iuqn 出勤
 iuqq 初秋
-iuqr 除权
+iuqr 除权 出圈
 iuqu 出去 除去
 iuqx 承上启下
 iur 储 俶
@@ -17688,6 +17704,7 @@ khmj 闶
 khmk 糠
 khmy 抗命
 khpy 康平
+khqi 扛起 扛旗
 khqr 糠醛
 khqu 炕去
 khqx 抗洪抢险
@@ -19408,7 +19425,7 @@ lgjb 老干部
 lgjc 棱角
 lgjm 冷箭
 lgjp 冷峻
-lgjy 冷静 立杆见影 棱镜
+lgjy 冷静 立竿见影 棱镜
 lgku 冷酷 冷库
 lgky 略高于
 lgle 冷了 愣了
@@ -19877,7 +19894,7 @@ ljtv 励精图治
 ljtx 滥贴
 lju 岚
 ljua 滥杀
-ljub 乐极生悲
+ljub 揽收 乐极生悲
 ljud 两晋时代
 ljuf 岚
 ljug 缆绳
@@ -19900,7 +19917,7 @@ ljwg 冷加工
 ljwh 拦网
 ljwi 拉家常
 ljwl 斓
-ljwz 阑尾
+ljwz 烂尾 阑尾
 ljx 懒
 ljxb 懒
 ljxd 临界点
@@ -26092,6 +26109,7 @@ pibk 皮包 痞 否
 pibm 皮鞭
 pibo 批驳
 pibp 癖 疲
+pibu 批捕
 pibz 疲惫
 pic 芘 苤
 picb 芘
@@ -27158,7 +27176,7 @@ pykb 瓶口
 pykp 呯
 pyks 凭空
 pyld 评量 平凉
-pyle 平乐
+pyle 平了 平乐 评了
 pyli 评理 平利
 pylj 凭栏
 pylo 平罗
@@ -28056,6 +28074,7 @@ qljq 黔驴技穷
 qlkv 侵略扩张
 qlky 强烈抗议
 qlmm 巧立名目
+qlmu 祁连山
 qlqw 墙里墙外
 qlsm 千里送鹅毛
 qltj 侵略军
@@ -29639,6 +29658,7 @@ rbro 柔弱
 rbrr 柔软
 rbsi 肉丝
 rbss 肉松
+rbsv 如臂使指
 rbti 肉体
 rbts 肉痛
 rbud 容不得
@@ -31347,6 +31367,7 @@ skkt 思考题
 sklr 骚乱
 sklz 扫雷
 skm 骚
+skma 扫码
 skmc 扫描
 skmh 扫盲
 skmi 骚
@@ -31556,6 +31577,7 @@ soxc 缩小
 soxd 所想 塑像 所向
 soxi 琐细
 soxm 所限
+soxr 所选
 soxt 所学
 soxu 所需
 soxw 所辖
@@ -32975,6 +32997,7 @@ tjia 探查
 tjib 统计表
 tjid 突击队
 tjie 摊车
+tjii 贪吃
 tjif 统计法
 tjig 坦诚 谈成
 tjik 塔吉克
@@ -35055,6 +35078,7 @@ ubxi 首席 熟悉 收悉
 ubxm 首先
 ubxn 手心 守信
 ubxp 受训 授勋
+ubxq 首秀
 ubxr 首选
 ubxt 瘦削
 ubxu 手续
@@ -35382,7 +35406,7 @@ uffu 身负 神父 抻
 uffv 身份证 十分之
 ufgb 申购 深沟
 ufgd 甚广 深广
-ufgg 是非功过
+ufgg 深耕 是非功过
 ufgj 深感 审干
 ufgk 身高 审稿 甚高
 ufgl 审改
@@ -35395,6 +35419,7 @@ ufhb 身后 深厚
 ufhe 审核
 ufhl 深海
 ufho 甚或
+ufhp 神魂
 ufhr 身患
 ufhu 神户
 ufhw 深化 神话
@@ -37660,6 +37685,7 @@ uyge 帅哥
 uygi 深有感触
 uygj 十一国庆节 实用工具
 uygm 十月革命
+uygo 甩锅
 uygv 摄影个展
 uygx 输油管线
 uygy 石油工业
@@ -39469,6 +39495,7 @@ vkii 蚤
 vkik 照抄
 vkiu 找出
 vkj 钊
+vkjb 众口皆碑
 vkjd 钊
 vkji 着急 召集 招集
 vkjm 召见
@@ -41007,6 +41034,7 @@ wcbf 五彩缤纷
 wctq 无从谈起
 wcuq 无从说起 稳操胜券
 wd' 我的
+wdal 武大郎
 wdav 五大洲
 wdbf 无毒不丈夫
 wddn 我的电脑
@@ -43620,7 +43648,7 @@ xiib 西畴
 xiid 铣床
 xiie 洗车
 xiif 洗尘
-xiig 西城
+xiig 西城 戏称
 xiih 细长 西昌 熙
 xiij 蜥
 xiis 西充
@@ -44225,7 +44253,7 @@ xnfz 心扉 锌肥
 xngb 新购
 xnge 信鸽
 xngj 心肝 新干
-xngr 信管 新官
+xngr 新冠 信管 新官
 xngu 新股
 xngy 新能源
 xngz 薪给
@@ -44421,7 +44449,7 @@ xpgy 小朋友
 xphh 巡航
 xphk 讯号
 xphr 循环
-xphu 寻呼
+xphu 巡护
 xphv 巡回
 xphw 训话 驯化
 xpia 巡查
@@ -48460,6 +48488,7 @@ yrgv 圆规
 yrgw 依然故我
 yrhb 猿猴
 yrhd 圆谎
+yrhe 缘何
 yrhf 怨恨
 yrhh 远航
 yrhk 羊入虎口
@@ -48918,6 +48947,7 @@ ytta 约他
 yttj 乐坛 月坛 约谈
 yttl 月台
 yttr 乐团
+ytug 跃升
 ytui 越是 月食
 ytuk 越少
 ytun 窈窕淑女，君子好逑
@@ -49735,7 +49765,7 @@ yyxn 迎新
 yyxs 英雄
 yyxu 应许
 yyxw 赢下
-yyxy 影星 硬性 牙牙学语
+yyxy 影星 硬性 牙牙学语 有样学样
 yyxz 由右向左
 yyyb 应有 应由 溢于言表
 yyye 营业
@@ -50181,7 +50211,7 @@ zgwz 增为
 zgx 憎
 zgxc 增效 憎
 zgxj 最高限价
-zgxn 增薪
+zgxn 增信
 zgxr 增选
 zgya 增压
 zgyi 增益

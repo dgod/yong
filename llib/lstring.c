@@ -303,3 +303,27 @@ int l_strcpy(char *dest,int dest_size,const char *src)
 	dest[i]=0;
 	return i;
 }
+
+#if defined(_GNU_SOURCE) && defined(__linux__)
+void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen)
+{
+	return memmem(haystack,haystacklen,needle,needlelen);
+}
+#else
+void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen)
+{
+	if(needlelen==0)
+		return (void*)needle;
+	if(haystacklen<needlelen)
+		return NULL;
+	const char *begin;
+	const char *last_possible=(const char*)haystack+haystacklen-needlelen;
+	for(begin=haystack;begin<last_possible;begin++)
+	{
+		if(begin[0]==((const char*)needle)[0] && !memcmp(begin,needle,needlelen))
+			return (void*)begin;
+	}
+	return NULL;
+}
+#endif
+

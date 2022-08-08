@@ -1510,7 +1510,7 @@ static const char *mb_skip_display(const char *s,int len)
 	
 }
 
-struct y_mb_zi *mb_find_zi(struct y_mb*mb,const char *s)
+struct y_mb_zi *mb_find_zi(struct y_mb *mb,const char *s)
 {
 	struct y_mb_zi *z,kz;
 	if(s[0]=='$')
@@ -1519,6 +1519,27 @@ struct y_mb_zi *mb_find_zi(struct y_mb*mb,const char *s)
 	z=mb_hash_find(mb->zi,&kz);
 	return z;
 }
+
+int y_mb_zi_has_code(struct y_mb *mb,const char *zi,const char *code)
+{
+	struct y_mb_zi *z,kz;
+	struct y_mb_code *c;
+	kz.data=gb_first((const uint8_t*)zi);
+	z=mb_hash_find(mb->zi,&kz);
+	if(!z)
+		return 0;
+	c=z->code;
+	while(c!=NULL)
+	{
+		char temp[32];
+		y_mb_code_get_string(mb,c,temp);
+		if(!strcmp(temp,code))
+			return 1;
+		c=c->next;
+	}
+	return 0;
+}
+
 
 /* 如果设定了组词码，那么就只有组词码才是好的编码 */
 int y_mb_is_good_code(struct y_mb *mb,const char *code,const char *s)
@@ -3122,7 +3143,7 @@ int mb_load_scel(struct y_mb *mb,FILE *fp)
 			}
 			mb_add_one(mb,temp,strlen(temp),temp+512,strlen(temp+512),Y_MB_APPEND,Y_MB_DIC_SUB);
 			if(1!=fread(&dlen,2,1,fp)) goto out;
-			if(dlen<=0 && dlen>=256) goto out;
+			if(dlen<=0 || dlen>=256) goto out;
 			//fseek(fp,dlen,SEEK_CUR);
 			if(1!=fread(temp,dlen,1,fp)) goto out;
 		}
@@ -4091,7 +4112,7 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 	}
 	
 	tail=s[len];
-	count=py_parse_string(s,token,0);
+	count=py_parse_string(s,token,0,NULL,NULL);
 	token[count]=NULL;
 	s[len]=tail;
 	
@@ -4346,7 +4367,7 @@ static int mb_simple_code_match(char *code,char *s,int len,uint8_t split)
 	return 0;
 }
 
-static int mb_simple_phrase_match(struct y_mb *mb,char *c,char *s,int len)
+static int mb_simple_phrase_match(struct y_mb *mb,const char *c,const char *s,int len)
 {
 	struct y_mb_zi *z;
 	struct y_mb_code *p;

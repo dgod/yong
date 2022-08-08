@@ -228,6 +228,8 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	key=GetKey(keyval,modifiers);
 	if(!key)
 		return FALSE;
+	int caps=key&KEYM_CAPS;
+	key&=~KEYM_CAPS;
 	if(!(modifiers & IBUS_RELEASE_MASK))
 	{
 		if(!yong->last_press)
@@ -282,7 +284,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	ybus_get_active(NULL,&client);
 	if(client && client->state && !(modifiers & IBUS_RELEASE_MASK))
 	{
-		if(ybus_on_key(&plugin,(CONN_ID)engine,0,key))
+		if(ybus_on_key(&plugin,(CONN_ID)engine,0,key|caps))
 		{
 			return TRUE;
 		}
@@ -776,7 +778,7 @@ static IBusLookupTable *get_cand_list(const EXTRA_IM *eim,int line)
 {
 	int i;
 	IBusLookupTable *t;
-	if(eim->CodeLen==0 && eim->CandWordCount==0)
+	if((!eim->CodeInput[0] && !eim->StringGet[0]) || eim->CandWordCount==0)
 		return NULL;
 	t=p_ibus_lookup_table_new(eim->CandWordCount,eim->SelectIndex,TRUE,FALSE);
 	p_ibus_lookup_table_set_orientation(t,line==2?IBUS_ORIENTATION_VERTICAL:IBUS_ORIENTATION_HORIZONTAL);
@@ -842,7 +844,7 @@ int ybus_ibus_input_draw(int line)
 		p_ibus_engine_update_auxiliary_text(engine,text,TRUE);
 	IBusLookupTable *tab;
 	tab=get_cand_list(eim,line);
-	if(text)
+	if(text && tab)
 	{
 		p_ibus_engine_update_lookup_table(engine,tab,TRUE);
 	}
