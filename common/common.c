@@ -918,6 +918,8 @@ int y_im_get_key(const char *name,int pos,int def)
 
 int y_im_key_eq(int k1,int k2)
 {
+	k1&=~KEYM_CAPS;
+	k2&=~KEYM_CAPS;
 	if(k1==k2)
 		return 1;
 	if(k1==KEYM_SHIFT && (k2==YK_LSHIFT || k2==YK_RSHIFT))

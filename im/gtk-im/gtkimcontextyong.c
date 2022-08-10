@@ -157,7 +157,7 @@ static int check_app_type(void)
   int pid = getpid();
   static const char *moz[]={"firefox", "thunderbird","seamonkey"};
 #if GTK_CHECK_VERSION(3,0,0)
-  static const char *electron[]={"obsidian","weixin"};
+  static const char *electron[]={"electron","obsidian"};
 #endif
   char tstr0[64];
   char exec[256];
@@ -167,6 +167,11 @@ static int check_app_type(void)
   if ((i=readlink(tstr0, exec, sizeof(exec))) > 0)
   {
     exec[i]=0;
+	char *prog=strrchr(exec,'/');
+	if(prog!=NULL)
+	{
+		prog++;
+	}
     for(i=0; i < sizeof(moz)/sizeof(moz[0]); i++)
     {
       if(!strstr(exec, moz[i]))
@@ -177,7 +182,7 @@ static int check_app_type(void)
 #if GTK_CHECK_VERSION(3,0,0)
 	for(i=0; i < sizeof(electron)/sizeof(electron[0]); i++)
     {
-      if(!strstr(exec, electron[i]))
+      if(prog && !strcmp(prog, electron[i]))
         continue;
       type=APP_ELECTRON;
       goto out;
@@ -546,7 +551,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 
 		if(!_enable)
 		{
-			if(key==_trigger && !release)
+			if((key&~KEYM_CAPS)==_trigger && !release)
 			{
 				client_enable(ctx->id);
 				_enable=TRUE;
