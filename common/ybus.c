@@ -340,6 +340,7 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	time_t now;
 	
 	conn=ybus_find_connect(plugin,conn_id);
+	//printf("focus in %p\n",conn);
 	if(!conn)
 	{
 		return 0;
@@ -376,7 +377,9 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YBUS_CLIENT *client;
 	
 	conn=ybus_find_connect(plugin,conn_id);
-	if(!conn) return 0;
+	//printf("focus out %p\n",conn);
+	if(!conn)
+		return 0;
 	if(conn_active!=conn)
 		return 0;
 	client=ybus_find_client(conn,client_id);

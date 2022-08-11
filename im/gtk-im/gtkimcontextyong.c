@@ -631,6 +631,8 @@ static void gtk_im_context_yong_reset(GtkIMContext *context)
 
 static gboolean _focus_in_internal(GtkIMContextYong *ctx)
 {
+	if(!ctx->has_focus)
+		return FALSE;
 	_set_cursor_location_internal(ctx);
 	client_focus_in(ctx->id);
 	return FALSE;
@@ -638,6 +640,8 @@ static gboolean _focus_in_internal(GtkIMContextYong *ctx)
 
 static gboolean _focus_out_internal(GtkIMContextYong *ctx)
 {
+	if(ctx->has_focus)
+		return FALSE;
 	client_focus_out(ctx->id);
 	return FALSE;
 }
@@ -650,7 +654,7 @@ static void gtk_im_context_yong_focus_in(GtkIMContext *context)
 	
 	//printf("focus in %p\n",context);
 	
-	if(ctx->app_type==APP_MOZILLA)
+	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON)
 	{
 		g_idle_add_full (G_PRIORITY_DEFAULT_IDLE,
                      (GSourceFunc) _focus_in_internal,
@@ -678,7 +682,7 @@ static void gtk_im_context_yong_focus_out(GtkIMContext *context)
 		
 	//printf("focus out %p\n",context);
 	
-	if(ctx->app_type==APP_MOZILLA)
+	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON)
 	{
 		g_idle_add_full (G_PRIORITY_DEFAULT_IDLE,
 					(GSourceFunc) _focus_out_internal,
