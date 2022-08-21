@@ -132,10 +132,10 @@ function debian_install2()
 	cat >$CFG.conf <<EOF
 IM_CONFIG_SHORT="Yong Input Method"
 IM_CONFIG_LONG="Yong Input Method"
-function package_menu () {
+package_menu () {
 	return 0
 }
-function package_auto () {
+package_auto () {
 	return 0
 }
 EOF
