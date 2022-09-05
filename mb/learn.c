@@ -78,8 +78,6 @@ typedef struct{
 
 
 
-
-
 static int ci_freq_cmp_s(const CI_FREQ_ITEM_S *v1,const CI_FREQ_ITEM_S *v2)
 {
 	/*int64_t ret=v1->val-v2->val;
@@ -119,6 +117,7 @@ int l_predict_sp;
 int l_predict_simple_mode;
 extern uint8_t PySwitch;
 #ifdef TOOLS_LEARN
+ 
 static int l_fast;
 #endif
 
@@ -854,7 +853,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 {
 	int i;
 	int pos;
-	//for(i=0;i<len;i++)printf("%d\n",seq[i]);
+
 	for(i=0,pos=0;i<len;)
 	{
 		struct y_mb_ci *c;
@@ -875,6 +874,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 			py_build_string(temp,mm->input+pos,tlen);
 			py_prepare_string(temp,temp,0);
 			item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+tlen==mm->count);
+			//printf("%s %p\n",temp,item);
 			if(!item)
 			{
 				continue;
@@ -943,31 +943,43 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 				for(k=j-1;k>=1;k--)
 				{
 
-					int base,t,ext=1;
+					int base,t,ext,extlen;
 					for(t=0,base=0;t<k;t++) base+=seq[i-k+t];
 					
 					// prefix是k个词的文本
 					char *prefix=predict+strlen(predict)-2*base;
-					//printf("前缀: %d %s\n",base,prefix);
-					py_build_string(temp,mm->input+pos-base,base+seq[i]);
-					py_prepare_string(temp,temp,0);
-					item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+seq[i]==mm->count);
-					if(!item && i+1<len)
+					item=NULL;
+					for(ext=3;ext>0;ext--)
 					{
-						py_build_string(temp,mm->input+pos-base,base+seq[i]+seq[i+1]);
+						//printf("i:%d ext:%d len:%d\n",i,ext,len);
+						if(i+ext>len)
+							continue;
+						extlen=0;
+						for(t=0;t<ext;t++)
+							extlen+=seq[i+t];
+						py_build_string(temp,mm->input+pos-base,base+extlen);
 						py_prepare_string(temp,temp,0);
-						item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+seq[i]+seq[i+1]==mm->count);
-						if(item) ext++;
+						item=predict_search(l_predict_data,mm,temp,PSEARCH_PHRASE,0,pos+extlen==mm->count);
+
+						if(!item)
+						{
+							continue;
+						}
+						else
+						{
+							predict_copy(l_predict_data,temp,item,-1);
+							if(memcmp(prefix,temp,2*base))
+							{
+								item=NULL;
+								continue;
+							}
+							break;
+						}
 					}
 					if(!item) continue;
 					predict_copy(l_predict_data,temp,item,-1);
-					if(memcmp(prefix,temp,2*base))
-					{
-						continue;
-					}
 					strcpy(mm->cand+strlen(mm->cand),temp+2*base);
-					pos+=seq[i];
-					if(ext>1) pos+=seq[i+1];
+					pos+=extlen;
 					i+=ext;
 					j=k+ext;
 					break;
@@ -1807,7 +1819,6 @@ static int simple_code_from_item(LEARN_DATA *data,LEARN_ITEM *it,char *scode)
 	else
 	{
 		py_item_t input[PY_MAX_TOKEN];
-		//int debug=strcmp(code,"fengchuicaodixianniuyang")==0;
 		void *args[3]={data,cand};
 		int len=py_parse_string(code,input,-1,(void*)simple_code_check,args);
 		if(len*2!=strlen(cand))

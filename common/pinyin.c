@@ -1523,10 +1523,12 @@ static inline int hz_get_first_code(int hz)
 		}pair[]={
 			{0xdece,'g'},
 		};
-		for(i=0;i<1;i++)
+		for(i=0;i<L_ARRAY_SIZE(pair);i++)
 		{
 			if(pair[i].hz==hz)
+			{
 				return pair[i].code;
+			}
 		}
 		return 0;
 	}
@@ -1659,6 +1661,8 @@ int main(int arc,char *arg[])
 	char temp[64];
 	py_init('\'',"zrm");
 	py_conv_from_sp("lt",temp,sizeof(temp),' ');
+	printf("%s\n",temp);
+	py_conv_from_sp("zhao",temp,sizeof(temp),' ');
 	printf("%s\n",temp);
 	return 0;
 }

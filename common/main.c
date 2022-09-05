@@ -43,6 +43,7 @@ static int virt_key_add=KEYM_CTRL|YK_INSERT;
 static int virt_key_del=KEYM_CTRL|YK_DELETE;
 
 static int key_trigger=CTRL_SPACE;
+static int key_commit=YK_SPACE;
 int key_select[9];
 char key_select_n[11];
 static char **sym_select;
@@ -86,6 +87,8 @@ static uint8_t caps_bd_mode;
 static uint8_t alt_bd_disable;
 
 static uint8_t tip_main;
+
+static uint16_t assoc_hide;
 
 EXTRA_IM *YongCurrentIM(void)
 {
@@ -778,6 +781,7 @@ void update_key_config(void)
 	
 	key_dict=y_im_get_key("dict",-1,ALT_ENTER);
 
+	key_commit=y_im_get_key("commit",-1,YK_SPACE);
 	key_select[0]=y_im_get_key("select",0,YK_LSHIFT);
 	key_select[1]=y_im_get_key("select",1,YK_RSHIFT);
 	for(i=2;i<9;i++)
@@ -919,6 +923,7 @@ void update_im(void)
 	
 	im.AssocLen=y_im_get_im_config_int(im.Index,"assoc_len");
 	im.AssocLoop=y_im_get_im_config_int(im.Index,"assoc_loop");
+	assoc_hide=y_im_get_im_config_int(im.Index,"assoc_hide");
 	InitExtraIM(&im,bim,im.eim?im.eim->Bihua:NULL);
 	
 	/* diff engine may have different keys */
@@ -1195,14 +1200,31 @@ static void YongFlushResult(void)
 }
 
 #if !defined(CFG_NO_DICT)
+
+static int call_dict_with_clipboard(const char *text)
+{
+	if(!text || !text[0])
+		return IMR_NEXT;
+	if(local_dic)
+	{
+		y_dict_query_and_show(local_dic,text);
+		return IMR_NEXT;
+	}
+	y_dict_query_network(text);
+	return IMR_NEXT;
+}
+
 static int YongCallDict(void)
 {
 	char temp[128];
 	EXTRA_IM *eim=YongCurrentIM();
 	
 	if(!eim) return 0;
-	if(!eim->CodeInput[0] && !eim->CandWordCount)
-		return 0;
+	if(!eim->CodeInput[0] && !eim->CandWordCount && key_dict!=ALT_ENTER)
+	{
+		y_ui_get_select(call_dict_with_clipboard);
+		return 1;
+	}
 
 #if !defined(CFG_NO_DICT)
 	if(local_dic)
@@ -1400,6 +1422,7 @@ int YongHotKey(int key)
 		if(ret==IMR_DISPLAY) \
 		{ \
 			im.InAssoc=1; \
+			if(assoc_hide) y_ui_timer_add(assoc_hide,(void*)YongResetIM,NULL); \
 			goto IMR_TEST; \
 		} \
 		else \
@@ -1591,7 +1614,11 @@ ENGLISH_MODE:
 			YongSetLang(LANG_EN);
 			return 1;
 		}
-		if(eim->CodeInput[0]) im.InAssoc=0;
+		if(eim->CodeInput[0] && im.InAssoc)
+		{
+			y_ui_timer_del((void*)YongResetIM,NULL);
+			im.InAssoc=0;
+		}
 IMR_TEST:
 		{
 			char *p=eim->CodeInput;
@@ -1732,7 +1759,7 @@ IMR_TEST:
 					return 1;
 				}
 			}
-			else if(key==YK_SPACE || (enter_mode==2 && key==YK_ENTER && !im.EnglishMode))
+			else if(key==key_commit || (enter_mode==2 && key==YK_ENTER && !im.EnglishMode))
 			{
 				char *p=eim->GetCandWord(eim->SelectIndex);
 				if(p)
@@ -2092,6 +2119,8 @@ void YongResetIM(void)
 	YongResetIM_();
 	YongShowInput(0);
 	y_xim_preedit_clear();
+	y_ui_timer_del(HideInputLater,NULL);
+	y_ui_timer_del((void*)YongResetIM,NULL);
 }
 
 void YongUpdateMain(CONNECT_ID *id)

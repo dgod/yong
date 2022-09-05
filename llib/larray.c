@@ -3,6 +3,7 @@
 #include "larray.h"
 #include "lsearch.h"
 #include "ltricky.h"
+#include "lqsort.h"
 
 #include <string.h>
 #include <assert.h>
@@ -71,21 +72,6 @@ int l_array_remove(LArray *array,int n)
 	return 0;
 }
 
-#if 0
-void l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
-{
-	int i;
-	for(i=0;i<array->len;i++)
-	{
-		void *orig=l_array_nth(array,i);
-		int ret=cmpar(orig,val);
-		if(ret<=0) continue;
-		l_array_insert(array,i,val);
-		return;
-	}
-	l_array_append(array,val);
-}
-#else
 void l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
 {
 	int pos;
@@ -95,7 +81,30 @@ void l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
 	else
 		l_array_insert(array,pos,val);
 }
-#endif
+
+void l_array_clear(LArray *array,LFreeFunc func)
+{
+	if(!array) return;
+	if(func && array->data)
+	{
+		int i;
+		for(i=0;i<array->len;i++)
+		{
+			func(array->data+i*array->size);
+		}
+	}
+	array->len=0;
+}
+
+void l_array_sort(LArray *array,LCmpFunc cmp)
+{
+	l_qsort(array->data,array->len,array->size,cmp);
+}
+
+void l_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg)
+{
+	l_qsort_r(array->data,array->len,array->size,cmp,arg);
+}
 
 void l_ptr_array_append(LArray *array,const void *val)
 {
@@ -118,3 +127,39 @@ void l_ptr_array_free(LArray *array,LFreeFunc func)
 	l_free(array->data);
 	l_free(array);
 }
+
+void l_ptr_array_clear(LArray *array,LFreeFunc func)
+{
+	if(!array) return;
+	if(func)
+	{
+		int i;
+		for(i=0;i<array->len;i++)
+		{
+			func(*(void**)(array->data+i*array->size));
+		}
+	}
+	array->len=0;
+}
+
+static int _ptr_array_cmp_r(void **p1,void **p2,void *arr[2])
+{
+	return ((LCmpDataFunc)arr[0])(*p1,*p2,arr[1]);
+}
+
+static int _ptr_array_cmp(void **p1,void **p2,LCmpFunc cmp)
+{
+	return cmp(*p1,*p2);
+}
+
+void l_ptr_array_sort(LArray *array,LCmpFunc cmp)
+{
+	l_qsort_r(array->data,array->len,sizeof(void*),(LCmpDataFunc)_ptr_array_cmp,cmp);
+}
+
+void l_ptr_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg)
+{
+	void *arr[2]={cmp,arg};
+	l_qsort_r(array->data,array->len,sizeof(void*),(LCmpDataFunc)_ptr_array_cmp_r,arr);
+}
+

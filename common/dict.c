@@ -20,10 +20,10 @@ struct dict_item{
 	uint32_t pos;
 };
 
-static unsigned dict_item_hash(void *p)
+static unsigned dict_item_hash(const void *p)
 {
 	unsigned ret;
-	struct dict_item *item=p;
+	const struct dict_item *item=p;
 	uintptr_t key=item->key;
 	char temp[4];
 	if((uintptr_t)key & 0x01)
@@ -397,7 +397,7 @@ static void dict_ui_show(int b)
 	}
 }
 
-static void dict_ui_set_query_text(char *s)
+static void dict_ui_set_query_text(const char *s)
 {
 	TCHAR temp[256];
 	y_im_str_encode(s,temp,0);
@@ -520,7 +520,7 @@ static void dict_ui_show(int b)
 	else gtk_widget_hide(l_dict);
 }
 
-static void dict_ui_set_query_text(char *s)
+static void dict_ui_set_query_text(const char *s)
 {
 	char temp[256];
 	y_im_str_encode(s,temp,0);
@@ -534,7 +534,7 @@ static void dict_ui_do_query(void)
 
 #endif
 
-int y_dict_query_and_show(void *p,char *s)
+int y_dict_query_and_show(void *p,const char *s)
 {
 	dict=p;
 	if(!p)

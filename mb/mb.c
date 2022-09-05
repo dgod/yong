@@ -382,7 +382,7 @@ void mb_slist_assert(void *p)
 #define MB_SLIST_ASSERT(p)
 #endif
 
-static unsigned mb_int_hash(void *v)
+static unsigned mb_int_hash(const void *v)
 {
 	return *(unsigned*)((uint8_t*)v+2*sizeof(void*));
 }

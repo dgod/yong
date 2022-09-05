@@ -276,7 +276,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	}
 	default:
 	{
-		if((modifiers & IBUS_RELEASE_MASK) && YongHotKey(key))
+		if(!(modifiers & IBUS_RELEASE_MASK) && YongHotKey(key))
 			return TRUE;
 		break;
 	}}
@@ -787,7 +787,7 @@ static IBusLookupTable *get_cand_list(const EXTRA_IM *eim,int line)
 		IBusText *text;
 		if(im.Hint && im.CodeTips[i][0])
 		{
-			char temp[MAX_CAND_LEN+MAX_TIPS_LEN+1];
+			char temp[MAX_CAND_LEN*2+MAX_TIPS_LEN+1];
 			int pos=sprintf(temp,"%s",im.CandTable[i]);
 			strcpy(temp+pos,im.CodeTips[i]);
 			pos=g_utf8_strlen(im.CandTable[i],-1);

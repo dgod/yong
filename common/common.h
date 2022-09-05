@@ -155,7 +155,7 @@ void y_im_nl_day(time_t t,char *s);
 void *y_dict_open(const char *file);
 void y_dict_close(void *p);
 char *y_dict_query(void *p,char *s);
-int y_dict_query_and_show(void *p,char *s);
+int y_dict_query_and_show(void *p,const char *s);
 int y_dict_query_network(const char *s);
 
 void y_im_debug(char *fmt,...);

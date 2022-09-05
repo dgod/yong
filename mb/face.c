@@ -6,6 +6,7 @@
 #include "learn.h"
 #include "llib.h"
 #include "legend.h"
+#include "cset.h"
 
 static int TableInit(const char *arg);
 static void TableReset(void);
@@ -71,9 +72,8 @@ static char SimplePhrase[4][5];
 static char SuperPhrase[MAX_CAND_LEN+1];
 static uint8_t SuperCodeLen;
 static char AutoPhrase[MAX_CAND_LEN+1];
-static char CalcPhrase[Y_MB_DATA_CALC][MAX_CAND_LEN+1];
 static char CodeTips[10][MAX_TIPS_LEN+1];
-static char PredictPhrase[MAX_CAND_LEN+1];
+static CSET cs;
 
 static int InsertMode;
 
@@ -117,6 +117,7 @@ static short assoc_count;
 static short assoc_begin;
 static short assoc_move;
 static short assoc_hungry;
+static short assoc_adjust;
 static void *assoc_handle;
 
 static short tip_exist;
@@ -127,8 +128,6 @@ static short zi_output;
 
 //static int PhraseListCount;
 #define PhraseListCount EIM.CandWordTotal
-static int PhraseCalcCount;
-static int PredictCount;
 
 static int SP;
 
@@ -397,6 +396,7 @@ static int TableInitReal(const char *arg)
 		assoc_hungry=TableGetConfigInt(0,"assoc_hungry",0);
 		assoc_move=(short)TableGetConfigInt(0,"assoc_move",0);
 		assoc_save=TableGetConfigInt(0,"assoc_save",0);
+		assoc_adjust=TableGetConfigInt(0,"assoc_adjust",0);
 		name=EIM.GetConfig(0,"assoc_dict");
 		if(name && name[0])
 		{
@@ -407,6 +407,10 @@ static int TableInitReal(const char *arg)
 	tip_exist=TableGetConfigInt(0,"tip_exist",0);
 	tip_simple=TableGetConfigInt(0,"tip_simple",0);
 	tip_main=TableGetConfigInt("main","tip",0);
+
+	int auto_save=TableGetConfigInt(0,"auto_save",0);
+	if(auto_save>0)
+		mb->dirty_max=auto_save;
 
 	EIM.Bihua=TableGetBihuaConfig();
 	if(!mb->english)
@@ -420,6 +424,8 @@ static int TableInitReal(const char *arg)
 	{
 		ap_config_load(&ap_conf);
 	}
+
+	cset_init(&cs);
 	
 	return 0;
 }
@@ -484,6 +490,7 @@ static int TableDestroy(void)
 			usleep(10*1000);
 		}while(!TableReady);
 	}
+	cset_destroy(&cs);
 	y_mb_learn_free(NULL);
 	y_mb_free(mb);
 	mb=NULL;
@@ -500,10 +507,8 @@ static void TableReset(void)
 	EIM.CurCandPage=EIM.CandPageCount=EIM.CandWordCount=0;
 	EIM.SelectIndex=0;
 	PhraseListCount=0;
-	PhraseCalcCount=0;
 	InsertMode=0;
 	SuperPhrase[0]=0;
-	PredictPhrase[0]=0;
 	hz_filter_temp=hz_filter;
 	if(TableReady)
 	{
@@ -515,6 +520,8 @@ static void TableReset(void)
 		mb->ctx.input[0]=0;
 		mb->ctx.result_filter_ext=0;
 		mb->ctx.result_match=0;
+
+		cset_reset(&cs);
 	}
 	key_last=0;
 	assoc_mode=0;
@@ -607,12 +614,12 @@ static void DoTipWhenCommit(void)
 	{
 		if(gb_strlen((uint8_t*)EIM.StringGet)==1)
 		{
-			// 这里我们假设CalcPhrase里的数据已经无效了
 			int ret;
-			ret=y_mb_find_simple_code(mb,EIM.StringGet,EIM.CodeInput,CalcPhrase[0],hz_filter,tip_simple);
+			char temp[MAX_CODE_LEN+1];
+			ret=y_mb_find_simple_code(mb,EIM.StringGet,EIM.CodeInput,temp,hz_filter,tip_simple);
 			if(ret==1)
 			{
-				EIM.ShowTip("简码存在：%s",CalcPhrase[0]);
+				EIM.ShowTip("简码存在：%s",temp);
 			}
 		}
 	}
@@ -628,7 +635,8 @@ static char *TableGetCandWord(int index)
 		index=EIM.SelectIndex;
 	ret=&EIM.CandTable[index][0];
 	strcpy(EIM.StringGet,ret);
-	
+
+	// 手工加词	
 	if(InsertMode && EIM.CodeInput[0])
 	{
 		y_mb_add_phrase(mb,EIM.CodeInput,EIM.CandTable[index],0,Y_MB_DIC_USER);
@@ -637,11 +645,13 @@ static char *TableGetCandWord(int index)
 		return NULL;
 	}
 
+	// 联想词组调频
 	if(assoc_mode && assoc_handle && assoc_move)
 	{
 		y_legend_move(assoc_handle,ret);
 	}
 
+	// 词组自动调频
 	if(auto_move && auto_move_len<=EIM.CodeLen && 
 			(EIM.CurCandPage!=0 || index!=0) && 
 			EIM.CodeInput[0]!=mb->lead)
@@ -705,35 +715,40 @@ static int TableGetCandWords(int mode)
 				return IMR_BLOCK;
 		}
 		i=MAX(assoc_hungry,from_len);
-		PhraseCalcCount=0;
-		for(;i>=from_len && !PhraseCalcCount;i--)
+		CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+		for(;i>=from_len && !g->count;i--)
 		{
 			from=EIM.GetLast(i);
 			if(!from) continue;
 			if(assoc_handle)
 			{
-				PhraseCalcCount=y_legend_get(
+				g->count=y_legend_get(
 					assoc_handle,from,strlen(from),
-					assoc_count,CalcPhrase,Y_MB_DATA_CALC);
+					assoc_count,g->phrase,Y_MB_DATA_CALC);
 			}
 			else
 			{
-				PhraseCalcCount=y_mb_get_legend(
+				g->count=y_mb_get_legend(
 					mb,from,strlen(from),
-					assoc_count,CalcPhrase,Y_MB_DATA_CALC);
+					assoc_count,g->phrase,Y_MB_DATA_CALC);
 			}
 		}
 		if(!assoc_hungry)
-			PhraseCalcCount+=EIM.QueryHistory(EIM.StringGet,CalcPhrase+PhraseCalcCount,Y_MB_DATA_CALC-PhraseCalcCount);
-		if(!PhraseCalcCount)
+			g->count+=EIM.QueryHistory(EIM.StringGet,g->phrase+g->count,Y_MB_DATA_CALC-g->count);
+		if(!g->count)
 			return IMR_BLOCK;
 		EIM.CodeLen=0;
 		EIM.CodeInput[0]=0;
 		strcpy(EIM.StringGet,EIM.Translate(hz_trad?"相關字詞：":"联想："));
-		PhraseListCount=PhraseCalcCount;
+		PhraseListCount=g->count;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
 		mode=PAGE_FIRST;
 		assoc_mode=1;
+		cset_prepend(&cs,(CSET_GROUP*)g);
+		if(assoc_adjust==1)
+		{
+			cset_set_assoc(&cs,g->phrase,g->count);
+		}
 	}
 
 	if(mode==PAGE_FIRST) EIM.CurCandPage=0;
@@ -756,30 +771,8 @@ static int TableGetCandWords(int mode)
 		EIM.CodeTips[i][0]=0;
 	}
 
-	if(PhraseCalcCount)
-	{
-		for(i=0;i<EIM.CandWordCount;i++)
-			strcpy(EIM.CandTable[i],CalcPhrase[start+i]);
-	}
-	else if(mb->pinyin && EIM.CandWordCount && PredictPhrase[0])
-	{
-		int pos=start,count=EIM.CandWordCount,plus=0;
-		if(start==0)
-		{
-			strcpy(EIM.CandTable[0],PredictPhrase);
-			count--;
-			plus++;
-		}
-		else
-		{
-			pos--;
-		}
-		y_mb_get(mb,pos,count,EIM.CandTable+plus,CodeTips+plus);
-	}
-	else if(EIM.CandWordCount)
-	{
-		y_mb_get(mb,start,EIM.CandWordCount,EIM.CandTable,CodeTips);
-	}
+	cset_output(&cs,start,EIM.CandWordCount,EIM.CandTable,CodeTips);
+
 	if(EIM.SelectIndex>=EIM.CandWordCount)
 		EIM.SelectIndex=0;
 	
@@ -879,8 +872,10 @@ static int TableGetCandWords(int mode)
 	}
 	if(InsertMode)
 	{
+		CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_get_group_by_type(&cs,CSET_TYPE_CALC);
+		assert(g!=NULL);
 		int pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
-		if(0==y_mb_code_by_rule(mb,CalcPhrase[pos],strlen(CalcPhrase[pos]),EIM.CodeInput,NULL))
+		if(0==y_mb_code_by_rule(mb,g->phrase[pos],strlen(g->phrase[pos]),EIM.CodeInput,NULL))
 			EIM.CodeLen=strlen(EIM.CodeInput);
 	}
 
@@ -889,7 +884,7 @@ static int TableGetCandWords(int mode)
 
 static int TableOnVirtQuery(const char *ph)
 {
-	int ret,count;
+	int count;
 	char tmp[Y_MB_DATA_SIZE+1];
 	
 	if(!ph)
@@ -897,19 +892,22 @@ static int TableOnVirtQuery(const char *ph)
 	
 	count=gb_strlen((uint8_t*)ph);
 	strcpy(tmp,ph);
+
+	CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_calc_group_new(&cs);
 	if(count==1)
-		ret=y_mb_find_code(mb,tmp,CalcPhrase,Y_MB_DATA_CALC);
+		g->count=y_mb_find_code(mb,tmp,g->phrase,Y_MB_DATA_CALC);
 	else if(count>1)
-		ret=y_mb_get_exist_code(mb,tmp,CalcPhrase[0]);
+		g->count=y_mb_get_exist_code(mb,tmp,g->phrase[0]);
 	else
-		ret=0;
-	if(ret)
+		g->count=0;
+	if(g->count)
 	{
 		EIM.WorkMode=EIM_WM_QUERY;
 		strcpy(EIM.StringGet,EIM.Translate("反查："));
 		strcpy(EIM.CodeInput,tmp);
 		EIM.CaretPos=-1;
-		PhraseCalcCount=PhraseListCount=ret;
+		PhraseListCount=g->count;
+		cset_prepend(&cs,(CSET_GROUP*)g);
 		TableGetCandWords(PAGE_FIRST);
 		return IMR_DISPLAY;
 	}
@@ -921,10 +919,10 @@ static int TableOnVirtQuery(const char *ph)
 
 static int TableOnVirtAdd(const char *ph)
 {
-	PhraseCalcCount=0;
+	CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_calc_group_new(&cs);
 	if(ph)
 	{
-		strcpy(CalcPhrase[PhraseCalcCount++],ph);
+		strcpy(g->phrase[g->count++],ph);
 	}
 	if(EIM.DoInput==TableDoInput)
 	{
@@ -933,17 +931,18 @@ static int TableOnVirtAdd(const char *ph)
 		{
 			const char *p=EIM.GetLast(i);
 			if(!p) break;
-			strcpy(CalcPhrase[PhraseCalcCount++],p);
+			strcpy(g->phrase[g->count++],p);
 		}
 	}
-	if(PhraseCalcCount)
+	
+	if(g->count)
 	{
-		//int max;
 		strcpy(EIM.StringGet,EIM.Translate(hz_trad?"編碼：":"编码："));
-		PhraseListCount=PhraseCalcCount;
-		TableGetCandWords(PAGE_FIRST);
+		PhraseListCount=g->count;
+		cset_prepend(&cs,(CSET_GROUP*)g);
 		InsertMode=1;
-		if(0==y_mb_code_by_rule(mb,CalcPhrase[0],strlen(CalcPhrase[0]),EIM.CodeInput,NULL))
+		TableGetCandWords(PAGE_FIRST);
+		if(0==y_mb_code_by_rule(mb,g->phrase[0],strlen(g->phrase[0]),EIM.CodeInput,NULL))
 			EIM.CodeLen=strlen(EIM.CodeInput);
 		return IMR_DISPLAY;
 	}
@@ -1010,7 +1009,9 @@ static int TableDoInput(int key)
 			}
 		}
 		pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
-		if(0==y_mb_code_by_rule(mb,CalcPhrase[pos],strlen(CalcPhrase[pos]),EIM.CodeInput,NULL))
+		CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_get_group_by_type(&cs,CSET_TYPE_CALC);
+		assert(g!=NULL);
+		if(0==y_mb_code_by_rule(mb,g->phrase[pos],strlen(g->phrase[pos]),EIM.CodeInput,NULL))
 				EIM.CodeLen=strlen(EIM.CodeInput);
 	}
 	else if(key==YK_VIRT_REFRESH)
@@ -1169,7 +1170,7 @@ static int TableDoInput(int key)
 			return IMR_BLOCK;
 		if(!EIM.CodeLen && !InsertMode)
 		{
-			PhraseCalcCount=0;
+			cset_clear(&cs,CSET_TYPE_CALC);
 			EIM.StringGet[0]=0;
 			EIM.SelectIndex=0;
 			mb->ctx.input[0]=0;
@@ -1195,6 +1196,7 @@ static int TableDoInput(int key)
 					return IMR_COMMIT;
 				}
 				y_mb_set_zi(mb,1);
+				cset_mb_group_set(&cs,mb,count);
 				PhraseListCount=count;
 				TableGetCandWords(PAGE_FIRST);
 				return IMR_DISPLAY;
@@ -1203,12 +1205,14 @@ static int TableDoInput(int key)
 			{
 				strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
 				SuperCodeLen=4;
-				PhraseCalcCount=y_mb_super_get(mb,CalcPhrase,Y_MB_DATA_CALC,key);
-				if(PhraseCalcCount)
+				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+				g->count=y_mb_super_get(mb,g->phrase,Y_MB_DATA_CALC,key);
+				if(g->count)
 				{
 					EIM.CodeInput[EIM.CodeLen++]=key;
 					EIM.CodeInput[EIM.CodeLen]=0;
-					PhraseListCount=PhraseCalcCount;
+					PhraseListCount=g->count;
+					cset_prepend(&cs,(CSET_GROUP*)g);
 					TableGetCandWords(PAGE_FIRST);
 					return IMR_DISPLAY;
 				}
@@ -1231,7 +1235,7 @@ static int TableDoInput(int key)
 					strcpy(EIM.StringGet,EIM.CandTable[EIM.SelectIndex]);
 					EIM.CodeLen=0;
 				}
-				PhraseCalcCount=0;
+				cset_clear(&cs,CSET_TYPE_CALC);
 				ret=IMR_COMMIT_DISPLAY;
 				DoTipWhenCommit();
 			}
@@ -1390,7 +1394,7 @@ LIST:
 					count=temp_count;
 					strcpy(EIM.StringGet,SuperPhrase);
 					SuperPhrase[0]=0;
-					PhraseCalcCount=0;
+					cset_clear(&cs,CSET_TYPE_CALC);
 					ret=IMR_COMMIT_DISPLAY;
 					DoTipWhenCommit();
 					break;
@@ -1471,7 +1475,7 @@ commit_simple:
 					if(!temp_count)
 						return IMR_BLOCK;
 				}
-				PhraseCalcCount=0;
+				cset_clear(&cs,CSET_TYPE_CALC);
 				ret=IMR_COMMIT_DISPLAY;
 				if(commit_prev)
 				{
@@ -1509,7 +1513,7 @@ commit_simple:
 				else
 				{
 					struct y_mb_context ctx;
-					PhraseCalcCount=0;
+					cset_clear(&cs,CSET_TYPE_CALC);
 					if(EIM.CandWordCount>0)
 					{
 						ret=IMR_COMMIT_DISPLAY;
@@ -1538,7 +1542,8 @@ commit_simple:
 			if(count<0) count=0;
 			int dext=hz_filter_strict && mb->ctx.result_filter;
 			if(hz_filter && hz_filter_temp==0 && hz_filter_show) dext=2;
-			PhraseCalcCount=0;
+			cset_clear(&cs,CSET_TYPE_CALC);
+			cset_mb_group_set(&cs,mb,count);
 			PhraseListCount=count;
 			TableGetCandWords(PAGE_FIRST);
 			if(mb->commit_which==EIM.CodeLen)
@@ -1619,7 +1624,8 @@ commit_simple:
 			count=y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,0);
 			if(count>0)
 			{
-				PhraseCalcCount=0;
+				cset_clear(&cs,CSET_TYPE_CALC);
+				cset_mb_group_set(&cs,mb,count);
 				PhraseListCount=count;
 				//max=EIM.CandWordMax;
 				//EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
@@ -1659,6 +1665,7 @@ commit_simple:
 		if(!count)
 			return IMR_NEXT;
 		y_mb_set_zi(mb,1);
+		cset_mb_group_set(&cs,mb,count);
 		PhraseListCount=count;
 		//max=EIM.CandWordMax;
 		//EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
@@ -1723,19 +1730,19 @@ static char CodeGet[MAX_CODE_LEN+1];		// 已经被选择的拼音
 static int CodeGetLen;						// 被选择拼音的长度
 static int CodeGetCount;					// 选择了多少此拼音
 static int CodeMatch;						// 匹配的拼音长度
-static int AssistMode;						// 是否处于输入辅助码状态
+static int AssistMode;						// 是否处于输入间接辅助码状态
 static uint8_t PinyinStep[MAX_CODE_LEN];	// 拼音切分的长度
 uint8_t PySwitch;							// 拼音是否经过手工切分
 
 typedef struct {
-	int count;								// 额外的候选数量
-	int mark;								// 计算出来的编码中Extra的开始位置
+	CSET_GROUP;
+	int mark;								// 间接辅助码结果中Extra的开始位置
 	char pinyin[16];						// 额外候选的拼音
 	struct y_mb_item *zi;					// 额外的候选
 	LArray *arr;							// 模糊音候选
 }EXTRA_ZI;
 static EXTRA_ZI ExtraZi;
-static int PredictCalcMark;					// 计算出来的编码中Predict的结束位置
+static int PredictCalcMark;					// 间接辅助码结果中Predict的结束位置
 
 static void ExtraZiReset(void)
 {
@@ -1750,8 +1757,58 @@ static void ExtraZiReset(void)
 	}
 }
 
+static int ExtraZiGet(int cur,int count,char CandTable[][MAX_CAND_LEN+1],int key)
+{
+	struct y_mb_ci *c;
+	int i=0;
+	if(ExtraZi.zi)
+	{
+		for(i=0,c=ExtraZi.zi->phrase;c && i<cur;c=c->next)
+		{
+			if(c->del || !c->zi) continue;
+			if(hz_filter_temp && c->ext) continue;
+			if(y_mb_in_result(mb,c)) continue;
+			i++;
+		}
+		for(i=0;c && i<count;c=c->next)
+		{
+			if(c->del || !c->zi) continue;
+			if(hz_filter_temp && c->ext) continue;
+			if(y_mb_in_result(mb,c)) continue;
+			if(key && !y_mb_assist_test(mb,c,key,0,0)) continue;
+			y_mb_ci_string2(c,CandTable[i]);
+			i++;
+		}
+	}
+	if(ExtraZi.arr)
+	{
+		int j;
+		for(j=0;j<ExtraZi.arr->len && i<count;j++)
+		{
+			c=l_ptr_array_nth(ExtraZi.arr,cur+j);
+			if(c->del || !c->zi) continue;
+			if(hz_filter_temp && c->ext) continue;
+			if(y_mb_in_result(mb,c)) continue;
+			if(key && !y_mb_assist_test(mb,c,key,0,0)) continue;
+			y_mb_ci_string2(c,CandTable[i]);
+			i++;
+		}
+	}
+	return i;
+}
+
+static int ExtraZiOutput(void *unsed,int at,int num,char cand[][MAX_CAND_LEN+1],char tip[][MAX_TIPS_LEN+1])
+{
+	int i;
+	for(i=0;i<num;i++)
+		tip[i][0]=0;
+	return ExtraZiGet(at,num,cand,0);
+}
+
 static void ExtraZiFill(const char *code,int len,int res)
 {
+	ExtraZi.type=CSET_TYPE_EXTRA_ZI;
+	ExtraZi.get=(void*)ExtraZiOutput;
 	if(mb->fuzzy)
 	{
 		struct y_mb_context ctx;
@@ -1805,46 +1862,12 @@ static void ExtraZiFill(const char *code,int len,int res)
 	}
 	if(ExtraZi.count<=0)
 		ExtraZiReset();
-}
 
-static int ExtraZiGet(int cur,int count,char CandTable[][MAX_CAND_LEN+1],int key)
-{
-	struct y_mb_ci *c;
-	int i=0;
-	if(ExtraZi.zi)
+	if(ExtraZi.count>0)
 	{
-		for(i=0,c=ExtraZi.zi->phrase;c && i<cur;c=c->next)
-		{
-			if(c->del || !c->zi) continue;
-			if(hz_filter_temp && c->ext) continue;
-			if(y_mb_in_result(mb,c)) continue;
-			i++;
-		}
-		for(i=0;c && i<count;c=c->next)
-		{
-			if(c->del || !c->zi) continue;
-			if(hz_filter_temp && c->ext) continue;
-			if(y_mb_in_result(mb,c)) continue;
-			if(key && !y_mb_assist_test(mb,c,key,0,0)) continue;
-			y_mb_ci_string2(c,CandTable[i]);
-			i++;
-		}
+		cset_remove(&cs,(CSET_GROUP*)&ExtraZi);
+		cset_append(&cs,(CSET_GROUP*)&ExtraZi);
 	}
-	if(ExtraZi.arr)
-	{
-		int j;
-		for(j=0;j<ExtraZi.arr->len && i<count;j++)
-		{
-			c=l_ptr_array_nth(ExtraZi.arr,cur+j);
-			if(c->del || !c->zi) continue;
-			if(hz_filter_temp && c->ext) continue;
-			if(y_mb_in_result(mb,c)) continue;
-			if(key && !y_mb_assist_test(mb,c,key,0,0)) continue;
-			y_mb_ci_string2(c,CandTable[i]);
-			i++;
-		}
-	}
-	return i;
 }
 
 static void PinyinResetPart(void)
@@ -1986,12 +2009,12 @@ static int AssistDoSearch(void)
 {
 	int max;
 	PhraseListCount=y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,hz_filter_temp);
+	cset_mb_group_set(&cs,mb,PhraseListCount);
 	max=EIM.CandWordMax;
 	EIM.CandWordMaxReal=max;
 	EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
-	PredictPhrase[0]=0;
-	PredictCount=0;
-	PhraseCalcCount=0;
+	cset_clear(&cs,CSET_TYPE_PREDICT);
+	cset_clear(&cs,CSET_TYPE_CALC);
 	PinyinGetCandwords(PAGE_FIRST);
 	return PhraseListCount;
 }
@@ -2008,8 +2031,7 @@ static int SPDoSearch(int adjust)
 	PinyinStripInput();
 	memset(PinyinStep,2,sizeof(PinyinStep));
 
-	PredictPhrase[0]=0;
-	PredictCount=0;
+	cset_clear(&cs,CSET_TYPE_PREDICT);
 	ExtraZiReset();
 	
 	// 双拼情况下打全拼码表的自定义编码
@@ -2025,11 +2047,13 @@ static int SPDoSearch(int adjust)
 		int count=y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,hz_filter_temp);
 		if(count>0)
 		{
+			CSET_GROUP_CALC *g=cset_get_group_by_type(&cs,CSET_TYPE_CALC);
 			if(count>Y_MB_DATA_CALC) count=Y_MB_DATA_CALC;
-			y_mb_get(mb,0,count,CalcPhrase,NULL);
-			PhraseCalcCount=count;
+			y_mb_get(mb,0,count,g->phrase,NULL);
+			g->count=count;
+			cset_prepend(&cs,(CSET_GROUP*)g);
 			CodeMatch=EIM.CodeLen;
-			PhraseListCount=PhraseCalcCount;
+			PhraseListCount=g->count;
 			EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 					((PhraseListCount%EIM.CandWordMax)?1:0);
 			TableGetCandWords(PAGE_FIRST);
@@ -2059,12 +2083,13 @@ static int SPDoSearch(int adjust)
 			if(count>0)
 			{
 				int end=(EIM.CodeLen==3?0:1);
-				PhraseCalcCount=y_mb_assist_get(mb,CalcPhrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
-				if(PhraseCalcCount)
+				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+				g->count=y_mb_assist_get(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
+				if(g->count)
 				{
+					cset_prepend(&cs,(CSET_GROUP*)g);
 					CodeMatch=EIM.CodeLen;
-					PhraseListCount=PhraseCalcCount;
-					//PredictCount=ExtraCount=0;
+					PhraseListCount=g->count;
 					EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 							((PhraseListCount%EIM.CandWordMax)?1:0);
 					TableGetCandWords(PAGE_FIRST);
@@ -2083,12 +2108,13 @@ static int SPDoSearch(int adjust)
 			int count=y_mb_set(mb,code,clen,hz_filter_temp);
 			if(count>0)
 			{
-				PhraseCalcCount=y_mb_assist_get2(mb,CalcPhrase,Y_MB_DATA_CALC,EIM.CodeInput+2,0);
-				if(PhraseCalcCount)
+				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+				g->count=y_mb_assist_get2(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput+2,0);
+				if(g->count)
 				{
+					cset_prepend(&cs,(CSET_GROUP*)g);
 					CodeMatch=4;
-					PhraseListCount=PhraseCalcCount;
-					//PredictCount=ExtraCount=0;
+					PhraseListCount=g->count;
 					EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 							((PhraseListCount%EIM.CandWordMax)?1:0);
 					TableGetCandWords(PAGE_FIRST);
@@ -2103,17 +2129,19 @@ static int SPDoSearch(int adjust)
 		if(y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,0)>0 && mb->ctx.result_first)
 		{
 			c=mb->ctx.result_first->phrase;
-			for(PhraseCalcCount=0;c!=NULL;c=c->next)
+			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+			for(g->count=0;c!=NULL;c=c->next)
 			{
-				char *s=y_mb_ci_string2(c,CalcPhrase[PhraseCalcCount]);
+				char *s=y_mb_ci_string2(c,g->phrase[g->count]);
 				if(strchr(s,'$'))
 				{
-					PhraseCalcCount++;
+					g->count++;
 				}
 			}
-			if(PhraseCalcCount>0)
+			if(g->count>0)
 			{
-				PhraseListCount=PhraseCalcCount;
+				cset_prepend(&cs,(CSET_GROUP*)g);
+				PhraseListCount=g->count;
 				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 						((PhraseListCount%EIM.CandWordMax)?1:0);
 				TableGetCandWords(PAGE_FIRST);
@@ -2168,6 +2196,7 @@ static int SPDoSearch(int adjust)
 		mb->ctx.result_match=(CodeMatch<EIM.CodeLen);
 		len=strlen(code);
 		PhraseListCount=y_mb_set(mb,code,strlen(code),hz_filter_temp);
+		cset_mb_group_set(&cs,mb,PhraseListCount);
 		HaveResult=PhraseListCount>0;
 		max=EIM.CandWordMax;
 		EIM.CandWordMaxReal=max;
@@ -2180,18 +2209,14 @@ static int SPDoSearch(int adjust)
 	{
 		struct y_mb_context ctx;
 		y_mb_push_context(mb,&ctx);
-		PredictCount=y_mb_predict_by_learn(mb,
+		CSET_GROUP_PREDICT *g=cset_predict_group_new(&cs);
+		g->count=y_mb_predict_by_learn(mb,
 				EIM.CodeInput,CodeReal,
-				PredictPhrase,sizeof(PredictPhrase),CodeGetLen==0);
+				g->phrase,sizeof(g->phrase),CodeGetLen==0);
 		y_mb_pop_context(mb,&ctx);
-		/*if(PredictCount==1 && EIM.CandWordCount && 
-					(!strcmp(EIM.CandTable[0],PredictPhrase) ||
-					strchr(EIM.CandTable[0],'$')))
-		{
-			PredictPhrase[0]=0;
-			PredictCount=0;
-		}*/
-		PhraseListCount+=PredictCount;
+		if(g->count)
+			cset_prepend(&cs,(CSET_GROUP*)g);
+		PhraseListCount+=g->count;
 		max=EIM.CandWordMax;
 		EIM.CandWordMaxReal=max;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
@@ -2220,7 +2245,8 @@ static int PinyinDoSearch(int adjust)
 	int GoodMatch=0;
 	int CodeReal;
 	int HaveResult=0;
-	PhraseCalcCount=0;
+
+	cset_clear(&cs,CSET_TYPE_CALC);
 	
 	(void)GoodMatch;
 
@@ -2238,8 +2264,7 @@ static int PinyinDoSearch(int adjust)
 	PinyinStripInput();
 	py_string_step(EIM.CodeInput,EIM.CaretPos,
 			PinyinStep,sizeof(PinyinStep));
-	PredictPhrase[0]=0;
-	PredictCount=0;
+	cset_clear(&cs,CSET_TYPE_PREDICT);
 	ExtraZiReset();
 
 	while(!adjust && !AssistMode && //(mb->ass || mb->yong) &&
@@ -2266,7 +2291,8 @@ static int PinyinDoSearch(int adjust)
 				// 如果在单字加辅助码的位置码表中直接有编码，那么直接返回，不要再找得第一个码位的单字了
 				CodeMatch=EIM.CodeLen;
 				PhraseListCount=count;
-				PhraseCalcCount=0;
+				cset_mb_group_set(&cs,mb,count);
+				cset_clear(&cs,CSET_TYPE_CALC);
 				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 						((PhraseListCount%EIM.CandWordMax)?1:0);
 				TableGetCandWords(PAGE_FIRST);
@@ -2280,11 +2306,13 @@ static int PinyinDoSearch(int adjust)
 		if(count>0)
 		{
 			int end=(EIM.CodeLen==mb->split+1?0:1);
-			PhraseCalcCount=y_mb_assist_get(mb,CalcPhrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
-			if(PhraseCalcCount)
+			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+			g->count=y_mb_assist_get(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
+			if(g->count)
 			{
+				cset_prepend(&cs,(CSET_GROUP*)g);
 				CodeMatch=EIM.CodeLen;
-				PhraseListCount=PhraseCalcCount;
+				PhraseListCount=g->count;
 				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 						((PhraseListCount%EIM.CandWordMax)?1:0);
 				TableGetCandWords(PAGE_FIRST);
@@ -2335,6 +2363,7 @@ static int PinyinDoSearch(int adjust)
 			temp[len]=0;
 			PhraseListCount=y_mb_set(mb,temp,len,hz_filter_temp);*/
 			PhraseListCount=y_mb_set(mb,EIM.CodeInput,CodeMatch,hz_filter_temp);
+			cset_mb_group_set(&cs,mb,PhraseListCount);
 		}
 		HaveResult=PhraseListCount>0;
 		max=EIM.CandWordMax;
@@ -2349,18 +2378,21 @@ static int PinyinDoSearch(int adjust)
 	{
 		struct y_mb_context ctx;
 		y_mb_push_context(mb,&ctx);
+		CSET_GROUP_PREDICT *g=cset_predict_group_new(&cs);
 		if(mb->split>1 /*&& auto_move!=1*/)
 		{
-			PredictCount=y_mb_predict_by_learn(mb,EIM.CodeInput,
-						CodeReal,PredictPhrase,sizeof(PredictPhrase),CodeGetLen==0);
+			g->count=y_mb_predict_by_learn(mb,EIM.CodeInput,
+						CodeReal,g->phrase,sizeof(g->phrase),CodeGetLen==0);
 		}
 		else
 		{
-			PinyinPredict(PredictPhrase,EIM.CodeInput,CodeReal,hz_filter_temp);
-			PredictCount=PredictPhrase[0]?1:0;
+			PinyinPredict(g->phrase,EIM.CodeInput,CodeReal,hz_filter_temp);
+			g->count=g->phrase[0]?1:0;
 		}
 		y_mb_pop_context(mb,&ctx);
-		PhraseListCount+=PredictCount;
+		if(g->count>0)
+			cset_prepend(&cs,(CSET_GROUP*)g);
+		PhraseListCount+=g->count;
 		max=EIM.CandWordMax;
 		EIM.CandWordMaxReal=max;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
@@ -2391,7 +2423,7 @@ static int PinyinDoSearch(int adjust)
 			ExtraZiFill(EIM.CodeInput,i,0);
 			if(ExtraZi.count>0)
 			{
-				PhraseListCount=PredictCount;
+				PhraseListCount=cset_predict_group_count(&cs);
 				HaveResult=0;
 				mb->ctx.result_count=0;
 				mb->ctx.result_count_zi=0;
@@ -2452,9 +2484,11 @@ static char *PinyinGetCandWord(int index)
 		return 0;
 	if(index==-1) index=EIM.SelectIndex;
 	pos=EIM.CurCandPage*EIM.CandWordMax+index;
-	if(ExtraZi.count>0 && ((PhraseCalcCount==0 && pos>=PhraseListCount-ExtraZi.count) ||
-			(PhraseCalcCount>0 && pos>=ExtraZi.mark)))
+
+	if(ExtraZi.count>0 && ((cset_calc_group_count(&cs)==0 && pos>=PhraseListCount-ExtraZi.count) ||
+			(cset_calc_group_count(&cs)>0 && pos>=ExtraZi.mark)))
 	{
+		// 输出ExtraZi的情况
 		int step;
 		if(strlen(EIM.StringGet)+strlen(EIM.CandTable[index])>Y_MB_DATA_SIZE)
 			return NULL;
@@ -2475,9 +2509,10 @@ static char *PinyinGetCandWord(int index)
 		if(strlen(EIM.StringGet)+strlen(EIM.CandTable[index])>Y_MB_DATA_SIZE)
 			return NULL;
 		strcat(EIM.StringGet,EIM.CandTable[index]);
-		if((PhraseCalcCount && pos<PredictCalcMark) ||
-				(!PhraseCalcCount && pos<PredictCount))
+		if((cset_calc_group_count(&cs)>0 && pos<PredictCalcMark) ||
+				(cset_calc_group_count(&cs)==0 && pos<cset_predict_group_count(&cs)))
 		{
+			// 输出整句的情况
 			int CodeReal;
 			CodeGetCount++;
 			PinyinStripInput();
@@ -2622,27 +2657,29 @@ static int PinyinGetCandwords(int mode)
 		const char *from=EIM.StringGet;
 		if(gb_strlen((uint8_t*)from)<assoc_begin)
 			return IMR_BLOCK;
+		CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
 		if(assoc_handle)
 		{
-			PhraseCalcCount=y_legend_get(
+			g->count=y_legend_get(
 				assoc_handle,from,strlen(from),
-				assoc_count,CalcPhrase,Y_MB_DATA_CALC);
+				assoc_count,g->phrase,Y_MB_DATA_CALC);
 		}
 		else
 		{
-			PhraseCalcCount=y_mb_get_legend(
+			g->count=y_mb_get_legend(
 				mb,from,strlen(from),
-				assoc_count,CalcPhrase,Y_MB_DATA_CALC);
+				assoc_count,g->phrase,Y_MB_DATA_CALC);
 		}
 		if(!assoc_hungry)
-			PhraseCalcCount+=EIM.QueryHistory(EIM.StringGet,CalcPhrase+PhraseCalcCount,Y_MB_DATA_CALC-PhraseCalcCount);
-		if(!PhraseCalcCount)
+			g->count+=EIM.QueryHistory(EIM.StringGet,g->phrase+g->count,Y_MB_DATA_CALC-g->count);
+		if(!g->count)
 			return IMR_BLOCK;
+		cset_prepend(&cs,(CSET_GROUP*)g);
 		EIM.CodeLen=0;
 		EIM.CodeInput[0]=0;
 		strcpy(EIM.StringGet,EIM.Translate(hz_trad?"相關字詞：":"联想："));
 		ExtraZiReset();
-		PhraseListCount=PhraseCalcCount;
+		PhraseListCount=g->count;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
 		mode=PAGE_FIRST;
 		assoc_mode=1;
@@ -2668,42 +2705,7 @@ static int PinyinGetCandwords(int mode)
 		EIM.CodeTips[i][0]=0;
 	}
 
-	if(PhraseCalcCount)
-	{
-		for(i=0;i<EIM.CandWordCount;i++)
-			strcpy(EIM.CandTable[i],CalcPhrase[start+i]);
-	}
-	else
-	{
-		int pos=start,count=EIM.CandWordCount;
-		int PhraseCount=PhraseListCount-PredictCount-ExtraZi.count;
-		int cur;
-
-		if(pos<PredictCount)
-		{
-			for(;count>0 && pos<PredictCount;)
-			{
-				const char *s=y_mb_predict_nth(PredictPhrase,pos);
-				strcpy(EIM.CandTable[pos-start],s);
-				count--;
-				pos++;
-			}
-		}
-		if(count>0 && pos>=PredictCount && pos<PredictCount+PhraseCount)
-		{
-			int m;
-			cur=pos-PredictCount;
-			m=MIN(count,PhraseCount-cur);
-			y_mb_get(mb,cur,m,EIM.CandTable+pos-start,CodeTips+pos-start);
-			count-=m;
-			pos+=m;
-		}
-		if(count>0 && pos>=PredictCount+PhraseCount)
-		{
-			cur=pos-PredictCount-PhraseCount;
-			ExtraZiGet(cur,count,EIM.CandTable+pos-start,0);
-		}
-	}
+	cset_output(&cs,start,EIM.CandWordCount,EIM.CandTable,CodeTips);
 	if(EIM.SelectIndex>=EIM.CandWordCount)
 		EIM.SelectIndex=0;
 	if(active->hint!=0)
@@ -2739,8 +2741,10 @@ static int PinyinGetCandwords(int mode)
 
 	if(InsertMode)
 	{
+		CSET_GROUP_CALC *g=cset_get_group_by_type(&cs,CSET_TYPE_CALC);
+		assert(g!=NULL);
 		int pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
-		if(0==y_mb_code_by_rule(mb,CalcPhrase[pos],strlen(CalcPhrase[pos]),EIM.CodeInput,NULL))
+		if(0==y_mb_code_by_rule(mb,g->phrase[pos],strlen(g->phrase[pos]),EIM.CodeInput,NULL))
 			EIM.CodeLen=strlen(EIM.CodeInput);
 	}
 
@@ -2771,38 +2775,40 @@ static int PinyinDoInput(int key)
 				// reset SP 2+2 mode first
 				PinyinDoSearch(0);
 			}
-			PhraseCalcCount=0;
-			if(PredictCount>1)
+			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+			CSET_GROUP_PREDICT *predict=cset_get_group_by_type(&cs,CSET_TYPE_PREDICT);
+			if(predict && predict->count>1)
 			{
 				int i;
-				for(i=1;i<PredictCount;i++)
+				for(i=1;i<predict->count;i++)
 				{
-					const char *s=y_mb_predict_nth(PredictPhrase,i);
+					const char *s=y_mb_predict_nth(predict->phrase,i);
 					char temp[sizeof(struct y_mb_ci)+4];
 					struct y_mb_ci *c=(struct y_mb_ci *)temp;
 					c->len=4;
 					strcpy((char*)c->data,s);
 					if(!y_mb_assist_test(mb,c,key,0,0)) continue;
-					strcpy(&CalcPhrase[PhraseCalcCount][0],s);
-					PhraseCalcCount++;
+					strcpy(&g->phrase[g->count][0],s);
+					g->count++;
 				}
 			}
-			PredictCalcMark=PhraseCalcCount;
-			if(PhraseCalcCount<Y_MB_DATA_CALC)
+			PredictCalcMark=g->count;
+			if(g->count<Y_MB_DATA_CALC)
 			{
-				PhraseCalcCount+=y_mb_assist_get(mb,
-						CalcPhrase+PhraseCalcCount,
-						Y_MB_DATA_CALC-PhraseCalcCount,
+				g->count+=y_mb_assist_get(mb,
+						g->phrase+g->count,
+						Y_MB_DATA_CALC-g->count,
 						key,0);
 			}
-			if(PhraseCalcCount<Y_MB_DATA_CALC && ExtraZi.count)
+			if(g->count<Y_MB_DATA_CALC && ExtraZi.count)
 			{
-				ExtraZi.mark=PhraseCalcCount;
-				PhraseCalcCount+=ExtraZiGet(0,Y_MB_DATA_CALC-PhraseCalcCount,CalcPhrase+PhraseCalcCount,key);
+				ExtraZi.mark=g->count;
+				g->count+=ExtraZiGet(0,Y_MB_DATA_CALC-g->count,g->phrase+g->count,key);
 			}
-			if(PhraseCalcCount)
+			if(g->count)
 			{
-				PhraseListCount=PhraseCalcCount;
+				cset_prepend(&cs,(CSET_GROUP*)g);
+				PhraseListCount=g->count;
 				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 						((PhraseListCount%EIM.CandWordMax)?1:0);
 				PinyinGetCandwords(PAGE_FIRST);				
@@ -3008,11 +3014,11 @@ static int PinyinDoInput(int key)
 		if(EIM.CandWordCount==0)
 			return IMR_NEXT;
 		pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
-		if(ExtraZi.count>0 && !PhraseCalcCount && pos>=PhraseListCount-ExtraZi.count)
+		if(ExtraZi.count>0 && cset_calc_group_count(&cs)==0 && pos>=PhraseListCount-ExtraZi.count)
 		{
 			strcpy(code,ExtraZi.pinyin);
 		}
-		else if(ExtraZi.count>0 && PhraseCalcCount && pos>=ExtraZi.mark)
+		else if(ExtraZi.count>0 && cset_calc_group_count(&cs)>0 && pos>=ExtraZi.mark)
 		{
 			strcpy(code,ExtraZi.pinyin);
 		}
@@ -3058,7 +3064,7 @@ static int PinyinDoInput(int key)
 		if(EIM.CodeLen==0 && CodeGetLen==0)
 		{
 			EIM.CaretPos=0;
-			PhraseCalcCount=0;
+			cset_clear(&cs,CSET_TYPE_CALC);
 			EIM.StringGet[0]=0;
 			EIM.SelectIndex=0;
 			mb->ctx.input[0]=0;
@@ -3100,7 +3106,7 @@ static int PinyinDoInput(int key)
 				AssistMode=0;
 				
 				// 如果没有发现符合的2+2直接辅助码，那么保持间接辅助码形式
-				if(PhraseCalcCount==0)
+				if(cset_calc_group_count(&cs)==0)
 				{
 					AssistMode=1;
 					return IMR_BLOCK;
