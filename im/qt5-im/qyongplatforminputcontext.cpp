@@ -545,6 +545,8 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 {
 	//printf("setFocusObject %p\n",object);
 	//fprintf(stderr,"%s\n",qApp->platformName().toStdString().data());
+	if (!inputMethodAccepted())
+		return;
 	if(object!=NULL)
 	{
 		this->is_wayland=qApp->platformName()=="wayland";
