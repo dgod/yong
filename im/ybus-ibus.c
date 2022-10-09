@@ -284,6 +284,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	if(client==NULL)
 	{
 		ibus_yong_engine_focus_in(engine);
+		ybus_get_active(NULL,&client);
 	}
 	if(client && client->state && !(modifiers & IBUS_RELEASE_MASK))
 	{
