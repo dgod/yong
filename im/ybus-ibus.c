@@ -221,7 +221,6 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 {
 	IBusYongEngine *yong=(IBusYongEngine*)engine;
 	int key;
-		
 	if(ibus_version>=1)
 		modifiers=keycode;
 	
@@ -282,6 +281,10 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	}}
 	YBUS_CLIENT *client=NULL;
 	ybus_get_active(NULL,&client);
+	if(client==NULL)
+	{
+		ibus_yong_engine_focus_in(engine);
+	}
 	if(client && client->state && !(modifiers & IBUS_RELEASE_MASK))
 	{
 		if(ybus_on_key(&plugin,(CONN_ID)engine,0,key|caps))
