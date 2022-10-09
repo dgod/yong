@@ -307,6 +307,16 @@ static void ibus_yong_auto_switch(IBusEngine *engine)
 
 static void ibus_yong_engine_focus_in(IBusEngine *engine)
 {
+	// work around ibus focus problem
+	YBUS_CONNECT *active=NULL;
+	if(!ybus_get_active(&active,NULL) && active->plugin!=&plugin)
+	{
+		int64_t now=ybus_now();
+		if(llabs(now-active->alive)<50)
+		{
+			return;
+		}
+	}
 	//fprintf(stderr,"focus in\n");
 	ibus_yong_auto_switch(engine);
 	if(((IBusYongEngine*)engine)->first)

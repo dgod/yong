@@ -49,7 +49,7 @@ typedef struct{
 	YBUS_CLIENT *client;
 	YBUS_PLUGIN *plugin;
 	YBUS_CLIENT *active;
-	time_t alive;
+	int64_t alive;
 	
 	unsigned int state:1;
 	unsigned int lang:1;
@@ -73,6 +73,7 @@ int ybus_init(void);
 void ybus_destroy(void);
 void ybus_add_plugin(YBUS_PLUGIN *plugin);
 int ybus_init_plugins(void);
+int64_t ybus_now(void);
 
 int ybus_on_key(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int key);
 int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);

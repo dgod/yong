@@ -21,7 +21,7 @@ static YBUS_CONNECT *conn_list;
 static YBUS_CONNECT *conn_active;
 static int onspot;
 static int def_lang;
-static time_t last_recycle;
+static int64_t last_recycle;
 
 static YBUS_CONNECT *conn_wm;
 typedef struct{
@@ -77,6 +77,13 @@ int ybus_init_plugins(void)
 	return 0;
 }
 
+int64_t ybus_now(void)
+{
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+	return tv.tv_sec*1000+tv.tv_usec/1000;
+}
+
 static void xim_ybus_update_config(void)
 {
 	def_lang=y_im_get_config_int("IM","lang");
@@ -115,12 +122,12 @@ YBUS_CONNECT *ybus_find_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	return NULL;
 }
 
-static void ybus_recycle_connect(time_t now);
+static void ybus_recycle_connect(int64_t now);
 
 YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 {
 	YBUS_CONNECT *conn;
-	time_t now=time(NULL);
+	int64_t now=ybus_now();
 	conn=ybus_find_connect(plugin,conn_id);
 	if(conn) return conn;
 	conn=l_new0(YBUS_CONNECT);
@@ -203,7 +210,7 @@ YBUS_CLIENT *ybus_add_client(YBUS_CONNECT *conn,CLIENT_ID client_id,size_t child
 {
 	YBUS_PLUGIN *plugin=conn->plugin;
 	YBUS_CLIENT *client;
-	conn->alive=time(NULL);
+	conn->alive=ybus_now();
 	client=ybus_find_client(conn,client_id);
 	if(client) return client;
 	client=l_alloc0(sizeof(YBUS_CLIENT)+child);
@@ -347,7 +354,7 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	}
 	if(conn!=conn_active)
 		YongResetIM();
-	now=time(NULL);
+	now=ybus_now();
 	conn->alive=now;
 	conn_active=conn;
 	conn->focus=1;
@@ -596,13 +603,13 @@ static int get_process_list(int list[],int max)
 }
 #endif
 
-static void ybus_recycle_connect(time_t now)
+static void ybus_recycle_connect(int64_t now)
 {
 	int list[4096];
 	int count;
 	YBUS_CONNECT *p,*n;
 	
-	if(!(now>last_recycle+60 || now<last_recycle))
+	if(!(now>last_recycle+60000 || now<last_recycle))
 	{
 		return;
 	}
@@ -614,7 +621,7 @@ static void ybus_recycle_connect(time_t now)
 	{
 		YBUS_PLUGIN *plugin=p->plugin;
 		n=p->next;
-		if(p->alive<now && p->alive+60>now)
+		if(p->alive<now && p->alive+60000>now)
 			continue;
 		p->alive=now;
 		if(p->pid==0)
@@ -807,7 +814,6 @@ int y_xim_init_default(Y_XIM *x)
 	ybus_xim_init();
 	ybus_lcall_init();
 	ybus_ibus_init();
-
 
 	x->init=xim_ybus_init;
 	x->destroy=xim_ybus_destroy;
