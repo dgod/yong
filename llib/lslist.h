@@ -14,5 +14,6 @@ void *l_slist_find(void *h,const void *item,LCmpFunc cmp);
 void *l_slist_find_r(void *h,const void *item,LCmpDataFunc cmp,void *arg);
 int l_slist_length(void *h);
 void *l_slist_nth(void *h,int n);
+void *l_slist_last(void *h);
 
 #endif/*_LSLIST_H_*/

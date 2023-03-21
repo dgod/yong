@@ -151,6 +151,13 @@ int ui_init(void)
 		setenv("GDK_DPI_SCALE",temp,1);
 	}
 	setenv("GDK_SCALE","1",1);
+	{
+		const char *temp=y_im_get_config_data("main","scale");
+		if(temp)
+		{
+			setenv("GDK_DPI_SCALE",temp,1);
+		}
+	}
 
 #if !GTK_CHECK_VERSION(3,0,0)
 	gtk_set_locale();
@@ -194,8 +201,11 @@ int ui_init(void)
 		dpi=(int)gdk_screen_get_resolution(gdk_screen_get_default());
 		if(dpi>96)
 			ui_scale=dpi/96.0;
-		//printf("%.2f\n",ui_scale);
-		//ui_scale=1;
+		const char *temp=y_im_get_config_data("main","scale");
+		if(temp)
+		{
+			ui_scale=strtod(temp,NULL);
+		}
 	}
 	
 #if GTK_CHECK_VERSION(3,0,0)
@@ -508,7 +518,7 @@ int ui_main_update(UI_MAIN *param)
 		MainWin_bgc=ui_color_parse(param->bg);
 		MainWin_border=ui_color_parse(param->border);
 		MainWin_W=param->rc.w;MainWin_H=param->rc.h;
-		if(param->scale!=1)
+		if(param->scale!=1 && ui_scale!=1)
 		{
 			MainWin_W=(int)(MainWin_W*ui_scale);
 			MainWin_H=(int)(MainWin_H*ui_scale);
@@ -523,8 +533,22 @@ int ui_main_update(UI_MAIN *param)
 	{
 		MainWin_bg=ui_image_load(param->bg);
 		if(!MainWin_bg) return -1;
-		MainWin_W = gdk_pixbuf_get_width(MainWin_bg);
-		MainWin_H = gdk_pixbuf_get_height(MainWin_bg);
+		if(param->scale!=1 && param->force_scale)
+		{
+			MainWin_bg=ui_image_load_scale(param->bg,ui_scale,param->rc.w,param->rc.h);
+			MainWin_W=param->rc.w;MainWin_H=param->rc.h;
+			if(param->scale!=1 && ui_scale!=1)
+			{
+				MainWin_W=(int)round(MainWin_W*ui_scale);
+				MainWin_H=(int)round(MainWin_H*ui_scale);
+			}
+		}
+		else
+		{
+			MainTheme.scale=1;
+			MainWin_W = gdk_pixbuf_get_width(MainWin_bg);
+			MainWin_H = gdk_pixbuf_get_height(MainWin_bg);
+		}
 		if(!is_composited || !is_composited(MainWin))
 		{
 #if !GTK_CHECK_VERSION(3,0,0)
@@ -975,6 +999,11 @@ int ui_input_update(UI_INPUT *param)
 		gdk_window_shape_combine_region(window,NULL,0,0);
 	}
 
+	if(InputTheme.layout)
+	{
+		ui_font_free(InputTheme.layout);
+		InputTheme.layout=NULL;
+	}
 	for(i=0;i<3;i++)
 	{
 		if(InputTheme.bg[i])
@@ -1025,6 +1054,7 @@ int ui_input_update(UI_INPUT *param)
 	}
 	
 	InputTheme.line_width=param->line_width;
+	memcpy(InputTheme.pad,param->pad,sizeof(param->pad));
 
 	tmp=param->bg[0];
 	assert(tmp!=NULL);
@@ -1058,6 +1088,11 @@ int ui_input_update(UI_INPUT *param)
 			h2+=(InputTheme.CodeY-param->code.y)*2;
 			InputTheme.RealHeight=InputTheme.Height=2*h2;
 			InputTheme.CandY=h2+(int)round(pad*ui_scale);
+
+			InputTheme.pad[0]*=ui_scale;
+			InputTheme.pad[1]*=ui_scale;
+			InputTheme.pad[2]*=ui_scale;
+			InputTheme.pad[3]*=ui_scale;
 		}
 	}
 	else
@@ -1070,24 +1105,59 @@ int ui_input_update(UI_INPUT *param)
 		InputTheme.Right=param->right;
 		InputTheme.Top=param->top;
 		InputTheme.Bottom=param->bottom;
-		
-		bg=ui_image_load(tmp);
+		if(param->scale!=1 && param->force_scale)
+		{
+			bg=ui_image_load_scale(tmp,ui_scale,param->w,param->h);
+			bg_w=gdk_pixbuf_get_width(bg);
+			bg_h=gdk_pixbuf_get_height(bg);
+			if(bg_w!=param->w)
+			{
+				// adjust all size here
+				double scale=bg_w*1.0L/param->w;
+				InputTheme.line_width=(int)round(scale*InputTheme.line_width);
+				InputTheme.Width=(int)round(scale*InputTheme.Width);
+				InputTheme.Height=(int)round(scale*InputTheme.Height);
+				InputTheme.mWidth=(int)round(scale*InputTheme.mWidth);
+				InputTheme.mHeight=(int)round(scale*InputTheme.mHeight);
+				InputTheme.Left=(int)round(scale*InputTheme.Left);
+				InputTheme.Right=(int)round(scale*InputTheme.Right);
+				InputTheme.Top=(int)round(scale*InputTheme.Top);
+				InputTheme.Bottom=(int)round(scale*InputTheme.Bottom);
+
+				InputTheme.space=(int)round(scale*InputTheme.space);
+				InputTheme.CodeX=(int)round(scale*InputTheme.CodeX);
+				InputTheme.CodeY=(int)round(scale*InputTheme.CodeY);
+				InputTheme.CandX=(int)round(scale*InputTheme.CandX);
+				InputTheme.CandY=(int)round(scale*InputTheme.CandY);
+
+				param->work_left=(int)round(scale*param->work_left);
+				param->work_right=(int)round(scale*param->work_right);
+
+				if(scale!=1 && !y_im_has_config("input","font"))
+				{
+					ui_font_free(InputTheme.layout);
+					double temp=ui_scale;
+					ui_scale=scale;
+					InputTheme.layout=ui_font_parse(InputWin,param->font);
+					ui_scale=temp;
+				}
+
+				InputTheme.pad[0]*=scale;
+				InputTheme.pad[1]*=scale;
+				InputTheme.pad[2]*=scale;
+				InputTheme.pad[3]*=scale;
+			}
+		}
+		else
+		{
+			bg=ui_image_load(tmp);
+		}
 		bg=ui_input_bg_adjust(bg,param->cand_max,param->work_bottom);
 
 		bg_w=gdk_pixbuf_get_width(bg);
 		bg_h=gdk_pixbuf_get_height(bg);
 
-		InputTheme.RealHeight=param->h;
-		if(!InputTheme.RealHeight)
-			InputTheme.RealHeight=bg_h;
-	
-		if(InputTheme.RealHeight!=bg_h)
-		{
-			bg_h=InputTheme.RealHeight;
-			GdkPixbuf *t=gdk_pixbuf_scale_simple(bg,bg_w,bg_h,GDK_INTERP_BILINEAR);
-			g_object_unref(bg);
-			bg=t;
-		}
+		InputTheme.RealHeight=bg_h;
 	
 		if(param->work_left>0 || param->work_right>0)
 		{
@@ -1190,7 +1260,7 @@ int ui_input_update(UI_INPUT *param)
 	ui_win_tran(window,param->tran);
 	if(InputTheme.noshow==2)
 		y_ui_input_draw();
-		//YongDrawInput();
+	
 	return 0;
 }
 
@@ -1473,7 +1543,7 @@ int YongDrawInput(void)
 		{
 			int i,count;
 			count=eim->CandWordCount;
-			for(i=0;i<count;i++)
+			for(i=0;i<=count;i++)
 			{
 				double *pos=im.CandPosX+i*3;
 				pos[0]+=CodeWidth;
@@ -1657,7 +1727,7 @@ int ui_input_show(int show)
 	if(show)
 	{
 		if(ybus_ibus_input_draw(InputTheme.line)==0)
-			return;
+			return 0;
 		// 在这移动窗口是为了修复gtk_widget_hide之后可能自动修改窗口位置的bug
 		gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
 #if GTK_CHECK_VERSION(3,0,0)
@@ -1728,6 +1798,11 @@ void ui_tray_update(UI_TRAY *param)
 		ret|=ui_image_get_path(param->icon[1],icon2,sizeof(icon2));
 		if(ret==0)
 		{
+			if(icon1 && strstr(icon1,".zip/"))
+			{
+				snprintf(icon1,sizeof(icon1),"%s/skin/%s",y_im_get_path("DATA"),"tray1.png");
+				snprintf(icon2,sizeof(icon2),"%s/skin/%s",y_im_get_path("DATA"),"tray2.png");
+			}
 			ybus_wm_icon(icon1,icon2);
 		}
 	}

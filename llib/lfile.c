@@ -9,6 +9,7 @@
 #include "lconv.h"
 #include "lstring.h"
 #include "lfile.h"
+#include "larray.h"
 #include "ltricky.h"
 
 #ifdef _WIN32
@@ -74,6 +75,7 @@ static int l_fstat(int fd,struct stat *buf)
 
 int l_zip_goto_file(FILE *fp,const char *name);
 char *l_zip_file_get_contents(FILE *fp,const char *name,size_t *length);
+bool l_zip_file_exists(FILE *fp,const char *name);
 
 static char *file_is_in_zip(const char *file)
 {
@@ -87,6 +89,19 @@ static char *file_is_in_zip(const char *file)
 	}
 	return NULL;
 }
+
+#ifdef _WIN32
+static FILE *l_fopen(const char *file,const char *mode)
+{
+	wchar_t temp_path[MAX_PATH];
+	wchar_t temp_mode[8];
+	l_utf8_to_utf16(file,temp_path,sizeof(temp_path));
+	l_utf8_to_utf16(mode,temp_mode,sizeof(temp_mode));
+	return _wfopen(temp_path,temp_mode);
+}
+#else
+#define l_fopen(file,mode)	fopen(file,mode)
+#endif
 
 FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size)
 {
@@ -107,12 +122,6 @@ FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size)
 		mode="rb";
 	}
 
-#ifdef _WIN32
-	wchar_t temp_path[MAX_PATH];
-	wchar_t temp_mode[8];
-
-	l_utf8_to_utf16(mode,temp_mode,sizeof(temp_mode));
-#endif
 	do
 	{
 		path=va_arg(ap,char*);
@@ -127,12 +136,7 @@ FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size)
 				path=tmp;
 				zero_zfile=1;
 			}
-#ifdef _WIN32
-			l_utf8_to_utf16(path,temp_path,sizeof(temp_path));
-			fp=_wfopen(temp_path,temp_mode);
-#else
-			fp=fopen(path,mode);
-#endif
+			fp=l_fopen(path,mode);
 			l_free(path);
 			if(fp && zero_zfile)
 				zfile=NULL;
@@ -154,12 +158,7 @@ FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size)
 			{
 				path=(char*)file;
 			}
-#ifdef _WIN32
-			l_utf8_to_utf16(path,temp_path,sizeof(temp_path));
-			fp=_wfopen(temp_path,temp_mode);
-#else
-			fp=fopen(path,mode);
-#endif
+			fp=l_fopen(path,mode);
 			if(free_path)
 			{
 				l_free(path);
@@ -200,52 +199,15 @@ FILE *l_file_open(const char *file,const char *mode,...)
 	return fp;
 }
 
-#if 0
-char *l_file_vget_contents(const char *file,size_t *length,va_list ap)
-{
-	FILE *fp;
-	char *contents;
-	size_t size;
-	const char *zfile;
-	
-	zfile=file_is_in_zip(file);
-	if(zfile!=NULL)
-	{
-		char temp[256];
-		size=zfile-file-1;
-		memcpy(temp,file,size);
-		temp[size]=0;
-		fp=l_file_vopen(temp,"rb",ap,NULL);
-		if(!fp) return NULL;
-		contents=l_zip_file_get_contents(fp,zfile,length);
-		fclose(fp);
-		return contents;
-	}
-	else
-	{
-		fp=l_file_vopen(file,"rb",ap,&size);
-		if(!fp) return NULL;
-		contents=l_alloc(size+1);
-		fread(contents,size,1,fp);
-		fclose(fp);
-		contents[size]=0;
-		if(length) *length=size;
-		return contents;
-	}
-}
-#else
 char *l_file_vget_contents(const char *file,size_t *length,va_list ap)
 {
 	FILE *fp;
 	char *path;
 	char *zfile=NULL;
-	char *res;
+	char *res=NULL;
 	do
 	{
 		char temp[256];
-#ifdef _WIN32
-		wchar_t temp_path[MAX_PATH];
-#endif
 		path=va_arg(ap,char*);
 		if(path)
 		{
@@ -255,12 +217,7 @@ char *l_file_vget_contents(const char *file,size_t *length,va_list ap)
 		{
 			strcpy(temp,file);
 		}
-#ifdef _WIN32
-		l_utf8_to_utf16(temp,temp_path,sizeof(temp_path));
-		fp=_wfopen(temp_path,L"rb");
-#else
-		fp=fopen(temp,"rb");
-#endif
+		fp=l_fopen(temp,"rb");
 		if(fp!=NULL)
 		{
 			struct stat st;
@@ -285,14 +242,12 @@ char *l_file_vget_contents(const char *file,size_t *length,va_list ap)
 		{
 			res=l_zip_file_get_contents(fp,zfile,length);
 			fclose(fp);
-			if(res!=NULL)
-				break;
+			break;
 		}
 	}while(path);
 	return res;
 }
 
-#endif
 char *l_file_get_contents(const char *file,size_t *length,...)
 {
 	char *contents;
@@ -302,25 +257,6 @@ char *l_file_get_contents(const char *file,size_t *length,...)
 	va_end(ap);
 	return contents;
 }
-/*
-char *l_file_get_contents(const char *file,size_t *length,...)
-{
-	FILE *fp;
-	char *contents;
-	va_list ap;
-	size_t size;
-	va_start(ap,length);
-	fp=l_file_vopen(file,"rb",ap,&size);
-	va_end(ap);
-	if(!fp) return NULL;
-	contents=l_alloc(size+1);
-	fread(contents,size,1,fp);
-	fclose(fp);
-	contents[size]=0;
-	if(length) *length=size;
-	return contents;
-}
-*/
 
 int l_file_set_contents(const char *file,const void *contents,size_t length,...)
 {
@@ -389,6 +325,27 @@ const char *l_dir_read_name(LDir *dir)
 	return 0;
 }
 
+char **l_readdir(const char *path)
+{
+	LDir *d=l_dir_open(path);
+	if(!d)
+		return NULL;
+	LPtrArray *arr=l_ptr_array_new(8);
+	while(1)
+	{
+		const char *name=l_dir_read_name(d);
+		if(!name)
+			break;
+		l_ptr_array_append(arr,l_strdup(name));
+	}
+	l_dir_close(d);
+	l_ptr_array_append(arr,NULL);
+	char **res=(char**)arr->data;
+	arr->data=NULL;
+	l_ptr_array_free(arr,NULL);
+	return res;
+}
+
 bool l_file_is_dir(const char *path)
 {
 #ifdef _WIN32
@@ -411,6 +368,25 @@ bool l_file_exists(const char *path)
 {
 #ifdef _WIN32
 	wchar_t temp[MAX_PATH];
+#endif
+	const char *zfile=file_is_in_zip(path);
+	if(zfile)
+	{
+		FILE *fp;
+		int len1=strlen(path);
+		int len2=strlen(zfile);
+		int len=len1-len2-1;
+		char *zip=l_alloca(len1-len2);
+		memcpy(zip,path,len);
+		zip[len]=0;
+		fp=l_fopen(zip,"rb");
+		if(!fp)
+			return false;
+		bool ret=l_zip_file_exists(fp,zfile);
+		fclose(fp);
+		return ret;
+	}
+#ifdef _WIN32
 	l_utf8_to_utf16(path,temp,MAX_PATH);
 	return !_waccess(temp,F_OK);
 #else
@@ -429,9 +405,21 @@ time_t l_file_mtime(const char *path)
 ssize_t l_file_size(const char *path)
 {
 	struct stat st;
-        if(0!=l_stat(path,&st))
-                return -1;
-        return (ssize_t)st.st_size;
+	if(0!=l_stat(path,&st))
+		return -1;
+	return (ssize_t)st.st_size;
+}
+
+ssize_t l_filep_size(FILE *fp)
+{
+	struct stat st;
+	int ret;
+	if(!fp)
+		return -1;
+	ret=l_fstat(fileno(fp),&st);
+	if(ret!=0)
+		return -1;
+	return st.st_size;
 }
 
 int l_file_copy(const char *dst,const char *src,...)

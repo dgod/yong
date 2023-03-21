@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ltypes.h"
 #include "lmem.h"
 #include "lzlib.h"
 #include "ltricky.h"
@@ -238,6 +239,26 @@ int l_zip_goto_file(FILE *fp,const char *name)
 	if(h.comp!=COMP_Store || h.size!=h.usize)
 		return -1;
 	return h.size;
+}
+
+bool l_zip_file_exists(FILE *fp,const char *name)
+{
+	LZipEndOfFile e;
+	LZipCentralFile c;
+	LZipLocalFile h;
+	int ret;
+	ret=l_zip_get_end_of_file(fp,&e);
+	if(ret!=0) return false;
+	ret=l_zip_get_central_file(fp,&e,name,&c);
+	if(ret!=0) return false;
+	ret=fseek(fp,c.offset,SEEK_SET);
+	if(ret!=0) return false;
+	ret=l_zip_get_local_file(fp,name,&h);
+	if(ret!=0)
+		return false;
+	if(h.comp!=COMP_Store && h.comp!=COMP_Deflated)
+		return false;
+	return true;
 }
 
 char *l_zip_file_get_contents(FILE *fp,const char *name,size_t *length)

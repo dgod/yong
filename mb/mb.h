@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #include "yong.h"
 #include "trie.h"
@@ -147,7 +148,7 @@ struct y_mb{
 
 	/* rule to make phrase */
 	struct y_mb_rule *rule;
-	
+
 	/* if do optiomize, if it is assist mb */
 	int flag;
 
@@ -207,6 +208,7 @@ struct y_mb{
 	uint8_t dwf:1;/* disable wildcard at first */
 	uint8_t capital:1;
 	uint8_t jing_used:1;
+	uint8_t code_hint:1;
 	uint8_t encrypt;
 	uint8_t auto_move;
 	uint8_t sloop;
@@ -235,6 +237,9 @@ struct y_mb{
 	
 	/* cancel mb load */
 	volatile uint8_t cancel;
+
+	/* error phrase */
+	void *error;
 };
 
 #define MB_DUMP_MAIN	0x01
@@ -260,7 +265,8 @@ struct y_mb{
 
 /* params used to adjust default mb */
 struct y_mb_arg{
-	char *dicts;					/* dicts defined at config file */
+	const char *dicts;				/* dicts defined at config file */
+	const char *assist;				/* assist at config file */
 	int apos;						/* assist code position */
 	int wildcard;					/* wildcard in config file */
 };
@@ -294,7 +300,7 @@ int y_mb_find_simple_code(struct y_mb *mb,const char *hz,const char *code,char *
 int y_mb_get_full_code(struct y_mb *mb,const char *data,char *code);
 void y_mb_set_zi(struct y_mb *mb,int zi);
 void y_mb_set_ci_ext(struct y_mb *mb,int ci_ext);
-int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *out,...);
+int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *out[],char hint[][2]);
 void y_mb_save_user(struct y_mb *mb);
 int y_mb_has_wildcard(struct y_mb *mb,const char *s);
 FILE *y_mb_open_file(const char *fn,const char *mode);
@@ -325,6 +331,10 @@ void y_mb_init_pinyin(struct y_mb *mb);
 int y_mb_load_fuzzy(struct y_mb *mb,const char *fuzzy);
 void y_mb_key_map_init(const char *key,int wildcard,char *map);
 int y_mb_zi_has_code(struct y_mb *mb,const char *zi,const char *code);
+int y_mb_error_init(struct y_mb *mb);
+int y_mb_error_add(struct y_mb *mb,const char *phrase);
+int y_mb_error_del(struct y_mb *mb,const char *phrase);
+bool y_mb_error_has(struct y_mb *mb,const char *phrase);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);

@@ -42,7 +42,7 @@
 int y_im_copy_file(const char *src,const char *dst);
 int y_im_config_path(void);
 const char *y_im_get_path(const char *type);
-int y_im_str_to_key(const char *s);
+int y_im_str_to_key(const char *s,int *repeat);
 int y_im_get_key(const char *name,int pos,int def);
 int y_im_key_eq(int k1,int k2);
 char *y_im_str_escape(const char *s,int commit);
@@ -78,7 +78,7 @@ void y_im_about_self(void);
 void y_im_setup_config(void);
 int y_im_key_desc_update(void);
 int y_im_key_desc_translate(const char *code,int pos,char *data,char *res,int size);
-void y_im_run_helper(char *prog,char *watch,void (*cb)(void));
+void y_im_run_helper(const char *prog,char *watch,void (*cb)(void));
 char *y_im_auto_path(char *fn);
 uint32_t y_im_tick(void);
 char *y_im_get_im_name(int index);
@@ -145,6 +145,7 @@ void y_im_history_write(const char *s);
 void y_im_history_update(void);
 int y_im_history_query(const char *src,char out[][MAX_CAND_LEN+1],int max);
 const char *y_im_history_get_last(int len);
+void y_im_history_flush(void);
 
 #if defined(_WIN32) && !defined(_WIN64)
 void y_im_nl_day(__time64_t t,char *s);
@@ -202,6 +203,11 @@ typedef struct{
 }Y_USER_URL;
 
 Y_USER_URL *y_im_user_urls(void);
+
+int y_im_async_init(void);
+int y_im_async_write_file(const char *file,LString *data,bool backup);
+int y_im_async_wait(int timeout);
+void y_im_async_destroy(void);
 
 int y_main_init(int index);
 void y_main_clean(void);

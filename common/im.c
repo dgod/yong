@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -49,6 +50,30 @@ static void eim_beep(int c)
 		y_ui_beep(c);
 }
 
+static int eim_get_key(const char *s)
+{
+	return y_im_str_to_key(s,NULL);
+}
+
+static int eim_callback(int index,...)
+{
+	va_list ap;
+	int res=-1;
+	va_start(ap,index);
+	switch(index){
+		case EIM_CALLBACK_ASYNC_WRITE_FILE:
+		{
+			const char *file=va_arg(ap,const char *);
+			LString *data=va_arg(ap,LString*);
+			bool backup=va_arg(ap,int);
+			res=y_im_async_write_file(file,data,backup);
+			break;
+		}
+	}
+	va_end(ap);
+	return res;
+}
+
 int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 {
 	eim->CodeInput=im->CodeInputEngine;
@@ -61,7 +86,7 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 	eim->CandWordMaxReal=im->CandWord;
 	eim->CaretPos=-1;
 	eim->GetConfig=eim_get_config;
-	eim->GetKey=y_im_str_to_key;
+	eim->GetKey=eim_get_key;
 	eim->OpenFile=(void*)y_im_open_file;
 	eim->SendString=(void*)y_xim_send_string;
 	eim->Beep=eim_beep;
@@ -72,11 +97,15 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 #ifdef CFG_XIM_ANDROID
 	eim->Log=YongLogWrite;
 #endif
+	eim->Callback=eim_callback;
 	
 	if(eim->Flag & IM_FLAG_ASYNC)
 	{
 		eim->Request=y_ui.request;
 	}
+
+	// wait async write file done, avoid load old file
+	y_im_async_wait(500);
 
 	if(eim->Init(arg))
 	{

@@ -119,6 +119,37 @@ static inline int gb_strlen(const uint8_t *s)
 	return len;
 }
 
+static inline int gb_strlen2(const uint8_t *s,int size)
+{
+	int len=0;
+	const uint8_t *end=s+size;
+	while(s<end)
+	{
+		if(!(s[0]&0x80))
+		{
+			len++;
+			s++;
+			continue;
+		}
+		else if(gb_is_gbk(s))
+		{
+			len++;
+			s+=2;
+		}
+		else if(gb_is_gb18030_ext(s))
+		{
+			len++;
+			s+=4;
+		}
+		else
+		{
+			len++;
+			s++;
+		}
+	}
+	return len;
+}
+
 static inline void *gb_offset(const uint8_t *s,int offset)
 {
 	while(s[0] && offset>0)
@@ -161,6 +192,29 @@ static inline uint32_t gb_first(const uint8_t *s)
 #else
 		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
 #endif
+	}
+	else
+	{
+		r=0;
+	}
+	return r;
+}
+
+static inline uint32_t gb_first_be(const uint8_t *s)
+{
+	uint32_t r;
+	
+	if(!(s[0]&0x80))
+	{
+		r=s[0];
+	}
+	else if(gb_is_gbk(s))
+	{
+		r=s[1]|(s[0]<<8);
+	}
+	else if(gb_is_gb18030_ext(s))
+	{
+		r=s[3]|(s[2]<<8)|(s[1]<<16)|(s[0]<<24);
 	}
 	else
 	{

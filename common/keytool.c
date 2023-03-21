@@ -31,7 +31,7 @@ Y_KEY_TOOL *y_key_tools_load(void)
 			continue;
 		memcpy(key,item,len+1);
 		key[len]=0;
-		keyval=y_im_str_to_key(key);
+		keyval=y_im_str_to_key(key,NULL);
 		if(keyval==0)
 			continue;
 		kt=l_new(Y_KEY_TOOL);

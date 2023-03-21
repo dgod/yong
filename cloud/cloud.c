@@ -283,7 +283,7 @@ static char *url_get_auth(const char *url)
 	if(!p)
 		return NULL;
 	user[0]=0;pass[0]=0;
-	sscanf(url,"%32[^:]:%32[^@]",user,pass);
+	sscanf(url,"%31[^:]:%31[^@]",user,pass);
 	if(!user[0])
 		return NULL;
 	len=sprintf(auth,"%s:%s",user,pass);
@@ -710,12 +710,12 @@ static sg_res_t* ek_parse_res(sg_cache_t *c,char *s)
 	if((s=strstr(s,"<S>"))==NULL)
 		return NULL;
 	s+=3;
-	if(1!=sscanf(s,"%256[^<]",cand))
+	if(1!=sscanf(s,"%255[^<]",cand))
 		return NULL;
 	if((s=strstr(s,"<Q>"))==NULL)
 		return NULL;
 	s+=3;
-	if(1!=sscanf(s,"%64[^<]",key))
+	if(1!=sscanf(s,"%63[^<]",key))
 		return NULL;
 	r=l_new0(sg_res_t);
 	r->l=(uint16_t)strlen(key);
@@ -1058,7 +1058,7 @@ static int SGY_GetCandWords(int mode)
 	int max;
 	int i,start;
 	
-	if(mode==PAGE_LEGEND)
+	if(mode==PAGE_ASSOC)
 		return IMR_PASS;
 		
 	max=EIM.CandWordMax;

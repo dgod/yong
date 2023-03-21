@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "ltypes.h"
 #include "lqueue.h"
@@ -12,7 +13,10 @@ typedef struct expr_item{
 	LVariant var;
 }EITEM;
 
-static LVariant l_expr_next_token(char *s,char **next)
+// op can't defined by one ascii char
+#define OP_POW		0x01
+
+static LVariant l_expr_next_token(const char *s,char **next)
 {
 	LVariant var={.type=L_TYPE_VOID};
 	int c;
@@ -22,13 +26,26 @@ static LVariant l_expr_next_token(char *s,char **next)
 	
 	if(strchr("()+-*/%",c))
 	{
-		var.type=L_TYPE_OP;
-		var.v_op=s[0];
-		*next=s+1;
+		if(c=='*' && s[1]==c)
+		{
+			var.type=L_TYPE_OP;
+			var.v_op=OP_POW;
+			*next=(char*)s+2;
+		}
+		else if(c=='-' && s[1]=='\0')
+		{
+			*next=(char*)s+1;
+		}
+		else
+		{
+			var.type=L_TYPE_OP;
+			var.v_op=s[0];
+			*next=(char*)s+1;
+		}
 	}
 	else if(c=='0' && (s[1]=='x' || s[1]=='X'))
 	{
-		var .v_int=strtol(s+2,next,16);
+		var.v_int=strtol(s+2,next,16);
 		var.type=L_TYPE_INT;
 	}
 	else if(isdigit(c))
@@ -50,7 +67,16 @@ static LVariant l_expr_next_token(char *s,char **next)
 	return var;
 }
 
-LVariant l_expr_calc(char *s)
+static void TO_FLOAT(EITEM *v)
+{
+	if(v->var.type==L_TYPE_INT)
+	{
+		v->var.type=L_TYPE_FLOAT;
+		v->var.v_float=(double)v->var.v_int;
+	}
+}
+
+LVariant l_expr_calc(const char *s)
 {
 	LVariant var={.type=L_TYPE_VOID};
 	LVariant tok;
@@ -63,10 +89,15 @@ LVariant l_expr_calc(char *s)
 
 	do{
 		it=l_new0(EITEM);
-		it->var=tok=l_expr_next_token(s,&s);
+		it->var=tok=l_expr_next_token(s,(char**)&s);
 		if(it->var.type==L_TYPE_OP)
 		{
 			switch(it->var.v_op){
+			case OP_POW:
+			{
+				l_queue_push_head(stk,it);
+				break;
+			}
 			case '*':
 			case '/':
 			case '%':
@@ -75,7 +106,7 @@ LVariant l_expr_calc(char *s)
 				{
 					top=l_queue_peek_head(stk);
 					if(!top) break;
-					if(top->var.v_op!='*' && top->var.v_op!='/' && top->var.v_op!='%')
+					if(top->var.v_op!='*' && top->var.v_op!='/' && top->var.v_op!='%' && top->var.v_op!=OP_POW)
 						break;
 					l_queue_pop_head(stk);
 					l_queue_push_tail(back,top);
@@ -265,6 +296,33 @@ LVariant l_expr_calc(char *s)
 				goto out;
 			}
 			v2->var.v_int=v1->var.v_int%v2->var.v_int;
+			l_queue_push_head(stk,v2);
+			break;
+		case OP_POW:
+			if(!v1)
+			{
+				l_free(v2);
+				l_free(it);
+				goto out;
+			}
+			if(v1->var.type==L_TYPE_INT && v1->var.type==L_TYPE_INT)
+			{
+				double temp=pow(v1->var.v_int,v2->var.v_int);
+				if(v2->var.v_int<0)
+				{
+					v2->var.type=L_TYPE_FLOAT;
+					v2->var.v_float=temp;
+				}
+				else
+				{
+					v2->var.v_int=(int)temp;
+				}
+			}
+			else
+			{
+				TO_FLOAT(v1);TO_FLOAT(v2);
+				v2->var.v_float=pow(v1->var.v_float,v2->var.v_float);
+			}
 			l_queue_push_head(stk,v2);
 			break;
 		default:

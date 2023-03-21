@@ -16,6 +16,9 @@ static int EnglishDoInput(int key);
 static int PhraseListCount;
 static int key_temp_english;
 static int en_commit_select;
+static int en_degrade;
+extern int key_commit;
+extern int key_select[9];
 
 static EXTRA_IM EIM={
 	.Name			=	"english",
@@ -70,6 +73,9 @@ static int EnglishInit(const char *arg)
 	if(key_temp_english!=YK_NONE)
 		key_temp_english=tolower(key_temp_english);
 	en_commit_select=y_im_get_config_int("IM","en_commit_select");
+	en_degrade=y_im_get_config_int("IM","en_degrade");
+	if(en_degrade)
+		en_commit_select=1;
 	EnglishReset();
 	DictLoad();
 	return 0;
@@ -159,7 +165,7 @@ static int EnglishGetCandWords(int mode)
 	int max;
 	int i,count,start;
 	
-	if(mode==PAGE_LEGEND)
+	if(mode==PAGE_ASSOC)
 		return IMR_BLOCK;
 		
 	max=EIM.CandWordMax;
@@ -229,6 +235,18 @@ static int EnglishDoSearch(void)
 	return PhraseListCount;
 }
 
+static int key_is_select(int key)
+{
+	if(key==key_commit)
+		return 1;
+	for(int i=0;i<9;i++)
+	{
+		if(key==key_select[i])
+			return 1;
+	}
+	return 0;
+}
+
 static int EnglishDoInput(int key)
 {
 	int i;
@@ -236,6 +254,8 @@ static int EnglishDoInput(int key)
 	key&=~KEYM_BING;
 	if(key==YK_SPACE)
 	{
+		if(en_degrade)
+			return IMR_NEXT;
 		if(EIM.CandWordCount && !AutoCompleteByDict(YK_SPACE))
 			return IMR_NEXT;
 	}
@@ -297,6 +317,10 @@ static int EnglishDoInput(int key)
 	}
 	else if(key>=0x20 && key<0x80)
 	{
+		if(en_degrade && EIM.CodeLen>0 && key_is_select(key))
+			return IMR_NEXT;
+		if(en_degrade==2 && key>='0' && key<='9')
+			return IMR_NEXT;
 		if(EIM.CodeLen>=MAX_CODE_LEN)
 			return IMR_BLOCK;
 		if(EIM.CodeLen==0)
@@ -385,10 +409,10 @@ static int num2hz(const char *in,char *out,int type)
 	ins=GET_INS(type);
 	rq=GET_RQ(type);
 	out[0]=0;
-	
+
 	for(i=0;(c=in[i])!=0;i++)
 	{
-		if(rq) ins=(i>=5);
+		if(rq) ins=(i>=5);	
 		if(c=='0')
 		{
 			b=GET_0(type);
@@ -694,8 +718,19 @@ static int y_expr_calc(const char *s,char *res,int len)
 		snprintf(res,len,"%ld",var.v_int);
 		break;
 	case L_TYPE_FLOAT:
-		snprintf(res,len,"%g",var.v_float);
+	{
+		snprintf(res,len,"%.7f",var.v_float);
+		const char *dot=strchr(res,'.');
+		if(dot)
+		{
+			char *p=res+strlen(res)-1;
+			while(p>dot+1 && *p=='0')
+			{
+				*p--=0;
+			}
+		}
 		break;
+	}
 	default:
 		return -1;
 	}
@@ -730,7 +765,8 @@ static int UrlSet(const char *s)
 	ENGLISH_IM *e=&eim_url;
 	Y_USER_URL *p;
 	e->Count=0;
-	if(!s[0]) return 0;
+	if(strlen(s)<3)
+		return 0;
 	for(p=url;p;p=p->next)
 	{
 		if(strstr(p->url,s))

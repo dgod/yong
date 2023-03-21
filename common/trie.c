@@ -585,8 +585,14 @@ int py_tree_get(py_tree_t *tree,const char *s,int *out)
 			else if(p->self>val) goto out;
 			if(!p->brother) goto out;
 		}
-		if(p->item) out[count++]=p->item-1;
-		if(!p->child) break;
+		if(p->item && s[i+1]!='i' && s[i+1]!='u' && s[i+1]!='v')
+		{
+			out[count++]=p->item-1;
+		}
+		if(!p->child)
+		{
+			break;
+		}
 		p=(py_node_t*)(tree->node+p->child);
 	}
 out:
@@ -702,3 +708,4 @@ int main(int arc,char *arg[])
 }
 
 #endif
+

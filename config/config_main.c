@@ -16,11 +16,7 @@
 #include "update.h"
 
 LKeyFile *config;
-#ifdef CFG_CUSTOM_XML
 LXml *custom;
-#else
-LKeyFile *custom;
-#endif
 double CU_SCALE=1.0;
 int cu_reload_ui;
 int cu_quit_ui;
@@ -151,7 +147,7 @@ void cu_config_save(void)
 	y_im_save_config(config,"yong.ini");
 }
 
-static void cu_init_all(CUCtrl ctrl,void *user)
+void cu_init_all(CUCtrl ctrl,void *user)
 {
 	if(ctrl->init_done)
 		return;
@@ -358,7 +354,6 @@ int main(int arc,char *arg[])
 	}
 	
 	temp=l_key_file_get_string(config,"main","config");
-#ifdef CFG_CUSTOM_XML
 	if(temp && temp[0])
 	{
 		char *p;
@@ -370,12 +365,6 @@ int main(int arc,char *arg[])
 	}
 	else
 		custom=l_xml_load((const char*)config_custom);
-#else
-	if(temp && temp[0])
-		custom=y_im_load_config(temp);
-	else
-		custom=l_key_file_load((const char*)config_custom,sizeof(config_custom));
-#endif
 	l_free(temp);
 	
 	temp=l_key_file_get_string(config,"main","translate");
@@ -396,11 +385,7 @@ reload:
 	}
 	cu_quit_ui=0;
 
-#ifdef CFG_CUSTOM_XML
 	win=cu_ctrl_new(NULL,custom->root.child);
-#else
-	win=cu_ctrl_new(NULL,"window");
-#endif
 	if(!win) return -1;
 
 	cu_ctrl_foreach(win,cu_init_all,NULL);

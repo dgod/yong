@@ -32,6 +32,7 @@ static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
+	.name="xim",
 	.init=xim_init,
 	.getpid=xim_getpid,
 	.config=xim_config,
@@ -140,6 +141,12 @@ static int xim_set_trigger(int key)
 		break;
 	case YK_RCTRL:
 		Trigger_Keys[0].keysym=XK_Control_R;
+		break;
+	case YK_LWIN:
+		Trigger_Keys[0].keysym=XK_Super_L;
+		break;
+	case YK_RWIN:
+		Trigger_Keys[0].keysym=XK_Super_L;
 		break;
 	default:
 		Trigger_Keys[0].keysym=YK_CODE(key);
@@ -578,7 +585,6 @@ static Bool YongDestroyICHandler (IMChangeICStruct * data)
 {
 	YBUS_CONNECT *conn;
 	YBUS_CLIENT *client;
-	
 	conn=ybus_find_connect(&plugin,data->connect_id);
 	if(!conn) return True;
 	client=ybus_find_client(conn,data->icid);
@@ -721,7 +727,7 @@ int GetKey(int KeyCode,int KeyState)
 		ret|=KEYM_SHIFT;
 	if ((KeyState & Mod1Mask) && KeyCode!=YK_LALT && KeyCode!=YK_RALT)
 		ret|=KEYM_ALT;
-	if ((KeyState & Mod4Mask))
+	if ((KeyState & Mod4Mask) && KeyCode!=YK_LWIN && KeyCode!=YK_RWIN)
 		ret|=KEYM_SUPER;
 	if(KeyState & Mod2Mask)
 		ret|=KEYM_KEYPAD;
@@ -743,7 +749,7 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 {
 	YBUS_CONNECT *conn;
 	YBUS_CLIENT *client;
-	
+
 	XKeyEvent *kev=(XKeyEvent *) & data->event;
 	KeySym keysym;
 	int KeyState;
@@ -799,7 +805,7 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 		last_press=Key;
 		last_press_time=kev->time;		
 	}
-	if(YK_CODE(Key)>=YK_LSHIFT && YK_CODE(Key)<=YK_RALT)
+	if(YK_CODE(Key)>=YK_LSHIFT && YK_CODE(Key)<=YK_RWIN)
 	{
 		bing=0;
 		IMForwardEvent(ims,(XPointer)data);
@@ -832,6 +838,8 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 	case CTRL_RSHIFT:
 	case CTRL_LALT:
 	case CTRL_RALT:
+	case KEYM_CTRL|YK_LWIN:
+	case KEYM_CTRL|YK_RWIN:
 	{
 		if(ybus_on_key(&plugin,data->connect_id,data->icid,Key))
 			return True;
@@ -911,6 +919,12 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 	}
 	
 	if(kev->type==KeyPress || (KEYM_MASK & Key))
+	{
+		IMForwardEvent(ims,(XPointer)data);
+	}
+
+	// android studio will fail if we not send back something
+	if(kev->type==KeyRelease)
 	{
 		IMForwardEvent(ims,(XPointer)data);
 	}

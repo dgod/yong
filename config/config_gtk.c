@@ -10,6 +10,10 @@ static GMainLoop *main_loop;
 typedef int (*InitSelfFunc)(CUCtrl p);
 typedef void (*DestroySelfFunc)(CUCtrl p);
 
+typedef struct{
+	bool scroll;
+}CU_PANEL_PRIV;
+
 #if GTK_CHECK_VERSION(4,0,0)
 // 由于菜单绑定在了主窗口上，那么我们不应该在这儿销毁窗口，否则GTK报错
 static gboolean on_window_del(GtkWindow *widget,CUCtrl p)
@@ -129,11 +133,11 @@ int cu_ctrl_init_list(CUCtrl p)
 	if(!p->self)
 	{
 #if GTK_CHECK_VERSION(3,0,0)
-	p->self=gtk_combo_box_text_new();
+		p->self=gtk_combo_box_text_new();
 #else
-	p->self=gtk_combo_box_new_text();
+		p->self=gtk_combo_box_new_text();
 #endif
-	cu_ctrl_add_to_parent(p);
+		cu_ctrl_add_to_parent(p);
 	}
 	
 	list=p->view?p->view:p->data;
@@ -180,6 +184,7 @@ int cu_ctrl_init_combo(CUCtrl p)
 #endif
 		}
 	}
+	
 	return 0;
 }
 
@@ -302,7 +307,17 @@ int cu_ctrl_init_tree(CUCtrl p)
 #else
 	g_signal_connect(G_OBJECT(w),"button-release-event",G_CALLBACK(tree_right_click),p);
 #endif
-	p->self=w;
+
+#if GTK_CHECK_VERSION(4,0,0)
+	GtkWidget *scrolled_window=gtk_scrolled_window_new();
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window),w);
+#else
+	GtkWidget *scrolled_window=gtk_scrolled_window_new(NULL,NULL);
+	gtk_container_add(scrolled_window,w);
+#endif
+	p->self=scrolled_window;
+	gtk_widget_show(w);
+	g_object_set_data(p->self,"tree",w);
 	cu_ctrl_add_to_parent(p);
 	return 0;
 }
@@ -312,8 +327,11 @@ int cu_ctrl_init_item(CUCtrl p)
 	CUCtrl tree;
 	GtkTreeStore *model;
 	GtkTreeIter iter;
+	GtkTreeView *w;
 	for(tree=p;tree->type!=CU_TREE;tree=tree->parent);
-	model=(GtkTreeStore*)gtk_tree_view_get_model(GTK_TREE_VIEW(tree->self));
+	w=GTK_TREE_VIEW(g_object_get_data(tree->self,"tree"));
+
+	model=(GtkTreeStore*)gtk_tree_view_get_model(w);
 	if(p->parent->type==CU_ITEM)
 	{
 		GtkTreeIter parent;
@@ -330,7 +348,7 @@ int cu_ctrl_init_item(CUCtrl p)
 	p->self=gtk_tree_model_get_path(GTK_TREE_MODEL(model),&iter);
 	
 	if(p->parent->type==CU_ITEM)
-		gtk_tree_view_expand_row(GTK_TREE_VIEW(tree->self),p->parent->self,TRUE);
+		gtk_tree_view_expand_row(GTK_TREE_VIEW(w),p->parent->self,TRUE);
 	
 	return 0;
 }
@@ -342,7 +360,21 @@ int cu_ctrl_init_group(CUCtrl p)
 
 int cu_ctrl_init_page(CUCtrl p)
 {
-	p->self=gtk_fixed_new();
+	GtkWidget *fixed=gtk_fixed_new();
+#if GTK_CHECK_VERSION(4,0,0)
+	p->self=gtk_scrolled_window_new();
+#else
+	p->self=gtk_scrolled_window_new(NULL, NULL);
+#endif
+	g_object_set_data(G_OBJECT(p->self),"fixed",fixed);
+	gtk_widget_set_size_request(GTK_WIDGET(fixed),p->pos.w,p->pos.h);
+	gtk_widget_show(fixed);
+#if GTK_CHECK_VERSION(4,0,0)
+	gtk_scrolled_window_set_child(p->self,fixed);
+#else
+	gtk_container_add(p->self,fixed);
+#endif
+	p->priv=l_new0(CU_PANEL_PRIV);
 	cu_ctrl_add_to_parent(p);
 	return 0;
 }
@@ -392,6 +424,11 @@ static InitSelfFunc init_funcs[]={
 int cu_ctrl_init_self(CUCtrl p)
 {
 	return init_funcs[p->type](p);
+}
+
+int cu_ctrl_init_done(CUCtrl p)
+{
+	return 0;
 }
 
 static void cu_ctrl_destroy_window(CUCtrl p)
@@ -575,7 +612,9 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 				g_object_unref(G_OBJECT(pixbuf));
 			}
 			else
+			{
 				gtk_image_clear(GTK_IMAGE(p->self));
+			}
 		}
 		else
 		{
@@ -637,7 +676,7 @@ char *cu_ctrl_get_self(CUCtrl p)
 		int active=gtk_combo_box_get_active(GTK_COMBO_BOX(p->self));
 		gchar **list=p->data;
 		if(active<0) break;
-		if(list) res=l_strdup(list[active]);
+		if(list) res=list[active]?l_strdup(list[active]):NULL;
 		break;
 	}}
 	return res;
@@ -696,7 +735,18 @@ int cu_screen_dpi(void)
 	GdkDisplay *dpy=gdk_display_get_default();
 	GtkSettings *p=gtk_settings_get_for_display(dpy);
 	int dpi=96;
-	g_object_get(p,GTK_SYSTEM_SETTING_DPI,&dpi,NULL);
+	int temp=0;
+	if(getenv("GDK_DPI_SCALE"))
+	{
+		double scale=strtod(getenv("GDK_DPI_SCALE"),NULL);
+		temp=(int)1024*96*scale;
+		g_object_set(p,"gtk-xft-dpi",temp,NULL);
+	}
+	g_object_get(p,"gtk-xft-dpi",&temp,NULL);
+	if(temp>0)
+	{
+		dpi=temp/1024;
+	}
 	return dpi;
 #else
 	return (int)gdk_screen_get_resolution(gdk_screen_get_default());

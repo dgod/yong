@@ -17,6 +17,9 @@
 
 const char *y_im_get_path(const char *type);
 
+static char server_host[32]="yong.dgod.net";
+static int server_port=80;
+
 typedef struct{
 	int32_t alg:3;
 	int32_t offset:5;
@@ -396,7 +399,7 @@ static FITEM_LIST *build_remote_file_list(const char *user,const char *sid)
 	FITEM_LIST *l;
 	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s",user,sid);
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
@@ -437,7 +440,7 @@ static int remove_remote_file(const char *user,const char *sid,const char *file)
 	int len;
 	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s&del=1",user,sid,file);
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
@@ -467,7 +470,7 @@ static int upload_remote_file(const char *user,const char *sid,const char *base,
 	}
 	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s",user,sid,file);
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	res=http_session_get(ss,path,&len,data,(int)length);
 	http_session_free(ss);
 	l_free(data);
@@ -517,7 +520,7 @@ static int download_remote_file(const char *user,const char *sid,const char *bas
 	int len;
 	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s",user,sid,file);
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
 	if(res==NULL)
@@ -750,6 +753,15 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+static void set_server(void)
+{
+	const char *t;
+	t=l_key_file_get_data(config,"sync","server");
+	if(!t)
+		return;
+	sscanf(t,"%31s %d",server_host,&server_port);
+}
+
 #ifndef CFG_XIM_ANDROID
 
 #include "custom_sync.c"
@@ -816,6 +828,8 @@ int SyncMain(void)
 {
 	CUCtrl win;
 	LXml *custom;
+
+	set_server();
 
 #ifdef _WIN32
 	WSADATA wsaData;
@@ -893,7 +907,7 @@ static void set_pass(JNIEnv *env,jstring pass)
 }
 
 JNIEXPORT void JNICALL Java_net_dgod_yong_SyncThread_syncThread
-  (JNIEnv *env, jobject obj, jstring pass)
+  (JNIEnv *env, jobject obj, jstring pass, jboolean download)
 {
 	cu_quit_ui=0;
 	a_env=env;
@@ -909,8 +923,12 @@ JNIEXPORT void JNICALL Java_net_dgod_yong_SyncThread_syncThread
 		status("加载配置文件失败");
 		return;
 	}
+	set_server();
 	set_pass(env,pass);
-	SyncDownload(NULL,0,NULL);
+	if(download)
+		SyncDownload(NULL,0,NULL);
+	else
+		SyncUpload(NULL,0,NULL);
 	l_key_file_free(config);
 	config=NULL;
 }

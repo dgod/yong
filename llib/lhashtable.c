@@ -241,3 +241,25 @@ void *l_hash_iter_data(LHashIter *iter)
 {
 	return iter->item;
 }
+
+unsigned l_str_hash (const void *v)
+{
+	const signed char *p = v;
+	unsigned h = *p;
+
+	if (h) for (p += 1; *p != '\0'; p++)
+		h = (h << 5) - h + *p;
+
+	return h;
+}
+
+unsigned l_int_hash(const void *v)
+{
+	return *(const unsigned *)v;
+}
+
+int l_int_equal(const void *v1,const void *v2)
+{
+	return *(const int*)v1-*(const int*)v2;
+}
+

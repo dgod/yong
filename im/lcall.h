@@ -93,6 +93,7 @@ int l_call_conn_return(LCallConn *conn,uint16_t seq,int res);
 int l_call_conn_call(LCallConn *conn,const char *name,int *res,const char *param,...);
 int l_call_conn_vcall(LCallConn *conn,const char *name,int *res,const char *param,va_list ap);
 void l_call_conn_free(LCallConn *conn);
+int l_call_conn_peer_pid(LCallConn *conn);
 
 #endif
 

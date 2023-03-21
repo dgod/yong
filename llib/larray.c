@@ -72,7 +72,7 @@ int l_array_remove(LArray *array,int n)
 	return 0;
 }
 
-void l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
+int l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
 {
 	int pos;
 	pos=l_bsearch_right(val,array->data,array->len,array->size,cmpar);
@@ -80,6 +80,7 @@ void l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar)
 		l_array_append(array,val);
 	else
 		l_array_insert(array,pos,val);
+	return pos;
 }
 
 void l_array_clear(LArray *array,LFreeFunc func)
@@ -120,11 +121,14 @@ void l_ptr_array_free(LArray *array,LFreeFunc func)
 {
 	int i;
 	if(!array) return;
-	if(func) for(i=0;i<array->len;i++)
+	if(array->data)
 	{
-		func(*(void**)(array->data+i*array->size));
+		if(func) for(i=0;i<array->len;i++)
+		{
+			func(*(void**)(array->data+i*array->size));
+		}
+		l_free(array->data);
 	}
-	l_free(array->data);
 	l_free(array);
 }
 

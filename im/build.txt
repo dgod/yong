@@ -4,7 +4,7 @@ var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
 	'keydesc.c','ui.c','fbterm.c','keycode.c','select.c','layout.c','translate.c',
 	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c','ybus-ibus.c',
 	'menu.c','history.c','replace.c','ybus-wayland.c',
-	'app.c'];
+	'app.c','async.c'];
 
 var DIRS=['l32-gtk2','l64-gtk2','l32-gtk3','l64-gtk3'];
 

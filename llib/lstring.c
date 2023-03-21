@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -156,24 +155,26 @@ void l_string_append_c(LString *string,int c)
 	string->str[string->len]=0;
 }
 
-unsigned l_str_hash (const void *v)
+void *l_strncpy(char *restrict dest,const char *restrict src,size_t n)
 {
-	const signed char *p = v;
-	unsigned h = *p;
-
-	if (h) for (p += 1; *p != '\0'; p++)
-		h = (h << 5) - h + *p;
-
-	return h;
+	int i;
+	for(i=0;i<n;i++)
+	{
+		int c=src[i];
+		if(!c)
+			break;
+		dest[i]=c;
+	}
+	dest[i]=0;
+	return dest;
 }
 
 #ifdef _WIN32
+#undef l_strndup
 void *l_strndup(const void *p,size_t n)
 {
 	char *r=l_alloc(n+1);
-	memcpy(r,p,n);
-	r[n]=0;
-	return r;
+	return l_strncpy(r,p,n);
 }
 #endif
 
@@ -313,7 +314,7 @@ void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needl
 void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen)
 {
 	if(needlelen==0)
-		return (void*)needle;
+		return (void*)haystack;
 	if(haystacklen<needlelen)
 		return NULL;
 	const char *begin;
@@ -326,4 +327,20 @@ void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needl
 	return NULL;
 }
 #endif
+
+int l_mempos(const void *haystack,int haystacklen,const void *needle,int needlelen)
+{
+	const void *r=l_memmem(haystack,haystacklen,needle,needlelen);
+	if(!r)
+		return -1;
+	return (int)(size_t)((const char*)r-(const char*)haystack);
+}
+
+int l_strpos(const char *haystack,const char *needle)
+{
+	const char *p=strstr(haystack,needle);
+	if(!p)
+		return -1;
+	return (int)(size_t)(p-haystack);
+}
 

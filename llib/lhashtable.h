@@ -11,7 +11,7 @@ typedef struct{
 	void *next;
 }LHashIter;
 
-LHashTable *l_hash_table_new(int size,LHashFunc hash,LCmpFunc cmp);
+LHashTable *l_hash_table_new(int size,LHashFunc hash,LEqualFunc equal);
 void l_hash_table_free(LHashTable *h,LFreeFunc func);
 void l_hash_table_clear(LHashTable *h,LFreeFunc func);
 void *l_hash_table_find(LHashTable *h,const void *item);
@@ -24,6 +24,10 @@ int l_hash_table_size(LHashTable *h);
 void l_hash_iter_init(LHashIter *iter,LHashTable *h);
 int l_hash_iter_next(LHashIter *iter);
 void *l_hash_iter_data(LHashIter *iter);
+
+unsigned l_str_hash (const void *v);
+unsigned l_int_hash(const void *v);
+int l_int_equal(const void *v1,const void *v2);
 
 #define L_HASH_STRING(n,t,k) 				\
 static unsigned n##_hash(const t *p)		\
@@ -48,7 +52,9 @@ static int n##_cmp(const t*v1,const t*v2) 	\
 				const void **:1,			\
 				default:0)?L_HASH_DEREF_MARKER:0)
 #define L_HASH_TYPE_STRING(t,k) (-(_L_HASH_DEREF_STRING(t,k) | (int)offsetof(t,k)))
-#define L_HASH_TABLE_STRING(t,k) l_hash_table_new(L_HASH_TYPE_STRING(t,k),l_str_hash,(LCmpFunc)strcmp)
+#define L_HASH_TABLE_STRING(t,k) l_hash_table_new(L_HASH_TYPE_STRING(t,k),l_str_hash,(LEqualFunc)strcmp)
+
+#define L_HASH_TABLE_INT(t,k) l_hash_table_new(-(int)offsetof(t,k),l_int_hash,l_int_equal)
 
 #endif/*_LHASHTABLE_H_*/
 

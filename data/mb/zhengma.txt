@@ -7,6 +7,7 @@ assist=] mb/pinyin.txt
 code_e2=p11+p12+p21+p22
 code_e3=p11+p21+p22+p31
 code_a4=p11+p21+p31+p41
+code_hint=0
 [DATA]
 a 一 再
 aa 一下

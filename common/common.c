@@ -75,17 +75,20 @@ void y_xim_explore_url(const char *s)
 
 static char last_output[512];
 static char temp_output[512];
+static char last_biaodian[12];
 
 void y_xim_set_last(const char *s)
 {
 	if(!s || !s[0])
 	{
 		last_output[0]=0;
+		last_biaodian[0]=0;
 		return;
 	}
 	if(!strcmp(s,"$LAST"))
 		return;
 	strcpy(last_output,s);
+	last_biaodian[0]=0;
 }
 
 const char *y_xim_get_last(void)
@@ -124,7 +127,7 @@ static void y_im_strip_key_useless(char *gb)
 	s=strrchr(gb,'$');
 	if(s)
 	{
-		key=y_im_str_to_key(s+1);
+		key=y_im_str_to_key(s+1,NULL);
 		if(key>0) *s=0;
 	}
 }
@@ -266,6 +269,11 @@ COPY:
 			if(!(flag&SEND_BIAODIAN))
 			{
 				strcpy(last_output,temp_output);
+				last_biaodian[0]=0;
+			}
+			else
+			{
+				snprintf(last_biaodian,sizeof(last_biaodian),"%s",s);
 			}
 		}
 	}
@@ -283,6 +291,7 @@ COPY:
 	if(!s[0])
 	{
 		last_output[0]=0;
+		last_biaodian[0]=0;
 		return;
 	}
 
@@ -374,6 +383,35 @@ static inline int is_mask_key(int k)
 		k==YK_LALT || k==YK_RALT;
 }
 
+static time_t _idle_timer_add;
+static void _idle_timer_cb(void *unused)
+{
+	_idle_timer_add=0;
+	if(!im.eim || !im.eim->Call)
+		return;
+	im.eim->Call(EIM_CALL_IDLE);
+	y_im_history_flush();
+}
+static void y_im_busy_mark(void)
+{
+	if(!im.eim)
+		return;
+	time_t now=time(NULL);
+	if(_idle_timer_add)
+	{
+		if(now-_idle_timer_add<=10)
+			return;
+		y_ui_timer_del(_idle_timer_cb,NULL);
+	}
+	if(im.eim->CodeLen || im.eim->StringGet[0])
+	{
+		_idle_timer_add=0;
+		return;
+	}
+	_idle_timer_add=now;
+	y_ui_timer_add(20000,_idle_timer_cb,NULL);
+}
+
 int y_im_input_key(int key)
 {
 	int ret;
@@ -394,6 +432,7 @@ int y_im_input_key(int key)
 		y_im_speed_update(key,0);
 		if(bing && im.Bing && !im.EnglishMode)
 			YongKeyInput(KEYM_BING|'+',0);
+		y_im_busy_mark();
 		if(is_mask_key(YK_CODE(key)))
 			return 0;
 	}
@@ -770,6 +809,8 @@ static const struct{
 	{"RSHIFT",YK_RSHIFT},
 	{"LALT",YK_LALT},
 	{"RALT",YK_RALT},
+	{"LWIN",YK_LWIN},
+	{"RWIN",YK_RWIN},
 	{"TAB",YK_TAB},
 	{"ESC",YK_ESC},
 	{"ENTER",YK_ENTER},
@@ -792,7 +833,7 @@ static const struct{
 	{NULL,0}
 };
 
-int y_im_str_to_key(const char *s)
+int y_im_str_to_key(const char *s,int *repeat)
 {
 	char tmp[16];
 	int i;
@@ -859,11 +900,44 @@ int y_im_str_to_key(const char *s)
 		{
 			for(i=0;str_key_map[i].name;i++)
 			{
-				if(!strcmp(str_key_map[i].name,tmp))
+				if(!repeat)
 				{
-					key|=str_key_map[i].key;
-					break;
-				}				
+					if(!strcmp(str_key_map[i].name,tmp))
+					{
+						key|=str_key_map[i].key;
+						break;
+					}
+				}
+				else
+				{
+					if(l_str_has_prefix(tmp,str_key_map[i].name))
+					{
+						int k=strlen(str_key_map[i].name);
+						if(tmp[k]==0)
+						{
+							key|=str_key_map[i].key;
+							break;
+						}
+						int l=strlen(tmp);
+						if(tmp[k]=='(' && tmp[l-1]==')')
+						{
+							if(!memcmp(tmp+k+1,"LAST",l-k-2))
+							{
+								const char *s=last_output;
+								s+=y_im_str_desc(s,0);
+								*repeat=gb_strlen((const uint8_t*)s);
+								if(last_biaodian[0])
+									*repeat+=gb_strlen((const uint8_t*)last_biaodian);
+							}
+							else
+							{
+								*repeat=atoi(tmp+k+1);
+							}
+							key|=str_key_map[i].key;
+							break;
+						}
+					}
+				}			
 			}
 			if(!str_key_map[i].name)
 			{
@@ -882,7 +956,13 @@ int y_im_get_key(const char *name,int pos,int def)
 	char *tmp;
 
 	tmp=y_im_get_config_string("key",name);
-	if(!tmp) return def;
+	if(!tmp)
+		return def;
+	if(!tmp[0])
+	{
+		l_free(tmp);
+		return def;
+	}
 	if(!strcmp(tmp,"CTRL"))
 	{
 		l_free(tmp);
@@ -899,7 +979,7 @@ int y_im_get_key(const char *name,int pos,int def)
 	}
 	if(pos==-1)
 	{
-		ret=y_im_str_to_key(tmp);
+		ret=y_im_str_to_key(tmp,NULL);
 	}
 	else
 	{
@@ -908,7 +988,7 @@ int y_im_get_key(const char *name,int pos,int def)
 		list=l_strsplit(tmp,' ');
 		for(i=0;i<pos && list[i];i++);
 		if(i==pos && list[i])
-			ret=y_im_str_to_key(list[i]);
+			ret=y_im_str_to_key(list[i],NULL);
 		l_strfreev(list);
 	}
 	if(ret<0) ret=def;
@@ -1039,13 +1119,13 @@ static char *num2hz(int n,const char *fmt,int flag)
 
 int y_im_forward_key(const char *s)
 {
-	int key;
+	int key,repeat=1;
 	if(s[0]!='$')
 		return -1;
-	key=y_im_str_to_key(s+1);
-	if(key<=0 || (key&KEYM_MASK))
+	key=y_im_str_to_key(s+1,&repeat);
+	if(key<=0 || repeat<=0)
 		return -1;
-	y_xim_forward_key(key,1);
+	y_xim_forward_key(key,repeat);
 	return 0;
 }
 
@@ -1264,7 +1344,7 @@ char *y_im_str_escape(const char *s,int commit)
 	if(s[0]=='$')
 	{
 		int key;
-		key=y_im_str_to_key(s+1);
+		key=y_im_str_to_key(s+1,NULL);
 		if(key>0 && !(key&KEYM_MASK))
 		{
 			strcpy(line,s+1);
@@ -1492,7 +1572,7 @@ int y_im_strip_key(char *gb)
 	}
 	else if(s)
 	{
-		key=y_im_str_to_key(s+1);
+		key=y_im_str_to_key(s+1,NULL);
 		if(key>0) *s=0;
 		if(key==YK_LEFT)
 			key=1;
@@ -1709,7 +1789,7 @@ FILE *y_im_open_file(const char *fn,const char *mode)
 	FILE *fp;
 	if(!fn)
 		return NULL;
-	
+
 	if(fn[0]=='/' || (fn[0]=='.' && fn[1]=='/'))
 	{
 		if(strchr(mode,'w'))
@@ -2344,7 +2424,7 @@ static VOID CALLBACK HelperTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD 
 	}
 }
 
-void y_im_run_helper(char *prog,char *watch,void (*cb)(void))
+void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -2352,9 +2432,22 @@ void y_im_run_helper(char *prog,char *watch,void (*cb)(void))
 	int i;
 	WCHAR wprog[MAX_PATH];
 	int is_setup=0;
+	LPCWSTR lpCurrentDirectory=NULL;
 	
 	if(strstr(prog,"yong-config.exe"))
 		is_setup=1;
+#ifdef _WIN64
+	if(!is_setup)
+	{
+		if(!strchr(prog,':') && !l_file_exists(prog))
+		{
+			char *temp=alloca(strlen(prog)+8);
+			sprintf(temp,"..\\%s",prog);
+			prog=temp;
+		}
+		lpCurrentDirectory=L".";
+	}
+#endif
 	
 	for(i=0;i<4;i++)
 	{
@@ -2370,9 +2463,11 @@ void y_im_run_helper(char *prog,char *watch,void (*cb)(void))
 	si.wShowWindow = SW_SHOWNORMAL;
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	memset(&pi,0,sizeof(pi));
-	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi);
+	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,lpCurrentDirectory,&si,&pi);
 	if(!ret)
+	{
 		return;
+	}
 	CloseHandle(pi.hThread);
 
 	for(i=0;i<4;i++)
@@ -2435,7 +2530,7 @@ static gboolean HelperTimerProc(gpointer data)
 	return TRUE;
 }
 
-void y_im_run_helper(char *prog,char *watch,void (*cb)(void))
+void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 {
 	int i;
 	gint argc;

@@ -4,12 +4,7 @@
 #include "llib.h"
 
 extern LKeyFile *config;
-#ifdef CFG_CUSTOM_XML
 extern LXml *custom;
-#else
-extern LKeyFile *custom;
-#endif
-
 
 enum{
 	CU_WINDOW=0,
@@ -70,6 +65,10 @@ struct _CUCtrl{
 	
 	int init_done;
 	int visible;
+
+	const LXmlNode *node;
+	int realized;
+	void *priv;
 };
 
 struct _CUMenuEntry{
@@ -97,6 +96,7 @@ extern int cu_reload_ui;
 extern int cu_quit_ui;
 
 int cu_ctrl_init_self(CUCtrl p);
+int cu_ctrl_init_done(CUCtrl p);
 void cu_ctrl_destroy_self(CUCtrl p);
 int cu_ctrl_show_self(CUCtrl p,int b);
 int cu_ctrl_set_self(CUCtrl p,const char *s);
@@ -109,11 +109,7 @@ int cu_config_save_default(CUCtrl p);
 int cu_config_set(const char *group,const char *key,int pos,const char *value);
 char *cu_config_get(const char *group,const char *key,int pos);
 
-#ifdef CFG_CUSTOM_XML
 CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node);
-#else
-CUCtrl cu_ctrl_new(CUCtrl parent,const char *group);
-#endif
 void cu_ctrl_free(CUCtrl p);
 CUCtrl cu_ctrl_list_from_type(int type);
 CUCtrl cu_ctrl_from_group(CUCtrl root,const char *group);
@@ -143,6 +139,8 @@ int cu_step(void);
 void cu_show_page(const char *name);
 
 int cu_screen_dpi(void);
+
+void cu_init_all(CUCtrl ctrl,void *user);
 
 extern double CU_SCALE;
 

@@ -16,6 +16,8 @@ typedef struct{
 
 typedef struct{
 	void *next;
+
+	const char *name;
 	
 	int (*init)(void);
 	

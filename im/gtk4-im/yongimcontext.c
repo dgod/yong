@@ -684,7 +684,7 @@ static int GetKey(guint KeyCode,guint KeyState,int release)
 		ret|=KEYM_SHIFT;
 	if ((KeyState & GDK_ALT_MASK) && KeyCode!=YK_LALT && KeyCode!=YK_RALT)
 		ret|=KEYM_ALT;
-	if ((KeyState & GDK_SUPER_MASK))
+	if ((KeyState & GDK_SUPER_MASK) && KeyCode!=YK_LWIN && KeyCode!=YK_RWIN)
 		ret|=KEYM_SUPER;
 	if(KeyState & GDK_MOD2_MASK)
 		ret|=KEYM_KEYPAD;
@@ -704,6 +704,15 @@ static int GetKey(guint KeyCode,guint KeyState,int release)
 	return ret;
 }
 
+static void paste_cb(GObject* source,GAsyncResult* res,YongIMContext *ctx)
+{
+	gchar *text=gdk_clipboard_read_text_finish(GDK_CLIPBOARD(source),res,NULL);
+	if(!text)
+		return;
+	g_signal_emit(ctx,_signal_commit_id,0,text);
+	g_free(text);
+}
+
 static void ForwardKey(YongIMContext *ctx,int key)
 {
 	GtkWidget *widget=ctx->client_widget;
@@ -714,20 +723,84 @@ static void ForwardKey(YongIMContext *ctx,int key)
 		switch(key){
 		case CTRL_V:
 			g_signal_emit_by_name(widget,"paste-clipboard",NULL);
-			break;
+			return;
 		case YK_BACKSPACE:
 			g_signal_emit_by_name(widget,"backspace",NULL);
-			break;
+			return;
+		case YK_DELETE:
+			g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,1,NULL);
+			return;
 		case YK_LEFT:
 			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
-			break;
+			return;
 		case YK_RIGHT:
 			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,1,0,NULL);
+			return;
+		case YK_HOME:
+			if(GTK_IS_ENTRY(widget) || GTK_IS_TEXT(widget))
+			{
+				gtk_editable_set_position(GTK_EDITABLE(widget),0);
+				return;
+			}
+			break;
+		case YK_END:
+			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_DISPLAY_LINE_ENDS,1,0,NULL);
+			return;
+		case YK_ENTER:
+			if(GTK_IS_ENTRY(widget) || GTK_IS_TEXT(widget))
+			{
+				g_signal_emit_by_name(widget,"activate",NULL);
+				return;
+			}
+			else if(GTK_IS_TEXT_VIEW(widget))
+			{
+				g_signal_emit_by_name(widget,"insert-at-cursor","\n",NULL);
+				return;
+			}
 			break;
 		default:
 			break;
 		}
 	}
+	if(key==YK_ENTER)
+	{
+		g_signal_emit(ctx,_signal_commit_id,0,"\n");
+		return;
+	}
+	if(key==CTRL_V)
+	{
+		GdkDisplay *dpy=gtk_widget_get_display(ctx->client_widget);
+		if(!dpy)
+			return;
+		GdkClipboard *clipboard=gdk_display_get_clipboard(dpy);
+		if(!clipboard)
+			return;
+		gdk_clipboard_read_text_async(clipboard,NULL,(GAsyncReadyCallback)paste_cb,ctx);	
+		return;
+	}
+	char *text=NULL;
+	int cursor_index=0;
+	gboolean ret;
+	ret=gtk_im_context_get_surrounding(GTK_IM_CONTEXT(ctx),&text,&cursor_index);
+	if(ret!=TRUE)
+		return;
+	switch(key){
+	case YK_BACKSPACE:
+	{
+		if(cursor_index<=0)
+			break;
+		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),-1,1);
+		break;
+	}
+	case YK_DELETE:
+	{
+		if(text[cursor_index]==0)
+			break;
+		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),0,1);
+		break;
+	}
+	}
+	g_free(text);
 }
 
 

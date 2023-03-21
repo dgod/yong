@@ -11,6 +11,7 @@ enum{
 	CSET_TYPE_PREDICT,
 	CSET_TYPE_MB,
 	CSET_TYPE_EXTRA_ZI,
+	CSET_TYPE_SENTENCE,
 	CSET_TYPE_UNKNOWN,
 };
 
@@ -25,7 +26,8 @@ typedef struct _cset_group{
 
 typedef struct _cset_group_calc{
 	CSET_GROUP;
-	char phrase[Y_MB_DATA_CALC][MAX_CAND_LEN+1];
+	int size;
+	char (*phrase)[MAX_CAND_LEN+1];
 }CSET_GROUP_CALC;
 
 typedef struct _cset_group_predict{
@@ -41,6 +43,7 @@ typedef struct _cset_group_mb{
 typedef struct{
 	char *cand;
 	char *codetip;
+	int index;
 }CSET_GROUP_ARRAY_ITEM;
 
 typedef struct _cset_group_array{
@@ -57,6 +60,7 @@ typedef struct _cset{
 	CSET_GROUP_ARRAY array;
 
 	LHashTable *assoc;
+	short assoc_adjust_add;
 }CSET;
 
 void cset_init(CSET *cs);
@@ -88,5 +92,6 @@ CSET_GROUP_ARRAY *cset_array_group_new(CSET *cs);
 int cset_array_group_append(CSET_GROUP_ARRAY *g,const char *cand,const char *codetip);
 
 void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count);
+int cset_has_assoc(CSET *cs,const char *code);
 void cset_apply_assoc(CSET *cs);
 

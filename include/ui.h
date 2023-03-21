@@ -31,6 +31,8 @@ typedef struct{
 	int tran;
 	/* auto transparent */
 	int auto_tran;
+	/* force use scale param */
+	int force_scale;
 }UI_MAIN;
 
 typedef struct{
@@ -88,10 +90,14 @@ typedef struct{
 	int x,y;
 	/* cand max */
 	int cand_max;
+	/* force use scale param */
+	int force_scale;
+	/* bg first pad */
+	uint8_t pad[4];
 }UI_INPUT;
 
 typedef struct{
-	int x,y;
+	int x,y,w,h;
 	char *normal;
 	char *over;
 	char *down;

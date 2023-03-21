@@ -10,7 +10,8 @@
 #define PAGE_NEXT		1
 #define PAGE_PREV		2
 #define PAGE_REFRESH	3
-#define PAGE_LEGEND		4
+//#define PAGE_LEGEND		4
+#define PAGE_ASSOC		4
 
 /* block key */
 #define IMR_BLOCK				0
@@ -50,7 +51,13 @@ enum{
 enum{
 	EIM_CALL_NONE=0,
 	EIM_CALL_ADD_PHRASE,
-	EIM_CALL_GET_SELECT,
+	EIM_CALL_ADD_SENTENCE,
+	EIM_CALL_IDLE,
+};
+
+enum{
+	EIM_CALLBACK_NONE=0,
+	EIM_CALLBACK_ASYNC_WRITE_FILE,
 };
 
 typedef struct {
@@ -97,6 +104,7 @@ typedef struct {
 	void (*ShowTip)(const char *fmt,...);
 	const char *(*Translate)(const char *s);
 	void (*Log)(const char *fmt,...);
+	int (*Callback)(int,...);
 }EXTRA_IM;
 
 #ifdef YONG_IM_ENGINE
@@ -123,6 +131,7 @@ typedef struct {
 #define KEYM_SHIFT	0x0020000
 #define KEYM_ALT	0x0040000
 #define KEYM_SUPER	0x0080000
+#define KEYM_WIN	KEUM_SUPER
 #define KEYM_KEYPAD	0x0100000
 #define KEYM_BING	0x0200000
 #define KEYM_UP		0x0400000
@@ -147,6 +156,8 @@ typedef struct {
 #define YK_CAPSLOCK	0xe5u
 #define YK_LALT		0xe9u
 #define YK_RALT		0xeau
+#define YK_LWIN		0xebu
+#define YK_RWIN		0xecu
 #define YK_DELETE	0xffu
 
 #define YK_HOME		0xff50u

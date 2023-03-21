@@ -49,11 +49,13 @@ static void fuzzy_recursive(FUZZY_TABLE *ft,FUZZY_ITEM *item,const char *to)
 	}
 }
 
-static void fuzzy_table_insert(FUZZY_TABLE *ft,const char *from,const char *to,int force)
+static void fuzzy_table_insert(FUZZY_TABLE *ft,const char *from,const char *to,int mode)
 {
 	FUZZY_ITEM *res;
 	FUZZY_ITEM *item;
 	int i;
+	if(!strcmp(from,to))
+		return;
 	item=l_new0(FUZZY_ITEM);
 	strcpy(item->from,from);
 	res=l_hash_table_find(ft,item);
@@ -65,13 +67,13 @@ static void fuzzy_table_insert(FUZZY_TABLE *ft,const char *from,const char *to,i
 			if(pto->code[0]==0)
 			{
 				strcpy(pto->code,to);
-				pto->force=force;
+				pto->mode=mode;
 				break;
 			}
 			if(!strcmp(pto->code,to))
 			{
-				if(force)
-					pto->force=force;
+				if(mode)
+					pto->mode=mode;
 				break;
 			}
 		}
@@ -82,7 +84,7 @@ static void fuzzy_table_insert(FUZZY_TABLE *ft,const char *from,const char *to,i
 	{
 		item->next=NULL;
 		strcpy(item->to[0].code,to);
-		item->to[0].force=force;
+		item->to[0].mode=mode;
 		l_hash_table_insert(ft,item);
 		fuzzy_recursive(ft,item,to);
 	}
@@ -125,10 +127,11 @@ FUZZY_TABLE *fuzzy_table_load(const char *file)
 			char from[8],to[8],op;
 			int ret;
 			int from_len,to_len;
-			int force;
-			ret=l_sscanf(line,"%8[^>=]%c%8s",from,&op,to);
+			int mode=FUZZY_DEFAULT;
+			ret=l_sscanf(line,"%8[^>=<]%c%8s",from,&op,to);
 			if(ret!=3) continue;
-			force=(op=='>');
+			if(op=='>') mode=FUZZY_FORCE;
+			else if(op=='<') mode=FUZZY_CORRECT;
 			from_len=strlen(from);to_len=strlen(to);
 			if(from[0]=='*')
 			{
@@ -144,8 +147,8 @@ FUZZY_TABLE *fuzzy_table_load(const char *file)
 					if(ret>=8) continue;
 					ret=snprintf(rto,sizeof(rto),"%s%s",prefix[i],to+1);
 					if(ret>=8) continue;
-					fuzzy_table_insert(ft,rfrom,rto,force);
-					//if(op=='=')
+					fuzzy_table_insert(ft,rfrom,rto,mode);
+					if(op!='<')
 						fuzzy_table_insert(ft,rto,rfrom,0);
 				}
 			}
@@ -164,15 +167,15 @@ FUZZY_TABLE *fuzzy_table_load(const char *file)
 					if(ret>=8) continue;
 					ret=snprintf(rto,sizeof(rto),"%s%s",to,suffix[i]);
 					if(ret>=8) continue;
-					fuzzy_table_insert(ft,rfrom,rto,force);
-					//if(op=='=')
+					fuzzy_table_insert(ft,rfrom,rto,mode);
+					if(op!='<')
 						fuzzy_table_insert(ft,rto,rfrom,0);
 				}
 			}
 			else
 			{
-				fuzzy_table_insert(ft,from,to,force);
-				//if(op=='=')
+				fuzzy_table_insert(ft,from,to,mode);
+				if(op!='<')
 					fuzzy_table_insert(ft,to,from,0);
 			}
 		}
@@ -208,7 +211,12 @@ void fuzzy_table_dump(FUZZY_TABLE *ft)
 		{
 			FUZZY_TO *pto=item->to+i;
 			if(!pto->code[0]) break;
-			printf(" >%s %s",(pto->force?">":""),pto->code);
+			if(pto->mode==FUZZY_DEFAULT)
+				printf(" >%s",pto->code);
+			else if(pto->mode==FUZZY_FORCE)
+				printf(" >>%s",pto->code);
+			else
+				printf(" <%s",pto->code);
 		}
 		printf("\n");
 	}
@@ -304,7 +312,7 @@ LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 			FUZZY_TO *to=it->to+i;
 			if(to->code[0]==0)
 				continue;
-			if(to->force)
+			if(to->mode!=FUZZY_DEFAULT)
 				continue;
 			fuzzy_key_add(list,to->code);
 		}
@@ -333,6 +341,48 @@ LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 	return list;
 }
 
+#ifndef Y_MB_KEY_SIZE
+#define Y_MB_KEY_SIZE	63
+#endif
+
+int fuzzy_correct(FUZZY_TABLE *ft,char *s,int len)
+{
+	if(!ft)
+		return len;
+	if(!s || len<0)
+		return -1;
+
+	LHashIter iter;
+	
+	l_hash_iter_init(&iter,ft);
+	while(!l_hash_iter_next(&iter))
+	{
+		FUZZY_ITEM *item=l_hash_iter_data(&iter);
+		int i;
+		for(i=0;i<4;i++)
+		{
+			FUZZY_TO *pto=item->to+i;
+			if(!pto->code[0]) break;
+			if(pto->mode!=FUZZY_CORRECT)
+				continue;
+			char *p;
+			int pos=0;
+			int from_len=strlen(item->from);
+			while((p=strstr(s+pos,item->from))!=NULL)
+			{
+				int to_len=strlen(pto->code);
+				if(from_len<to_len && pos+strlen(p+pos)+to_len-from_len>=Y_MB_KEY_SIZE)
+					break;
+				memmove(p+to_len,p+from_len,strlen(p+from_len)+1);
+				memcpy(p+pos,pto->code,to_len);
+				pos+=to_len;
+			}
+		}
+	}
+
+	return len;
+}
+
 #ifdef FUZZY_TEST
 
 void list_key(FUZZY_TABLE *ft,const char *code,int split)
@@ -349,7 +399,7 @@ void list_key(FUZZY_TABLE *ft,const char *code,int split)
 	l_ptr_array_free(list,l_free);
 }
 
-//gcc fuzzy.c -g -Wall -O0 ../common/pinyin.c ../common/trie.c -DFUZZY_TEST -I../llib -I../include -I../common -L../llib/l64 -ll
+//gcc fuzzy.c -g -Wall -O0 ../common/pinyin.c ../common/trie.c -DFUZZY_TEST -I../llib -I../include -I../common -L../llib/l64 -ll -lm
 
 int main(void)
 {
@@ -358,7 +408,8 @@ int main(void)
 	//fuzzy_table_dump(ft);
 	
 	py_init('\'',NULL);
-	list_key(ft,"a's'den'a's'dei'f'da's'den'a's'den'e'da's'den'sa'dei'f'e'za'sen'za's",'\'');
+	//list_key(ft,"a's'den'a's'dei'f'da's'den'a's'den'e'da's'den'sa'dei'f'e'za'sen'za's",'\'');
+	list_key(ft,"shenme",'\'');
 
 	fuzzy_table_free(ft);
 	return 0;

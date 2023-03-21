@@ -1,6 +1,7 @@
 #include "common.h"
 #include "ui.h"
 
+#include <math.h>
 #ifdef _WIN32
 #include <windows.h>
 #include <windowsx.h>
@@ -140,13 +141,16 @@ int y_kbd_init(const char *fn)
 }
 
 #ifndef _WIN32
-static PangoLayout *font_parse(char *font)
+static PangoLayout *font_parse(const char *font)
 {
 	PangoFontDescription *desc;
 	PangoLayout *layout;
+	double scale=y_ui_get_scale();
 
 	desc=pango_font_description_from_string(font);
 	assert(desc!=NULL);
+	gint size=pango_font_description_get_size(desc);
+	pango_font_description_set_size(desc,(int)size*scale);
 
 #if GTK_CHECK_VERSION(3,0,0)
 	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(kst.layout.win));
@@ -196,16 +200,16 @@ static void DrawText(cairo_t *cr,char *text,KBD_RECT *rc,char *color)
 
 #else
 
-static HFONT font_parse(char *s)
+static HFONT font_parse(const char *s)
 {
 	int size;
 	char face[96];
-	HDC hdc;
 	HFONT ret;
 	int res;
 	int weight;
 	LOGFONT lf;
 	char **list;
+	double scale=y_ui_get_scale();
 	
 	list=l_strsplit(s,' ');
 	res=l_strv_length(list);
@@ -237,9 +241,7 @@ static HFONT font_parse(char *s)
 	}
 	l_strfreev(list);
 	
-	hdc=GetDC(NULL);
-	size = -(size*GetDeviceCaps(hdc, LOGPIXELSY)/72);
-	ReleaseDC(NULL,hdc);
+	size = -(int)round(size*scale*96/72); 
 	memset(&lf,0,sizeof(lf));
 	lf.lfHeight=size;
 	lf.lfWeight=weight;
@@ -658,7 +660,7 @@ static int kbd_click(int x,int y,int up)
 					if(!strcmp(text,"$_"))
 						key=' ';
 					else if(text[0]=='$')
-						key=y_im_str_to_key(text+1);
+						key=y_im_str_to_key(text+1,NULL);
 					else if(text[0] && !text[1])
 						key=text[0];
 				}
@@ -688,7 +690,7 @@ static void menu_activate(GtkMenuItem *item,gpointer data)
 HWND GetFocusedWindow(void);
 #endif
 
-static void y_kbd_popup_menu_real(void)
+static void y_kbd_popup_menu_real(int from)
 {
 #ifdef _WIN32
 	POINT pos;
@@ -761,9 +763,25 @@ static void y_kbd_popup_menu_real(void)
 #ifdef _WIN32
 	HWND hWnd=GetFocusedWindow();
 	GetCursorPos(&pos);
+	UINT uFlags=TPM_RETURNCMD|TPM_NONOTIFY;
+	if(from==1)
+	{
+		RECT rc;
+		GetWindowRect(y_ui_main_win(),&rc);
+		if(rc.top>300)
+		{
+			pos.y=rc.top;
+			uFlags|=TPM_BOTTOMALIGN;
+		}
+		else
+		{
+			pos.y=rc.bottom;
+			uFlags|=TPM_TOPALIGN;
+		}
+	}
+
 	SetForegroundWindow(kst.layout.win);
-	PostMessage(kst.layout.win,WM_USER,0,0);
-	int id=TrackPopupMenu(MainMenu,TPM_RETURNCMD|TPM_NONOTIFY,pos.x,pos.y,
+	int id=TrackPopupMenu(MainMenu,uFlags,pos.x,pos.y,
 		0,kst.layout.win,NULL);
 	if(id>0)
 		PostMessage(kst.layout.win,WM_COMMAND,id,0);
@@ -778,9 +796,9 @@ static void y_kbd_popup_menu_real(void)
 void y_kbd_popup_menu(void)
 {
 #ifdef _WIN32
-	PostMessage(kst.layout.win,WM_RBUTTONUP,0,0);
+	PostMessage(kst.layout.win,WM_USER,0,0);
 #else
-	y_kbd_popup_menu_real();
+	y_kbd_popup_menu_real(1);
 #endif
 }
 
@@ -929,7 +947,7 @@ static void OnKeyboardPaint_draw(DWRITE_CONTEXT *ctx,int w,int h)
 	void *hPen,*hBrush,*hFont;
 	int i;
 
-	hFont=dw_font_parse(ctx,kst.layout.font_desc);
+	hFont=dw_font_parse(ctx,kst.layout.font_desc,y_ui_get_scale());
 	hBrush=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 	hPen=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 	dw_select_font(ctx,hFont);
@@ -964,16 +982,6 @@ static void OnKeyboardPaint_draw(DWRITE_CONTEXT *ctx,int w,int h)
 	dw_object_delete(hPen);
 	dw_object_delete(hBrush);
 	dw_object_delete(hFont);
-}
-
-BOOL CALLBACK EnumMenuWin(HWND hWnd ,LPARAM lParam)
-{
-	char name[64];
-	GetClassNameA(hWnd,name,sizeof(name));
-	//printf("%p %s\n",hWnd,name);
-	//if(!strcmp(name,"#32768"))
-	//	SetActiveWindow(hWnd);
-	return TRUE;
 }
 
 LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -1011,17 +1019,15 @@ LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		kbd_click(LOWORD(lParam),HIWORD(lParam),1);
 		ReleaseCapture();
 		break;
+	case WM_USER:
+		y_kbd_popup_menu_real(1);
+		break;
 	case WM_RBUTTONUP:
-		y_kbd_popup_menu_real();
+		y_kbd_popup_menu_real(0);
 		break;
 	case WM_ERASEBKGND:
 	{
 		return 1;
-	}
-	case WM_USER:
-	{
-		EnumThreadWindows(GetCurrentThreadId(),EnumMenuWin,0);
-		break;
 	}
 	case WM_PAINT:
 	{
@@ -1082,7 +1088,7 @@ int kbd_main_new_real(void)
 	
 	kst.layout.win=CreateWindowEx(WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_APPWINDOW,
 		_T("yong_kbd"),_T(""),WS_CAPTION|WS_OVERLAPPED|WS_SYSMENU,
-		0,0,0,0,0,0,GetModuleHandle(0),0);
+		0,0,0,0,NULL,NULL,GetModuleHandle(NULL),NULL);
 		
 	return 1;
 }

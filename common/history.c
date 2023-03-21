@@ -12,10 +12,15 @@ struct history_item{
 static FILE *fp_hist;
 static int hist_dirty;
 
+static int auto_sentence;
+static uint8_t auto_sentence_begin;
+static uint8_t auto_sentence_end;
+
 static int assoc_history;
 static LQueue *last_history;
 static char temp_history[MAX_CAND_LEN+1];
 static int temp_len;
+static uint32_t temp_last;
 
 void y_im_history_free(void)
 {
@@ -46,12 +51,21 @@ static void flush_history(void)
 		temp_len=0;
 		return;
 	}
+	temp_history[temp_len]=0;
+	if(auto_sentence && im.eim && im.eim->Call)
+	{
+		int ret=gb_strlen((const uint8_t *)temp_history);
+		if(ret>=auto_sentence_begin && ret<=auto_sentence_end)
+		{
+			int index=auto_sentence==1?EIM_CALL_ADD_PHRASE:EIM_CALL_ADD_SENTENCE;
+			im.eim->Call(index,temp_history);
+		}
+	}
 	if(last_history==NULL)
 	{
 		temp_len=0;
 		return;
 	}
-	temp_history[temp_len]=0;
 	p=l_alloc(sizeof(struct history_item)+temp_len+1);
 	strcpy(p->data,temp_history);
 	temp_len=0;
@@ -123,10 +137,25 @@ static void put_history2(const char *s)
 		flush_history();
 		return;
 	}
+	if(s[0]=='\b')
+	{
+		if(temp_len<=0)
+			return;
+		int t;
+		temp_history[temp_len]=0;
+		t=gb_strlen((const uint8_t*)temp_history);
+		char *p=gb_offset((const uint8_t*)temp_history,t-1);
+		if(!p)
+			return;
+		*p=0;
+		temp_len=(int)(size_t)(p-temp_history);
+		return;
+	}
 	while(s[0]!=0)
 	{
 		if(!(s[0]&0x80))
 		{
+			temp_last=s[0];
 			if(s[0]<20 || isspace(s[0]) || ispunct(s[0]))
 			{
 				flush_history();
@@ -139,12 +168,20 @@ static void put_history2(const char *s)
 		}
 		else if(gb_is_gbk((const uint8_t*)s))
 		{
+			temp_last=0;
+			if(gb_is_biaodian((const uint8_t*)s))
+			{
+				flush_history();
+				s+=2;
+				continue;
+			}
 			temp_history[temp_len++]=s[0];
 			temp_history[temp_len++]=s[1];
 			s+=2;
 		}
 		else if(gb_is_gb18030_ext((const uint8_t*)s))
 		{
+			temp_last=0;
 			temp_history[temp_len++]=*s++;
 			temp_history[temp_len++]=*s++;
 			temp_history[temp_len++]=*s++;
@@ -152,6 +189,7 @@ static void put_history2(const char *s)
 		}
 		else
 		{
+			temp_last=0;
 			flush_history();
 			s++;
 		}
@@ -239,6 +277,25 @@ void y_im_history_update(void)
 	}
 	if(fp_hist)
 		fprintf(fp_hist,"\n");
+
+	auto_sentence=0;
+	char *config=y_im_get_im_config_string(im.Index,"auto_sentence");
+	if(config)
+	{
+		char file[128];
+		int begin,end,count;
+		int ret=l_sscanf(config,"%d %d %s %d",&begin,&end,file,&count);
+		if(begin>=2 && end>=begin && end<=20)
+		{
+			if(ret==2)
+				auto_sentence=1;
+			else if(ret==4)
+				auto_sentence=2;
+			auto_sentence_begin=begin;
+			auto_sentence_end=end;
+		}
+		l_free(config);
+	}
 }
 
 void y_im_history_init(void)
@@ -250,7 +307,11 @@ void y_im_history_init(void)
 	
 	fn=y_im_get_config_string("IM","history");
 	if(!fn || !fn[0])
+	{
+		if(fn)
+			l_free(fn);
 		return;
+	}
 	fp_hist=y_im_open_file(fn,"rb+");
 	if(!fp_hist)
 	{
@@ -262,6 +323,8 @@ void y_im_history_init(void)
 
 void y_im_history_write(const char *s)
 {
+	if(temp_last=='\n' && s[0]=='\n')
+		s++;
 	put_history2(s);
 	if(!fp_hist || !s)
 		return;
@@ -273,3 +336,14 @@ void y_im_history_write(const char *s)
 		fflush(fp_hist);
 	}
 }
+
+void y_im_history_flush(void)
+{
+	if(hist_dirty>0)
+	{
+		hist_dirty=0;
+		fflush(fp_hist);
+	}
+
+}
+

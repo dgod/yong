@@ -19,16 +19,21 @@ void *y_legend_new(const char *file,int save)
 {
 	LEGEND *p;
 	FILE *fp;
-	struct stat st;
 	const uint8_t *s;
 	int prev=0;
+	ssize_t size;
 	
 	if(!EIM.OpenFile)
+	{
 		return 0;
+	}
 	fp=EIM.OpenFile(file,"rb");
-	if(!fp) return NULL;
-	fstat(fileno(fp),&st);
-	if(st.st_size > 0x800000 || st.st_size<2)
+	if(!fp)
+	{
+		return NULL;
+	}
+	size=l_filep_size(fp);
+	if(size > 0x800000 || size<2)
 	{
 		fclose(fp);
 		return NULL;
@@ -36,11 +41,11 @@ void *y_legend_new(const char *file,int save)
 	p=l_new0(LEGEND);
 	if(save)
 		p->file=l_strdup(file);
-	p->size=st.st_size;
-	p->data=l_alloc(8+st.st_size+1);
+	p->size=size;
+	p->data=l_alloc(8+size+1);
 	memset(p->data,0,8);
-	fread(p->data+8,st.st_size,1,fp);
-	p->data[8+st.st_size]=0;
+	fread(p->data+8,size,1,fp);
+	p->data[8+size]=0;
 	fclose(fp);
 
 	s=p->data+8;
@@ -124,11 +129,14 @@ int y_legend_get(void *handle,const char *src,int slen,
 			{
 				if(c==' ' || c=='\r' ||c=='\n')
 					break;
-				if(c==',') goto skip;
+				if(c==',')
+				{
+					goto skip;
+				}
 				to[i]=c;
 			}
 			to[i]=0;
-			if(i>0 && i>=dlen)
+			if(i>0 && i>=dlen && (to[0]&0x80)!=0)
 			{
 				count++;
 				if(count>=max) break;
@@ -136,7 +144,8 @@ int y_legend_get(void *handle,const char *src,int slen,
 skip:;
 			s=(const uint8_t*)from+i;
 		}
-		while(*s=='\r' || *s==',' || *s>=0x80) s++;
+		while(*s=='\r' || *s==',' || *s>0x20) s++;
+		//while(*s=='\r' || *s==',' || *s>=0x80) s++;
 		if(*s=='\n')
 		{
 			s++;
@@ -147,12 +156,16 @@ skip:;
 				continue;
 			}
 			else
+			{
 				break;
+			}
 		}
 			
 		s=(const uint8_t*)strchr((const char*)s,' ');
 		if(!s)
+		{
 			break;
+		}
 		s++;
 	}
 	if(count>0 && slen+2<sizeof(p->src))
@@ -184,10 +197,16 @@ void y_legend_move(void *handle,const char *phrase)
 
 	while(s && (!end || s<end))
 	{
-		if(!memcmp(s,temp,tlen) && s[tlen]<=0x20)
+		if(!memcmp(s,temp,tlen) && s[tlen]<=0x7a)
 		{
 			if(p->data+pos+2==s)
 				break;
+			while(s[tlen]>0x20)
+			{
+				temp[tlen]=s[tlen];
+				temp[tlen+1]=' ';
+				tlen++;
+			}
 			memmove(p->data+pos+2+tlen+1,p->data+pos+2,s-p->data-pos-2-1);
 			memcpy(p->data+pos+2,temp,tlen+1);
 			p->dirty++;

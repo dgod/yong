@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <sys/stat.h>
 
-#ifdef CFG_CUSTOM_XML
 struct{
 	const char *name;
 	void * list;
@@ -26,28 +25,6 @@ struct{
 	{"sep"},
 	{NULL}
 };
-#else
-struct{
-	const char *name;
-	void * list;
-}CUCtrl_type[]={
-	{"WINDOW"},
-	{"LABEL"},
-	{"EDIT"},
-	{"LIST"},
-	{"COMBO"},
-	{"CHECK"},
-	{"BUTTON"},
-	{"TREE"},
-	{"ITEM"},
-	{"GROUP"},
-	{"PAGE"},
-	{"FONT"},
-	{"IMAGE"},
-	{"SEPARATOR"},
-	{NULL}
-};
-#endif
 
 static int LoadIMList(CUCtrl,int,char **);
 static int ShowPage(CUCtrl,int,char **);
@@ -234,7 +211,6 @@ char *cu_translate(const char *s)
 	return l_strdup(temp);
 }
 
-#ifdef CFG_CUSTOM_XML
 CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 {
 	CUCtrl p;
@@ -248,6 +224,7 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 #endif
 
 	p=l_new0(struct _CUCtrl);
+	p->node=node;
 	p->parent=parent;
 	p->type=cu_ctrl_type_from_name(node->name);
 	if(p->type<0)
@@ -326,7 +303,7 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 	temp=(char*)l_xml_get_prop(node,"action");
 	p->action=cu_action_new(temp);
 	cu_ctrl_init_self(p);
-	if(node->child && p->type!=CU_LIST && p->type!=CU_COMBO)
+	if(node->child && p->type!=CU_LIST && p->type!=CU_COMBO && p->type!=CU_PAGE)
 	{
 		LXmlNode *child;
 		for(child=node->child;child!=NULL;child=child->next)
@@ -337,6 +314,7 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 			c->next=p->child;
 			p->child=c;
 		}
+		p->realized=1;
 	}
 	
 	temp=(char*)l_xml_get_prop(node,"visible");
@@ -356,123 +334,12 @@ CUCtrl cu_ctrl_new(CUCtrl parent,const LXmlNode *node)
 	}
 	temp=(char*)l_xml_get_prop(node,"save");
 	p->save=cu_action_new(temp);
+
+	if(p->realized)
+		cu_ctrl_init_done(p);
 	
 	return p;
 }
-
-#else
-
-CUCtrl cu_ctrl_new(CUCtrl parent,const char *group)
-{
-	CUCtrl p;
-	char *temp;
-	int ret;
-
-	p=l_new0(struct _CUCtrl);
-	p->parent=parent;
-	temp=(char*)l_key_file_get_data(custom,group,"type");
-	p->type=cu_ctrl_type_from_name(temp);
-	if(p->type<0)
-	{
-		l_free(p);
-		//printf("group '%s' find type fail\n",group);
-		return NULL;
-	}
-	if(p->type==CU_WINDOW)
-	{
-		temp=(char*)l_key_file_get_data(custom,group,"pos");
-		ret=l_sscanf(temp,"%d,%d",
-				&p->pos.w,&p->pos.h);
-		if(ret<2)
-		{
-			l_free(p);
-			return NULL;
-		}
-	}
-	else if(p->type!=CU_ITEM)
-	{
-		temp=(char*)l_key_file_get_data(custom,group,"pos");
-		ret=l_sscanf(temp,"%d,%d,%d,%d",
-				&p->pos.x,&p->pos.y,&p->pos.w,&p->pos.h);
-		if(ret<4)
-		{
-			l_free(p);
-			return NULL;
-		}
-	}
-	p->group=l_strdup(group);
-	temp=l_key_file_get_string(custom,group,"text");
-	p->text=cu_translate(temp);
-	l_free(temp);
-	temp=(char*)l_key_file_get_data(custom,group,"config");
-	if(temp)
-	{
-		char group[64],key[64];
-		int pos=-1;
-		ret=l_sscanf(temp,"%64s %64s %d",group,key,&pos);
-		if(ret>=2)
-		{
-			p->cgroup=l_strdup(group);
-			p->ckey=l_strdup(key);
-			p->cpos=pos;
-		}
-	}
-	temp=l_key_file_get_string(custom,group,"data");
-	if(temp)
-	{
-		p->data=l_strsplit(temp,'\n');
-		l_free(temp);
-	}
-	if(p->data)
-	{
-		temp=l_key_file_get_string(custom,group,"view");
-		if(temp)
-		{
-			p->view=l_strsplit(temp,'\n');
-			l_free(temp);
-			if(p->view && y_translate_is_enable())
-			{
-				int i;
-				for(i=0;p->view[i]!=NULL;i++)
-				{
-					char *temp=cu_translate(p->view[i]);
-					l_free(p->view[i]);
-					p->view[i]=temp;
-				}
-			}
-		}
-	}
-	temp=(char*)l_key_file_get_data(custom,group,"action");
-	p->action=cu_action_new(temp);
-	cu_ctrl_init_self(p);
-	temp=(char*)l_key_file_get_data(custom,group,"child");
-	if(temp && temp[0])
-	{
-		char **child=l_strsplit(temp,' ');
-		int i;
-		for(i=0;child[i]!=NULL;i++)
-		{
-			CUCtrl c;
-			c=cu_ctrl_new(p,child[i]);
-			if(!c) continue;
-			c->next=p->child;
-			p->child=c;
-		}
-		l_strfreev(child);
-	}
-	if(l_key_file_get_int(custom,group,"visible"))
-		cu_ctrl_show_self(p,1);
-	p->tlist=CUCtrl_type[p->type].list;
-	CUCtrl_type[p->type].list=p;
-
-	temp=(char*)l_key_file_get_data(custom,group,"init");
-	p->init=cu_action_new(temp);
-	temp=(char*)l_key_file_get_data(custom,group,"save");
-	p->save=cu_action_new(temp);
-	
-	return p;
-}
-#endif
 
 void cu_ctrl_free(CUCtrl p)
 {
@@ -524,6 +391,7 @@ void cu_ctrl_free(CUCtrl p)
 		l_strfreev(p->data);
 	if(p->view)
 		l_strfreev(p->view);
+	l_free(p->priv);
 	
 	l_free(p);
 }
@@ -571,9 +439,7 @@ int cu_config_set(const char *group,const char *key,int pos,const char *value)
 	temp=l_key_file_get_string(config,group,key);
 	if(!temp)
 	{
-		if(pos!=0) return -1;
-		l_key_file_set_string(config,group,key,value);
-		return 0;
+		temp=l_strdup("");
 	}
 	list=l_strsplit(temp,' ');
 	l_free(temp);
@@ -596,6 +462,15 @@ int cu_config_set(const char *group,const char *key,int pos,const char *value)
 	}
 	temp=l_strjoinv(" ",list);
 	l_strfreev(list);
+	if(strcmp(group,"IM") && temp[0]==' ')
+	{
+		temp[0]='\0';
+	}
+	if(!temp[0])
+	{
+		l_free(temp);
+		temp=NULL;
+	}
 	l_key_file_set_string(config,group,key,temp);
 	l_free(temp);
 	return 0;
@@ -631,15 +506,19 @@ int cu_config_save_default(CUCtrl p)
 			if(!strcmp(p->view[i],data))
 			{
 				l_free(data);
-				data=l_strdup(p->data[i]);
+				data=p->data[i]?l_strdup(p->data[i]):NULL;
 				break;
 			}
 		}
 	}
 	if(p->type==CU_CHECK && !strcmp(data,"0"))
+	{
 		cu_config_set(p->cgroup,p->ckey,p->cpos,"");
+	}
 	else
+	{
 		cu_config_set(p->cgroup,p->ckey,p->cpos,data);
+	}
 	l_free(data);
 	return 0;
 }
@@ -654,7 +533,6 @@ static void RenameIMGroup(CUCtrl p,void *user)
 	}
 }
 
-#ifdef CFG_CUSTOM_XML
 static LXmlNode *CustomHasPage(const char *page)
 {
 	LXmlNode *p;
@@ -673,12 +551,6 @@ static LXmlNode *CustomHasPage(const char *page)
 	}
 	return 0;
 }
-#else
-static int CustomHasPage(const char *page)
-{
-	return l_key_file_has_group(custom,page);
-}
-#endif
 
 static void cu_delete_im(void *resv,void *param)
 {
@@ -750,11 +622,7 @@ static int LoadIMList(CUCtrl p,int arc,char **arg)
 					snprintf(temp,sizeof(temp),"page-cloud");
 			}
 		}
-#ifdef CFG_CUSTOM_XML
 		page=cu_ctrl_new(root,CustomHasPage(temp));
-#else
-		page=cu_ctrl_new(root,temp);
-#endif
 		if(page)
 		{
 			l_free(page->group);
@@ -782,21 +650,9 @@ static int LoadIMList(CUCtrl p,int arc,char **arg)
 
 static int ShowPage(CUCtrl p,int arc,char **arg)
 {
-	CUCtrl list;
 	if(arc!=1 || arg[0]==NULL)
 		return -1;
-	list=cu_ctrl_list_from_type(CU_PAGE);
-	for(p=list;p!=NULL;p=p->tlist)
-	{
-		if(strcmp(arg[0],p->group))
-		{
-			cu_ctrl_show_self(p,0);
-		}
-		else
-		{
-			cu_ctrl_show_self(p,1);
-		}
-	}
+	cu_show_page(arg[0]);
 	return 0;
 }
 
@@ -812,6 +668,30 @@ void cu_show_page(const char *name)
 		}
 		else
 		{
+			if(!p->realized)
+			{
+				LXmlNode *child;
+				for(child=p->node->child;child!=NULL;child=child->next)
+				{
+					CUCtrl c;
+					c=cu_ctrl_new(p,child);
+					if(!c) continue;
+					c->next=p->child;
+					p->child=c;
+				}
+				p->realized=1;
+				if(p->group && p->group[0]>='0' && p->group[0]<='9')
+				{
+					const char *group=l_key_file_get_data(config,"IM",p->group);
+					if(group)
+					{
+						cu_ctrl_foreach(p,RenameIMGroup,(void*)group);
+					}
+				}
+				cu_ctrl_foreach(p,cu_init_all,NULL);
+				cu_ctrl_foreach(p,cu_init_all,NULL);
+				cu_ctrl_init_done(p);
+			}
 			cu_ctrl_show_self(p,1);
 		}
 	}
@@ -959,6 +839,13 @@ static int LoadSkinList(CUCtrl p,int arc,char **arg)
 	char **rlist=l_alloc0(128*sizeof(char*));
 	int count=0;
 	int use_user=0;
+
+	if(arc>0 && !strcmp(arg[0],"1"))
+	{
+		list[count]=cu_translate("无");
+		rlist[count]=l_strdup("");
+		count++;
+	}
 	
 	sprintf(skin,"%s/skin/skin.ini",y_im_get_path("DATA"));
 	if(l_file_exists(skin))
@@ -1028,16 +915,29 @@ static int PreviewSkin(CUCtrl p,int arc,char **arg)
 	LKeyFile *kf;
 
 	if(arc!=4)
+	{
 		return -1;
+	}
 	name=cu_ctrl_from_group(root,arg[0]);
 	style=cu_ctrl_from_group(root,arg[1]);
 	status=cu_ctrl_from_group(root,arg[2]);
 	input=cu_ctrl_from_group(root,arg[3]);
 	if(!name || !style || !status || !input)
+	{
 		return -1;
+	}
 	name_val=cu_ctrl_get_self(name);
 	if(!name_val)
+	{
 		return -1;
+	}
+	if(name_val[0]==0)
+	{
+		cu_ctrl_set_self(status,NULL);
+		cu_ctrl_set_self(input,NULL);
+		l_free(name_val);
+		return 0;
+	}
 	style_val=cu_ctrl_get_self(style);
 	
 	//printf("name %s style %s\n",name_val,style_val);
@@ -1126,8 +1026,9 @@ USER:
 	dir=l_dir_open(home);
 	if(dir!=0)
 	{
-		char *file,*sp;
-		while(count<56 && (file=(char*)l_dir_read_name(dir))!=NULL)
+		const char *file;
+		char *sp;
+		while(count<56 && (file=l_dir_read_name(dir))!=NULL)
 		{
 			if(l_file_is_dir(file))
 				continue;
@@ -1142,7 +1043,6 @@ USER:
 			}
 			if(i<count)
 			{
-				l_free(file);
 				continue;
 			}
 			list[count]=get_sp_name(file);

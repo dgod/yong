@@ -20,6 +20,7 @@ static void wm_move(CONN_ID conn_id,const char *title,int x,int y,int rel);
 static void wm_icon(CONN_ID conn_id,const char *icon1,const char *icon2);
 
 static YBUS_PLUGIN plugin={
+	.name="lcall",
 	.init=xim_init,
 	.getpid=xim_getpid,
 	.config=xim_config,
@@ -37,7 +38,8 @@ static YBUS_PLUGIN plugin={
 };
 
 typedef struct{
-	int dummy;
+	int pid;
+	int onspot;
 }YBUS_CLIENT_PRIV;
 
 typedef struct{
@@ -173,7 +175,7 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 		last_press=Key;
 		last_press_time=kev->time;
 	}
-	if(YK_CODE(Key)>=YK_LSHIFT && YK_CODE(Key)<=YK_RALT)
+	if(YK_CODE(Key)>=YK_LSHIFT && YK_CODE(Key)<=YK_RWIN)
 	{
 		bing=0;
 		l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
@@ -227,6 +229,8 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	case YK_RCTRL:
 	case YK_LSHIFT:
 	case YK_RSHIFT:
+	case KEYM_CTRL|YK_LWIN:
+	case KEYM_CTRL|YK_RWIN:
 	{
 		ybus_on_key(&plugin,yconn->id,client->id,Key);
 		//l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
@@ -322,6 +326,38 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	return 0;
 }
 
+static void init_client_priv(LCallConn *conn,YBUS_CLIENT *client)
+{
+#if !defined(_GNU_SOURCE)
+	return;
+#else
+	if(!client)
+		return;
+	YBUS_CLIENT_PRIV *priv=(YBUS_CLIENT_PRIV*)client->priv;
+	if(priv->pid)
+		return;
+	priv->pid=l_call_conn_peer_pid(conn);
+	if(priv->pid<=0)
+		return;
+	priv->onspot=-1;
+	LKeyFile *app=y_im_get_app_config_by_pid(priv->pid);
+	if(!app)
+	{
+		return;
+	}
+	const char *t=l_key_file_get_data(app,"IM","enable");
+	if(t && atoi(t)==0)
+	{
+		client->state=0;
+	}
+	t=l_key_file_get_data(app,"IM","onspot");
+	if(t)
+	{
+		priv->onspot=atoi(t);
+	}
+#endif
+}
+
 static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 {
 	YBUS_CONNECT *yconn;
@@ -361,7 +397,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		ret|=l_call_buf_get_val(buf,h);
 		if(ret!=0) return -1;
 		l_call_buf_get_val(buf,rel);
-		//fprintf(stderr,"cursor %d %d %d %d %d\n",x,y,w,h,rel);
+		// fprintf(stderr,"cursor %d %d %d %d %d\n",x,y,w,h,rel);
 #if 0
 		client->track=1;
 		client->x=x+w;
@@ -372,7 +408,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		if(active==client)
 			YongMoveInput(client->x,client->y);
 #else
-		ybus_on_cursor(&plugin,(CONN_ID)conn,client_id,x+w,y+h,rel);
+		ybus_on_cursor(&plugin,(CONN_ID)conn,client_id,x,y+h,rel);
 #endif
 	}
 	else if(!strcmp(name,"input"))
@@ -408,7 +444,8 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		ret=l_call_buf_get_val(buf,client_id);
 		if(ret!=0) return -1;
 		//printf("\t%u\n",client_id);
-		ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		YBUS_CLIENT *client=ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		init_client_priv(conn,client);
 		ybus_on_focus_in(&plugin,yconn->id,client_id);
 	}
 	else if(!strcmp(name,"focus_out"))
@@ -425,7 +462,8 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		ret=l_call_buf_get_val(buf,client_id);
 		if(ret!=0) return -1;
 		//printf("\t%u\n",client_id);
-		ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		YBUS_CLIENT *client=ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		init_client_priv(conn,client);
 		ybus_on_open(&plugin,yconn->id,client_id);
 	}
 	else if(!strcmp(name,"add_ic"))
@@ -433,7 +471,8 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		guint client_id;
 		ret=l_call_buf_get_val(buf,client_id);
 		if(ret!=0) return -1;
-		ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		YBUS_CLIENT *client=ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
+		init_client_priv(conn,client);
 	}
 	else if(!strcmp(name,"del_ic"))
 	{
@@ -471,7 +510,11 @@ int ybus_lcall_init(void)
 
 static int xim_getpid(CONN_ID conn_id)
 {
+#ifdef _GNU_SOURCE
+	return l_call_conn_peer_pid((LCallConn*)conn_id);
+#else
 	return 0;
+#endif
 }
 
 static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...)
@@ -515,15 +558,17 @@ static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id)
 
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 {
-	if(onspot)
+	YBUS_CLIENT_PRIV *priv=ybus_get_priv(&plugin,conn_id,client_id);
+	int preedit=onspot;
+	if(priv && priv->pid>0 && priv->onspot!=-1)
+	{
+		preedit=priv->onspot;
+	}
+	if(preedit)
 	{
 		char out[512];
 		y_im_str_encode(s,out,0);
 		l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,out);
-	}
-	else
-	{
-		//l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,"");
 	}
 	return 0;
 }

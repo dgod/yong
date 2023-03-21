@@ -2,49 +2,49 @@
 function copy_data(){
 	mkdir(["yong","yong/skin","yong/mb","yong/locale","yong/gnome-shell"]);
 	
-	exec("cp -f ../im/yong-tool.sh yong/yong-tool.sh");
+	cp('../im/yong-tool.sh','yong/');
 	exec("chmod a+x yong/yong-tool.sh");
-	exec("cp -f ../im/yong.ini yong");
-	exec("cp -f ../im/yong.xml yong");
-	exec("cp -rf ../im/skin/* yong/skin");
+	cp('../im/yong.ini','yong/');
+	cp('./im/yong.xml','yong/');
+	cp('../im/skin', 'yong/');
 	
 	exec("msgfmt -c ../im/gtk-im/zh_CN.po -o yong/locale/zh_CN.mo");
 	
-	exec("cp -f ../data/README.txt yong");
-	exec("cp -f ../data/yong.chm yong");
-	exec("cp -f ../data/keyboard.ini yong");
-	exec("cp -f ../data/bihua.bin yong");
-	exec("cp -f ../data/normal.txt yong");
-	exec("cp -f ../data/mb/wbx.txt yong/mb/wbx.txt");
-	exec("cp -f ../data/mb/wbx.ini yong/mb");
-	exec("cp -f ../data/mb/wbpy.ini yong/mb");
-	exec("cp -f ../data/mb/erbi.txt yong/mb");
-	exec("cp -f ../data/mb/zhengma.txt yong/mb");
-	exec("cp -f ../data/mb/english.txt yong/mb");
-	exec("cp -f ../data/mb/pinyin.ini yong/mb");
-	exec("cp -f ../data/mb/sp.ini yong/mb");
-	exec("cp -f ../data/mb/pinyin.txt yong/mb");
-	exec("cp -f ../data/mb/pypre.bin yong/mb");
-	exec("cp -f ../data/mb/yong.txt yong/mb");
-	exec("cp -rf ../data/entry yong/");
+	cp('../data/README.txt','yong/');
+	cp('../data/yong.chm', 'yong/');
+	cp('../data/keyboard.ini','yong/');
+	cp('../data/bihua.bin','yong/');
+	cp('../data/normal.txt','yong/');
+	cp('../data/mb/wbx.txt','yong/mb/');
+	cp('../data/mb/wbx.ini','yong/mb/');
+	cp('../data/mb/wbpy.ini','yong/mb/');
+	cp('../data/mb/erbi.txt','yong/mb/');
+	cp('../data/mb/zhengma.txt','yong/mb/');
+	cp('../data/mb/english.txt','yong/mb/');
+	cp('../data/mb/pinyin.ini','yong/mb/');
+	cp('../data/mb/sp.ini','yong/mb/');
+	cp('../data/mb/pinyin.txt','yong/mb/');
+	cp('../data/mb/pypre.bin','yong/mb/');
+	cp('../data/mb/yong.txt','yong/mb/');
+	cp('../data/entry','yong/');
 }
 
 function copy_build(build){
 	env("BUILD","=",build);
 	mkdir(["yong/$(BUILD)","yong/$(BUILD)/gtk-im"]);
-	exec("cp -f ../llib/$(BUILD)/libl.so yong/$(BUILD)");
-	exec("cp -f ../im/$(BUILD)-gtk2/yong yong/$(BUILD)/yong-gtk2");
-	exec("cp -f ../im/$(BUILD)-gtk3/yong yong/$(BUILD)/yong-gtk3");
-	exec("cp -f ../config/$(BUILD)-gtk2/yong-config yong/$(BUILD)/yong-config-gtk2");
-	exec("cp -f ../config/$(BUILD)-gtk3/yong-config yong/$(BUILD)/yong-config-gtk3");
-	exec("cp -f ../config/$(BUILD)-gtk4/yong-config yong/$(BUILD)/yong-config-gtk4");
-	exec("cp -f ../vim/$(BUILD)/yong-vim yong/$(BUILD)");
-	exec("cp -f ../mb/$(BUILD)/libmb.so yong/$(BUILD)");
-	exec("cp -f ../gbk/$(BUILD)/libgbk.so yong/$(BUILD)");
-	exec("cp -f ../cloud/$(BUILD)/libcloud.so yong/$(BUILD)");
-	exec("cp -f ../im/gtk-im/$(BUILD)-gtk2/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk2.so");
-	exec("cp -f ../im/gtk-im/$(BUILD)-gtk3/im-yong.so yong/$(BUILD)/gtk-im/im-yong-gtk3.so");
-	exec("cp -f ../im/gtk4-im/$(BUILD)-gtk4/libimyong.so yong/$(BUILD)/gtk-im/libimyong-gtk4.so");
+	cp('../llib/$(BUILD)/libl.so','yong/$(BUILD)');
+	cp('../im/$(BUILD)-gtk2/yong','yong/$(BUILD)/yong-gtk2');
+	cp('../im/$(BUILD)-gtk3/yong','yong/$(BUILD)/yong-gtk3');
+	cp('../config/$(BUILD)-gtk2/yong-config','yong/$(BUILD)/yong-config-gtk2');
+	cp('../config/$(BUILD)-gtk3/yong-config','yong/$(BUILD)/yong-config-gtk3');
+	cp('../config/$(BUILD)-gtk4/yong-config','yong/$(BUILD)/yong-config-gtk4');
+	cp('../vim/$(BUILD)/yong-vim','yong/$(BUILD)');
+	cp('../mb/$(BUILD)/libmb.so','yong/$(BUILD)');
+	cp('../gbk/$(BUILD)/libgbk.so','yong/$(BUILD)');
+	cp('../cloud/$(BUILD)/libcloud.so','yong/$(BUILD)');
+	cp('../im/gtk-im/$(BUILD)-gtk2/im-yong.so','yong/$(BUILD)/gtk-im/im-yong-gtk2.so');
+	cp('../im/gtk-im/$(BUILD)-gtk3/im-yong.so','yong/$(BUILD)/gtk-im/im-yong-gtk3.so');
+	cp('../im/gtk4-im/$(BUILD)-gtk4/libimyong.so','yong/$(BUILD)/gtk-im/libimyong-gtk4.so');
 
 	exec("strip yong/$(BUILD)/gtk-im/*.so");
 	exec("strip yong/$(BUILD)/*.so");

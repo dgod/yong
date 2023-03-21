@@ -57,7 +57,7 @@ static int GbkGetCandWords(int mode)
 {
 	int i;
 	
-	if(mode==PAGE_LEGEND)
+	if(mode==PAGE_ASSOC)
 		return IMR_PASS;
 
 	if(CandPageCount==0)

@@ -10,7 +10,6 @@ struct app_item{
 	char *exe;
 	LKeyFile *config;
 };
-L_HASH_STRING(app_item,struct app_item,exe);
 static void app_item_free(struct app_item *p)
 {
 	l_free(p->exe);
@@ -45,7 +44,7 @@ int y_im_load_app_config(void)
 		l_key_file_free(key_file);
 		return 0;
 	}
-	app=l_hash_table_new(count,(LHashFunc)app_item_hash,(LCmpFunc)app_item_cmp);
+	app=L_HASH_TABLE_STRING(struct app_item,exe);
 	int i;
 	for(i=0;i<count;i++)
 	{
@@ -69,6 +68,13 @@ int y_im_load_app_config(void)
 			if(!config)
 				config=l_key_file_load("",0);
 			l_key_file_set_int(config,"IM","enable",!atoi(val));
+		}
+		val=l_key_file_get_data(key_file,group,"onspot");
+		if(val && val[0])
+		{
+			if(!config)
+				config=l_key_file_load("",0);
+			l_key_file_set_int(config,"IM","onspot",atoi(val));
 		}
 		if(!config)
 			continue;
@@ -100,6 +106,8 @@ LKeyFile *y_im_get_app_config(const char *exe)
 }
 
 #ifdef _WIN32
+extern DWORD OSMajorVersion;
+static BOOL (WINAPI * p_QueryFullProcessImageNameW)(HANDLE hProcess,DWORD  dwFlags,LPWSTR  lpExeName,PDWORD lpdwSize);
 LKeyFile *y_im_get_app_config_by_pid(int pid)
 {
 	static int xp=-1;
@@ -107,6 +115,16 @@ LKeyFile *y_im_get_app_config_by_pid(int pid)
 	
 	if(!app)
 		return NULL;
+	if(OSMajorVersion>=6 && !p_QueryFullProcessImageNameW)
+	{
+		HINSTANCE hInst;
+		hInst=GetModuleHandle(_T("kernel32.dll"));
+		if(hInst)
+		{
+			p_QueryFullProcessImageNameW=(void*)GetProcAddress(hInst,"QueryFullProcessImageNameW");
+		}
+	}
+
 	if(xp==0)
 	{
 		h=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);
@@ -132,13 +150,27 @@ LKeyFile *y_im_get_app_config_by_pid(int pid)
 	if(h==NULL)
 		return NULL;
 	WCHAR wpath[256];
-	DWORD ret=GetModuleFileNameEx(h,NULL,wpath,255);
-	CloseHandle(h);
-	if(ret==0)
+	if(p_QueryFullProcessImageNameW)
 	{
-		return NULL;
+		DWORD size=255;
+		BOOL ret=p_QueryFullProcessImageNameW(h,0,wpath,&size);
+		if(ret!=TRUE)
+		{
+			printf("get name1 fail %ld\n",GetLastError());
+			return NULL;
+		}
 	}
-	wpath[ret]=0;
+	else
+	{
+		DWORD ret=GetModuleFileNameEx(h,NULL,wpath,255);
+		if(ret==0)
+		{
+			printf("get name fail %ld\n",GetLastError());
+			return NULL;
+		}
+		wpath[ret]=0;
+	}
+	CloseHandle(h);
 	char path[256],*p;
 	l_utf16_to_utf8(wpath,path,256);
 	p=strrchr(path,'\\');
@@ -149,7 +181,7 @@ LKeyFile *y_im_get_app_config_by_pid(int pid)
 	return y_im_get_app_config(p);
 }
 #else
-LKeyFile *y_im_get_app_config_get_pid(int pid)
+LKeyFile *y_im_get_app_config_by_pid(int pid)
 {
 	int ret;
 	char data[256];

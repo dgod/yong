@@ -112,3 +112,12 @@ void *l_slist_nth(void *h,int n)
 	return p;
 }
 
+void *l_slist_last(void *h)
+{
+	LSList *p=h;
+	if(!p)
+		return NULL;
+	for(;p->next!=NULL;p=p->next);
+	return p;
+}
+

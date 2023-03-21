@@ -1,6 +1,7 @@
 #ifndef _LMEM_H_
 #define _LMEM_H_
 
+#include "lmacros.h"
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
@@ -26,13 +27,27 @@
 #define l_free free
 #define l_strdup(p) strdup(p)
 
-#ifndef _WIN32
+#ifdef __ANDROID__
 #define l_strndup(p,n) strndup(p,n)
 #define l_alloca(s) alloca(s)
+#define l_strdupa(s) ((s)?strcpy(l_alloca(strlen(s)+1),(s)):NULL)
+#define l_strndupa(s,n) l_strncpy(l_alloca(n+1),(s),(n))
+#elif !defined(_WIN32)
+#define l_strndup(p,n) strndup(p,n)
+#define l_alloca(s) alloca(s)
+#define l_strdupa(s) ((s)?strdupa(s):NULL)
+#define l_strndupa(s,n) strndupa(s,n)
 #else
-void *l_strndup(const void *p,size_t n);
+#define l_strndup(s,n) l_strncpy(l_alloc(n+1),(s),(n))
 #define l_alloca(s) _alloca(s)
+#define l_strdupa(s) ((s)?strcpy(l_alloca(strlen(s)+1),(s)):NULL)
+#define l_strndupa(s,n) l_strncpy(l_alloca(n+1),(s),(n))
 #endif
+
+#define l_alloca0(s) memset(l_alloc(s),0,(s))
+#define l_newa(t) ((t*)l_alloc(sizeof(t)))
+#define l_newa0(t) ((t*)l_alloca0(sizeof(t)))
+#define l_memdupa(p,s) memcpy(l_alloca(s),p,s)
 
 #endif/*_LMEM_H_*/
 

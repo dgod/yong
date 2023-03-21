@@ -18,10 +18,6 @@ function run(target){
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});
-	if(ARCH=="l32")
-		process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
-	else
-		process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
 	begin();
 	cc(SRCS,OBJS);
 	end(function(){

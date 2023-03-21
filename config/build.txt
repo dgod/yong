@@ -2,7 +2,7 @@ var SRCS=['config_ui.c','config_main.c','translate.c',
 	'sync.c','gz.c','session.c','aes.c','update.c'];
 var SRCS_WIN=['config_win.c','lpng.c'];
 var SRCS_LIN=['config_gtk.c'];
-var DIRS=['l32-gtk2','l64-gtk2','l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',
+var DIRS=['l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',
 
 	];
 
@@ -10,8 +10,6 @@ env("VPATH+=$(TOPDIR)/config");
 env("CFLAGS+=$(LLIB_CFLAGS)");
 env("LDFLAGS+=$(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
-
-env("CFLAGS+=-DCFG_CUSTOM_XML");
 
 function run(target){
 	cd(target);
@@ -69,6 +67,8 @@ if(target=="clean"){
 	build(undefined,undefined,["l32-gtk2","l32-gtk3","l32-gtk4"]);
 } else if(target=="l64"){
 	build(undefined,undefined,["l64-gtk2","l64-gtk3","l64-gtk4"]);
+} else if(target=="test"){
+	cp('l64-gtk3/yong-config','../install/yong/l64/yong-config-gtk3');
 } else {
 	run(target);
 }

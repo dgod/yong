@@ -15,12 +15,14 @@ void l_dir_close(LDir *dir);
 const char *l_dir_read_name(LDir *dir);
 int l_mkdir(const char *name,int mode);
 int l_rmdir(const char *name);
+char **l_readdir(const char *path);
 int l_remove(const char *name);
 
 bool l_file_is_dir(const char *path);
 bool l_file_exists(const char *path);
 time_t l_file_mtime(const char *path);
 ssize_t l_file_size(const char *path);
+ssize_t l_filep_size(FILE *fp);
 
 int l_file_copy(const char *dst,const char *src,...);
 

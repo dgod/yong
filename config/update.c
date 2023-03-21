@@ -21,6 +21,9 @@
 
 const char *y_im_get_path(const char *type);
 
+static char server_host[32]="yong.dgod.net";
+static int server_port=80;
+
 typedef struct _FITEM{
 	char *file;
 	char *md5;
@@ -134,7 +137,7 @@ static LArray *build_remote_file_list(void)
 	snprintf(path,sizeof(path),"/sync/yong-lin.xml");
 #endif
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
@@ -231,7 +234,7 @@ static int download_remote_file(const FITEM *it)
 	snprintf(path,sizeof(path),"/sync/yong-lin/%s",file);
 #endif
 	ss=http_session_new();
-	http_session_set_host(ss,"yong.dgod.net",80);
+	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
@@ -368,10 +371,21 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+static void set_server(void)
+{
+	const char *t;
+	t=l_key_file_get_data(config,"sync","server");
+	if(!t)
+		return;
+	sscanf(t,"%31s %d",server_host,&server_port);
+}
+
 int UpdateMain(void)
 {
 	CUCtrl win;
 	LXml *custom;
+
+	set_server();
 	
 #ifdef _WIN32
 	WSADATA wsaData;

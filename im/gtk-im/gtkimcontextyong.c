@@ -7,7 +7,7 @@
 #include "yong.h"
 #include "ltricky.h"
 
-#define YONG_IGNORED_MASK		(1<<26)
+#define YONG_IGNORED_MASK		(1<<25)
 
 enum{
 	APP_NORMAL=0,
@@ -154,74 +154,74 @@ GtkIMContext *gtk_im_context_yong_new (void)
 
 static int check_app_type(void)
 {
-  int pid = getpid();
-  static const char *moz[]={"firefox", "thunderbird","seamonkey"};
+	int pid = getpid();
+	static const char *moz[]={"firefox", "thunderbird","seamonkey"};
 #if GTK_CHECK_VERSION(3,0,0)
-  static const char *electron[]={"electron","obsidian"};
+	static const char *electron[]={"electron","obsidian"};
 #endif
-  char tstr0[64];
-  char exec[256];
-  int i;
-  int type=APP_NORMAL;
-  sprintf(tstr0, "/proc/%d/exe", pid);
-  if ((i=readlink(tstr0, exec, sizeof(exec))) > 0)
-  {
-    exec[i]=0;
-	char *prog=strrchr(exec,'/');
-	if(prog!=NULL)
+	char tstr0[64];
+	char exec[256];
+	int i;
+	int type=APP_NORMAL;
+	sprintf(tstr0, "/proc/%d/exe", pid);
+	if ((i=readlink(tstr0, exec, sizeof(exec))) > 0)
 	{
-		prog++;
-	}
-    for(i=0; i < sizeof(moz)/sizeof(moz[0]); i++)
-    {
-      if(!strstr(exec, moz[i]))
-        continue;
-      type=APP_MOZILLA;
-      goto out;
-    }
+		exec[i]=0;
+		char *prog=strrchr(exec,'/');
+		if(prog!=NULL)
+		{
+			prog++;
+		}
+		for(i=0; i < sizeof(moz)/sizeof(moz[0]); i++)
+		{
+			if(!strstr(exec, moz[i]))
+				continue;
+			type=APP_MOZILLA;
+			goto out;
+		}
 #if GTK_CHECK_VERSION(3,0,0)
-	for(i=0; i < sizeof(electron)/sizeof(electron[0]); i++)
-    {
-      if(prog && !strcmp(prog, electron[i]))
-        continue;
-      type=APP_ELECTRON;
-      goto out;
-    }
+		for(i=0; i < sizeof(electron)/sizeof(electron[0]); i++)
+		{
+			if(prog && !strcmp(prog, electron[i]))
+				continue;
+			type=APP_ELECTRON;
+				goto out;
+		}
 #endif
-    if(strstr(exec,"geany"))
-    {
-		type=APP_GEANY;
-    	goto out;
+		if(strstr(exec,"geany"))
+		{
+			type=APP_GEANY;
+			goto out;
+		}
+		else if(strstr(exec,"gedit"))
+		{
+			type=APP_GEDIT;
+			goto out;
+		}
+		else if(strstr(exec,"sublime"))
+		{
+			type=APP_SUBLIME;
+			goto out;
+		}
+		else if(strstr(exec,"chromium-browser") || strstr(exec,"chrome")
+			||strstr(exec,"opera") || strstr(exec,"vivaldi"))
+		{
+			type=APP_CHROME;
+			goto out;
+		}
+		else if(strstr(exec,"gvim"))
+		{
+			type=APP_GVIM;
+			goto out;
+		}
+		else if(strstr(exec,"doublecmd"))
+		{
+			type=APP_DOUBLECMD;
+			goto out;
+		}
 	}
-	else if(strstr(exec,"gedit"))
-	{
-		type=APP_GEDIT;
-		goto out;
-	}
-	else if(strstr(exec,"sublime"))
-	{
-		type=APP_SUBLIME;
-		goto out;
-	}
-	else if(strstr(exec,"chromium-browser") || strstr(exec,"chrome")
-		||strstr(exec,"opera") || strstr(exec,"vivaldi"))
-	{
-		type=APP_CHROME;
-		goto out;
-	}
-	else if(strstr(exec,"gvim"))
-	{
-		type=APP_GVIM;
-		goto out;
-	}
-	else if(strstr(exec,"doublecmd"))
-	{
-		type=APP_DOUBLECMD;
-		goto out;
-	}
-  }
 out:
-  return type;
+	return type;
 }
 
 static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
@@ -496,25 +496,15 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEventKey *event)
 {
 	GtkIMContextYong *ctx=GTK_IM_CONTEXT_YONG(context);
-#if GTK_CHECK_VERSION(3,92,0)
-	int release=gdk_event_get_event_type((GdkEvent*)event)==GDK_KEY_RELEASE;
-#else
 	int release=(event->type == GDK_KEY_RELEASE);
-#endif
 	int key=0;
 	gboolean res=FALSE;
 	GdkModifierType state;
 	guint keyval;
 	guint32 event_time;
-#if GTK_CHECK_VERSION(3,92,0)
-	gdk_event_get_state((GdkEvent*)event,&state);
-	gdk_event_get_keyval((GdkEvent*)event,&keyval);
-	event_time=gdk_event_get_time((GdkEvent*)event);
-#else
 	state=event->state;
 	keyval=event->keyval;
 	event_time=event->time;
-#endif
 	if(_app_type==APP_DOUBLECMD && !ctx->has_focus)
 	{
 		goto END;
@@ -546,8 +536,8 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 			}
 		}
 		
-		//if(key==_trigger && !release)
-		//	printf("trigger %p %d\n",context,_enable);
+		// if(key==_trigger && !release)
+			// printf("trigger %p %d\n",context,_enable);
 
 		if(!_enable)
 		{
@@ -1025,7 +1015,7 @@ static int GetKey(guint KeyCode,guint KeyState)
 		ret|=KEYM_SHIFT;
 	if ((KeyState & GDK_MOD1_MASK) && KeyCode!=YK_LALT && KeyCode!=YK_RALT)
 		ret|=KEYM_ALT;
-	if ((KeyState & GDK_MOD4_MASK))
+	if ((KeyState & GDK_MOD4_MASK) && KeyCode!=YK_LWIN && KeyCode!=YK_RWIN)
 		ret|=KEYM_SUPER;
 	if(KeyState & GDK_MOD2_MASK)
 		ret|=KEYM_KEYPAD;
@@ -1121,13 +1111,9 @@ static guint16 lookup_keycode(GtkIMContextYong *ctx,guint keyval)
 	guint16 res=0;
 	if(keyval!=GDK_KEY_BackSpace)
 		return 0;
-#if GTK_CHECK_VERSION(3,92,0)
-	dpy=gtk_widget_get_display(ctx->client_window);
-#elif GTK_CHECK_VERSION(3,0,0)
 	if(ctx->client_window)
 		dpy=gdk_window_get_display(ctx->client_window);
 	else
-#endif
 		dpy=gdk_display_get_default();
 	if(!dpy) return 0;
 	km=gdk_keymap_get_default();
@@ -1140,16 +1126,6 @@ static guint16 lookup_keycode(GtkIMContextYong *ctx,guint keyval)
 	return res;
 }
 
-#if GTK_CHECK_VERSION(3,92,0)
-static GdkEventKey *
-_create_gdk_event (GtkIMContextYong *ctx,
-                   guint keyval,
-                   guint state)
-{
-	// TODO: gtk4 not provide api to create the event now
-	return NULL;
-}
-#else
 static GdkEventKey *
 _create_gdk_event (GtkIMContextYong *ctx,
                    guint keyval,
@@ -1179,14 +1155,12 @@ _create_gdk_event (GtkIMContextYong *ctx,
 #else
     if (keyval != GDK_KEY_VoidSymbol)
 #endif
-        c = gdk_keyval_to_unicode (keyval);
-
+ 	c = gdk_keyval_to_unicode (keyval);
     if (c) {
         gsize bytes_written;
         gint len;
 
-        /* Apply the control key - Taken from Xlib
-*/
+        /* Apply the control key - Taken from Xlib */
         if (event->state & GDK_CONTROL_MASK) {
             if ((c >= '@' && c < '\177') || c == ' ') c &= 0x1F;
             else if (c == '2') {
@@ -1234,7 +1208,6 @@ _create_gdk_event (GtkIMContextYong *ctx,
 out:
     return event;
 }
-#endif
 
 static void ForwardKey(GtkIMContextYong *ctx,int key)
 {
@@ -1245,13 +1218,8 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	if(key==CTRL_V && ctx->client_window)
 	{
 		GtkWidget *widget;
-#if GTK_CHECK_VERSION(3,92,0)
-		widget=ctx->client_window;
-		if(GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget))
-#else
 		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
 		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
-#endif
 		{
 			g_signal_emit_by_name(widget,"paste-clipboard",NULL);
 			return;
@@ -1260,13 +1228,8 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	if(key==YK_LEFT && ctx->client_window)
 	{
 		GtkWidget *widget;
-#if GTK_CHECK_VERSION(3,92,0)
-		widget=ctx->client_window;
-		if(GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget))
-#else
 		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
 		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
-#endif
 		{
 			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
 			return;
@@ -1301,11 +1264,10 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 		state|=GDK_SHIFT_MASK;
 	if(key & KEYM_UP)
 		state|=GDK_RELEASE_MASK;
-	
 	event=_create_gdk_event(ctx,keyval,state);
 	if(event!=NULL)
 	{
-		//gdk_event_put ((GdkEvent *)event);
-		//gdk_event_free ((GdkEvent *)event);
+		gdk_event_put ((GdkEvent *)event);
+		gdk_event_free ((GdkEvent *)event);
 	}
 }

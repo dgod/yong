@@ -56,6 +56,7 @@ static struct py_item py_all[]={
 	PY_ITEM('b','g',1,"beng"),
 	PY_ITEM('b','i',1,"bi"),
 	PY_ITEM('b','m',1,"bian"),
+	PY_ITEM('b','d',1,"biang"),
 	PY_ITEM('b','c',1,"biao"),
 	PY_ITEM('b','x',1,"bie"),
 	PY_ITEM('b','n',1,"bin"),
@@ -92,6 +93,7 @@ static struct py_item py_all[]={
 	PY_ITEM('i','s',2,"chong"),
 	PY_ITEM('i','b',2,"chou"),
 	PY_ITEM('i','u',2,"chu"),
+	PY_ITEM('i','w',2,"chua"),
 	PY_ITEM('i','y',2,"chuai"),
 	PY_ITEM('i','r',2,"chuan"),
 	PY_ITEM('i','d',2,"chuang"),
@@ -126,6 +128,7 @@ static struct py_item py_all[]={
 	PY_ITEM('e','e',0,"e"),
 	PY_ITEM('e','i',0,"ei"),
 	PY_ITEM('e','n',0,"en"),
+	PY_ITEM('e','g',0,"eng"),
 	PY_ITEM('e','r',0,"er"),
 	
 	PY_ITEM('f','a',1,"fa"),
@@ -335,6 +338,7 @@ static struct py_item py_all[]={
 	PY_ITEM('r','s',1,"rong"),
 	PY_ITEM('r','b',1,"rou"),
 	PY_ITEM('r','u',1,"ru"),
+	PY_ITEM('r','w',1,"rua"),
 	PY_ITEM('r','r',1,"ruan"),
 	PY_ITEM('r','v',1,"rui"),
 	PY_ITEM('r','p',1,"run"),
@@ -396,12 +400,12 @@ static struct py_item py_all[]={
 	PY_ITEM('t','v',1,"tui"),
 	PY_ITEM('t','p',1,"tun"),
 	PY_ITEM('t','o',1,"tuo"),
+	PY_ITEM('t','z',1,"tei"),
 	
 	PY_ITEM('w','a',1,"wa"),
 	PY_ITEM('w','l',1,"wai"),
 	PY_ITEM('w','j',1,"wan"),
 	PY_ITEM('w','h',1,"wang"),
-	PY_ITEM('w','k',1,"wao"),
 	PY_ITEM('w','z',1,"wei"),
 	PY_ITEM('w','f',1,"wen"),
 	PY_ITEM('w','g',1,"weng"),
@@ -620,7 +624,6 @@ void py_init(int split,char *sp)
 				}
 				res->val=shuang[0]<<8|shuang[1];
 				if(shuang[1]==';') sp_semicolon=1;
-				//printf("%s %s\n",shuang,quan);
 			}
 			fclose(fp);
 		}
@@ -785,12 +788,14 @@ static int py_parse_r(PY_PARSER *parser,const char *input,int len)
 					continue;
 				break;
 			}
+			if(!strcmp(p->quan,"rua") && (parser->count>0 || next))
+				continue;
 			if(!next || next==py_split)
 				break;
-			/* 下一个字母是iuv就可以认为前面的切分已经出错了 */
+			// 下一个字母是iuv就可以认为前面的切分已经出错了
 			if(strchr("iuv",next))
 				continue;
-
+			
 			if(!strcmp(p->quan+1,"iao") && !strncmp(input+p->len,"linpike",7))
 			{
 				i--;
@@ -895,6 +900,10 @@ static int py_parse_r(PY_PARSER *parser,const char *input,int len)
 					break;
 				}
 				if(!strcmp(input+p->len,"aoyun") || !strncmp(input+p->len,"aoyunhui",8))
+				{
+					break;
+				}
+				if(!strcmp(p->quan,"chuan"))
 				{
 					break;
 				}
@@ -1230,6 +1239,27 @@ int py_caret_to_pos(py_item_t *token,int count,int caret)
 	return pos;
 }
 
+int py_caret_next_item(py_item_t *token,int count,int caret)
+{
+	int i,pos,len;
+	int meet=0;
+	
+	for(i=0,pos=0;i<count && !meet;i++)
+	{
+		if(token[i]==&py_caret)
+			continue;
+		len=token[i]->len;
+		if(caret>=pos && caret<pos+len)
+		{
+			meet=1;
+		}
+		pos+=len;
+	}
+	if(i==count)
+		pos=0;
+	return pos;
+}
+
 int py_prepare_string(char *to,const char *from,int *caret)
 {
 	int i,count;
@@ -1297,7 +1327,9 @@ int py_conv_from_sp(const char *in,char *out,int size,int split)
 		{
 			p=*pp;
 			if(pos+p->len+1>size)
+			{
 				break;
+			}
 			memcpy(out+pos,p->quan,p->len);
 			pos+=p->len;
 			i++;
@@ -1363,6 +1395,22 @@ int py_sp_unlikely_jp(const char *in)
 		}
 	}
 	return 1;
+}
+
+int py_quanpin_maybe_jp(const py_item_t *token,int count)
+{
+	int i;
+	if(py_split!='\'')
+		return 0;
+	if(count==1)
+		return 0;
+	for(i=0;i<count-1;i++)
+	{
+		const py_item_t it=token[i];
+		if(it->yun==it->len)
+			return 1;
+	}
+	return 0;
 }
 
 /* 输入双拼和全拼中的位置，得到在双拼中的位置 */
@@ -1488,7 +1536,7 @@ int py_sp_has_semi(void)
 	return sp_semicolon;
 }
 
-static inline const char *hz_goto_next(const char *s,int *hz)
+static inline const char *hz_goto_next(const char *s,uint32_t *hz)
 {
 	if(gb_is_gbk((const uint8_t*)s))
 	{
@@ -1500,7 +1548,22 @@ static inline const char *hz_goto_next(const char *s,int *hz)
 		*hz=0;
 		return s+4;
 	}
-	return 0;
+	return NULL;
+}
+
+static inline const char *hz_goto_next2(const char *s,uint32_t *hz)
+{
+	if(gb_is_gbk((const uint8_t*)s))
+	{
+		*hz=*(uint16_t*)s;
+		return s+2;
+	}
+	else if(gb_is_gb18030_ext((const uint8_t*)s))
+	{
+		*hz=*(uint32_t*)s;
+		return s+4;
+	}
+	return NULL;
 }
 
 static inline int hz_get_first_code(int hz)
@@ -1538,7 +1601,7 @@ static inline int hz_get_first_code(int hz)
 
 int py_conv_to_sp(const char *s,const char *zi,char *out)
 {
-	int hz;
+	uint32_t hz;
 	int py[6];
 	int count;
 	struct py_item *it;
@@ -1622,48 +1685,157 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 	return -1;
 }
 
-#ifdef TOOLS_PARSE
-int main(int arc,char *arg[])
+int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint32_t,char *,void*),void *arg)
 {
-	py_init(0,0);
-	if(arc==2)
+	uint32_t hz;
+	int py[6];
+	int count;
+	struct py_item *it;
+	
+	/* 跳过第一个字 */
+	zi=hz_goto_next2(zi,&hz);
+	if(!zi)
 	{
-		py_item_t token[PY_MAX_TOKEN];
-		int count;
-		char display[MAX_DISPLAY];
-		count=py_parse_string(arg[1],token,0,NULL,NULL);
-		py_build_string(display,token,count);
-		printf("%s\n",display);
-		py_prepare_string(display,display,0);
-		count=py_parse_string(display,token,0,NULL,NULL);
-		py_build_string(display,token,count);
-		printf("%s\n",display);
-		py_conv_from_sp(arg[1],display,MAX_DISPLAY,' ');
-		printf("%s\n",display);
+		return -1;
 	}
-	else if(arc==3)
+	while(s[0]!=0 && zi!=NULL)
 	{
-		char temp[64];
-		char out[32];
-		int ret;
-		l_utf8_to_gb(arg[2],temp,sizeof(temp));
-		ret=py_conv_to_sp(arg[1],temp,out);
-		if(ret==0)
-			printf("%s\n",out);
+		const char *prev=zi;
+		zi=hz_goto_next2(zi,&hz);
+		count=py_tree_get(&py_index,s,py);
+		if(count<=0)
+		{
+			return -1;	// 分析错误
+		}
+		if(count==1)			// 不需要选择
+		{
+			it=py_all+py[0];
+			if(!it->quan[it->yun])
+				return -1;
+		}
+		else if(!zi || !hz)		// 没有更多信息，简单最长匹配
+		{
+			it=py_all+py[count-1];
+			if(!it->quan[it->yun])
+				return -1;
+		}
+		else if(count==2 && (py_all[py[0]].val&0xff)==0)	// 只有一个选项
+		{
+			it=py_all+py[1];
+			if(!it->quan[it->yun])
+				return -1;
+		}
+		else
+		{
+			char code[4];
+			int code_count=first_code(hz,code,arg);
+			if(code_count>0)			// 利用下一个字的编码信息
+			{
+				int index=count;
+				while(--index>=0)
+				{
+					it=py_all+py[index];
+					if((it->val & 0xff)==0)
+						break;
+					if(!strchr(code,s[it->len]))
+						continue;
+					int ret;
+					out[0]=(char)(it->val>>8);
+					out[1]=(char)(it->val);
+					ret=py_conv_to_sp2(s+it->len,prev,out+2,first_code,arg);
+					if(ret==0) return 0;
+				}
+				it=py_all+py[count-1];
+			}
+			else 				// 最长匹配
+			{
+				int index=count;
+				while(--index>=0)
+				{
+					int ret;
+					it=py_all+py[index];
+					if((it->val & 0xff)==0)
+						break;
+					out[0]=(char)(it->val>>8);
+					out[1]=(char)(it->val);
+					ret=py_conv_to_sp2(s+it->len,prev,out+2,first_code,arg);
+					if(ret==0) return 0;
+				}
+				return -1;
+			}
+		}
+		//printf("%s\n",it->quan);
+		s+=it->len;
+		/* 这里假设不出现简拼的情况 */
+		*out++=(char)(it->val>>8);
+		*out++=(char)(it->val);
+		if(!zi && (s[0]==0 || s[0]==' ' || s[0]=='\t'))
+		{
+			*out=0;
+			return 0;
+		}
 	}
-	return 0;
+	return -1;
 }
-#endif
 
-#ifdef TOOLS_SP
-int main(int arc,char *arg[])
+int py_jp_from_qp(const char *s,const char *zi,char *out)
 {
-	char temp[64];
-	py_init('\'',"zrm");
-	py_conv_from_sp("lt",temp,sizeof(temp),' ');
-	printf("%s\n",temp);
-	py_conv_from_sp("zhao",temp,sizeof(temp),' ');
-	printf("%s\n",temp);
-	return 0;
+	uint32_t hz;
+	int py[6];
+	int count;
+	struct py_item *it;
+		
+	while(s[0]!=0 && zi!=NULL)
+	{
+		zi=hz_goto_next(zi,&hz);
+		if(!zi)
+			return -1;
+		count=py_tree_get(&py_index,s,py);
+		
+		hz=gb_first_be((const uint8_t*)zi);
+		int code=hz?hz_get_first_code(hz):0;
+		int index=count;
+		while(--index>=0)
+		{
+			int ret;
+			it=py_all+py[index];
+			if((it->val & 0xff)==0)
+				break;
+			if(code && s[it->len]!=code)
+				continue;
+			out[0]=s[0];
+			ret=py_jp_from_qp(s+it->len,zi,out+1);
+			if(ret==0) return 0;
+		}
+		return -5;
+	}
+	if(!s[0] && !zi[0])
+	{
+		out[0]=0;
+		return 0;
+	}
+	return -6;
 }
-#endif
+
+int py_first_zrm_shen(const char *s)
+{
+	if(s[1]=='h')
+	{
+		if(s[0]=='c')
+			return 'i';
+		if(s[0]=='s')
+			return 'u';
+		if(s[0]=='z')
+			return 'v';
+	}
+	return s[0];
+}
+
+int py_item_len(py_item_t it)
+{
+	if(py_type!=0)
+		return -1;
+	return strlen(it->quan);
+}
+
+

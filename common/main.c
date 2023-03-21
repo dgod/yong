@@ -43,7 +43,7 @@ static int virt_key_add=KEYM_CTRL|YK_INSERT;
 static int virt_key_del=KEYM_CTRL|YK_DELETE;
 
 static int key_trigger=CTRL_SPACE;
-static int key_commit=YK_SPACE;
+int key_commit=YK_SPACE;
 int key_select[9];
 char key_select_n[11];
 static char **sym_select;
@@ -338,6 +338,7 @@ void update_main_window(void)
 	memset(&param,0,sizeof(param));
 
 	param.scale=l_key_file_get_int(ConfigSkin,"main","scale");
+	param.force_scale=l_key_file_get_data(ConfigSkin,"main","scale")?1:0;
 	tmp=(char *)l_key_file_get_data(ConfigSkin,"main","line_width");
 	if(!tmp)
 	{
@@ -364,6 +365,12 @@ void update_main_window(void)
 		l_sscanf(tmp,"%d,%d",&param.rc.w,&param.rc.h);
 		l_free(tmp);
 	}
+	if(param.rc.w==0 || param.rc.h==0)
+	{
+		param.scale=1;
+		param.force_scale=0;
+	}
+
 	tmp=y_im_get_config_string("main","pos");
 	if(tmp)
 	{
@@ -401,7 +408,10 @@ void update_main_window(void)
 			}
 			continue;
 		}
-		l_sscanf(tmp,"%d,%d",&btn.x,&btn.y);
+		if(2==l_sscanf(tmp,"%d,%d,%d,%d",&btn.x,&btn.y,&btn.w,&btn.h))
+		{
+			btn.w=btn.h=0;
+		}
 		l_free(tmp);
 		sprintf(key,"%s_font",main_btns[i].name);
 		btn.font=l_key_file_get_string(ConfigSkin,"main",key);
@@ -501,6 +511,7 @@ void update_input_window(void)
 
 	memset(&param,0,sizeof(param));
 	param.scale=l_key_file_get_int(ConfigSkin,"input","scale");
+	param.force_scale=l_key_file_get_data(ConfigSkin,"main","scale")?1:0;
 	tmp=(char *)l_key_file_get_data(ConfigSkin,"input","line_width");
 	if(!tmp)
 		param.line_width=1;
@@ -523,6 +534,27 @@ void update_input_window(void)
 		p=strtok(NULL,",");
 		param.bg[1]=p?l_strdup(p):NULL;
 		l_free(tmp);
+
+		tmp=l_key_file_get_string(ConfigSkin,"input","pad");
+		if(tmp)
+		{
+			int top,right,bottom,left;
+			i=sscanf(tmp,"%d,%d,%d,%d",&top,&right,&bottom,&left);
+			if(i>0)
+			{
+				if(i<2)
+					right=top;
+				if(i<3)
+					bottom=top;
+				if(i<4)
+					left=right;
+				param.pad[0]=(uint8_t)top;
+				param.pad[1]=(uint8_t)right;
+				param.pad[2]=(uint8_t)bottom;
+				param.pad[3]=(uint8_t)left;
+			}
+			l_free(tmp);
+		}
 	}
 	param.tran=l_key_file_get_int(ConfigSkin,"input","tran");
 	if(param.tran<0 || param.tran>255) param.tran=0;	
@@ -542,6 +574,20 @@ void update_input_window(void)
 		param.border=l_key_file_get_string(ConfigSkin,"input","border");
 		if(!param.border)
 			param.border=l_strdup("#CBCAE6");
+	}
+	else
+	{
+		tmp=l_key_file_get_string(ConfigSkin,"input","size");
+		if(tmp)
+		{
+			l_sscanf(tmp,"%d,%d",&param.w,&param.h);
+			l_free(tmp);
+		}
+		if(param.w==0 || param.h==0)
+		{
+			param.scale=1;
+			param.force_scale=0;
+		}
 	}
 	tmp=l_key_file_get_string(ConfigSkin,"input","msize");
 	if(tmp)
@@ -725,7 +771,6 @@ static void update_config_skin(void)
 					y_im_get_path("DATA"),NULL);
 		}
 	}
-
 	y_ui_skin_path(tmp);
 	l_free(tmp);
 }
@@ -848,7 +893,7 @@ void update_key_config(void)
 		s=y_im_get_im_config_string(i,"switch");
 		if(!s)
 			continue;
-		key_switch_to[i]=y_im_str_to_key(s);
+		key_switch_to[i]=y_im_str_to_key(s,NULL);
 		l_free(s);
 	}
 
@@ -1220,10 +1265,14 @@ static int YongCallDict(void)
 	EXTRA_IM *eim=YongCurrentIM();
 	
 	if(!eim) return 0;
-	if(!eim->CodeInput[0] && !eim->CandWordCount && key_dict!=ALT_ENTER)
+	if(!eim->CodeInput[0] && !eim->CandWordCount)
 	{
-		y_ui_get_select(call_dict_with_clipboard);
-		return 1;
+		if(key_dict!=ALT_ENTER)
+		{
+			y_ui_get_select(call_dict_with_clipboard);
+			return 1;
+		}
+		return 0;
 	}
 
 #if !defined(CFG_NO_DICT)
@@ -1384,6 +1433,13 @@ int YongHotKey(int key)
 	{
 		int d=y_im_get_config_int("IM","default");
 		YongSwitchIM(d);
+		char *name=y_im_get_im_name(im.Index);
+		if(name!=NULL)
+		{
+			if(tip_main)
+				y_ui_show_tip(YT("ÇÐ»»µ½£º%s"),name);
+			l_free(name);
+		}
 		return 1;
 	}
 #ifndef CFG_NO_REPLACE
@@ -1400,6 +1456,13 @@ int YongHotKey(int key)
 			if(key==key_switch_to[i])
 			{
 				YongSwitchIM(i);
+				char *name=y_im_get_im_name(im.Index);
+				if(name!=NULL)
+				{
+					if(tip_main)
+						y_ui_show_tip(YT("ÇÐ»»µ½£º%s"),name);
+					l_free(name);
+				}
 				return 1;
 			}
 		}
@@ -1418,7 +1481,7 @@ int YongHotKey(int key)
 	{ \
 		if(!strcmp(eim->StringGet,"$LAST")) \
 			strcpy(eim->StringGet,y_xim_get_last()); \
-		ret=eim->GetCandWords(PAGE_LEGEND); \
+		ret=eim->GetCandWords(PAGE_ASSOC); \
 		if(ret==IMR_DISPLAY) \
 		{ \
 			im.InAssoc=1; \
@@ -1462,7 +1525,10 @@ int YongKeyInput(int key,int mod)
 	int ret=IMR_NEXT;
 
 	id=y_xim_get_connect();
-	if(!id || !id->state) return 0;
+	if(!id || !id->state)
+	{
+		return 0;
+	}
 	if(id->corner==CORNER_FULL && id->lang==LANG_EN)
 	{
 		const char *ret;
@@ -1476,7 +1542,9 @@ int YongKeyInput(int key,int mod)
 	}
 	
 	if(id->lang==LANG_EN)
+	{
 		return 0;
+	}
 	if((kp_mode==0 || im.EnglishMode) && (key&KEYM_MASK))
 	{
 		key&=~KEYM_KEYPAD;
@@ -1964,7 +2032,7 @@ IMR_TEST:
 				}
 				if(im.EnglishMode && key>='1' && key<'1'+eim->CandWordCount)
 				{
-					char *p=eim->GetCandWord(key-'1');
+					const char *p=eim->GetCandWord(key-'1');
 					if(p!=NULL)
 					{
 						y_xim_send_string(p);
@@ -1987,6 +2055,8 @@ IMR_TEST:
 				y_im_history_write("\t");
 			else if(key=='\r')
 				y_im_history_write("\n");
+			else if(key=='\b')
+				y_im_history_write("\b");
 			if((key&KEYM_MASK)==KEYM_ALT && eim->CandWordCount==0 && !alt_bd_disable)
 			{
 				const char *s;
@@ -2145,8 +2215,16 @@ void YongUpdateMain(CONNECT_ID *id)
 	y_ui_button_show(UI_BTN_QUAN+id->corner,1);
 	y_ui_button_show(UI_BTN_QUAN+!id->corner,0);
 
-	y_ui_button_show(UI_BTN_CN_BIAODIAN+id->biaodian,1);
-	y_ui_button_show(UI_BTN_CN_BIAODIAN+!id->biaodian,0);
+	if(id->lang==LANG_EN)
+	{
+		y_ui_button_show(UI_BTN_CN_BIAODIAN+LANG_EN,1);
+		y_ui_button_show(UI_BTN_CN_BIAODIAN+LANG_CN,0);
+	}
+	else
+	{
+		y_ui_button_show(UI_BTN_CN_BIAODIAN+id->biaodian,1);
+		y_ui_button_show(UI_BTN_CN_BIAODIAN+!id->biaodian,0);
+	}
 	
 	y_ui_button_show(UI_BTN_SIMP+id->trad,1);
 	y_ui_button_show(UI_BTN_SIMP+!id->trad,0);
@@ -2158,8 +2236,8 @@ void YongUpdateMain(CONNECT_ID *id)
 void YongReloadAll(void)
 {
 	YongResetIM();
-	y_xim_update_config();
 	y_im_update_main_config();
+	y_xim_update_config();
 	update_config_skin();
 	update_main_window();
 	update_input_window();
@@ -2240,6 +2318,17 @@ static void signal_handler(int sig)
 	_exit(0);
 }
 
+#ifdef _WIN32
+static void fix_path_sep(char *s)
+{
+	for(int i=0;s[i]!=0;i++)
+	{
+		if(s[i]=='/')
+			s[i]='\\';
+	}
+}
+#endif
+
 int main(int arc,char *arg[])
 {
 	int mb_tool=0;
@@ -2262,11 +2351,6 @@ int main(int arc,char *arg[])
 #else
 			attach_console();
 #endif
-		}
-		else if(!strcmp(arg[i],"-s"))
-		{
-			y_im_setup_config();
-			return EXIT_SUCCESS;
 		}
 		else if(!strcmp(arg[i],"--ybus"))
 		{
@@ -2321,7 +2405,7 @@ int main(int arc,char *arg[])
 			if(ret==-1)
 			{
 				y_im_config_path();
-				char *argv[]={"./yong-config",NULL};
+				char *argv[]={"/usr/bin/yong-config",NULL};
 				g_spawn_async(NULL,argv,NULL,G_SPAWN_DEFAULT,NULL,NULL,NULL,NULL);
 			}
 #endif
@@ -2346,6 +2430,7 @@ int main(int arc,char *arg[])
 				int len=strlen(p);
 				if(len>4 && !strcmp(p+len-4,".bat"))
 					show=SW_HIDE;
+				fix_path_sep(p);
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
 			}			
 			else
@@ -2373,6 +2458,8 @@ int main(int arc,char *arg[])
 						param++;
 					}
 				}
+
+				fix_path_sep(cmd);
 				
 				SHELLEXECUTEINFOA info;
 				memset(&info,0,sizeof(info));
@@ -2415,7 +2502,6 @@ int main(int arc,char *arg[])
 #endif
 	}
 	
-	VERBOSE("ui init\n");
 
 	//clock_t start=clock();
 #ifdef CFG_XIM_FBTERM
@@ -2447,11 +2533,15 @@ int main(int arc,char *arg[])
 		y_im_module_close(handle);
 		return ret;
 	}
+	
+	VERBOSE("update main config\n");
+	y_im_update_main_config();
+
+	VERBOSE("ui init\n");
 	y_ui_init(xim);
 
-	VERBOSE("update main config\n");
-
-	y_im_update_main_config();
+	im.Index=y_im_get_config_int("IM","default");
+	y_im_async_init();
 	update_config_translate();
 	update_config_skin();
 	update_main_window();
@@ -2470,7 +2560,6 @@ int main(int arc,char *arg[])
 
 	VERBOSE("load soft keyboard\n");
 	y_kbd_init("keyboard.ini");
-	im.Index=y_im_get_config_int("IM","default");
 	
 	/* xim init should before update_im, but may have other problem */
 	VERBOSE("init xim\n");
@@ -2524,6 +2613,7 @@ int y_main_init(int index)
 		im.Index=index;
 	else
 		im.Index=y_im_get_config_int("IM","default");
+	y_im_async_init();
 	update_im();
 	return 0;
 }
@@ -2531,6 +2621,7 @@ int y_main_init(int index)
 void y_main_clean(void)
 {
 	YongDestroyIM();
+	y_im_async_destroy();
 	y_ui_clean();
 #ifndef CFG_NO_REPLACE
 	y_replace_free();

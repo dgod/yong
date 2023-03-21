@@ -1,10 +1,12 @@
 #include <llib.h>
 #include <string.h>
 #include "cset.h"
+#include "gbk.h"
 
 typedef struct _assoc_item{
 	struct _assoc_item *next;
 	char *phrase;
+	char *code;
 	int index;
 }ASSOC_ITEM;
 
@@ -19,6 +21,24 @@ static void assoc_item_free(ASSOC_ITEM *p)
 void cset_init(CSET *cs)
 {
 	memset(cs,0,sizeof(*cs));
+	cs->calc.size=Y_MB_DATA_CALC;
+
+	const char *s;
+	s=EIM.GetConfig(NULL,"assoc_len");
+	if(s!=NULL && atoi(s)>0)
+	{		
+		s=EIM.GetConfig(NULL,"assoc_adjust");
+		if(s!=NULL && atoi(s)>0)
+		{
+			s=EIM.GetConfig(NULL,"assoc_adjust_add");
+			if(s!=NULL)
+			{
+				cs->assoc_adjust_add=(short)atoi(s);
+			}
+			cs->calc.size=128;
+		}
+	}
+	cs->calc.phrase=l_calloc(cs->calc.size,MAX_CAND_LEN+1);
 }
 
 void cset_group_free(CSET_GROUP *g)
@@ -48,6 +68,7 @@ void cset_destroy(CSET *cs)
 {
 	cset_reset(cs);
 	l_array_free(cs->array.array,NULL);
+	l_free(cs->calc.phrase);
 }
 
 void cset_append(CSET *cs,CSET_GROUP *g)
@@ -247,13 +268,10 @@ CSET_GROUP_MB *cset_mb_group_new(CSET *cs,struct y_mb *mb,int count)
 void cset_mb_group_set(CSET *cs,struct y_mb *mb,int count)
 {
 	CSET_GROUP_MB *g=cset_mb_group_new(cs,mb,count);
-	if(g->count)
+	cset_append(cs,(CSET_GROUP*)g);
+	if(cs->assoc)
 	{
-		cset_append(cs,(CSET_GROUP*)g);
-		if(cs->assoc)
-		{
-			cset_apply_assoc(cs);
-		}
+		cset_apply_assoc(cs);
 	}
 }
 
@@ -318,8 +336,24 @@ int cset_array_group_append(CSET_GROUP_ARRAY *g,const char *cand,const char *cod
 	return 0;
 }
 
+static int cset_array_group_insert(CSET_GROUP_ARRAY *g,int n,const char *cand,const char *codetip)
+{
+	CSET_GROUP_ARRAY_ITEM item;
+	item.cand=l_strdup(cand);
+	item.codetip=codetip?l_strdup(codetip):NULL;
+	l_array_insert(g->array,n,&item);
+	g->count++;
+	return 0;
+}
+
 void cset_array_group_sort(CSET_GROUP_ARRAY *g,LCmpDataFunc cmp,void *arg)
 {
+	int i;
+	for(i=0;i<g->array->len;i++)
+	{
+		CSET_GROUP_ARRAY_ITEM *s=l_array_nth(g->array,i);
+		s->index=i;
+	}
 	l_array_sort_r(g->array,cmp,arg);
 }
 
@@ -337,19 +371,58 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 	for(i=0;i<count;i++)
 	{
 		char *p=CalcPhrase[i];
-		int len=strlen(p);
-		if((len&0x01))
-			continue;
-		for(j=2;j<=len;j+=2)
+		int len;
+		for(len=0;p[len]!=0;)
+		{
+			if(gb_is_gb18030_ext((const uint8_t*)(p+len)))
+			{
+				len+=4;
+			}
+			else if(((uint8_t*)p)[len]<0x80)
+			{
+				break;
+			}
+			else
+			{
+				len+=2;
+			}
+		}
+		for(j=(gb_is_gb18030_ext((const uint8_t*)p)?4:2);j<=len;j+=(gb_is_gb18030_ext((const uint8_t*)p+j)?4:2))
 		{
 			ASSOC_ITEM *it=l_new(ASSOC_ITEM);
 			it->phrase=l_strndup(p,j);
+			it->code=NULL;
 			it->index=i;
+			if(j==len && p[len])
+			{
+				it->code=l_strdup(p+len);
+				p[len]=0;
+
+				for(int k=1;;k++)
+				{
+					ASSOC_ITEM *it_code=l_new0(ASSOC_ITEM);
+					it_code->phrase=l_strndup(it->code,k);
+					if(!l_hash_table_insert(assoc,it_code))
+						assoc_item_free(it_code);
+					if(!it->code[k])
+						break;
+				}
+			}
 			if(!l_hash_table_insert(assoc,it))
 				assoc_item_free(it);
 		}
 	}
 	cs->assoc=assoc;
+}
+
+int cset_has_assoc(CSET *cs,const char *code)
+{
+	if(!cs || !cs->assoc || !code)
+		return 0;
+	ASSOC_ITEM *it=l_hash_table_lookup(cs->assoc,code);
+	if(!it)
+		return 0;
+	return 1;
 }
 
 void *cset_get_group_by_type(CSET *cs,int type)
@@ -371,14 +444,12 @@ static int cmp_with_assoc(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY
 	{
 		if(!it2)
 		{
-			if(s1>s2)
-				return 1;
-			else if(s1<s2)
-				return -1;
-			return 0;
+			return s1->index-s2->index;
 		}
 		else
+		{
 			return 1;
+		}
 	}
 	if(!it2)
 	{
@@ -428,10 +499,43 @@ out:
 	if(ga->count<=1)
 	{
 		ga->free((CSET_GROUP*)ga);
-		return;
+		ga=cset_array_group_new(cs);
 	}
-	cset_array_group_sort(ga,(LCmpDataFunc)cmp_with_assoc,cs->assoc);
+	else
+	{
+		cset_array_group_sort(ga,(LCmpDataFunc)cmp_with_assoc,cs->assoc);
+		cset_group_offset((CSET_GROUP*)gmb,ga->count);
+	}
+	if(gmb && gmb->mb && cs->assoc_adjust_add!=0)
+	{
+		const char *code=EIM.CodeInput;
+		int code_len=strlen(code);
+		int add=cs->assoc_adjust_add;
+		LHashIter iter;
+		int n=0;
+		l_hash_iter_init(&iter,cs->assoc);
+		while(!l_hash_iter_next(&iter))
+		{
+			ASSOC_ITEM *it=l_hash_iter_data(&iter);
+			if(!it->code)
+				continue;
+			int len=strlen(it->code);
+			if(add==-1 && len!=code_len && gmb->count>0)
+				continue;
+			if(add>1 && gmb->count>0 && code_len<add && len!=code_len)
+				continue;
+			if(!strncmp(it->code,code,code_len))
+			{
+				cset_array_group_insert(ga,n++,it->phrase,it->code+code_len);
+			}
+
+		}
+		if(ga->count==0)
+		{
+			ga->free((CSET_GROUP*)ga);
+			return;
+		}
+	}
 	cs->list=l_slist_insert_before(cs->list,gmb,ga);
-	cset_group_offset((CSET_GROUP*)gmb,ga->count);
 }
 

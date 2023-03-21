@@ -86,7 +86,14 @@ int64_t ybus_now(void)
 
 static void xim_ybus_update_config(void)
 {
+	YBUS_PLUGIN *p,*n;
+	onspot=y_im_get_config_int("IM","onspot");
 	def_lang=y_im_get_config_int("IM","lang");
+	for(p=plugin_list;p!=NULL;p=n)
+	{
+		n=p->next;
+		p->config(0,0,"onspot",onspot);
+	}
 }
 
 YBUS_CONNECT *ybus_find_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
@@ -141,6 +148,8 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	conn->corner=CORNER_HALF;
 	conn->trad=im.TradDef;
 	conn->alive=now;
+	if(plugin->getpid)
+		conn->pid=plugin->getpid(conn_id);
 	conn_list=l_slist_prepend(conn_list,conn);
 	
 	ybus_recycle_connect(now);
@@ -175,6 +184,8 @@ void ybus_free_connect(YBUS_CONNECT *conn)
 
 YBUS_CLIENT *ybus_find_client(YBUS_CONNECT *conn,CLIENT_ID client_id)
 {
+	if(!conn)
+		return NULL;
 	YBUS_PLUGIN *plugin=conn->plugin;
 	YBUS_CLIENT *p;
 	if(conn->active)
@@ -347,7 +358,7 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	time_t now;
 	
 	conn=ybus_find_connect(plugin,conn_id);
-	//printf("focus in %p\n",conn);
+	//printf("focus in %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 	{
 		return 0;
@@ -384,7 +395,7 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YBUS_CLIENT *client;
 	
 	conn=ybus_find_connect(plugin,conn_id);
-	//printf("focus out %p\n",conn);
+	//printf("focus out %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 		return 0;
 	if(conn_active!=conn)
@@ -588,7 +599,7 @@ static int get_process_list(int list[],int max)
 {
 	struct dirent **namelist;
 	int count,i,n;
-	n=scandir("/proc",&namelist,process_filter,alphasort);
+	n=scandir("/proc",&namelist,process_filter,NULL);
 	if(n<0) return 0;
 	count=MIN(n,max);
 	for(i=0;i<n;i++)
@@ -599,6 +610,7 @@ static int get_process_list(int list[],int max)
 		free(d);
 	}
 	free(namelist);
+	qsort(list,count,sizeof(int),(LCmpFunc)process_compare);
 	return count;
 }
 #endif
@@ -814,6 +826,7 @@ int y_xim_init_default(Y_XIM *x)
 	ybus_xim_init();
 	ybus_lcall_init();
 	ybus_ibus_init();
+
 
 	x->init=xim_ybus_init;
 	x->destroy=xim_ybus_destroy;

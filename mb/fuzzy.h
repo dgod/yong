@@ -1,8 +1,16 @@
 #pragma once
 
+#include <stdint.h>
+
+enum{
+	FUZZY_DEFAULT,
+	FUZZY_FORCE,			// 目标不存在时，是否强制添加
+	FUZZY_CORRECT,			// 只用于编码校正
+};
+
 typedef struct{
 	char code[8];			// 目标编码
-	char force;				// 目标不存在时，是否强制添加
+	uint8_t mode; 
 }FUZZY_TO;
 
 typedef struct{
@@ -19,3 +27,5 @@ FUZZY_TABLE *fuzzy_table_load(const char *file);
 void fuzzy_table_free(FUZZY_TABLE *ft);
 FUZZY_ITEM *fuzzy_table_lookup(FUZZY_TABLE *ft,const char *code);
 LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split);
+int fuzzy_correct(FUZZY_TABLE *ft,char *s,int len);
+

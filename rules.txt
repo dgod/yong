@@ -18,6 +18,8 @@ if(BUILD=="w32"){
 	env("CC=$(CROSS_COMPILE)gcc -m32 -march=i686");
 	env("CXX=$(CROSS_COMPILE)g++ -m32");
 	env("PICFLAGS=-fPIC");
+	if(os.platform()=='linux')
+		env("CFLAGS+=-D_GNU_SOURCE");
 	process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
 }else if(BUILD=="w64"){
 	env("CROSS_COMPILE=x86_64-w64-mingw32-");
@@ -35,6 +37,8 @@ if(BUILD=="w32"){
 	//env("CC=clang -m64");
 	env("CXX=$(CROSS_COMPILE)g++ -m64");
 	env("PICFLAGS=-fPIC");
+	if(os.platform()=='linux')
+		env("CFLAGS+=-D_GNU_SOURCE");
 	process.env.PKG_CONFIG_PATH="/usr/lib64/pkgconfig";
 }else if(BUILD=="js"){
 	env("LDFLAGS+=-m32");

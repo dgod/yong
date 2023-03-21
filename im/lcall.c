@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 	
 #include "lcall.h"
 #include "ltricky.h"
@@ -158,6 +160,23 @@ int l_call_buf_write(LCallBuf *buf,const void *data,size_t size)
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+
+int l_call_conn_peer_pid(LCallConn *conn)
+{
+#ifdef _GNU_SOURCE
+	int fd=g_io_channel_unix_get_fd(conn->ch);
+	if(fd==-1)
+		return -1;
+	struct ucred cr;
+	socklen_t cr_len = sizeof (cr);
+	int ret=getsockopt(fd,SOL_SOCKET,SO_PEERCRED,&cr,&cr_len);
+	if(ret!=0)
+		return 0;
+	return cr.pid;
+#else
+	return 0;
+#endif
+}
 
 void l_call_conn_free(LCallConn *conn)
 {

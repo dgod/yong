@@ -1,4 +1,5 @@
-var SRCS=['mb.c','face.c','pinyin.c','learn.c','legend.c','pyzip.c','trie.c','fuzzy.c','cset.c'];
+var SRCS=['mb.c','face.c','pinyin.c','learn.c','legend.c','pyzip.c',
+	'trie.c','fuzzy.c','cset.c','sentence.c'];
 var DIRS=['l32','l64',
 
 	];
@@ -39,6 +40,8 @@ if(target=="clean"){
 	rmdir(DIRS,'*');
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
+} else if(target=="test"){
+	exec("install l64/libmb.so ../install/yong/l64/");
 } else {
 	run(target);
 }

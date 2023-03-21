@@ -381,7 +381,7 @@ static int BihuaGetCandWords(int mode)
 
 	if(EIM.CandPageCount==0)
 		return IMR_NEXT;
-	if(mode==PAGE_LEGEND)
+	if(mode==PAGE_ASSOC)
 		return IMR_NEXT;
 	if(mode==PAGE_FIRST) EIM.CurCandPage=0;
 	else if(mode==PAGE_NEXT) EIM.CurCandPage++;

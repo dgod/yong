@@ -438,6 +438,8 @@ static int GetKey(int sym,int modifiers)
 	case XKB_KEY_Control_R:
 	case XKB_KEY_Alt_L:
 	case XKB_KEY_Alt_R:
+	case XKB_KEY_Super_L:
+	case XKB_KEY_Super_R:
 		res=sym&0xff;
 		break;
 	case XKB_KEY_F1 ... XKB_KEY_F12:

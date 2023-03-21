@@ -18,6 +18,7 @@ static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
+	.name="ibus",
 	.init=xim_init,
 	.getpid=xim_getpid,
 	.config=xim_config,
@@ -235,7 +236,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 			yong->last_press_time=y_im_tick();
 		yong->last_press=key;
 	}
-	if(key>=YK_LSHIFT && key<=YK_RALT)
+	if(key>=YK_LSHIFT && key<=YK_RWIN)
 	{
 		if(!(modifiers & IBUS_RELEASE_MASK))
 			return FALSE;
