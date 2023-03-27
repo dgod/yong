@@ -1488,7 +1488,7 @@ LIST:
 		while(count<=0)
 		{
 			int full=y_mb_is_full(mb,EIM.CodeLen);
-			if(key==key_select2 || key==key_select3 || strchr(mb->key0,key))
+			if((key==key_select2 && EIM.CandWordCount>=2) || (key==key_select3 && EIM.CandWordCount>=3) || strchr(mb->key0,key))
 			{
 				EIM.CodeInput[--EIM.CodeLen]=0;
 				return IMR_NEXT;

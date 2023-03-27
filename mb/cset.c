@@ -68,7 +68,9 @@ void cset_destroy(CSET *cs)
 {
 	cset_reset(cs);
 	l_array_free(cs->array.array,NULL);
+	cs->array.array=NULL;
 	l_free(cs->calc.phrase);
+	cs->calc.phrase=NULL;
 }
 
 void cset_append(CSET *cs,CSET_GROUP *g)

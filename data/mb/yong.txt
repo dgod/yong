@@ -4189,6 +4189,7 @@ dcbo 调拨
 dcd 凋
 dcdb 大操大办 大慈大悲
 dcdk 调到 掉到
+dcdl 吊带
 dcdn 大吵大闹
 dcds 调动
 dcdu 调度
@@ -16292,7 +16293,7 @@ juvg 举证
 juvh 局长
 juvi 举止 桔汁
 juvk 剧照
-juvl 举债 降水量
+juvl 举债 降水量 举手之劳
 juvm 举世瞩目
 juvs 居中 举重 剧种 剧终 聚众 剧中
 juvu 居住 巨著
@@ -20384,6 +20385,7 @@ lmg 廉
 lmge 连个
 lmgh 炼钢
 lmgj 另谋高就 廉
+lmgo 练过 连过
 lmgr 连贯
 lmgs 练功
 lmh 炼
@@ -22806,6 +22808,7 @@ mjo 曼 瞒
 mjol 瞒
 mjoy 曼
 mjpj 满盘
+mjpk 慢跑
 mjpy 满屏
 mjqd 满腔
 mjqi 满期
@@ -41399,6 +41402,7 @@ wfvu 稳住 文竹
 wfw 紊 刎 文
 wfwd 刎
 wfwf 问问 稳稳
+wfwj 问完 文玩 温婉
 wfwo 问我
 wfwt 无法无天
 wfwu 文物 文武
@@ -49614,6 +49618,7 @@ ywgv 医务工作者
 ywjy 义务教育
 ywjz 咬文嚼字
 ywkl 依我看来
+ywlc 语无伦次
 ywld 义务劳动
 ywlk 依我来看
 ywlx 意外险 业务联系

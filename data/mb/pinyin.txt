@@ -5542,7 +5542,6 @@ daochunhan 倒春寒
 daoci 到此 悼词
 daociweizhi 到此为止
 daoda 到达
-daodai 吊带
 daodan 导弹 捣蛋
 daodayipa 倒打一耙
 daode 道德
@@ -6143,6 +6142,7 @@ diaochayanjiu 调查研究
 diaochazu 调查组
 diaochongxiaoji 雕虫小技
 diaochu 调出
+diaodai 吊带
 diaodao 掉到 调到
 diaodi 调低
 diaodong 调动
@@ -11032,6 +11032,7 @@ hebeisheng 河北省
 hebi 何必
 hebian 河边
 hebing 合并
+hebu 何不
 hebulong 合不拢
 hebushiroumi 何不食肉糜
 hecai 喝彩
@@ -15601,6 +15602,7 @@ jushou 举手 拒收 据守 聚首
 jushougong 居首功
 jushoutouzu 举手投足
 jushouwei 居首位
+jushouzhilao 举手之劳
 jushu 拘束
 jushuo 据说
 jusuo 居所
@@ -18062,6 +18064,7 @@ liangtong 量筒
 liangtou 两头
 liangtui 两腿
 lianguan 连贯
+lianguo 练过 连过
 lianguoduan 连锅端
 liangwan 两万
 liangwei 两位
@@ -20123,6 +20126,7 @@ manmu 满目
 mannaozi 满脑子
 manniu 蛮牛
 manpan 满盘
+manpao 慢跑
 manping 满屏
 manqi 满期
 manqiang 满腔
@@ -35217,6 +35221,7 @@ wentishaonian 问题少年
 wentishi 问题是
 wentizaiyu 问题在于
 wentuo 稳妥
+wenwan 问完 文玩 温婉
 wenwen 问问 稳稳
 wenwenerya 温文尔雅
 wenwo 问我
@@ -37967,6 +37972,7 @@ xinxingchanye 新兴产业
 xinxingshi 新形势 新形式
 xinxingshichang 新兴市场
 xinxinkuku 辛辛苦苦
+xinxinniannian 心心念念
 xinxinxiangrong 欣欣向荣
 xinxinxiangyin 心心相印
 xinxiong 心胸
@@ -42591,6 +42597,7 @@ yuweiwen 鱼尾纹
 yuwen 语文 宇文
 yuwengdeli 渔翁得利
 yuwo 与我
+yuwulunci 语无伦次
 yuxi 预习 语系 遇袭
 yuxia 余下 鱼虾 余暇
 yuxian 预先 遇险

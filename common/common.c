@@ -2183,7 +2183,10 @@ void y_im_module_close(void *mod)
 #ifdef _WIN32
 	FreeLibrary(mod);
 #else
-	dlclose(mod);
+	if(0!=dlclose(mod))
+	{
+		perror("dlclose");
+	}
 #endif
 }
 

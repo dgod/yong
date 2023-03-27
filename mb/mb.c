@@ -82,6 +82,7 @@ static void mb_slice_init(int n,...)
 		ms->block=block;
 		ms->left+=init;
 		ms->step=MAX(ms->step,step);
+		ms->idle=NULL;
 	}
 	va_end(ap);
 	for(i=0;i<MB_SLICE_COUNT;i++)
