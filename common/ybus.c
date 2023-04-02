@@ -148,9 +148,9 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	conn->corner=CORNER_HALF;
 	conn->trad=im.TradDef;
 	conn->alive=now;
+	conn_list=l_slist_prepend(conn_list,conn);
 	if(plugin->getpid)
 		conn->pid=plugin->getpid(conn_id);
-	conn_list=l_slist_prepend(conn_list,conn);
 	
 	ybus_recycle_connect(now);
 	return conn;
@@ -537,6 +537,11 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		wm_focus.x=(int)(int16_t)(param&0xffff);
 		wm_focus.valid=1;
 		//fprintf(stderr,"focus %d %d\n",wm_focus.x,wm_focus.y);
+		break;
+	}
+	case YBUS_TOOL_RELOAD_ALL:
+	{
+		YongReloadAll();
 		break;
 	}
 	default:

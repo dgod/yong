@@ -14,6 +14,7 @@ static void assoc_item_free(ASSOC_ITEM *p)
 {
 	if(!p)
 		return;
+	free(p->code);
 	free(p->phrase);
 	free(p);
 }
@@ -26,8 +27,10 @@ void cset_init(CSET *cs)
 	const char *s;
 	s=EIM.GetConfig(NULL,"assoc_len");
 	if(s!=NULL && atoi(s)>0)
-	{		
+	{
 		s=EIM.GetConfig(NULL,"assoc_adjust");
+		if(s!=NULL)
+			cs->assoc_adjust=atoi(s);	
 		if(s!=NULL && atoi(s)>0)
 		{
 			s=EIM.GetConfig(NULL,"assoc_adjust_add");
@@ -364,7 +367,7 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 	if(cs->assoc)
 	{
 		l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
-		cs->assoc=0;
+		cs->assoc=NULL;
 	}
 	if(count<=0)
 		return;
@@ -391,6 +394,8 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 		}
 		for(j=(gb_is_gb18030_ext((const uint8_t*)p)?4:2);j<=len;j+=(gb_is_gb18030_ext((const uint8_t*)p+j)?4:2))
 		{
+			if(cs->assoc_adjust==2 && j!=len)
+				continue;
 			ASSOC_ITEM *it=l_new(ASSOC_ITEM);
 			it->phrase=l_strndup(p,j);
 			it->code=NULL;
@@ -399,6 +404,11 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 			{
 				it->code=l_strdup(p+len);
 				p[len]=0;
+				if(l_hash_table_find(assoc,it)!=NULL)
+				{
+					assoc_item_free(it);
+					continue;
+				}
 
 				for(int k=1;;k++)
 				{

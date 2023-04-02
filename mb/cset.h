@@ -60,6 +60,7 @@ typedef struct _cset{
 	CSET_GROUP_ARRAY array;
 
 	LHashTable *assoc;
+	short assoc_adjust;
 	short assoc_adjust_add;
 }CSET;
 

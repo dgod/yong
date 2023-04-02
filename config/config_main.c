@@ -7,8 +7,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <wchar.h>
+#include <conio.h>
 #else
 #include <unistd.h>
+#include <glib.h>
 #endif
 
 #include "custom.c"
@@ -322,6 +324,67 @@ int y_im_set_exec(void)
 	return 0;
 }
 
+int GetSetConfigMain(int argc,char **argv)
+{
+	int i;
+	int reload=0;
+	int set=0;
+#ifdef _WIN32
+	BOOL console=AttachConsole((DWORD)-1);
+#endif
+	for(i=0;i<argc;i++)
+	{
+		if(!strcmp(argv[i],"--get") && i+2<argc)
+		{
+			const char *group=argv[++i];
+			const char *key=argv[++i];
+			char *val=l_key_file_get_string(config,group,key);
+			if(!val)
+				return -1;
+			printf("%s\n",val);
+#ifdef _WIN32
+			if(console)
+				_cprintf("%s\n",val);
+#endif
+			l_free(val);
+		}
+		else if(!strcmp(argv[i],"--set") && i+3<argc)
+		{
+			set++;
+			const char *group=argv[++i];
+			const char *key=argv[++i];
+			const char *val=argv[++i];
+			l_key_file_set_string(config,group,key,val);
+		}
+		else if(!strcmp(argv[i],"--reload"))
+		{
+			reload=1;
+		}
+		else
+		{
+			return -2;
+		}
+	}
+	if(set)
+	{
+		cu_config_save();
+		if(reload)
+		{
+#ifdef _WIN32
+	#ifdef _WIN64
+			ShellExecute(NULL,L"open",L"w64\\yong-vim.exe",L"--reload-all",NULL,SW_SHOWNORMAL);
+	#else
+			ShellExecute(NULL,L"open",L"yong-vim.exe",L"--reload-all",NULL,SW_SHOWNORMAL);
+	#endif
+#else
+
+			g_spawn_command_line_async("./yong-vim --reload-all",NULL);
+#endif
+		}
+	}
+	return 0;
+}
+
 int main(int arc,char *arg[])
 {
 	CUCtrl win;
@@ -350,6 +413,10 @@ int main(int arc,char *arg[])
 		else if(!strcmp(arg[i],"--update"))
 		{
 			return UpdateMain();
+		}
+		else if(!strcmp(arg[i],"--get") || !strcmp(arg[i],"--set"))
+		{
+			return GetSetConfigMain(arc-1,arg+i);
 		}
 	}
 	

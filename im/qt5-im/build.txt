@@ -26,19 +26,17 @@ function run(target){
 		env("CFLAGS+=-I/usr/include/qt6/QtCore -I/usr/include/qt6 -I/usr/include/qt6/QtGui");
 	}
 		
-	if(VER==5){
-		var QT_VER=shell(`pkg-config --modversion Qt${VER}Core`);
-		env("LIBS+=`pkg-config --libs Qt5Core Qt5Gui glib-2.0`");
-	}else{
-		var QT_VER=shell(`pkg-config --modversion Qt${VER}`);
-		env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lglib-2.0`);
-	}
+	var QT_VER=shell(`pkg-config --modversion Qt${VER}Core`);
+	env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lglib-2.0`);
+
 	env("QT_VER+="+QT_VER);
 	env("LIBS+=-ldl -lstdc++");
 	if(VER==5){
 		//var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
 		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}Core`);
 		var MOC=LIBDIR+'/qt5/bin/moc';
+		if(!fs.existsSync(MOC))
+			MOC='/usr/bin/moc';
 	}else{
 		var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
 		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}`);

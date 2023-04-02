@@ -30,12 +30,12 @@ if(BUILD=="w32"){
 	env("CC=$(CROSS_COMPILE)gcc");
 	env("CXX=$(CROSS_COMPILE)g++");
 }else if(BUILD=="l64"){
-	env("LDFLAGS+=-Wl,--hash-style=sysv -m64");
+	env("LDFLAGS+=-Wl,--hash-style=sysv");
 	env("EXE=");
 	env("DESTDIR=.");
-	env("CC=$(CROSS_COMPILE)gcc -m64");
+	env("CC=$(CROSS_COMPILE)gcc");
 	//env("CC=clang -m64");
-	env("CXX=$(CROSS_COMPILE)g++ -m64");
+	env("CXX=$(CROSS_COMPILE)g++");
 	env("PICFLAGS=-fPIC");
 	if(os.platform()=='linux')
 		env("CFLAGS+=-D_GNU_SOURCE");

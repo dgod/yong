@@ -624,7 +624,7 @@ function detect_arch()
 		if [ $HOST_MACHINE -eq 64 ] ; then
 			HOST_TRIPLET64=aarch64
 		fi
-	elif [ "$ARCH" = "loongarch" -o "$ARCH" = "loongarch64"] ; then
+	elif [ "$ARCH" = "loongarch" -o "$ARCH" = "loongarch64" ] ; then
 		HOST_ARCH=loongarch
 		HOST_TRIPLET32=loongarch
 		if [ $HOST_MACHINE -eq 64 ] ; then
@@ -672,7 +672,7 @@ function detect_path()
 			if [ -e /lib/ld-linux.so.2 ] ; then
 				PATH_LIB32=/usr/lib
 			fi
-			if [ -e /lib64/ld-linux-x86-64.so.2 ] ; then
+			if [ -e /lib64/ld-linux-x86-64.so.2 -o /lib64/ld-linux-loongarch-lp64d ] ; then
 				PATH_LIB64=/usr/lib64
 			fi
 			if [ -d /usr/lib32 ]; then

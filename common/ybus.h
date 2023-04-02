@@ -69,6 +69,7 @@ enum{
 	YBUS_TOOL_TRIGGER,
 	YBUS_TOOL_CONFIG,
 	YBUS_TOOL_WM_FOCUS,
+	YBUS_TOOL_RELOAD_ALL,
 };
 
 int ybus_init(void);

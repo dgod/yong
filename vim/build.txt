@@ -11,6 +11,8 @@ env('VPATH+=$(TOPDIR)/vim');
 function run(target){
 	cd(target);
 	include("../../rules.txt");
+	if(target=="w32" || target=="w64")
+		env("LDFLAGS+=-mwindows");
 	cc(SRCS,OBJS);
 	ld(OBJS,'$(DESTDIR)/yong-vim$(EXE)');
 }

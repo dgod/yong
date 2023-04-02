@@ -30,7 +30,7 @@ struct _ldir{
 
 #ifdef __linux__
 #if defined(__GLIBC__)
-#if __GLIBC_PREREQ(2,33)
+#if __GLIBC_PREREQ(2,33) && !defined(__loongarch64)
 extern int __xstat(int,const char*,struct stat*);
 extern int __fxstat(int,int,struct stat*);
 #endif
@@ -39,7 +39,7 @@ extern int __fxstat(int,int,struct stat*);
 static int l_stat(const char *file,struct stat *buf)
 {
 #if defined(__GLIBC__)
-#if __GLIBC_PREREQ(2,33)
+#if __GLIBC_PREREQ(2,33) && !defined(__loongarch64)
 	return __xstat(0,file,buf);
 #else
 	return stat(file,buf);
@@ -52,7 +52,7 @@ static int l_stat(const char *file,struct stat *buf)
 static int l_fstat(int fd,struct stat *buf)
 {
 #if defined(__GLIBC__)
-#if __GLIBC_PREREQ(2,33)
+#if __GLIBC_PREREQ(2,33) && !defined(__loongarch64)
 	// https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/baselib-xstat-1.html
 #ifdef __x86_64__
 	return __fxstat(0,fd,buf);

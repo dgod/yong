@@ -7725,6 +7725,7 @@ fangmei 访美
 fangmen 房门
 fangmian 方面
 fangming 芳名
+fangminzhikou 防民之口
 fangmu 放牧
 fangneng 方能
 fangniu 放牛
@@ -13186,6 +13187,7 @@ jianyuetai 检阅台
 jianza 间杂
 jianzai 建在 健在 减灾
 jianzaiji 舰载机
+jianzaixianshang 箭在弦上
 jianzao 建造
 jianze 简则
 jianzha 奸诈
@@ -18836,7 +18838,7 @@ linxian 邻县
 linxiang 临湘
 linxing 临行
 linxuan 遴选
-linxun 磷峋
+linxun 嶙峋
 linye 林业
 linyebumen 林业部门
 linyi 临沂
@@ -29114,6 +29116,7 @@ shenyoutonggan 深有同感
 shenyu 甚于
 shenyuan 深渊 深远 甚远 申冤
 shenyue 审阅
+shenyufangchuan 甚于防川
 shenyun 神韵 身孕
 shenzai 身在
 shenzaifuzhongbuzhifu 身在福中不知福
@@ -31011,6 +31014,7 @@ sihutong 死胡同
 siji 司机 四季 四级 死寂 伺机 死机
 sijia 四家
 sijiache 私家车
+sijian 四件 四建 四间 四溅
 sijiao 死角 四角 嘶叫 私交
 sijidu 四季度
 sijie 四届

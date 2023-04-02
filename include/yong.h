@@ -58,6 +58,7 @@ enum{
 enum{
 	EIM_CALLBACK_NONE=0,
 	EIM_CALLBACK_ASYNC_WRITE_FILE,
+	EIM_CALLBACK_SELECT_KEY,
 };
 
 typedef struct {

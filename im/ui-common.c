@@ -914,7 +914,7 @@ static void ui_draw_input_win(UI_DC cr)
 		if(i==eim->SelectIndex) color=InputTheme.text[1];
 		ui_draw_text(cr,InputTheme.layout,posx[1],posy[1],im.CandTable[i],color);
 
-		if(im.Hint && eim->CodeTips[i] && *eim->CodeTips[i])
+		if(im.Hint && eim->CodeTips && eim->CodeTips[i][0])
 		{
 			color=InputTheme.text[2];
 			ui_draw_text(cr,InputTheme.layout,posx[2],posy[2],im.CodeTips[i],color);

@@ -221,6 +221,14 @@ int ui_init(void)
 	return 0;
 }
 
+void YongLogWrite(const char *fmt,...)
+{
+	va_list ap;
+	va_start(ap,fmt);
+	vfprintf(stderr,fmt,ap);
+	va_end(ap);
+}
+
 int ui_loop(void)
 {
 	gtk_main();

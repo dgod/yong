@@ -70,7 +70,7 @@ typedef struct{
 
 #define L_BYTE_ORDER		L_LITTLE_ENDIAN
 
-#if defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__)
+#if defined(_WIN64) || defined(__x86_64__) || defined(__aarch64__) || defined(__loongarch64)
   #define L_WORD_SIZE			64
 #else
   #define L_WORD_SIZE			32

@@ -6,7 +6,7 @@ var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
 	'menu.c','history.c','replace.c','ybus-wayland.c',
 	'app.c','async.c'];
 
-var DIRS=['l32-gtk2','l64-gtk2','l32-gtk3','l64-gtk3'];
+var DIRS=['l32-gtk3','l64-gtk3'];
 
 env("VPATH+=$(TOPDIR)/im");
 env("VPATH+=$(TOPDIR)/im/fbterm");

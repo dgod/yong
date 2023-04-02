@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <conio.h>
 
 #include <windows.h>
 #include <tchar.h>
@@ -49,6 +50,8 @@ int main(int arc,char *arg[])
 	else
 		PostMessage(hWnd,WM_USER_TOOL,tool,cmd);
 	printf("%d\n",res);
+	if(AttachConsole((DWORD)-1))
+		_cprintf("%d\n",res);
 	return 0;
 }
 
@@ -120,12 +123,23 @@ int main(int arc,char *arg[])
 	
 	for(i=1;i<arc;i++)
 	{
-		if(!strcmp(arg[i],"-w"))
+		if(!strcmp(arg[i],"--reload-all"))
+		{
 			tool_buf.flag=1;
+			tool_buf.data[0]=7;
+		}
+		else if(!strcmp(arg[i],"-w"))
+		{
+			tool_buf.flag=1;
+		}
 		else if(!strcmp(arg[i],"-t") && i<arc-1)
+		{
 			tool_buf.data[0]=atoi(arg[++i]);
+		}
 		else
+		{
 			tool_buf.data[1]=atoi(arg[i]);
+		}
 	}
 	s=l_call_connect();
 	ret=write(s,&tool_buf,sizeof(tool_buf));

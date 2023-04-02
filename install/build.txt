@@ -33,9 +33,7 @@ function copy_build(build){
 	env("BUILD","=",build);
 	mkdir(["yong/$(BUILD)","yong/$(BUILD)/gtk-im"]);
 	cp('../llib/$(BUILD)/libl.so','yong/$(BUILD)');
-	cp('../im/$(BUILD)-gtk2/yong','yong/$(BUILD)/yong-gtk2');
 	cp('../im/$(BUILD)-gtk3/yong','yong/$(BUILD)/yong-gtk3');
-	cp('../config/$(BUILD)-gtk2/yong-config','yong/$(BUILD)/yong-config-gtk2');
 	cp('../config/$(BUILD)-gtk3/yong-config','yong/$(BUILD)/yong-config-gtk3');
 	cp('../config/$(BUILD)-gtk4/yong-config','yong/$(BUILD)/yong-config-gtk4');
 	cp('../vim/$(BUILD)/yong-vim','yong/$(BUILD)');
@@ -48,9 +46,7 @@ function copy_build(build){
 
 	exec("strip yong/$(BUILD)/gtk-im/*.so");
 	exec("strip yong/$(BUILD)/*.so");
-	exec("strip yong/$(BUILD)/yong-gtk2");
 	exec("strip yong/$(BUILD)/yong-gtk3");
-	exec("strip yong/$(BUILD)/yong-config-gtk2");
 	exec("strip yong/$(BUILD)/yong-config-gtk3");
 	exec("strip yong/$(BUILD)/yong-config-gtk4");
 	exec("strip yong/$(BUILD)/yong-vim");
@@ -71,7 +67,13 @@ if(target=="copy"){
 	copy_data();
 	copy_build("l32");
 	copy_build("l64");
-} else if(target=="dist"){
+}else if(target=="copy32"){
+	copy_data();
+	copy_build("l32");
+}else if(target=="copy64"){
+	copy_data();
+	copy_build("l64");
+}else if(target=="dist"){
 	set_ver();
 	exec("7za a yong-lin-$(VER).7z yong");	
 } else if(target=="rpm"){

@@ -80,8 +80,7 @@ static CSET cs;
 static int InsertMode;
 
 static int key_cnen;
-static int key_select2;
-static int key_select3;
+static int key_select_conflict;
 
 static int key_move_up;
 static int key_move_down;
@@ -394,8 +393,9 @@ static int TableInitReal(const char *arg)
 	y_mb_load_pin(mb,EIM.GetConfig(0,"pin"));
 	
 	key_cnen=TableGetConfigKey("CNen",-1,YK_LCTRL);
-	key_select2=TableGetConfigKey("select",0,YK_LSHIFT);
-	key_select3=TableGetConfigKey("select",1,YK_RSHIFT);
+	key_select_conflict=EIM.Callback(EIM_CALLBACK_SELECT_KEY,0,mb->key+1);
+	if(key_select_conflict<0)
+		key_select_conflict=0;
 	key_move_up=TableGetConfigKey("move",0,YK_NONE);
 	key_move_down=TableGetConfigKey("move",1,YK_NONE);
 	
@@ -820,7 +820,7 @@ static int TableUpdateAssoc(int *mode)
 		assoc_mode=1;
 	}
 	cset_prepend(&cs,(CSET_GROUP*)g);
-	if(assoc_adjust==1)
+	if(assoc_adjust)
 	{
 		cset_set_assoc(&cs,g->phrase,g->count);
 	}
@@ -1488,7 +1488,8 @@ LIST:
 		while(count<=0)
 		{
 			int full=y_mb_is_full(mb,EIM.CodeLen);
-			if((key==key_select2 && EIM.CandWordCount>=2) || (key==key_select3 && EIM.CandWordCount>=3) || strchr(mb->key0,key))
+			int select=key_select_conflict?EIM.Callback(EIM_CALLBACK_SELECT_KEY,key):0;
+			if((select>0 && EIM.CandWordCount>=select) || strchr(mb->key0,key))
 			{
 				EIM.CodeInput[--EIM.CodeLen]=0;
 				return IMR_NEXT;

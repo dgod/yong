@@ -17,6 +17,10 @@
 #include "xim.h"
 #include "translate.h"
 
+extern int key_commit;
+extern int key_select[9];
+extern char key_select_n[11];
+
 static char *eim_get_config(const char *section,const char *key)
 {
 	static char ret[512];
@@ -69,6 +73,50 @@ static int eim_callback(int index,...)
 			res=y_im_async_write_file(file,data,backup);
 			break;
 		}
+		case EIM_CALLBACK_SELECT_KEY:
+		{
+			int key=va_arg(ap,int);
+			if(!key)
+			{
+				const char *keys=va_arg(ap,const char*);
+				va_end(ap);
+				if(!keys)
+					return -1;
+				if(!(key_commit&~0xff) && strchr(keys,key_commit))
+					return 1;
+				for(int i=0;i<9 && key_select[i]!=YK_NONE;i++)
+				{
+					if(key&~0xff)
+						continue;
+					if(strchr(keys,key_select[i]))
+						return 2+i;
+				}
+				for(int i=0;key_select_n[i]!=0;i++)
+				{
+					if(strchr(keys,key_select_n[i]))
+						return 1+i;
+				}
+				return -1;
+			}
+			va_end(ap);
+			if(key==key_commit)
+			{
+				return 1;
+			}
+			for(int i=0;i<9 && key_select[i]!=YK_NONE;i++)
+			{
+				if(key==key_select[i])
+				{
+					return 2+i;
+				}
+			}
+			if((key&~0xff)!=0)
+				return -1;
+			const char *p=strchr(key_select_n,key);
+			if(!p)
+				return -1;
+			return (int)(size_t)(p-key_select_n+1);
+		}
 	}
 	va_end(ap);
 	return res;
@@ -94,9 +142,7 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 	eim->GetLast=y_im_history_get_last;
 	eim->ShowTip=y_ui.show_tip;
 	eim->Translate=y_translate_get;
-#ifdef CFG_XIM_ANDROID
 	eim->Log=YongLogWrite;
-#endif
 	eim->Callback=eim_callback;
 	
 	if(eim->Flag & IM_FLAG_ASYNC)
