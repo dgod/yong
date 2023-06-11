@@ -81,9 +81,7 @@ static void client_del_ic(guint id);
 static int GetKey(guint KeyCode,guint KeyState);
 static void ForwardKey(GtkIMContextYong *ctx,int key);
 
-#if !GTK_CHECK_VERSION(3,92,0)
 static gint key_snooper_cb(GtkWidget *widget,GdkEventKey *event,gpointer user_data);
-#endif
 
 static GObjectClass *parent_class;
 GType gtk_type_im_context_yong = 0;
@@ -105,9 +103,7 @@ static gboolean _electron_retrun;
 static char _electron_commit_text[2];
 #endif
 
-#if !GTK_CHECK_VERSION(3,92,0)
 static guint _key_snooper_id;
-#endif
 
 #if GTK_CHECK_VERSION(3,0,0)
 static gint (*p_gdk_window_get_scale_factor)(GdkWindow *window);
@@ -137,13 +133,11 @@ void gtk_im_context_yong_register_type (GTypeModule *type_module)
 
 static void gtk_im_context_yong_class_fini(GtkIMContextYongClass *class)
 {
-#if !GTK_CHECK_VERSION(3,92,0)
 	if(_key_snooper_id != 0)
 	{
 		gtk_key_snooper_remove (_key_snooper_id);
 		_key_snooper_id = 0;
 	}
-#endif
 }
 
 GtkIMContext *gtk_im_context_yong_new (void)
@@ -182,10 +176,10 @@ static int check_app_type(void)
 #if GTK_CHECK_VERSION(3,0,0)
 		for(i=0; i < sizeof(electron)/sizeof(electron[0]); i++)
 		{
-			if(prog && !strcmp(prog, electron[i]))
+			if(prog && strcmp(prog, electron[i]))
 				continue;
 			type=APP_ELECTRON;
-				goto out;
+			goto out;
 		}
 #endif
 		if(strstr(exec,"geany"))
@@ -230,11 +224,7 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   GObjectClass *gobject_class = G_OBJECT_CLASS (class);
 
   parent_class = g_type_class_peek_parent (class);
-#if GTK_CHECK_VERSION(3,92,0)
-  im_context_class->set_client_widget = gtk_im_context_yong_set_client_window;
-#else
   im_context_class->set_client_window = gtk_im_context_yong_set_client_window;
-#endif
   im_context_class->filter_keypress = gtk_im_context_yong_filter_keypress;
   im_context_class->reset = gtk_im_context_yong_reset;
   im_context_class->get_preedit_string = gtk_im_context_yong_get_preedit_string;
@@ -256,10 +246,8 @@ static void gtk_im_context_yong_class_init (GtkIMContextYongClass *class)
   l_call_client_dispatch(client_dispatch);
   l_call_client_set_connect(client_connect);
  
-#if !GTK_CHECK_VERSION(3,92,0)
-  if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT || _app_type==APP_SUBLIME))
+  if (_key_snooper_id == 0 && (_app_type==APP_GEANY || _app_type==APP_GEDIT || _app_type==APP_SUBLIME || _app_type==APP_GVIM))
     _key_snooper_id=gtk_key_snooper_install(key_snooper_cb,NULL);
-#endif
 
 #if GTK_CHECK_VERSION(3,0,0)
   p_gdk_window_get_scale_factor=dlsym(NULL,"gdk_window_get_scale_factor");
@@ -413,18 +401,13 @@ static void gtk_im_context_yong_set_client_window  (GtkIMContext          *conte
 }
 #endif
 
-#if !GTK_CHECK_VERSION(3,92,0)
 static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_data)
 {
 	GtkIMContextYong *ctx=_focus_ctx;
 	if(!ctx)
 		return FALSE;
 	GdkModifierType state;
-#if GTK_CHECK_VERSION(3,92,0)
-	gdk_event_get_state((GdkEvent*)event,&state);
-#else
 	state=event->state;
-#endif
 	if((state&YONG_IGNORED_MASK)!=0)
 		return FALSE;
 	if(ctx->app_type==APP_GEANY)
@@ -489,9 +472,31 @@ static gint key_snooper_cb (GtkWidget *widget,GdkEventKey *event,gpointer user_d
 			res=client_input_key(ctx->id,key,event->time);
 		return res;	
 	}
+	if(ctx->app_type==APP_GVIM)
+	{
+		// gvim term mode not support input method
+		int release=(event->type == GDK_KEY_RELEASE);
+		int key;
+		int res=FALSE;		
+		key=GetKey(event->keyval,event->state);
+		if(release) key|=KEYM_UP;
+		if(!_enable)
+		{
+			if((key&~KEYM_CAPS)==_trigger && !release)
+			{
+				client_enable(ctx->id);
+				_enable=TRUE;
+				res=TRUE;
+			}
+		}
+		else
+		{
+			res=client_input_key(ctx->id,key,event->time);
+		}
+		return res;
+	}
 	return FALSE;
 }
-#endif
 
 static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEventKey *event)
 {
@@ -1238,6 +1243,7 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	
 	switch(code){
 	case YK_BACKSPACE:keyval=GDK_KEY_BackSpace;break;
+	case YK_ESC:keyval=GDK_KEY_Escape;break;
 	case YK_DELETE:keyval=GDK_KEY_Delete;break;
 	case YK_ENTER:keyval=GDK_KEY_Return;break;
 	case YK_HOME:keyval=GDK_KEY_Home;break;
