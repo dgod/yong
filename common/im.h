@@ -60,7 +60,7 @@ typedef struct{
 #else
 	char Page[32];
 #endif
-	double PageLen;
+	double PageLen[3];
 	double PagePosX;
 	double PagePosY;
 	double CodePos[4];

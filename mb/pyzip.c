@@ -218,8 +218,7 @@ int cp_zip(const char *in,char *out)
 	const char *base=out;
 	while(*in)
 	{
-		int ret;
-		ret=cp_find(in);
+		int ret=cp_find(in);
 		if(ret)
 		{
 			*out++=ret;
@@ -236,28 +235,46 @@ int cp_zip(const char *in,char *out)
 	return (int)(size_t)(out-base);
 }
 
+// 这里size表示字数，不考虑额外传入参数的情况下，不支持非二码整句
 int cp_unzip(const char *in,char *out,int size)
 {
-	int c;
 	int len=0;
-	while((c=*(uint8_t*)in++)!=0)
+	for(;size>0;size--)
 	{
+		int c=*(uint8_t*)in++;
 		if((c&0x80))
 		{
 			uint16_t cp=cp_list[c-CPB];
 			*out++=cp>>8;
 			*out++=cp&0xff;
-			len+=2;
 		}
 		else
 		{
 			*out++=c;
-			len++;
+			*out++=*(uint8_t*)in++;
 		}
-		if(size>0 && len>=size)
-			break;
+		len+=2;
 	}
 	*out=0;
+	return len;
+}
+
+int cp_unzip_size(const char *in,int size)
+{
+	int len=0;
+	for(;size>0;size--)
+	{
+		int c=*(uint8_t*)in++;
+		if((c&0x80))
+		{
+			len++;
+		}
+		else
+		{
+			in++;
+			len+=2;
+		}
+	}
 	return len;
 }
 
@@ -265,10 +282,9 @@ int cp_unzip_py(const char *in,char *out,int size)
 {
 	int s,y;
 	char *orig=out;
-	if(size<0)
-		size=256;
-	for(;(s=*(uint8_t*)in++)!=0 && size>0;size-=2)
+	for(;size>0;size--)
 	{
+		s=*(uint8_t*)in++;
 		if((s&0x80))
 		{
 			uint16_t cp=cp_list[s-CPB];
@@ -308,7 +324,8 @@ int cp_unzip_py(const char *in,char *out,int size)
 				*out++='i';*out++='a';*out++='o';
 				break;
 			case 'd':
-				if(strchr("jlnqx",s))
+				//if(strchr("jlnqx",s))
+				if(s=='j' || s=='l' || s=='n' || s=='q' || s=='x')
 					*out++='i';
 				else
 					*out++='u';
@@ -356,7 +373,8 @@ int cp_unzip_py(const char *in,char *out,int size)
 				if(s=='o')
 				{
 				}
-				else if(strchr("abfmpqw",s))
+				// else if(strchr("abfmpqw",s))
+				else if(s=='a' || s=='b' || s=='f' || s=='m' || s=='p' || s=='q' || s=='w')
 				{
 					*out++='o';
 				}
@@ -382,7 +400,8 @@ int cp_unzip_py(const char *in,char *out,int size)
 				}
 				break;
 			case 's':
-				if(strchr("jqx",s))
+				//if(strchr("jqx",s))
+				if(s=='j' || s=='q' || s=='x')
 				{
 					*out++='i';
 				}
@@ -403,7 +422,8 @@ int cp_unzip_py(const char *in,char *out,int size)
 				}
 				break;
 			case 'w':
-				if(strchr("djlqx",s))
+				// if(strchr("djlqx",s))
+				if(s=='d' || s=='j' || s=='l' || s=='q' || s=='x')
 					*out++='i';
 				else
 					*out++='u';
@@ -413,7 +433,8 @@ int cp_unzip_py(const char *in,char *out,int size)
 				*out++='i';*out++='e';
 				break;
 			case 'y':
-				if(strchr("ighkuv",s))
+				// if(strchr("ighkuv",s))
+				if(s=='i' || s=='g' || s=='h' || s=='k' || s=='u' || s=='v')
 				{
 					*out++='u';*out++='a';*out++='i';
 				}
@@ -459,10 +480,10 @@ int cz_zip(const char *in,char *out)
 
 int cz_unzip(const char *in,char *out,int size)
 {
-	int c;
 	int len=0;
-	while((c=*(uint8_t*)in++)!=0 && size>len)
+	for(;size>0;size--)
 	{
+		int c=*(uint8_t*)in++;
 		if(c<0x30 && c>0)
 		{
 			uint16_t cp=cz_list[c-CZB];
@@ -473,7 +494,19 @@ int cz_unzip(const char *in,char *out,int size)
 		else
 		{
 			*out++=c;
-			len++;
+			c=*(uint8_t*)in++;
+			if(c>=0x40)
+			{
+				*out++=c;
+				len+=2;
+			}
+			else
+			{
+				*out++=c;
+				*out++=*(uint8_t*)in++;
+				*out++=*(uint8_t*)in++;
+				len+=4;
+			}
 		}
 	}
 	*out=0;

@@ -56,5 +56,15 @@ static int n##_cmp(const t*v1,const t*v2) 	\
 
 #define L_HASH_TABLE_INT(t,k) l_hash_table_new(-(int)offsetof(t,k),l_int_hash,l_int_equal)
 
+#ifdef __GNUC__
+#define L_HASH_TABLE_LOOKUP_INT(t,i)		\
+(__extension__								\
+	({										\
+	 	typeof(i) __i=i;					\
+		l_hash_table_lookup(t,&__i);		\
+	})										\
+)
+#endif
+
 #endif/*_LHASHTABLE_H_*/
 

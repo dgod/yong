@@ -6670,4 +6670,11 @@ int l_unichar_to_gb(uint32_t c,uint8_t *outbuf)
 	return strlen((char*)outbuf);
 }
 
+uint32_t l_gb_to_unichar(const uint8_t *s)
+{
+	uint16_t temp[3];
+	l_gb_to_utf16((const char*)s,temp,sizeof(temp));
+	return l_utf16_to_unichar(temp);
+}
+
 #endif/*USE_SYSTEM_ICONV*/

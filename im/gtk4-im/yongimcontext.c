@@ -709,6 +709,7 @@ static void paste_cb(GObject* source,GAsyncResult* res,YongIMContext *ctx)
 	gchar *text=gdk_clipboard_read_text_finish(GDK_CLIPBOARD(source),res,NULL);
 	if(!text)
 		return;
+	printf("%s\n",text);
 	g_signal_emit(ctx,_signal_commit_id,0,text);
 	g_free(text);
 }
@@ -775,7 +776,8 @@ static void ForwardKey(YongIMContext *ctx,int key)
 		GdkClipboard *clipboard=gdk_display_get_clipboard(dpy);
 		if(!clipboard)
 			return;
-		gdk_clipboard_read_text_async(clipboard,NULL,(GAsyncReadyCallback)paste_cb,ctx);	
+		printf("read\n");
+		gdk_clipboard_read_text_async(clipboard,NULL,(GAsyncReadyCallback)paste_cb,ctx);
 		return;
 	}
 	char *text=NULL;

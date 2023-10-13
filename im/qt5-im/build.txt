@@ -31,20 +31,16 @@ function run(target){
 
 	env("QT_VER+="+QT_VER);
 	env("LIBS+=-ldl -lstdc++");
+	var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}Core`);
 	if(VER==5){
 		//var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
-		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}Core`);
 		var MOC=LIBDIR+'/qt5/bin/moc';
 		if(!fs.existsSync(MOC))
 			MOC='/usr/bin/moc';
 	}else{
 		var MOC=shell(`pkg-config --variable=moc Qt${VER}`);
-		var LIBDIR=shell(`pkg-config --variable=libdir Qt${VER}`);
 	}
-	if(VER==5)
-		var INCDIR=shell("pkg-config --variable=includedir Qt5Core");
-	else
-		var INCDIR=`/usr/include/qt${VER}`;
+	var INCDIR=shell(`pkg-config --variable=includedir Qt${VER}Core`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
@@ -75,6 +71,19 @@ if(target=="clean"){
 	build(undefined,undefined,['l32-qt5','l32-qt6']);
 } else if(target=='l64'){
 	build(undefined,undefined,['l64-qt5','l64-qt6']);
+} else if(target=='qt5'){
+	build(undefined,undefined,['l32-qt5','l64-qt5']);
+} else if(target=='qt6'){
+	build(undefined,undefined,['l32-qt6','l64-qt6']);
+} else if(target=='strip'){
+	include("../../rules.txt");
+	for(let i=0;i<DIRS.length;i++){
+		let file=`${DIRS[i]}/libyongplatforminputcontextplugin.so`;
+		if(!fs.existsSync(file))
+			continue;
+		let cmd=`$(STRIP) ${file}`;
+		exec(cmd);
+	}
 } else {
 	run(target);
 }

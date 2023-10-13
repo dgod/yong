@@ -46,8 +46,10 @@ static void GbkReset(void)
 static char *GbkGetCandWord(int index)
 {
 	char *ret;
-	if(index>=CandWordCount) return 0;
-	if(index==-1) index=SelectIndex;
+	if(index>=CandWordCount || index<-1)
+		return 0;
+	if(index==-1)
+		index=SelectIndex;
 	ret=&CandTable[index][0];
 	strcpy(StringGet,ret);
 	return ret;

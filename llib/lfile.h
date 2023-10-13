@@ -1,6 +1,8 @@
 #ifndef _LFILE_H_
 #define _LFILE_H_
 
+#include <time.h>
+
 FILE *l_file_vopen(const char *file,const char *mode,va_list ap,size_t *size);
 FILE *l_file_open(const char *file,const char *mode,...);
 char *l_file_vget_contents(const char *file,size_t *length,va_list ap);
@@ -28,6 +30,7 @@ int l_file_copy(const char *dst,const char *src,...);
 
 int l_get_line(char *line, size_t n, FILE *fp);
 
+char *l_fullpath(char *abs,const char *rel,size_t size);
 char *l_getcwd(void);
 char *l_path_resolve(const char *path);
 

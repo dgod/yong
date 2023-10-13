@@ -85,7 +85,7 @@ static int code_index_del_item(ITEM *p)
 	return 0;
 }
 
-static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count)
+static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count,struct y_mb *mb,char super)
 {
 	CODE_INDEX *ci=code_index_get(code,false);
 	if(!ci)
@@ -98,6 +98,20 @@ static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count)
 		ITEM *it=container_of(p,ITEM,index);
 		if(strncmp(code,it->code,code_len))
 			continue;
+		if(mb && super)
+		{
+			int cand_len=strlen(it->cand);
+			if(cand_len>=4)
+			{
+				const uint8_t *s=(const uint8_t*)it->cand+cand_len-2;
+				if(s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30)
+				{
+					s-=2;
+				}
+				if(!y_mb_assist_test_hz(mb,(const char*)s,super))
+					continue;
+			}
+		}
 		l_ptr_array_append(res,it);
 		if(count>0 && l_ptr_array_length(res)>=count)
 			break;
@@ -208,13 +222,13 @@ int sentence_add(const char *code,const char *cand)
 	return 0;
 }
 
-CSET_GROUP *sentence_get(const char *code)
+CSET_GROUP *sentence_get(const char *code,struct y_mb *mb,char super)
 {
 	if(!sentence)
 		return NULL;
 	LPtrArray *arr=sentence->cset.array;
 	l_ptr_array_clear(arr,NULL);
-	code_index_get_item(code,arr,10);
+	code_index_get_item(code,arr,10,mb,super);
 	if(l_ptr_array_length(arr)==0)
 		return NULL;
 	sentence->cset.count=l_ptr_array_length(arr);

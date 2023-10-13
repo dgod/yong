@@ -2,6 +2,7 @@
 #include <string.h>
 #include "cset.h"
 #include "gbk.h"
+#include "learn.h"
 
 typedef struct _assoc_item{
 	struct _assoc_item *next;
@@ -106,6 +107,16 @@ int cset_count(CSET *cs)
 
 void cset_clear(CSET *cs,int type)
 {
+	if(type==CSET_TYPE_ALL)
+	{
+		while(cs->list)
+		{
+			CSET_GROUP *g=cs->list;
+			cset_remove(cs,g);
+			cset_group_free(g);
+		}
+		return;
+	}
 	CSET_GROUP *g=cset_get_group_by_type(cs,type);
 	if(!g)
 		return;
@@ -273,7 +284,15 @@ CSET_GROUP_MB *cset_mb_group_new(CSET *cs,struct y_mb *mb,int count)
 void cset_mb_group_set(CSET *cs,struct y_mb *mb,int count)
 {
 	CSET_GROUP_MB *g=cset_mb_group_new(cs,mb,count);
-	cset_append(cs,(CSET_GROUP*)g);
+	if(cs->list && cs->list->type==CSET_TYPE_SENTENCE)
+	{
+		// 自动组句造的词以追加形式显示
+		cset_prepend(cs,(CSET_GROUP*)g);
+	}
+	else
+	{
+		cset_append(cs,(CSET_GROUP*)g);
+	}
 	if(cs->assoc)
 	{
 		cset_apply_assoc(cs);

@@ -11,6 +11,7 @@ typedef struct{
 	int track;
 	int key;
 	int state;
+	int rel;
 	uint8_t priv[];
 }YBUS_CLIENT;
 
@@ -70,6 +71,7 @@ enum{
 	YBUS_TOOL_CONFIG,
 	YBUS_TOOL_WM_FOCUS,
 	YBUS_TOOL_RELOAD_ALL,
+	YBUS_TOOL_KEYBOARD,
 };
 
 int ybus_init(void);

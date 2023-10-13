@@ -477,7 +477,7 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 {
 	char key[64],cand[256];
 	sg_res_t *r;
-	int i,n,ret;
+	int i,n;
 	char *p;
 	char *res[20];
 	int code[20];
@@ -491,7 +491,7 @@ static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 	{
 #ifndef EMSCRIPTEN
 		n=0;
-		ret=l_sscanf(p,"[\"%256[^\"]\",%d%*[^]]]%n",cand,code+i,&n);
+		int ret=l_sscanf(p,"[\"%256[^\"]\",%d%*[^]]]%n",cand,code+i,&n);
 		if(ret!=2 || n<=0)
 		{
 			for(n=0;n<i;n++)
@@ -583,6 +583,7 @@ static char *hu2gb(const char *s)
 	
 	for(count=0;pos<sizeof(temp)-8;count++)
 	{
+		(void)count;
 		ret=l_sscanf(s,"\\u%x%n",&uc,&n);
 		if(ret!=1) break;
 		s+=n;
@@ -998,7 +999,7 @@ static char *SGY_GetCandWord(int index)
 	int pos;
 	sg_cand_t *cand;
 	
-	if(index>=EIM.CandWordCount)
+	if(index>=EIM.CandWordCount || index<-1)
 		return 0;
 	if(index==-1)
 		index=EIM.SelectIndex;

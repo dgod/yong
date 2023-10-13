@@ -1,44 +1,19 @@
 #include "common.h"
 #include "ui.h"
+#include "ui-draw.h"
 
 #include <math.h>
 #ifdef _WIN32
 #include <windows.h>
 #include <windowsx.h>
 #include <tchar.h>
-typedef HWND KBD_WIDGET;
-#include "draw.h"
 #else
 #include <gtk/gtk.h>
-typedef GtkWidget *KBD_WIDGET;
 #endif
 #include <assert.h>
 
-#define FIX_CAIRO_LINETO
-
-/*
-[keyboard]
-layout=layout0
-data=ascii
-default=ascii
-[layout0]
-name=normal
-font=Monospace 12
-main=w,h #bg tran
-shift=x,y,w,h #1,#2 #1,#2 #1,#2
-normal=#1,#2 #1,#2 #1,#2
-line0=y h x,w ...
-[ascii]
-name=ascii
-layout=layout0
-line0=` 1 2 3 4 5 6 7 8 9 0
-*/
-
 typedef struct{
-	short x;
-	short y;
-	short w;
-	short h;
+	short x,y,w,h;
 }KBD_RECT;
 
 enum{
@@ -53,476 +28,265 @@ enum{
 };
 
 typedef struct{
-	char bg[2][8];
-	char fg[2][8];
-	char border[2][8];
+	UI_COLOR bg[2];
+	UI_COLOR fg[2];
+	UI_COLOR border[2];
 }BTN_DESC;
 
 typedef struct{
 	void *next;
-	char *data[2];
+	char *data;
 	KBD_RECT rc;
 	short type;
 	short state;
 }KBD_BTN;
 
 typedef struct{
-	char *name;
-	char *font_desc;
-#ifdef _WIN32
-	HFONT font;
-#else
-	PangoLayout *font;
-#endif
-	int tran;
+	const char *name;
+	UI_FONT font;
 	double scale;
 	BTN_DESC desc[3];
 	KBD_BTN main;
 	KBD_BTN title;
 	KBD_BTN shift;
-	KBD_BTN *line[5];
-	KBD_WIDGET win;
+	LPtrArray *line;
+	UI_WINDOW win;
 	KBD_BTN *psel;
 }Y_KBD_LAYOUT;
 
 typedef struct{
-	char *file;
-	LKeyFile *config;
+	LXml *config;
 	Y_KBD_LAYOUT layout;
-	int cur;
-	int xim;
+	int8_t cur;
+	int8_t sub;
+	uint8_t xim;
+	uint8_t first;
 }Y_KBD_STATE;
 
 static Y_KBD_STATE kst;
 
-#ifdef _WIN32
-static DWRITE_CONTEXT *draw_ctx;
-#endif
+#include "keyboard.xml.c"
 
 static void kbd_main_new(void);
 static void kbd_main_show(int b);
 int y_kbd_init(const char *fn)
 {
-	char *line,**list;
-
+#ifndef _WIN32
 	if(getenv("FBTERM_IM_SOCKET"))
 		return 0;
+#endif
 	memset(&kst,0,sizeof(kst));
-	kst.config=l_key_file_open(fn,0,y_im_get_path("HOME"),y_im_get_path("DATA"),0);
-	if(!kst.config) return -1;
-	kst.file=l_strdup(fn);
-	line=l_key_file_get_string(kst.config,"keyboard","data");
-	if(!line)
+	kst.first=1;
+	char *text=l_file_get_contents(fn,NULL,y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
+	if(text)
 	{
-		l_free(kst.file);
-		l_key_file_free(kst.config);
-		return -1;
+		kst.config=l_xml_load(text);
+		l_free(text);
 	}
-	list=l_strsplit(line,' ');
-	l_free(line);
-	if(list)
+	else
 	{
-		int i;
-		line=y_im_get_config_string("IM","keyboard");
-		if(!line) line=l_key_file_get_string(kst.config,"keyboard","default");
-		for(i=0;line && list[i];i++)
+		kst.config=l_xml_load((const char*)keyboard_xml);
+	}
+	if(!kst.config)
+		return -2;
+	LXmlNode *layout=l_xml_get_child(kst.config->root.child,"layout");
+	if(!layout)
+	{
+		l_xml_free(kst.config);
+		kst.config=NULL;
+		return -3;
+	}
+	LXmlNode *data=l_xml_get_child(kst.config->root.child,"data");
+	if(!data)
+	{
+		l_xml_free(kst.config);
+		kst.config=NULL;
+		return -4;
+	}
+	const char *keyboard=y_im_get_config_data("IM","keyboard");
+	if(!keyboard)
+		keyboard=l_xml_get_prop(data,"default");
+	if(keyboard!=NULL)
+	{
+		int pos=0;
+		for(LXmlNode *p=data->child;p!=NULL;p=p->next,pos++)
 		{
-			if(!strcmp(list[i],line))
+			if(!strcmp(p->name,keyboard))
 			{
-				kst.cur=i;
+				kst.cur=pos;
+				kst.sub=0;
 				break;
 			}
 		}
-		l_free(line);
-		l_strfreev(list);
 	}
 	kbd_main_new();
 	return 0;
 }
 
-#ifndef _WIN32
-static PangoLayout *font_parse(const char *font)
+static void btn_free(KBD_BTN *b)
 {
-	PangoFontDescription *desc;
-	PangoLayout *layout;
-	double scale=y_ui_get_scale();
-
-	desc=pango_font_description_from_string(font);
-	assert(desc!=NULL);
-	gint size=pango_font_description_get_size(desc);
-	pango_font_description_set_size(desc,(int)size*scale);
-
-#if GTK_CHECK_VERSION(3,0,0)
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(kst.layout.win));
-#else
-	cairo_t *cr=gdk_cairo_create(kst.layout.win->window);
-#endif
-	layout=pango_cairo_create_layout(cr);
-	cairo_destroy(cr);
-
-	assert(layout);
-	pango_layout_set_font_description(layout,desc);
-	pango_font_description_free(desc);
-	return layout;
+	if(!b)
+		return;
+	l_free(b->data);
+	l_free(b);
 }
 
-#if GTK_CHECK_VERSION(3,0,0)
-static void DrawText(cairo_t *cr,char *text,KBD_RECT *rc,char *color)
+static void line_free(KBD_BTN *b)
 {
-	GdkRGBA clr;
-	int x,y,w,h;
-	PangoLayout *layout=kst.layout.font;
-	pango_layout_set_text (layout, text, -1);
-	pango_layout_get_pixel_size(layout,&w,&h);
-	x=rc->x+(rc->w-w)/2;
-	y=rc->y+(rc->h-h)/2;
-	cairo_move_to(cr,x,y);
-	gdk_rgba_parse(&clr,color);
-	gdk_cairo_set_source_rgba(cr,&clr);
-	pango_cairo_show_layout(cr,layout);
-}
-#else
-static void DrawText(cairo_t *cr,char *text,KBD_RECT *rc,char *color)
-{
-	GdkColor clr;
-	int x,y,w,h;
-	PangoLayout *layout=kst.layout.font;
-	pango_layout_set_text (layout, text, -1);
-	pango_layout_get_pixel_size(layout,&w,&h);
-	x=rc->x+(rc->w-w)/2;
-	y=rc->y+(rc->h-h)/2;
-	cairo_move_to(cr,x,y);
-	gdk_color_parse(color,&clr);
-	gdk_cairo_set_source_color(cr,&clr);
-	pango_cairo_show_layout(cr,layout);
-}
-#endif
-
-#else
-
-static HFONT font_parse(const char *s)
-{
-	int size;
-	char face[96];
-	HFONT ret;
-	int res;
-	int weight;
-	LOGFONT lf;
-	char **list;
-	double scale=y_ui_get_scale();
-	
-	list=l_strsplit(s,' ');
-	res=l_strv_length(list);
-	if(res>=2 && res<=6)
-	{
-		int i,len;
-		size=atoi(list[res-1]);
-		if(!stricmp(list[res-2],"Bold"))
-		{
-			weight=FW_BOLD;
-			len=res-2;
-		}
-		else
-		{
-			weight=FW_REGULAR;
-			len=res-1;
-		}
-		for(face[0]=0,i=0;i<len;i++)
-		{
-			strcat(face,list[i]);
-			if(i!=len-1) strcat(face," ");
-		}
-	}
-	else
-	{
-		size=12;
-		weight=FW_REGULAR;
-		strcpy(face,"Fixedsys");
-	}
-	l_strfreev(list);
-	
-	size = -(int)round(size*scale*96/72); 
-	memset(&lf,0,sizeof(lf));
-	lf.lfHeight=size;
-	lf.lfWeight=weight;
-	lf.lfCharSet=DEFAULT_CHARSET;
-	lf.lfOutPrecision=CLIP_DEFAULT_PRECIS;
-	lf.lfClipPrecision=CLIP_DEFAULT_PRECIS;
-	lf.lfQuality=DEFAULT_QUALITY;
-	lf.lfPitchAndFamily=DEFAULT_PITCH;
-	l_utf8_to_utf16(face,lf.lfFaceName,sizeof(lf.lfFaceName));
-	ret=CreateFontIndirect(&lf);
-	return ret;
+	l_slist_free(b,(LFreeFunc)btn_free);
 }
 
-#endif
+#define l_xml_get_prop_int(node,name)			\
+({												\
+ 	const char *r=l_xml_get_prop(node,name);	\
+	r?atoi(r):0;								\
+})
 
-static int kbd_select(int pos)
+#define l_xml_get_prop_color(node,name)			\
+ 	ui_color_parse(l_xml_get_prop(node,name))
+
+static int kbd_select(int8_t pos,int8_t sub)
 {
-	int i;
-	KBD_BTN *btn;
-	char *layout;
-	char *data;
-	char *line;
-	char **list;
-	int len;
-	int x,y,w,h;
-	int ret;
 	double scale;
 	
-	if(pos==kst.cur && kst.layout.name)
+	if(pos==kst.cur && sub==kst.sub && kst.layout.name)
 		return 0;
-		
 	scale=y_ui_get_scale();
 	kst.layout.scale=scale;
-	l_free(kst.layout.name);
-	kst.layout.name=0;
-	kst.layout.psel=0;
-	l_free(kst.layout.main.data[0]);
-	kst.layout.main.data[0]=0;
-	l_free(kst.layout.main.data[1]);
-	kst.layout.main.data[1]=0;
-	l_free(kst.layout.shift.data[0]);
-	kst.layout.shift.data[0]=0;
-	l_free(kst.layout.shift.data[1]);
-	kst.layout.shift.data[1]=0;
-	for(i=0;i<5;i++)
-	{
-		KBD_BTN *next;
-		for(btn=kst.layout.line[i];btn!=0;btn=next)
-		{
-			next=btn->next;
-			l_free(btn->data[0]);
-			l_free(btn->data[1]);
-			l_free(btn);
-		}
-		kst.layout.line[i]=0;
-	}
-	line=l_key_file_get_string(kst.config,"keyboard","data");
-	if(!line)
-	{
-		printf("yong: keyboard config have no data config\n");
-		return -1;
-	}
-	list=l_strsplit(line,' ');
-	l_free(line);
-	if(!list)
-	{
-		printf("yong: keyboard data line bad\n");
-		return -1;
-	}
-	len=l_strv_length(list);
-	if(pos<0 || pos>=len)
-	{
-		l_strfreev(list);
-		//printf("yong: keyboard select not in range\n");
+	kst.layout.name=NULL;
+	kst.layout.psel=NULL;
+	l_free(kst.layout.main.data);
+	kst.layout.main.data=NULL;
+	l_free(kst.layout.shift.data);
+	kst.layout.shift.data=NULL;
+	l_ptr_array_free(kst.layout.line,(LFreeFunc)line_free);
+	kst.layout.line=l_ptr_array_new(5);
+	ui_font_free(kst.layout.font);
+	kst.layout.font=NULL;
+	if(pos==-1)
 		return 0;
+	LXmlNode *root=kst.config->root.child;
+	LXmlNode *data=l_xml_get_child(root,"data");
+	LXmlNode *layout=l_xml_get_child(root,"layout");
+	LXmlNode *keyboard=l_slist_nth(data->child,pos);
+	if(!keyboard)
+		return -1;
+	const char *tag=l_xml_get_prop(keyboard,"layout");
+	if(!tag)
+		return 0;
+	for(layout=layout->child;layout!=NULL;layout=layout->next)
+	{
+		if(!strcmp(layout->name,tag))
+		{
+			break;
+		}
 	}
-	data=l_strdup(list[pos]);
-	l_strfreev(list);
-	layout=l_key_file_get_string(kst.config,data,"layout");
 	if(!layout)
-	{
-		printf("yong: no layout of %s found\n",data);
-		l_free(data);
-		return -1;
-	}
-
-	/* main button desc */
-	line=l_key_file_get_string(kst.config,layout,"main");
-	if(!line)
-	{
-		printf("yong: keyboard can't found main of layout %s\n",layout);
-		l_free(data);
-		l_free(layout);
-		return -1;
-	}
-	ret=l_sscanf(line,"%d,%d %s %d",&w,&h,
-		kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL],
-		&kst.layout.tran);
-	l_free(line);
-	if(ret!=4)
-	{
-		l_free(data);
-		l_free(layout);
-		printf("yong: keyboard can't get main desc\n");
-		return -1;
-	}
+		return 0;
+	kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]=l_xml_get_prop_color(layout,"bg");
+	int w=l_xml_get_prop_int(layout,"w");
+	int h=l_xml_get_prop_int(layout,"h");
 	kst.layout.main.rc.w=(short)(scale*w);
 	kst.layout.main.rc.h=(short)(scale*h);
 	kst.layout.main.type=KBT_MAIN;
-	kst.layout.main.state=KBTN_NORMAL;
-	
-	/* shift button desc */
-	line=l_key_file_get_string(kst.config,layout,"shift");
-	if(!line)
-	{
-		l_free(data);
-		l_free(layout);
-		printf("yong: keyboard can't get shift desc\n");
-		return -1;
-	}
-	for(i=0;line[i];i++) if(line[i]==',') line[i]=' ';
-	ret=l_sscanf(line,"%d %d %d %d %s %s %s %s %s %s",
-		&x,&y,&w,&h,
-		kst.layout.desc[KBT_SHIFT].bg[KBTN_NORMAL],
-		kst.layout.desc[KBT_SHIFT].bg[KBTN_SELECT],
-		kst.layout.desc[KBT_SHIFT].fg[KBTN_NORMAL],
-		kst.layout.desc[KBT_SHIFT].fg[KBTN_SELECT],
-		kst.layout.desc[KBT_SHIFT].border[KBTN_NORMAL],
-		kst.layout.desc[KBT_SHIFT].border[KBTN_SELECT]);
-	l_free(line);
-	if(ret!=10)
-	{
-		l_free(data);
-		l_free(layout);
-		printf("yong: keyboard can't get shift desc\n");
-		return -1;
-	}
-	line=l_key_file_get_string(kst.config,data,"shift");
-	if(line)
-	{
-		char gb[8];
-		l_utf8_to_gb(line,gb,8);
-		l_free(line);
-		kst.layout.shift.data[0]=l_strdup(gb);
-	}
-	else
-	{
-		kst.layout.shift.data[0]=l_strdup("");
-	}
-	
-	kst.layout.shift.rc.x=(short)(scale*x);
-	kst.layout.shift.rc.y=(short)(scale*y);
-	kst.layout.shift.rc.w=(short)(scale*w);
-	kst.layout.shift.rc.h=(short)(scale*h);
-	kst.layout.shift.type=KBT_SHIFT;
-	kst.layout.shift.state=KBTN_NORMAL;
-	
-	/* normal button desc */
-	line=l_key_file_get_string(kst.config,layout,"normal");
-	if(!line)
-	{
-		l_free(data);
-		l_free(layout);
-		printf("yong: keyboard can't get normal desc\n");
-		return -1;
-	}
-	for(i=0;line[i];i++) if(line[i]==',') line[i]=' ';
-	ret=l_sscanf(line,"%s %s %s %s %s %s",
-		kst.layout.desc[KBT_NORMAL].bg[KBTN_NORMAL],
-		kst.layout.desc[KBT_NORMAL].bg[KBTN_SELECT],
-		kst.layout.desc[KBT_NORMAL].fg[KBTN_NORMAL],
-		kst.layout.desc[KBT_NORMAL].fg[KBTN_SELECT],
-		kst.layout.desc[KBT_NORMAL].border[KBTN_NORMAL],
-		kst.layout.desc[KBT_NORMAL].border[KBTN_SELECT]);
-	l_free(line);
-	if(ret!=6)
-	{
-		l_free(data);
-		l_free(layout);
-		printf("yong: keyboard can't get normal desc\n");
-		return -1;
-	}
+	kst.layout.font=ui_font_parse(kst.layout.win,l_xml_get_prop(layout,"font"),scale);
 
-	for(i=0;i<5;i++)
+	LXmlNode *button=l_xml_get_child(layout,"shift");
+	if(!button)
+		return 0;
+	kst.layout.shift.rc.x=(short)(scale*l_xml_get_prop_int(button,"x"));
+	kst.layout.shift.rc.y=(short)(scale*l_xml_get_prop_int(button,"y"));
+	kst.layout.shift.rc.w=(short)(scale*l_xml_get_prop_int(button,"w"));
+	kst.layout.shift.rc.h=(short)(scale*l_xml_get_prop_int(button,"h"));
+	kst.layout.shift.type=KBT_SHIFT;
+	LXmlNode *color=l_xml_get_child(button,"normal");
+	kst.layout.desc[KBT_SHIFT].bg[KBTN_NORMAL]=l_xml_get_prop_color(color,"bg");
+	kst.layout.desc[KBT_SHIFT].fg[KBTN_NORMAL]=l_xml_get_prop_color(color,"fg");
+	kst.layout.desc[KBT_SHIFT].border[KBTN_NORMAL]=l_xml_get_prop_color(color,"border");
+	color=l_xml_get_child(button,"select");
+	kst.layout.desc[KBT_SHIFT].bg[KBTN_SELECT]=l_xml_get_prop_color(color,"bg");
+	kst.layout.desc[KBT_SHIFT].fg[KBTN_SELECT]=l_xml_get_prop_color(color,"fg");
+	kst.layout.desc[KBT_SHIFT].border[KBTN_SELECT]=l_xml_get_prop_color(color,"border");
+
+	button=l_xml_get_child(layout,"key");
+	if(!button)
+		return -1;
+	color=l_xml_get_child(button,"normal");
+	kst.layout.desc[KBT_NORMAL].bg[KBTN_NORMAL]=l_xml_get_prop_color(color,"bg");
+	kst.layout.desc[KBT_NORMAL].fg[KBTN_NORMAL]=l_xml_get_prop_color(color,"fg");
+	kst.layout.desc[KBT_NORMAL].border[KBTN_NORMAL]=l_xml_get_prop_color(color,"border");
+	color=l_xml_get_child(button,"select");
+	kst.layout.desc[KBT_NORMAL].bg[KBTN_SELECT]=l_xml_get_prop_color(color,"bg");
+	kst.layout.desc[KBT_NORMAL].fg[KBTN_SELECT]=l_xml_get_prop_color(color,"fg");
+	kst.layout.desc[KBT_NORMAL].border[KBTN_SELECT]=l_xml_get_prop_color(color,"border");
+
+	kst.layout.line=l_ptr_array_new(5);
+	LXmlNode *rows=l_xml_get_child(layout,"rows");
+	if(!rows)
+		return -1;
+	for(LXmlNode *row=rows->child;row!=NULL;row=row->next)
 	{
-		char llll[8]="line0";
-		int j;
-		llll[4]='0'+i;
-		line=l_key_file_get_string(kst.config,layout,llll);
-		if(!line) continue;
-		list=l_strsplit(line,' ');
-		l_free(line);
-		if(!list) continue;
-		len=l_strv_length(list);
-		if(len<=2)
+		int y,h;
+		y=l_xml_get_prop_int(row,"y");
+		h=l_xml_get_prop_int(row,"h");
+		KBD_BTN *head=NULL;
+		for(LXmlNode *key=row->child;key!=NULL;key=key->next)
 		{
-			l_strfreev(list);
-			continue;
-		}
-		y=atoi(list[0]);h=atoi(list[1]);
-		for(j=2;j<len;j++)
-		{
+			int x,w;
+			x=l_xml_get_prop_int(key,"x");
+			w=l_xml_get_prop_int(key,"w");
 			KBD_BTN *btn=l_alloc0(sizeof(KBD_BTN));
-			ret=l_sscanf(list[j],"%d,%d",&x,&w);
-			if(ret!=2)
-			{
-				l_free(btn);
-				l_strfreev(list);
-				l_free(layout);
-				l_free(data);
-				return -1;
-			}
 			btn->rc.x=(short)(scale*x);btn->rc.y=(short)(scale*y);
 			btn->rc.w=(short)(scale*w);btn->rc.h=(short)(scale*h);
 			btn->state=KBTN_NORMAL;
 			btn->type=KBT_NORMAL;
-			kst.layout.line[i]=l_slist_append(kst.layout.line[i],btn);
+			head=l_slist_append(head,btn);
 		}
-		l_strfreev(list);
+		l_ptr_array_append(kst.layout.line,head);
 	}
-	line=l_key_file_get_string(kst.config,layout,"font");
-	if(!line) line=l_strdup("Monosapce 12");
-	if(kst.layout.font)
+	LXmlNode *sub_keyboard=l_slist_nth(keyboard->child,sub);
+	if(!sub_keyboard)
+		return -1;
+	kst.layout.shift.state=l_xml_get_prop_int(sub_keyboard,"select");
+	const char *name=l_xml_get_prop(sub_keyboard,"name");
+	if(name)
 	{
-#ifdef _WIN32
-		DeleteObject(kst.layout.font);
-#else
-		g_object_unref(kst.layout.font);
-#endif
-		l_free(kst.layout.font_desc);
+		char gb[64];
+		l_utf8_to_gb(name,gb,sizeof(gb));
+		kst.layout.shift.data=l_strdup(gb);
 	}
-	kst.layout.font=font_parse(line);
-	kst.layout.font_desc=line;
-	l_free(layout);
-	
-	/* load button data */
-	for(i=0;i<5;i++)
+	else
 	{
-		char llll[8]="line0";
-		int j;
-		KBD_BTN *btn;
-		if(!kst.layout.line[i]) continue;
-		llll[4]='0'+i;
-		line=l_key_file_get_string(kst.config,data,llll);
-		if(!line) continue;
-		list=l_strsplit(line,' ');
-		l_free(line);
-		if(!list) continue;
-		for(j=0,btn=kst.layout.line[i];list[j] && btn!=0;btn=btn->next,j++)
+		kst.layout.shift.data=l_strdup("Shift");
+	}
+	for(int i=0;i<l_ptr_array_length(kst.layout.line);i++)
+	{
+		LXmlNode *row=l_slist_nth(sub_keyboard->child,i);
+		if(!row)
+			break;
+		if(!row->data)
+			continue;
+		char **arr=l_strsplit(row->data,' ');
+		KBD_BTN *h=l_ptr_array_nth(kst.layout.line,i);
+		for(int j=0;arr[j]!=NULL;j++)
 		{
-			char **tmp;
+			KBD_BTN *btn=l_slist_nth(h,j);
+			if(!btn)
+				break;
 			char gb[64];
-			tmp=l_strsplit(list[j],',');
-			if(!tmp) continue;
-			if(!tmp[0])
-			{
-				l_strfreev(tmp);
-				continue;
-			}
-			l_utf8_to_gb(tmp[0],gb,sizeof(gb));
+			l_utf8_to_gb(arr[j],gb,sizeof(gb));
 			if(!strcmp(gb,"$COMMA"))
-				btn->data[0]=l_strdup(",");
+				btn->data=l_strdup(",");
 			else if(!strcmp(gb,"$NONE"))
-				btn->data[0]=0;
+				btn->data=NULL;
 			else
-				btn->data[0]=l_strdup(gb);
-			if(tmp[1])
-			{
-				l_utf8_to_gb(tmp[1],gb,sizeof(gb));
-				if(!strcmp(gb,"$COMMA"))
-					btn->data[0]=l_strdup(",");
-				else if(!strcmp(gb,"$NONE"))
-					btn->data[0]=0;
-				btn->data[1]=l_strdup(gb);
-			}
-			l_strfreev(tmp);
+				btn->data=l_strdup(gb);
 		}
-		l_strfreev(list);
+		l_strfreev(arr);
 	}
-	kst.layout.name=l_key_file_get_string(kst.config,data,"name");
-	if(!kst.layout.name) kst.layout.name=l_strdup("");
+	kst.layout.name=l_xml_get_prop(keyboard,"name");
+	if(!kst.layout.name) kst.layout.name="";
+	kst.xim=l_xml_get_prop_int(keyboard,"xim");
 #ifdef _WIN32
 	{
 		WCHAR temp[64];
@@ -536,18 +300,35 @@ static int kbd_select(int pos)
 		h=GetSystemMetrics(SM_CYSCREEN);
 		cy=GetSystemMetrics(SM_CYCAPTION)+2*GetSystemMetrics(SM_CYFIXEDFRAME);
 		cx=2*GetSystemMetrics(SM_CXFIXEDFRAME);
-		MoveWindow(kst.layout.win,
+		if(kst.first)
+		{
+			MoveWindow(kst.layout.win,
 				(w-cx-kst.layout.main.rc.w)/2,
 				(h-cy-kst.layout.main.rc.h)/2,
 				cx+kst.layout.main.rc.w,
 				cy+kst.layout.main.rc.h,
 				TRUE);
+			kst.first=0;
+		}
+		else
+		{
+			GetWindowRect(kst.layout.win,&rc);
+			MoveWindow(kst.layout.win,
+				rc.left,rc.top,
+				cx+kst.layout.main.rc.w,
+				cy+kst.layout.main.rc.h,
+				TRUE);
+		}
 		GetClientRect(kst.layout.win,&rc);
 	}
 #else
 	gtk_window_set_title(GTK_WINDOW(kst.layout.win),kst.layout.name);
 	gtk_widget_queue_draw(kst.layout.win);
-	gtk_window_set_position(GTK_WINDOW(kst.layout.win),GTK_WIN_POS_CENTER);
+	if(kst.first)
+	{
+		gtk_window_set_position(GTK_WINDOW(kst.layout.win),GTK_WIN_POS_CENTER);
+		kst.first=0;
+	}
 	gtk_window_resize(GTK_WINDOW(kst.layout.win),
 			kst.layout.main.rc.w,
 			kst.layout.main.rc.h);
@@ -555,16 +336,16 @@ static int kbd_select(int pos)
 			kst.layout.main.rc.w,
 			kst.layout.main.rc.h);
 #endif
-	kst.xim=l_key_file_get_int(kst.config,data,"xim");
-	l_free(data);
 	kst.cur=pos;
-	
+	kst.sub=sub;
 	return 0;
 }
 
+static void kbd_select_sub(void);
+
 int y_kbd_show(int b)
 {
-	if(!kst.file || !kst.config || !kst.layout.win)
+	if(!kst.config || !kst.layout.win)
 	{
 		printf("yong: keyboard no config\n");
 		return -1;
@@ -581,7 +362,7 @@ int y_kbd_show(int b)
 	}
 	if(b)
 	{
-		if(!kbd_select(kst.cur))
+		if(!kbd_select(kst.cur,kst.sub))
 		{
 			kbd_main_show(b);
 		}
@@ -589,25 +370,49 @@ int y_kbd_show(int b)
 	else
 	{
 		kbd_main_show(b);
-		kbd_select(-1);
+		kbd_select(-1,0);
 	}
 	return 0;
 }
 
+static void kbd_paint(void)
+{
+#ifdef _WIN32
+	InvalidateRect(kst.layout.win,NULL,TRUE);
+#else
+	gtk_widget_queue_draw(kst.layout.win);
+#endif
+}
+
+void y_kbd_select(int pos,int sub)
+{
+	if(kst.layout.name)
+	{
+		if(0!=kbd_select(pos,sub))
+			return;
+		kbd_paint();
+	}
+	else
+	{
+		kst.cur=pos;
+		kst.sub=sub;
+		y_kbd_show(1);
+	}
+}
+
 static int kbd_click(int x,int y,int up)
 {
-	if(!kst.file || !kst.config || !kst.layout.win)
+	if(!kst.config || !kst.layout.win)
 	{
 		return -1;
 	}
 	if(!up)
 	{
 		int i;
-		kst.layout.psel=0;
-		
-		for(i=0;i<5;i++)
+		kst.layout.psel=NULL;
+		for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 		{
-			KBD_BTN *btn=kst.layout.line[i];
+			KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
 			for(;btn;btn=btn->next)
 			{
 				if(y<=btn->rc.y || y>=btn->rc.h+btn->rc.y)
@@ -639,21 +444,14 @@ static int kbd_click(int x,int y,int up)
 		{
 			if(btn->type==KBT_SHIFT)
 			{
-				if(btn->state==KBTN_NORMAL)
-					btn->state=KBTN_SELECT;
-				else
-					btn->state=KBTN_NORMAL;
+				kbd_select_sub();
 			}
 			else
 			{
-				int sh=kst.layout.shift.state==KBTN_SELECT;
 				char *text=0;
 				int key=-1;
 				btn->state=KBTN_NORMAL;
-				if(btn->data[sh])
-					text=btn->data[sh];
-				else if(btn->data[0])
-					text=btn->data[0];
+				text=btn->data;
 				if(text) text+=y_im_str_desc(text,0);
 				if(text && kst.xim)
 				{
@@ -668,99 +466,39 @@ static int kbd_click(int x,int y,int up)
 					y_xim_send_string(text);
 			}
 		}
-		kst.layout.psel=0;
+		kst.layout.psel=NULL;
 	}
-#ifdef _WIN32
-	InvalidateRect(kst.layout.win,NULL,TRUE);
-#else
-	gtk_widget_queue_draw(kst.layout.win);
-#endif
+	kbd_paint();
 	return 0;
 }
 
-#ifndef _WIN32
-static void menu_activate(GtkMenuItem *item,gpointer data)
-{
-	int id=GPOINTER_TO_INT(data);
-	if(0==kbd_select(id))
-		y_kbd_show(1);
-}
-#else
+#ifdef _WIN32
 #define IDC_KEYBOARD	1000
 HWND GetFocusedWindow(void);
-#endif
-
-static void y_kbd_popup_menu_real(int from)
+static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int from)
 {
-#ifdef _WIN32
 	POINT pos;
 	static HMENU MainMenu;
-#else
-	static GtkWidget *MainMenu;
-#endif
-	char *line,**list;
-	int i;
-	
-	if(!kst.file || !kst.config || !kst.layout.win)
+	int half=(l_ptr_array_length(arr)+1)/2;
+	if(!kst.config || !kst.layout.win)
 		return;
-		
 	if(MainMenu)
 	{
-#ifdef _WIN32
 		DestroyMenu(MainMenu);
-#else
-		gtk_widget_destroy(MainMenu);
-#endif
-		MainMenu=0;
 	}
-	line=l_key_file_get_string(kst.config,"keyboard","data");
-	if(!line) return;
-	list=l_strsplit(line,' ');
-	l_free(line);
-	if(!list || !list[0])
-	{
-		if(list) l_strfreev(list);
-		return;
-	}
-#ifdef _WIN32
 	MainMenu=CreatePopupMenu();
-#else
-	MainMenu=gtk_menu_new();
-#endif
-	for(i=0;list[i];i++)
+	for(int i=0;i<l_ptr_array_length(arr);i++)
 	{
-		char *name=l_key_file_get_string(kst.config,list[i],"name");
-		if(!name || !name[0])
-		{
-			l_free(name);
-			break;
-		}
-#ifdef _WIN32
+		const char *name=l_ptr_array_nth(arr,i);
 		WCHAR tmp[64];
 		l_utf8_to_utf16(name,tmp,sizeof(tmp));
-		l_free(name);
 		int flag=MF_STRING;
-		if(kst.cur==i) flag|=MF_CHECKED;
-		if(list[i+1] && i%7==0 && i!=0) flag|=MF_MENUBARBREAK;
+		if(cur==i) flag|=MF_CHECKED;
+		if(i%half==0 && i!=0) flag|=MF_MENUBARBREAK;
 		AppendMenu(MainMenu,flag,IDC_KEYBOARD+i,tmp);
-		if(i%7!=6)
+		if(i%half!=half-1)
 			AppendMenu(MainMenu,MF_SEPARATOR,0,0);
-#else
-		GtkWidget *item;
-		int x,y;
-		item=gtk_check_menu_item_new_with_label(name);
-		l_free(name);
-		if(kst.cur==i)
-			gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),TRUE);
-		g_signal_connect(G_OBJECT(item),"activate",
-				G_CALLBACK(menu_activate),GINT_TO_POINTER(i));
-		y=i%7;x=i/7;
-		gtk_menu_attach(GTK_MENU(MainMenu),item,x,x+1,y,y+1);
-		gtk_widget_show(item);
-#endif
 	}
-	l_strfreev(list);
-#ifdef _WIN32
 	HWND hWnd=GetFocusedWindow();
 	GetCursorPos(&pos);
 	UINT uFlags=TPM_RETURNCMD|TPM_NONOTIFY;
@@ -783,14 +521,75 @@ static void y_kbd_popup_menu_real(int from)
 	SetForegroundWindow(kst.layout.win);
 	int id=TrackPopupMenu(MainMenu,uFlags,pos.x,pos.y,
 		0,kst.layout.win,NULL);
-	if(id>0)
-		PostMessage(kst.layout.win,WM_COMMAND,id,0);
-#ifndef _WIN32_WCE
 	SetForegroundWindow(hWnd);
-#endif
+	if(id>0)
+		cb(id-IDC_KEYBOARD);
+}
 #else
+static void (*_menu_click_cb)(int);
+static void menu_activate(GtkMenuItem *item,gpointer data)
+{
+	int id=GPOINTER_TO_INT(data);
+	if(!_menu_click_cb)
+		return;
+	_menu_click_cb(id);
+	_menu_click_cb=NULL;
+}
+static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int)
+{
+	static GtkWidget *MainMenu;
+	int half=(l_ptr_array_length(arr)+1)/2;
+	if(MainMenu)
+	{
+		gtk_widget_destroy(MainMenu);
+	}
+	_menu_click_cb=cb;
+	MainMenu=gtk_menu_new();
+	for(int i=0;i<l_ptr_array_length(arr);i++)
+	{
+		const char *name=l_ptr_array_nth(arr,i);
+		GtkWidget *item;
+		int x,y;
+		item=gtk_check_menu_item_new_with_label(name);
+		if(cur==i)
+			gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),TRUE);
+		g_signal_connect(G_OBJECT(item),"activate",
+				G_CALLBACK(menu_activate),GINT_TO_POINTER(i));
+		y=i%half;x=i/half;
+		gtk_menu_attach(GTK_MENU(MainMenu),item,x,x+1,y,y+1);
+		gtk_widget_show(item);
+	}
 	gtk_menu_popup(GTK_MENU(MainMenu),NULL,NULL,NULL,NULL,0,gtk_get_current_event_time());
+}
 #endif
+
+static void kbd_menu_select(int id)
+{
+	if(0==kbd_select(id,0))
+	{
+		kbd_paint();
+		y_kbd_show(1);
+	}
+}
+
+static void y_kbd_popup_menu_real(int from)
+{
+	LPtrArray *arr;
+	LXmlNode *data=l_xml_get_child(kst.config->root.child,"data");
+	if(!data || !data->child)
+		return;
+	arr=l_ptr_array_new(10);
+	for(LXmlNode *keyboard=data->child;keyboard!=NULL;keyboard=keyboard->next)
+	{
+		const char *name=l_xml_get_prop(keyboard,"name");
+		if(!name || !name[0])
+		{
+			break;
+		}
+		l_ptr_array_append(arr,name);
+	}
+	kbd_popup_menu(arr,kst.cur,kbd_menu_select,from);
+	l_ptr_array_free(arr,NULL);
 }
 
 void y_kbd_popup_menu(void)
@@ -802,195 +601,165 @@ void y_kbd_popup_menu(void)
 #endif
 }
 
+static void sub_select_cb(int id)
+{
+	kbd_select(kst.cur,id);
+	kbd_paint();
+}
+
+static void kbd_select_sub(void)
+{
+	LXmlNode *node;
+	node=l_xml_get_child(kst.config->root.child,"data");
+	node=l_slist_nth(node->child,kst.cur);
+	int menu=l_xml_get_prop_int(node,"menu");
+	LXmlNode *h=node->child;
+	node=l_slist_nth(h,kst.sub);
+	if(!menu)
+	{
+		int sub=node->next?kst.sub+1:0;
+		kbd_select(kst.cur,sub);
+		kbd_paint();
+	}
+	else
+	{
+		LPtrArray *arr=l_ptr_array_new(10);
+		node=h;
+		for(int i=0;node!=NULL;i++,node=node->next)
+		{
+			const char *name=l_xml_get_prop(node,"name");
+			l_ptr_array_append(arr,name);
+		}
+		kbd_popup_menu(arr,kst.sub,sub_select_cb,0);
+		l_ptr_array_free(arr,NULL);
+	}
+}
+
+static void draw_button(DRAW_CONTEXT1 *ctx,KBD_BTN *btn,int which)
+{
+	int x,y,w,h;
 #ifdef _WIN32
-static COLORREF color_parse(char *color)
-{
-	COLORREF ret;
-	char tmp[7];
-	tmp[0]=color[5];tmp[1]=color[6];
-	tmp[2]=color[3];tmp[3]=color[4];
-	tmp[4]=color[1];tmp[5]=color[2];
-	tmp[6]=0;
-	ret=strtoul(tmp,0,16);
-	return ret;
-}
-
-static HBRUSH brush_parse(char *color)
-{
-	COLORREF clr;
-	if(color[0]!='#')
-		return CreateSolidBrush(RGB(255,255,255));
-	clr=color_parse(color);
-	return CreateSolidBrush(clr);
-}
-
-static HPEN pen_parse(char *color)
-{
-	COLORREF clr;
-	if(color[0]!='#')
-		return CreatePen(PS_SOLID,1,RGB(0,0,0));
-	clr=color_parse(color);
-	return CreatePen(PS_SOLID,1,clr);
-}
-
-static void draw_button(HDC hdc,KBD_BTN *btn,int sh)
-{
-	RECT rc;
-	HGDIOBJ hPenOld,hBrushOld,hPen,hBrush;
 	TCHAR temp[64];
+#else
+	char temp[64];
+#endif
 	int state=btn->state;
-	COLORREF clr;
-	
+
 	if(btn==kst.layout.psel) state=KBTN_SELECT;
-	rc.left=btn->rc.x;rc.top=btn->rc.y;
-	rc.right=btn->rc.x+btn->rc.w;
-	rc.bottom=btn->rc.y+btn->rc.h;
-	hBrush=brush_parse(kst.layout.desc[btn->type].bg[state]);
-	hPen=pen_parse(kst.layout.desc[btn->type].border[state]);
-	hBrushOld=SelectObject(hdc,hBrush);
-	hPenOld=SelectObject(hdc,hPen);
-	Rectangle(hdc,rc.left,rc.top,rc.right,rc.bottom);
-	SelectObject(hdc,hPenOld);
-	DeleteObject(hPen);
-	clr=color_parse(kst.layout.desc[btn->type].fg[state]);
-	SetTextColor(hdc,clr);
-	if(btn->data[1] && sh)
-		y_im_disp_cand(btn->data[1],(char*)temp,8,0);		
-	else if(btn->data[0])
-		y_im_disp_cand(btn->data[0],(char*)temp,8,0);
-	else
-		temp[0]=0;
-	DrawText(hdc,temp,-1,&rc,DT_CENTER|DT_SINGLELINE|DT_VCENTER|DT_NOPREFIX);
-	SelectObject(hdc,hBrushOld);
-	DeleteObject(hBrush);
+	if(which==0 || which==1)
+	{
+		ui_fill_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h,kst.layout.desc[btn->type].bg[state]);
+		ui_draw_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h,kst.layout.desc[btn->type].border[state],1);
+	}
+	if(which==0 || which==2)
+	{
+		UI_FONT font=kst.layout.font;
+		if(btn->data)
+			y_im_disp_cand(btn->data,(char*)temp,8,0,NULL,NULL);
+		else
+			temp[0]=0;
+		ui_text_size(ctx->dc,font,temp,&w,&h);
+		x=btn->rc.x+(btn->rc.w-w)/2;
+		y=btn->rc.y+(btn->rc.h-h)/2;
+		ui_draw_text(ctx,font,x,y,temp,kst.layout.desc[btn->type].fg[state]);
+	}
 }
 
-static void OnKeyboardPaint(HDC hdc,int w,int h)
+static void OnKeyboardPaint(DRAW_CONTEXT1 *ctx)
 {
-	KBD_BTN *sh=&kst.layout.shift;
-	HGDIOBJ hPenOld,hBrushOld,hPen,hBrush,hFontOld;
 	int i;
+	KBD_BTN *main=&kst.layout.main;
+	KBD_BTN *sh=&kst.layout.shift;
 		
-	SetBkMode(hdc,TRANSPARENT);
-	
-	hBrush=brush_parse(kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
-	hPen=pen_parse(kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
-	hBrushOld=SelectObject(hdc,hBrush);
-	hPenOld=SelectObject(hdc,hPen);
-	Rectangle(hdc,0,0,w,h);
-	SelectObject(hdc,hBrushOld);
-	SelectObject(hdc,hPenOld);
-	DeleteObject(hBrush);
-	DeleteObject(hPen);
-	
-	hFontOld=SelectObject(hdc,kst.layout.font);
+	ui_fill_rect(ctx,0,0,main->rc.w,main->rc.h,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 
+#ifdef _WIN32
 	if(sh->rc.w)
 	{
-		draw_button(hdc,sh,0);
+		draw_button(ctx,sh,1);
 	}
-	for(i=0;i<5;i++)
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
-		KBD_BTN *btn=kst.layout.line[i];
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
 		for(;btn;btn=btn->next)
 		{
-			if(sh->state==KBTN_SELECT) continue;
-			draw_button(hdc,btn,0);
+			if(btn->state==KBTN_SELECT)
+				continue;
+			draw_button(ctx,btn,1);
 		}
 	}
-	for(i=0;i<5;i++)
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
-		KBD_BTN *btn=kst.layout.line[i];
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
 		for(;btn;btn=btn->next)
 		{
-			if(sh->state!=KBTN_SELECT) continue;
-			draw_button(hdc,btn,1);
+			if(btn->state!=KBTN_SELECT) continue;
+			draw_button(ctx,btn,1);
 		}
 	}
-	SelectObject(hdc,hFontOld);
-}
-
-static void draw_button_draw(DWRITE_CONTEXT *ctx,KBD_BTN *btn,int sh)
-{
-	RECT rc;
-	void *hPen,*hBrush,*clr;	
-	TCHAR temp[64];
-	int state=btn->state;
-	
-	if(btn==kst.layout.psel) state=KBTN_SELECT;
-	rc.left=btn->rc.x;rc.top=btn->rc.y;
-	rc.right=btn->rc.x+btn->rc.w;
-	rc.bottom=btn->rc.y+btn->rc.h;
-	hBrush=dw_brush_parse(ctx,kst.layout.desc[btn->type].bg[state]);
-	hPen=dw_brush_parse(ctx,kst.layout.desc[btn->type].border[state]);
-	dw_select_brush(ctx,hBrush);
-	dw_select_pen(ctx,hPen);
-	dw_fill_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
-	dw_draw_rect(ctx,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
-	clr=dw_brush_parse(ctx,kst.layout.desc[btn->type].fg[state]);
-	if(btn->data[1] && sh)
-		y_im_disp_cand(btn->data[1],(char*)temp,8,0);		
-	else if(btn->data[0])
-		y_im_disp_cand(btn->data[0],(char*)temp,8,0);
-	else
-		temp[0]=0;
-	dw_draw_text2(ctx,temp,&rc,clr);
-	dw_object_delete(hPen);
-	dw_object_delete(hBrush);
-	dw_object_delete(clr);
-
-}
-
-static void OnKeyboardPaint_draw(DWRITE_CONTEXT *ctx,int w,int h)
-{
-	KBD_BTN *sh=&kst.layout.shift;
-	void *hPen,*hBrush,*hFont;
-	int i;
-
-	hFont=dw_font_parse(ctx,kst.layout.font_desc,y_ui_get_scale());
-	hBrush=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
-	hPen=dw_brush_parse(ctx,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
-	dw_select_font(ctx,hFont);
-	dw_select_brush(ctx,hBrush);
-	dw_select_pen(ctx,hPen);
-	dw_fill_rect(ctx,0,0,w,h);
-	dw_draw_rect(ctx,0,0,w,h);
-	
+	ui_draw_text_begin(ctx);
+	UI_FONT font=kst.layout.font;
+	HANDLE old=NULL;
+	if(!font->dw)
+		old=SelectObject(ctx->dc,font->gdi);
 	if(sh->rc.w)
 	{
-		draw_button_draw(ctx,sh,0);
+		draw_button(ctx,sh,2);
 	}
-	for(i=0;i<5;i++)
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
-		KBD_BTN *btn=kst.layout.line[i];
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
 		for(;btn;btn=btn->next)
 		{
-			if(sh->state==KBTN_SELECT) continue;
-			draw_button_draw(ctx,btn,0);
+			if(btn->state==KBTN_SELECT)
+				continue;
+			draw_button(ctx,btn,2);
 		}
 	}
-	for(i=0;i<5;i++)
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
-		KBD_BTN *btn=kst.layout.line[i];
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
 		for(;btn;btn=btn->next)
 		{
-			if(sh->state!=KBTN_SELECT) continue;
-			draw_button_draw(ctx,btn,1);
+			if(btn->state!=KBTN_SELECT) continue;
+			draw_button(ctx,btn,2);
 		}
 	}
-	
-	dw_object_delete(hPen);
-	dw_object_delete(hBrush);
-	dw_object_delete(hFont);
+	if(!font->dw)
+		SelectObject(ctx->dc,old);
+	ui_draw_text_end(ctx);
+#else	
+	if(sh->rc.w)
+	{
+		draw_button(ctx,sh,0);
+	}
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
+	{
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
+		for(;btn;btn=btn->next)
+		{
+			if(btn->state==KBTN_SELECT)
+				continue;
+			draw_button(ctx,btn,0);
+		}
+	}
+	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
+	{
+		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
+		for(;btn;btn=btn->next)
+		{
+			if(btn->state!=KBTN_SELECT) continue;
+			draw_button(ctx,btn,0);
+		}
+	}
+#endif
 }
 
-LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
+#ifdef _WIN32
+static LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg){
 	case WM_CREATE:
-		if(l_key_file_get_data(kst.config,"keyboard","color") && l_key_file_get_int(kst.config,"keyboard","color")==0)
-			break;
-		draw_ctx=dw_context_new();
 		break;
 	case WM_SYSCOMMAND:
 		if(wParam==SC_CLOSE)
@@ -1006,7 +775,7 @@ LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		y_kbd_show(0);
 		break;
 	case WM_COMMAND:
-		if(0==kbd_select(wParam-IDC_KEYBOARD))
+		if(0==kbd_select(wParam-IDC_KEYBOARD,0))
 			y_kbd_show(1);
 		break;
 	case WM_MOUSEMOVE:
@@ -1033,34 +802,35 @@ LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	{
 		PAINTSTRUCT ps;
 		RECT rc;
-		HDC hdc;
 		int w,h;
+		HDC hdc,hmem;
+		HBITMAP bmp,oldbmp;
+		DRAW_CONTEXT1 ctx;
+		BITMAPINFO bmi;
+		void *bits;
 		GetClientRect(hWnd,&rc);
 		w=rc.right-rc.left;h=rc.bottom-rc.top;
 		hdc=BeginPaint(hWnd,&ps);
-		if(draw_ctx)
-		{
-			dw_begin_paint(draw_ctx,hWnd,hdc);
-			OnKeyboardPaint_draw(draw_ctx,w,h);
-			dw_end_paint(draw_ctx);
-		}
-		else
-		{		
-			HBITMAP bmp,oldbmp;			
-			HDC hmem=CreateCompatibleDC(hdc);			
-			bmp=CreateCompatibleBitmap(hdc,w,h);
-			oldbmp=SelectObject(hmem,bmp);
-			OnKeyboardPaint(hmem,w,h);
-			BitBlt(hdc,0,0,w,h,hmem,0,0,SRCCOPY);
-			SelectObject(hmem,oldbmp);
-			DeleteObject(bmp);
-			DeleteDC(hmem);
-		}
+		hmem=CreateCompatibleDC(hdc);
+		ZeroMemory(&bmi, sizeof(bmi));
+		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		bmi.bmiHeader.biWidth = w;
+		bmi.bmiHeader.biHeight = -h;
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_RGB;
+		bmp = CreateDIBSection(NULL, &bmi, DIB_RGB_COLORS,(void **)&bits, NULL, 0);
+		oldbmp=SelectObject(hmem,bmp);
+		ui_draw_begin(&ctx,hWnd,hmem);
+		OnKeyboardPaint(&ctx);
+		ui_draw_end(&ctx);
+		BitBlt(hdc,0,0,w,h,hmem,0,0,SRCCOPY);
 		EndPaint(hWnd,&ps);
+		SelectObject(hmem,oldbmp);
+		DeleteObject(bmp);
+		DeleteDC(hmem);
 		break;
 	}
-	case WM_DESTROY:
-		dw_context_free(draw_ctx);
 	default:
 		return DefWindowProc(hWnd,msg,wParam,lParam);
 	}
@@ -1111,146 +881,14 @@ static void kbd_main_show(int b)
 }
 #else
 
-static void draw_button(cairo_t *cr,KBD_BTN *btn,int sh)
-{
-	char temp[64];
-	int state=btn->state;
-#if GTK_CHECK_VERSION(3,0,0)
-	GdkRGBA clr;
-#else
-	GdkColor clr;
-#endif
-
-	if(btn==kst.layout.psel) state=KBTN_SELECT;
-
-#if GTK_CHECK_VERSION(3,0,0)
-	gdk_rgba_parse(&clr,kst.layout.desc[btn->type].bg[state]);
-	gdk_cairo_set_source_rgba(cr,&clr);
-#else
-	gdk_color_parse(kst.layout.desc[btn->type].bg[state],&clr);
-	gdk_cairo_set_source_color(cr,&clr);
-#endif
-#ifdef FIX_CAIRO_LINETO
-	cairo_rectangle(cr,btn->rc.x+0.5,btn->rc.y+0.5,btn->rc.w,btn->rc.h);
-#else
-	cairo_rectangle(cr,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
-#endif
-	cairo_fill(cr);
-#if GTK_CHECK_VERSION(3,0,0)
-	gdk_rgba_parse(&clr,kst.layout.desc[btn->type].border[state]);
-	gdk_cairo_set_source_rgba(cr,&clr);
-#else
-	gdk_color_parse(kst.layout.desc[btn->type].border[state],&clr);
-	gdk_cairo_set_source_color(cr,&clr);
-#endif
-#ifdef FIX_CAIRO_LINETO
-	cairo_rectangle(cr,btn->rc.x+0.5,btn->rc.y+0.5,btn->rc.w-1,btn->rc.h-1);
-#else
-	cairo_rectangle(cr,btn->rc.x,btn->rc.y,btn->rc.w,btn->rc.h);
-#endif
-	cairo_stroke(cr);
-
-	if(btn->data[1] && sh)
-		y_im_disp_cand(btn->data[1],(char*)temp,8,0);		
-	else if(btn->data[0])
-		y_im_disp_cand(btn->data[0],(char*)temp,8,0);
-	else
-		temp[0]=0;
-	DrawText(cr,temp,&btn->rc,kst.layout.desc[btn->type].fg[state]);
-}
-
-#if GTK_CHECK_VERSION(3,0,0)
 static gboolean kbd_draw(GtkWidget *window,cairo_t *cr)
 {
-	KBD_BTN *sh=&kst.layout.shift;
-	KBD_BTN *btn;
-	GdkRGBA clr;
-	int i;
-	
-	cairo_set_line_width(cr,1.0);
-	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
-	
-	btn=&kst.layout.main;
-	gdk_rgba_parse(&clr,kst.layout.desc[btn->type].bg[btn->state]);
-	gdk_cairo_set_source_rgba(cr,&clr);
-	cairo_rectangle(cr,0,0,btn->rc.w,btn->rc.h);
-	cairo_fill(cr);	
-	
-	if(sh->rc.w)
-	{
-		draw_button(cr,sh,0);
-	}
-
-	for(i=0;i<5;i++)
-	{
-		KBD_BTN *btn=kst.layout.line[i];
-		for(;btn;btn=btn->next)
-		{
-			if(sh->state==KBTN_SELECT) continue;
-			draw_button(cr,btn,0);
-		}
-	}
-	for(i=0;i<5;i++)
-	{
-		KBD_BTN *btn=kst.layout.line[i];
-		for(;btn;btn=btn->next)
-		{
-			if(sh->state!=KBTN_SELECT) continue;
-			draw_button(cr,btn,1);
-		}
-	}
+	DRAW_CONTEXT1 ctx;
+	ui_draw_begin(&ctx,window,cr);
+	OnKeyboardPaint(&ctx);
+	ui_draw_end(&ctx);
 	return TRUE;
 }
-#else
-static gboolean kbd_expose(GtkWidget *window,GdkEventExpose *event)
-{
-	KBD_BTN *sh=&kst.layout.shift;
-#if defined(GSEAL_ENABLE)
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(window));
-#else
-	cairo_t *cr=gdk_cairo_create(window->window);
-#endif
-	KBD_BTN *btn;
-	GdkColor clr;
-	int i;
-	
-	cairo_set_line_width(cr,1.0);
-	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
-	
-	btn=&kst.layout.main;
-	gdk_color_parse(kst.layout.desc[btn->type].bg[btn->state],&clr);
-	gdk_cairo_set_source_color(cr,&clr);
-	cairo_rectangle(cr,0,0,btn->rc.w,btn->rc.h);
-	cairo_fill(cr);	
-	
-	if(sh->rc.w)
-	{
-		draw_button(cr,sh,0);
-	}
-
-	for(i=0;i<5;i++)
-	{
-		KBD_BTN *btn=kst.layout.line[i];
-		for(;btn;btn=btn->next)
-		{
-			if(sh->state==KBTN_SELECT) continue;
-			draw_button(cr,btn,0);
-		}
-	}
-	for(i=0;i<5;i++)
-	{
-		KBD_BTN *btn=kst.layout.line[i];
-		for(;btn;btn=btn->next)
-		{
-			if(sh->state!=KBTN_SELECT) continue;
-			draw_button(cr,btn,1);
-		}
-	}
-
-	cairo_destroy(cr);
-	return TRUE;
-}
-#endif
 
 static gboolean kbd_click_cb (GtkWidget *window,GdkEventButton *event,gpointer user_data)
 {
@@ -1278,18 +916,11 @@ static void kbd_main_new(void)
 	kst.layout.win=gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_keep_above(GTK_WINDOW(kst.layout.win),TRUE);
 	gtk_window_set_modal(GTK_WINDOW(kst.layout.win),FALSE);
+	gtk_window_set_resizable(GTK_WINDOW(kst.layout.win),FALSE);
 	gtk_widget_realize(kst.layout.win);
-#if GTK_CHECK_VERSION(3,0,0)
 	gdk_window_set_functions(gtk_widget_get_window(kst.layout.win),GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
-#else
-	gdk_window_set_functions(kst.layout.win->window,GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
-#endif
 	gtk_window_set_accept_focus(GTK_WINDOW(kst.layout.win),FALSE);
-#if GTK_CHECK_VERSION(3,2,0)
 	InputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
-#else
-	InputBox = gtk_hbox_new(FALSE,0);
-#endif
 	gtk_container_add(GTK_CONTAINER(kst.layout.win),GTK_WIDGET(InputBox));
 	InputEvent=gtk_event_box_new();
 	gtk_container_add(GTK_CONTAINER(InputBox),InputEvent);
@@ -1301,23 +932,22 @@ static void kbd_main_new(void)
 			G_CALLBACK(kbd_click_cb),GINT_TO_POINTER (0));
 	g_signal_connect (G_OBJECT(kst.layout.win), "button-release-event",
 			G_CALLBACK(kbd_click_cb),GINT_TO_POINTER (1));
-#if GTK_CHECK_VERSION(3,0,0)
 	g_signal_connect(G_OBJECT(kst.layout.win),"draw",
 			G_CALLBACK(kbd_draw),0);
-#else
-	g_signal_connect(G_OBJECT(kst.layout.win),"expose-event",
-			G_CALLBACK(kbd_expose),0);
-#endif
 }
 
 static void kbd_main_show(int b)
 {
 	if(!b)
+	{
 		gtk_widget_hide(kst.layout.win);
+	}
 	else
 	{
 		gtk_widget_show(kst.layout.win);
 		gtk_window_deiconify(GTK_WINDOW(kst.layout.win));
 	}
 }
+
 #endif
+

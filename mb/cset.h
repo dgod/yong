@@ -2,7 +2,6 @@
 
 #include "yong.h"
 #include "mb.h"
-#include "learn.h"
 
 enum{
 	CSET_TYPE_NONE=0,
@@ -14,6 +13,7 @@ enum{
 	CSET_TYPE_SENTENCE,
 	CSET_TYPE_UNKNOWN,
 };
+#define CSET_TYPE_ALL	CSET_TYPE_NONE
 
 typedef struct _cset_group{
 	struct _cset_group *next;
@@ -32,6 +32,7 @@ typedef struct _cset_group_calc{
 
 typedef struct _cset_group_predict{
 	CSET_GROUP;
+	int ptype;
 	char phrase[MAX_CAND_LEN+1];
 }CSET_GROUP_PREDICT;
 

@@ -21,8 +21,6 @@
 
 static LKeyFile *MainConfig,*SubConfig,*MenuConfig;
 
-extern int key_select[];
-extern char key_select_n[];
 static Y_XIM xim;
 
 int y_xim_init(const char *name)
@@ -67,8 +65,47 @@ void y_xim_update_config(void)
 		xim.update_config();
 }
 
+static void send_raw_string_async(const char *text,void *unused)
+{
+	if(!text || !text[0])
+		return;
+	if(strlen(text)>MAX_CAND_LEN || strchr(text,'\n'))
+		YongSendClipboard(text);
+	else
+		xim.send_string(text,DONT_ESCAPE);
+}
+
+static char **y_im_parse_argv(const char *s,int size);
+
+static void async_spawn_at_idle(char *s)
+{
+#if defined CFG_XIM_ANDROID
+	y_im_expand_space(s);
+	xim.explore_url(s);
+	l_free(s);
+#else
+	char **argv=y_im_parse_argv(s+1,-1);
+	l_free(s);
+	if(!argv)
+		return;
+	if(!argv[0])
+	{
+		l_strfreev(argv);
+		return;
+	}
+	y_im_async_spawn(argv,send_raw_string_async,NULL);
+	l_strfreev(argv);
+#endif
+	return;
+}
+
 void y_xim_explore_url(const char *s)
 {
+	if(s[0]=='|')
+	{
+		y_ui_idle_add((void*)async_spawn_at_idle,l_strdup(s));
+		return;
+	}
 	if(xim.explore_url)
 		xim.explore_url(s);
 }
@@ -76,6 +113,8 @@ void y_xim_explore_url(const char *s)
 static char last_output[512];
 static char temp_output[512];
 static char last_biaodian[12];
+static char last_biaodian_only;
+static char last_code[64];
 
 void y_xim_set_last(const char *s)
 {
@@ -83,12 +122,14 @@ void y_xim_set_last(const char *s)
 	{
 		last_output[0]=0;
 		last_biaodian[0]=0;
+		last_biaodian_only=0;
 		return;
 	}
 	if(!strcmp(s,"$LAST"))
 		return;
 	strcpy(last_output,s);
 	last_biaodian[0]=0;
+	last_biaodian_only=0;
 }
 
 const char *y_xim_get_last(void)
@@ -164,6 +205,27 @@ static void escape_last(const char *s,char *out)
 	*out=0;
 }
 
+static void y_im_input_key_at_idle(int *keys)
+{
+	if(!keys)
+		return;
+	for(int i=0;keys[i]!=0;i++)
+		y_im_input_key(keys[i]);
+	l_free(keys);
+}
+
+void y_xim_send_keys(const char *s)
+{
+	if(!xim.send_keys)
+		return;
+	int keys[256];
+	int count=y_im_parse_keys(s,keys,256);
+	if(count<=0)
+		y_ui_show_tip(YT("格式不正确"));
+	else
+		xim.send_keys(keys,count);
+}
+
 void y_xim_send_string2(const char *s,int flag)
 {
 	int key=0;
@@ -171,20 +233,26 @@ void y_xim_send_string2(const char *s,int flag)
 	{
 		if(flag&SEND_RAW)
 			goto COPY;
-		s+=y_im_str_desc(s,0);
+		s+=y_im_str_desc(s,NULL);
 		if(strstr(s,"$LAST"))
 		{
 			escape_last(s,temp_output);
 		}
 		else if(s[0]=='$')
 		{
+			if(l_str_has_suffix(s,"$SPACE"))
+			{
+				int len=strlen(s);
+				if(len>6)
+					s=l_strndupa(s,len-6);
+			}
 			if(!strcmp(s,"$LAST"))
 			{
 				strcat(temp_output,last_output);
 			}
 			else if(!strncmp(s,"$GO(",4) && l_str_has_suffix(s,")"))
 			{
-				y_xim_send_string2("",SEND_FLUSH);
+				y_xim_send_string2("",SEND_FLUSH|SEND_GO);
 				y_im_go_url(s);
 				return;
 			}
@@ -244,7 +312,24 @@ void y_xim_send_string2(const char *s,int flag)
 				if(temp)
 				{
 					strcat(temp_output,temp);
-				}					
+				}
+				else if(isgraph(s[4]))
+				{
+					char temp[2]={s[4],0};
+					strcat(temp_output,temp);
+				}	
+			}
+			else if(!strcmp(s,"$RELOAD()"))
+			{
+				y_ui_idle_add((void*)YongReloadAll,NULL);
+			}
+			else if(!strncmp(s,"$KEYBOARD(",10) && l_str_has_suffix(s,")"))
+			{
+#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
+				int pos=0,sub=0;
+				sscanf(s+10,"%d,%d",&pos,&sub);
+				y_kbd_select(pos,sub);
+#endif	
 			}
 			else if(y_im_forward_key(s)==0)
 			{
@@ -252,6 +337,29 @@ void y_xim_send_string2(const char *s,int flag)
 				// 但操作系统那里按键处理可能慢于文字信息处理
 				// 用户得不到正确的输入顺序
 				goto out;
+			}
+			else if(l_str_has_surround(s,"$IMKEY(",")"))
+			{
+				char *temp=l_strndupa(s+7,strlen(s+7)-1);
+				int *keys=y_im_str_to_keys(temp);
+				y_ui_idle_add((void*)y_im_input_key_at_idle,keys);
+			}
+			else if(l_str_has_surround(s,"$SENDKEYS(",")"))
+			{
+				if(xim.send_keys)
+				{
+					char *temp=l_strndupa(s+10,strlen(s+10)-1);
+					int keys[256];
+					int count=y_im_parse_keys(temp,keys,256);
+					if(count<=0)
+						y_ui_show_tip(YT("格式不正确"));
+					else
+						xim.send_keys(keys,count);
+				}
+				else
+				{
+					y_ui_show_tip(YT("不支持此功能"));
+				}
 			}
 			else
 			{
@@ -265,14 +373,18 @@ void y_xim_send_string2(const char *s,int flag)
 				y_im_strip_key_useless(temp_output);
 			}
 COPY:
-			strcat(temp_output,s);
 			if(!(flag&SEND_BIAODIAN))
 			{
+				strcat(temp_output,s);
 				strcpy(last_output,temp_output);
 				last_biaodian[0]=0;
+				last_biaodian_only=0;
 			}
 			else
 			{
+				if(temp_output[0]==0)
+					last_biaodian_only=1;
+				strcat(temp_output,s);
 				snprintf(last_biaodian,sizeof(last_biaodian),"%s",s);
 			}
 		}
@@ -290,14 +402,17 @@ COPY:
 	s=temp_output;
 	if(!s[0])
 	{
-		last_output[0]=0;
-		last_biaodian[0]=0;
+		if(!(flag&SEND_GO))
+		{
+			last_output[0]=0;
+			last_biaodian[0]=0;
+		}
 		return;
 	}
 
 	if(!(flag&SEND_RAW))
 	{
-		s+=y_im_str_desc(s,0);
+		s+=y_im_str_desc(s,NULL);
 		if(!y_im_forward_key(s))
 			goto out;
 		key=y_im_strip_key((char*)s);
@@ -341,6 +456,40 @@ out:
 	temp_output[0]=0;
 }
 
+void y_im_set_last_code(const char *s,const char *cand)
+{
+	size_t len=strlen(s);
+	if(len>=sizeof(last_code))
+		return;
+	if(cand)
+	{
+		cand+=y_im_str_desc(cand,NULL);
+		// 上次选择错误，但编码可能要被复用
+		if(!strcmp(cand,"$GO(action:undo)"))
+			return;
+		if(!strcmp(cand,"$BACKSPACE(LAST)"))
+			return;
+		// 如果之前是发送repeat_code按键，则可能形成死循环
+		if(l_str_has_surround(cand,"$IMKEY(",")"))
+			return;
+	}
+	strcpy(last_code,s);
+}
+
+const char *y_im_get_last_code(void)
+{
+	return last_code;
+}
+
+void y_im_repeat_last_code(void *unused)
+{
+	(void)unused;
+	for(int i=0;last_code[i]!=0;i++)
+	{
+		y_im_input_key(last_code[i]);
+	}
+}
+
 void y_xim_send_string(const char *s)
 {
 	y_xim_send_string2(s,SEND_FLUSH);
@@ -356,12 +505,12 @@ int y_im_get_real_cand(const char *s,char *out,size_t size)
 	if(!strcmp(s,"$LAST"))
 	{
 		s=last_output;
-		s+=y_im_str_desc(s,0);
+		s+=y_im_str_desc(s,NULL);
 		snprintf(out,size,"%s",s);
 	}
 	else
 	{
-		s+=y_im_str_desc(s,0);
+		s+=y_im_str_desc(s,NULL);
 		snprintf(out,size,"%s",s);
 	}
 	if(!out[0])
@@ -842,6 +991,14 @@ int y_im_str_to_key(const char *s,int *repeat)
 
 	if(!s || !s[0] || s[0]=='_')
 		return -1;
+	if(repeat)
+		*repeat=0;
+	if(s[0]=='0' && (s[1]=='x' || s[1]=='X'))
+	{
+		if(repeat)
+			*repeat=1;
+		return (int)strtol(s+2,NULL,16);
+	}
 	while(p[0])
 	{
 		for(i=0;i<15;i++)
@@ -924,10 +1081,12 @@ int y_im_str_to_key(const char *s,int *repeat)
 							if(!memcmp(tmp+k+1,"LAST",l-k-2))
 							{
 								const char *s=last_output;
-								s+=y_im_str_desc(s,0);
-								*repeat=gb_strlen((const uint8_t*)s);
+								s+=y_im_str_desc(s,NULL);
+								*repeat=last_biaodian_only?0:gb_strlen((const uint8_t*)s);
 								if(last_biaodian[0])
 									*repeat+=gb_strlen((const uint8_t*)last_biaodian);
+								if(*repeat==0)
+									*repeat=1;
 							}
 							else
 							{
@@ -947,7 +1106,47 @@ int y_im_str_to_key(const char *s,int *repeat)
 				break;
 		}
 	}
+	if(key && repeat && *repeat==0)
+		*repeat=1;
 	return key;
+}
+
+int *y_im_str_to_keys(const char *s)
+{
+	int keys[64];
+	int count=0;
+	const char *begin=s;
+	while(count<L_ARRAY_SIZE(keys)-1)
+	{
+		int key;
+		int repeat;
+		const char *end=strchr(begin,',');
+		if(!end)
+		{
+			key=y_im_str_to_key(begin,&repeat);
+		}
+		else
+		{
+			size_t size=(size_t)(end-begin);
+			if(size>32)
+				break;
+			char temp[64];
+			l_strncpy(temp,begin,size);
+			key=y_im_str_to_key(temp,&repeat);
+		}
+		if(!key)
+			break;
+		while(count<L_ARRAY_SIZE(keys)-1 && repeat>0)
+		{
+			keys[count++]=key;
+			repeat--;
+		}
+		if(!end)
+			break;
+		begin=end+1;
+	}
+	keys[count++]=0;
+	return l_memdup(keys,sizeof(int)*count);
 }
 
 int y_im_get_key(const char *name,int pos,int def)
@@ -1011,6 +1210,399 @@ int y_im_key_eq(int k1,int k2)
 	if(k2==KEYM_CTRL && (k1==YK_LCTRL || k1==YK_RCTRL))
 		return 1;
 	return 0;
+}
+
+int y_im_parse_keys(const char *s,int *out,int size)
+{
+	int i,c;
+	int surround=0;
+	char esc[16];
+	int esc_len=-1;
+	int mask=0;
+	int count=0;
+	char temp[strlen(s)+1];
+
+	y_im_expand_with(s,temp,sizeof(temp),EXPAND_SPACE);
+	s=temp;
+	for(i=0;(c=s[i])!='\0';i++)
+	{
+		int key;
+		if(count>=size-6)
+			return -1;
+		switch(c){
+			case '+':
+				if(esc_len==-1 && surround==0)
+				{
+					key=KEYM_SHIFT;
+					mask|=key;
+					out[count++]=key;
+				}
+				break;
+			case '%':
+				if(esc_len==-1 && surround==0)
+				{
+					key=KEYM_ALT;
+					mask|=key;
+					out[count++]=key;
+				}
+				break;
+			case '^':
+				if(esc_len==-1 && surround==0)
+				{				
+					key=KEYM_CTRL;
+					mask|=key;
+					out[count++]=key;
+				}
+				break;
+			case '#':
+				if(esc_len==-1 && surround==0)
+				{				
+					key=KEYM_WIN;
+					mask|=key;
+					out[count++]=key;
+				}
+				break;
+			case '(':
+				if(surround)
+					return -2;
+				surround=1;
+				break;
+			case ')':
+				surround=0;
+				goto unmask;
+				break;
+			case '{':
+				esc_len=0;
+				break;
+			case '}':
+				if(esc_len<0)
+					return -3;
+				if(esc_len==0)
+				{
+					if(s[i+1]!='}')
+					{
+						esc_len=-1;
+						goto unmask;
+					}
+					esc[esc_len++]='}';
+					break;
+				}
+				else
+				{
+					esc[esc_len]=0;
+					if(esc_len==1)
+					{
+						key=esc[0];
+						out[count++]=key;
+					}
+					else
+					{
+						char str[10];
+						int repeat=1;
+						int ret;
+						if(esc[0]==' '&&esc[1]==' ')
+						{
+							str[0]=' ';
+							str[1]=0;
+							ret=2;
+							repeat=atoi(esc+2);
+						}
+						else
+						{
+							ret=sscanf(esc,"%9s %d",str,&repeat);
+						}
+						if(ret<1 || repeat<=0)
+							return -5;
+						if(strlen(str)==1)
+						{
+							key=str[0];
+							if(!mask)
+								key|=KEYM_VIRT;
+							out[count++]=key;
+						}
+						else if(!mask && (str[0]&0x80))
+						{
+							key=l_gb_to_unichar((const uint8_t*)str);
+							out[count++]=key|KEYM_VIRT;
+						}
+						else if(!strcmp(str,"DELAY"))
+						{
+							if(repeat>5000)
+								return -6;
+							out[count++]=KEYM_UP|repeat;
+							repeat=0;
+							esc_len=-1;
+							// don't goto unmask
+							break;
+						}
+						else if(!strcmp(str,"CLICK"))
+						{
+							if(repeat<=0 || repeat>7)
+								return -6;
+							out[count++]=KEYM_CAPS|(1<<16)|repeat;
+							repeat=0;
+						}
+						else
+						{
+							int vk;
+							struct{
+								const char *str;
+								int key;
+							}keymap[]={
+								{"BACKSPACE",YK_BACKSPACE},
+								{"BS",YK_BACKSPACE},
+								{"BKSP",YK_BACKSPACE},
+								{"CAPSLOCK",YK_CAPSLOCK},
+								{"DELETE",YK_DELETE},
+								{"DEL",YK_DELETE},
+								{"DOWN",YK_DOWN},
+								{"END",YK_END},
+								{"ENTER",YK_ENTER},
+								{"ESC",YK_ESC},
+								{"HOME",YK_HOME},
+								{"INSERT",YK_INSERT},
+								{"INS",YK_INSERT},
+								{"LEFT",YK_LEFT},
+								{"PGDN",YK_PGDN},
+								{"PGUP",YK_PGUP},
+								{"RIGHT",YK_RIGHT},
+								{"TAB",YK_TAB},
+								{"SPACE",YK_SPACE},
+								{"UP",YK_UP},
+								{"F1",YK_F1},
+								{"F2",YK_F2},
+								{"F3",YK_F3},
+								{"F4",YK_F4},
+								{"F5",YK_F5},
+								{"F6",YK_F6},
+								{"F7",YK_F7},
+								{"F8",YK_F8},
+								{"F9",YK_F9},
+								{"F10",YK_F10},
+								{"F11",YK_F11},
+								{"F12",YK_F12},
+							};
+							int i;
+							for(i=0;i<L_ARRAY_SIZE(keymap);i++)
+							{
+								if(!strcmp(keymap[i].str,str))
+								{
+									vk=keymap[i].key;
+									break;
+								}
+							}
+							if(i==L_ARRAY_SIZE(keymap))
+								return -7;
+							out[count++]=vk;
+						}
+						if(repeat>1)
+						{
+							if(repeat>32)
+								return -8;
+							out[count++]=KEYM_BING|(repeat-1);
+						}
+					}
+					esc_len=-1;
+					if(!surround)
+						goto unmask;
+					break;
+				}
+			default:
+				if(esc_len>=0)
+				{
+					if(esc_len>=sizeof(esc)-1)
+						return -4;
+					esc[esc_len++]=c;
+					break;
+				}
+				if(c=='~')
+				{
+					out[count++]=YK_ENTER;
+					goto unmask;
+				}
+				else
+				{
+					if((c&0x80)!=0)
+					{
+						c=l_gb_to_unichar((const uint8_t*)s+i);
+						i++;
+					}
+					key=c;
+				}
+				if(!mask)
+					key|=KEYM_VIRT;
+				out[count++]=key;
+unmask:
+				if(mask&KEYM_CTRL)
+				{
+					out[count++]=KEYM_CTRL|KEYM_UP;
+				}
+				if(mask&KEYM_ALT)
+				{
+					out[count++]=KEYM_ALT|KEYM_UP;
+				}
+				if(mask&KEYM_SHIFT)
+				{
+					out[count++]=KEYM_SHIFT|KEYM_UP;
+				}
+				if(mask&KEYM_WIN)
+				{
+					out[count++]=KEYM_WIN|KEYM_UP;
+				}
+				mask=0;
+				break;
+		}
+	}
+	if(mask)
+	{
+		i--;
+		goto unmask;
+	}
+	if(esc_len>=0)
+		return -9;
+	if(surround)
+		return -10;
+	return count;
+}
+
+static char **y_im_parse_argv(const char *s,int size)
+{
+	if(size<=0)
+		size=strlen(s);
+	char temp[256];
+	int len=0;
+	int in_str=0;
+	LPtrArray *arr=l_ptr_array_new(8);
+	for(int i=0;i<size;i++)
+	{
+		int c=s[i];
+		if(!in_str && c==' ')
+		{
+			temp[len]=0;
+			l_ptr_array_append(arr,l_strdup(temp));
+			len=0;
+			continue;
+		}
+		if(len==0 && !in_str && c=='"')
+		{
+			in_str=1;
+			continue;
+		}
+		if(in_str && c=='"')
+		{
+			in_str=0;
+			continue;
+		}
+		if(c=='\\')
+		{
+			if(s[i+1]=='\\')
+			{
+				i++;
+			}
+			else if(s[i+1]=='"')
+			{
+				c='"';
+				i++;
+			}
+		}
+		temp[len++]=c;
+	}
+	if(len>0)
+	{
+		temp[len]=0;
+		l_ptr_array_append(arr,l_strdup(temp));
+	}
+	l_ptr_array_append(arr,NULL);
+	if(l_ptr_array_length(arr)>0)
+	{
+		char *first=l_ptr_array_nth(arr,0);
+		if(l_str_has_suffix(first,".js"))
+		{
+			if(!l_file_exists(first))
+			{
+				char temp[256];
+				sprintf(temp,"%s/%s",y_im_get_path("HOME"),first);
+				if(!l_file_exists(temp))
+				{
+					sprintf(temp,"%s/%s",y_im_get_path("DATA"),first);
+					if(!l_file_exists(temp))
+					{
+						l_ptr_array_free(arr,NULL);
+						return NULL;
+					}
+				}
+#ifdef _WIN64
+				if(l_str_has_prefix(temp,"../"))
+					memmove(temp,temp+3,strlen(temp+3)+1);
+#endif
+				l_ptr_array_nth(arr,0)=l_strdup(temp);
+			}
+			l_ptr_array_insert(arr,0,l_strdup("node"));
+		}
+	}
+	char **res=(char**)arr->data;
+	for(int i=0;res[i]!=NULL;i++)
+	{
+		char *p=res[i];
+		if(!strchr(p,'$'))
+			continue;
+		y_im_expand_with(p,p,strlen(p)+1,EXPAND_SPACE);
+
+		if(p[0]!='$')
+			continue;
+		if(l_str_has_surround(p,"$CONFIG(",")"))
+		{
+			char *t=l_strndupa(p+8,strlen(p+8)-1);
+			char **cfg=l_strsplit(t,',');
+			if(!cfg[0] || !cfg[1])
+			{
+				l_strfreev(cfg);
+				l_ptr_array_free(arr,l_free);
+				return NULL;
+			}
+			t=y_im_get_config_string(cfg[0],cfg[1]);
+			l_strfreev(cfg);
+			if(!t)
+			{
+				l_strfreev(cfg);
+				l_ptr_array_free(arr,l_free);
+				return NULL;
+			}
+			l_free(p);
+			l_ptr_array_nth(arr,i)=t;
+		}
+		else if(!strcmp(p,"$CAND"))
+		{
+			if(!im.eim || !im.eim->CandWordCount)
+			{
+				l_ptr_array_free(arr,l_free);
+				return NULL;
+			}
+			l_free(p);
+			l_ptr_array_nth(arr,i)=l_strdup(im.eim->CandTable[im.eim->SelectIndex]);
+		}
+		else if(!strcmp(p,"$CLIPBOARD"))
+		{
+			char *t=y_ui_get_select(NULL);
+			if(!t)
+			{
+				l_ptr_array_free(arr,l_free);
+				return NULL;
+			}
+			l_free(p);
+			l_ptr_array_nth(arr,i)=t;
+		}
+		else if(l_str_has_prefix(p,"$(_HOME)") || l_str_has_prefix(p,"$(_DATA)"))
+		{
+			char temp[256];
+			y_im_expand_with(p,temp,sizeof(temp),EXPAND_ENV);
+			l_free(p);
+			l_ptr_array_nth(arr,i)=l_strdup(temp);
+		}
+	}
+	arr->data=NULL;
+	l_ptr_array_free(arr,NULL);
+	return res;
 }
 
 static void str_replace(char *s1,int l1,const char *s2)
@@ -1126,53 +1718,67 @@ int y_im_forward_key(const char *s)
 	if(key<=0 || repeat<=0)
 		return -1;
 	y_xim_forward_key(key,repeat);
+	if(key==YK_BACKSPACE)
+	{
+		last_output[0]=0;
+		last_biaodian[0]=0;
+		last_biaodian_only=0;
+	}
 	return 0;
 }
 
 void y_im_expand_space(char *s)
 {
-	char *ps;
-
-	ps=strchr(s,'$');
-	while(ps!=NULL)
-	{
-		ps++;
-		if(!strncmp(ps,"$",1))
-		{
-			str_replace(ps-1,2,"$");
-		}
-		else if(!strncmp(ps,"_",1))
-		{
-			str_replace(ps-1,2," ");
-		}
-		ps=strchr(ps,'$');
-	}
+	y_im_expand_with(s,s,strlen(s)+1,EXPAND_SPACE);
 }
 
-void y_im_expand_env(char *s)
+void y_im_expand_env(char *s,int size)
 {
-	char *ps;
-	
-	ps=strchr(s,'$');
-	while(ps!=NULL)
+	y_im_expand_with(s,s,size,EXPAND_ENV);
+}
+
+int y_im_expand_with(const char *s,char *to,int size,int which)
+{
+	int i,c,pos;
+	for(i=pos=0;(c=s[i])!='\0' && pos<size-1;i++)
 	{
-		ps++;
-		if(ps[0]=='(')
+		if(c!='$')
+		{
+			to[pos++]=c;
+			continue;
+		}
+		if(s[i+1]=='$')
+		{
+			to[pos++]='$';
+			i++;
+			continue;
+		}
+		if((which&EXPAND_SPACE) && s[i+1]=='_')
+		{
+			to[pos++]=' ';
+			i++;
+			continue;
+		}
+		if((which&EXPAND_ENV) && s[i+1]=='(')
 		{
 			char name[32];
-			int i;
-			for(i=0;i<31;i++)
+			int j;
+			for(j=0;j<31;j++)
 			{
-				int c=ps[i+1];
-				if(c==0) return;
+				int c=s[i+j+2];
+				if(c==0)
+				{
+					to[pos]=0;
+					return -1;
+				}
 				if(c==')') break;
-				name[i]=c;
+				name[j]=c;
 			}
 			
-			if(i<31 && i>0)
+			if(j<31 && j>0)
 			{
 				const char *val;
-				name[i]=0;
+				name[j]=0;
 				if(!strcmp(name,"_HOME"))
 					val=y_im_get_path("HOME");
 				else if(!strcmp(name,"_DATA"))
@@ -1180,57 +1786,48 @@ void y_im_expand_env(char *s)
 				else
 					val=getenv(name);
 				if(val!=NULL)
-					str_replace(ps-1,3+i,val);
+				{
+					int len=strlen(val);
+					if(pos+len>=size-1)
+					{
+						to[pos]=0;
+						return -1;
+					}
+					int left=i+3+j;
+					if(s==to && pos+len>left)
+					{
+						memmove(to+pos+len,s+left,strlen(s+left)+1);
+						memcpy(to+pos,val,len);
+						i=pos+len-1;
+					}
+					else
+					{
+						memcpy(to+pos,val,len);
+						i=left-1;
+					}
+					pos+=len;
+				}
+				continue;
 			}
 		}
-		ps=strchr(ps,'$');
+		if((which&EXPAND_DESC) && (s[i+1]=='[' || s[i+1]==']'))
+		{
+			to[pos++]=s[++i];
+			continue;
+		}
+		to[pos++]='$';
 	}
+	to[pos]=0;
+	return pos;
 }
 
 int y_im_go_url(const char *s)
 {
 	char *tmp;
-	char *ps;
-	char hold[256];
 
 	if(s[0]!='$')
 		return -1;
 
-	/* first convert $_ to space */
-	snprintf(hold,256,"%s",s);
-	ps=strchr(hold,'$');
-	do{
-		ps++;
-		/* self */
-		if(!strncmp(ps,"$",1))
-		{
-			str_replace(ps-1,2,"$");
-		}
-		else if(!strncmp(ps,"_",1))
-		{
-			str_replace(ps-1,2," ");
-		}
-		else if(!strncmp(ps,"(",1))
-		{
-			char name[32];
-			int i;
-			for(i=0;i<31;i++)
-			{
-				int c=ps[i+1];
-				if(c==')') break;
-				name[i]=c;
-			}
-			if(i<31 && i>0)
-			{
-				char *val;
-				name[i]=0;
-				val=getenv(name);
-				if(val!=NULL)
-					str_replace(ps-1,3+i,val);
-			}
-		}
-		ps=strchr(ps,'$');
-	}while(ps!=NULL);
 	if(s[1]=='G' && s[2]=='O' && s[3]=='(')
 	{
 		int len=strlen(s);
@@ -1256,8 +1853,13 @@ int y_im_go_url(const char *s)
 				y_xim_explore_url(dec);
 				return 0;
 			}
-			y_im_expand_space(tmp);
-			y_im_expand_env(tmp);
+			y_im_expand_with(tmp,tmp,sizeof(go)-(tmp-go),EXPAND_SPACE|EXPAND_ENV);
+#ifndef CFG_XIM_ANDROID
+			if(!strcmp(tmp,"sync"))
+				tmp="yong-config --sync";
+			else if(!strcmp(tmp,"update"))
+				tmp="yong-config --update";
+#endif
 			y_xim_explore_url(tmp);
 			return 0;
 		}
@@ -1292,16 +1894,41 @@ int y_im_send_file(const char *s)
 
 int y_im_str_desc(const char *s,void *out)
 {
-	int ret=0;
-	char *end;
-	if(s[0]!='$' || s[1]!='[' || (end=gb_strchr((uint8_t*)s+2,']'))==0)
+	if(s[0]!='$' || s[1]!='[')
 		return 0;
-	ret=(int)(end-s-2);
+	const char *end=s+2;
+	int surround=1;
+	while(1)
+	{
+		uint32_t hz;
+		end=GB_NEXT(end,&hz);
+		if(!end)
+			return 0;
+		if(hz=='$')
+		{
+			end=GB_NEXT(end,&hz);
+			if(!end)
+				return 0;
+			if(hz=='[' || hz==']')
+				continue;
+		}
+		if(hz=='[')
+		{
+			surround++;
+		}
+		if(hz==']')
+		{
+			surround--;
+			if(surround==0)
+				break;
+		}
+	}
+	int ret=(int)(end-s-3);
 	if(out && ret)
 	{
 		char temp[ret+1];
-		memcpy(temp,s+2,ret);
-		temp[ret]=0;
+		l_strncpy(temp,s+2,ret);
+		y_im_expand_with(temp,temp,sizeof(temp),EXPAND_ENV);
 		y_im_str_encode(temp,out,0);
 	}
 	return ret+3;
@@ -1378,7 +2005,16 @@ char *y_im_str_escape(const char *s,int commit)
 			CONNECT_ID *id=y_xim_get_connect();
 			if(id) lang=id->biaodian;
 			temp=YongGetPunc(s[4],lang,commit?0:1);
-			if(!temp) return NULL;
+			if(!temp)
+			{
+				if(isgraph(s[4]))
+				{
+					line[0]=s[4];
+					line[1]=0;
+					return line;
+				}
+				return NULL;
+			}
 			strcpy(line,temp);
 			return line;
 		}
@@ -1434,6 +2070,11 @@ char *y_im_str_escape(const char *s,int commit)
 		{
 			tmp=num2hz(tm->tm_year+1900,"%d",0);
 			str_replace(ps-1,5,tmp);
+		}
+		else if(!strncmp(ps,"yy0",2))
+		{
+			tmp=num2hz(tm->tm_year%100,"%02d",0);
+			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"MON",3))
 		{
@@ -1553,7 +2194,10 @@ int y_im_strip_key(char *gb)
 			if(s[i]&0x80)
 			{
 				key++;
-				i+=2;
+				if(gb_is_gb18030_ext((void*)s+i))
+					i+=4;
+				else
+					i+=2;
 			}
 			else
 			{
@@ -1582,126 +2226,58 @@ int y_im_strip_key(char *gb)
 	return key;
 }
 
-void y_im_disp_cand(const char *gb,char *out,int pre,int suf)
+void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,const char *tip)
 {
-	int pos=0,len=0,skip,pad=0;
-	char *s,*end;
 	char temp[MAX_CAND_LEN+1];
-	
+	char *s=temp;
+	int len;
+
+	if(y_im_cand_desc_translate(gb,code,tip,temp,sizeof(temp)))
+		goto SKIP;
+
 	/* do $LAST first, so we can escape the content later */
 	if(gb[0]=='$' && !strcmp(gb+1,"LAST"))
-	{
 		strcpy(temp,last_output);
-	}
 	else
-	{
-		strcpy(temp,gb);
-	}
+		strcpy(temp,s2t_conv(gb));
 	/* if found desc, only display it */
-	s=temp;	
-	if(s[0]=='$' && s[1]=='[' && (end=gb_strchr((uint8_t*)s+2,']'))!=0)
+	int skip=y_im_str_desc(s,NULL);
+	if(skip>0)
 	{
-			int ret=(int)(end-s-2);
-			if(ret)
-			{
-				memmove(s,s+2,ret);
-				s[ret]=0;
-				gb=s;
-			}
+		int ret=skip-3;
+		memmove(s,s+2,ret);
+		s[ret]=0;
+		y_im_expand_with(s,s,sizeof(temp),EXPAND_DESC);
+	}
+
+	if(l_str_has_suffix(s,"$SPACE"))
+	{
+		int len=strlen(s);
+		if(len>6 && s[len-7]!='$')
+			s[len-6]=0;
 	}
 
 	/* escape the string */
-	s=y_im_str_escape(gb,0);
+	s=y_im_str_escape(s,0);
 	/* strip key in it */
 	y_im_strip_key(s);
+SKIP:
 	/* get the length of input */
-	gb=s;
-	
-	while(s[0])
-	{
-		if(!(s[0]&0x80))
-		{
-			len++;s++;
-		}
-		else if(gb_is_gbk((uint8_t*)s))
-		{
-			len+=2;s+=2;
-		}
-		else if(gb_is_gb18030_ext((uint8_t*)s))
-		{
-			len+=2;s+=4;
-		}
-		else
-		{
-			len++;s++;
-		}
-	}
+	len=gb_strlen(s);
 	/* get string should escape */
-	skip=len-2*(pre+suf);
+	skip=len-(pre+suf);
 	if(skip<=0)
 	{
 		/* gb is from y_im_str_escape, we should not let it both in and out of this */
-		if(gb!=temp) strcpy(temp,gb);
-		y_im_str_encode(temp,out,0);
+		y_im_str_encode(s,out,DONT_ESCAPE);
 		return;
 	}
 	/* copy the string and skip some */
-	s=temp;
-	while(gb[0])
-	{
-		if(gb_is_ascii((uint8_t*)gb))
-		{
-			if(pos<2*pre || skip<=0)
-				*s++=*gb;
-			else
-				skip--;
-			gb++;
-			pos++;
-		}
-		else if(gb_is_gbk((uint8_t*)gb))
-		{
-			if(pos<2*pre || skip<=0)
-			{
-				*s++=*gb;
-				*s++=*(gb+1);
-			}
-			else
-				skip-=2;
-			gb+=2;
-			pos+=2;
-		}
-		else if(gb_is_gb18030_ext((uint8_t*)gb))
-		{
-			if(pos<2*pre || skip<=0)
-			{
-				*s++=*gb;
-				*s++=*(gb+1);
-				*s++=*(gb+2);
-				*s++=*(gb+3);
-			}
-			else
-				skip-=2;
-			gb+=4;
-			pos+=2;
-		}
-		else
-		{
-			if(pos<2*pre || skip<=0)
-				*s++=*gb;
-			else
-				skip--;
-			gb++;
-			pos++;
-		}
-		if(!pad && skip>0 && pos>=2*pre)
-		{
-			*s++='.';*s++='.';*s++='.';
-			pad=1;
-		}
-	}
-	/* encode it last */
-	*s=0;
-	y_im_str_encode(temp,out,0);
+	char *pad_str=gb_offset(s,pre);
+	char *suf_str=gb_offset(s,len-suf);
+	memmove(pad_str+3,suf_str,strlen(suf_str)+1);
+	pad_str[0]=pad_str[1]=pad_str[2]='.';
+	y_im_str_encode(s,out,DONT_ESCAPE);
 }
 
 int y_im_str_encode(const char *gb,void *out,int flags)
@@ -1731,6 +2307,23 @@ int y_im_str_encode(const char *gb,void *out,int flags)
 #endif
 
 	return key;
+}
+
+int y_im_str_len(const void *in)
+{
+#if defined(_WIN32)
+	return wcslen(in);
+#elif defined(CFG_XIM_ANDROID)
+	int i;
+	for(i=0;;i++)
+	{
+		if(((const uint16_t*)in)[i]==0)
+			break;
+	}
+	return i;
+#else
+	return strlen(in);
+#endif
 }
 
 void y_im_str_encode_r(const void *in,char *gb)
@@ -1832,6 +2425,7 @@ static char *y_im_urls[64]={
 	"mail.",
 	"blog.",
 	"http",
+	"*@",
 };
 static int urls_begin=0;
 
@@ -1846,7 +2440,7 @@ void y_im_free_urls(void)
 {
 	Y_USER_URL *p,*n;
 	int i;
-	for(i=6;i<64;i++)
+	for(i=7;i<64;i++)
 	{
 		if(!y_im_urls[i])
 			break;
@@ -1872,7 +2466,7 @@ void y_im_load_urls(void)
 	fp=l_file_open("urls.txt","rb",y_im_get_path("HOME"),
 				y_im_get_path("DATA"),NULL);
 	if(!fp) return;	
-	for(i=6;i<64;)
+	for(i=7;i<64;)
 	{
 		if(l_get_line(temp,256,fp)<0)
 			break;
@@ -1880,7 +2474,7 @@ void y_im_load_urls(void)
 			continue;
 		if(!strcmp(temp,"!zero"))
 		{
-			urls_begin=6;
+			urls_begin=7;
 			continue;
 		}
 		else if(!strcmp(temp,"!english"))
@@ -1898,7 +2492,7 @@ void y_im_load_urls(void)
 	fclose(fp);
 }
 
-char *y_im_find_url(char *pre)
+char *y_im_find_url(const char *pre)
 {
 	int len;
 	int i;
@@ -1915,7 +2509,7 @@ char *y_im_find_url(char *pre)
 	return NULL;
 }
 
-char *y_im_find_url2(char *pre,int next)
+char *y_im_find_url2(const char *pre,int next)
 {
 	int len;
 	int i;
@@ -1926,8 +2520,15 @@ char *y_im_find_url2(char *pre,int next)
 		return NULL;
 	for(i=urls_begin;i<64 && y_im_urls[i];i++)
 	{
-		if(!strncmp(pre,y_im_urls[i],len) && next==y_im_urls[i][len])
-			return y_im_urls[i];
+		char *url=y_im_urls[i];
+		if(!strncmp(pre,url,len) && next==url[len])
+			return url;
+		if(url[0]=='*' && url[1]==next && url[2]==0)
+		{
+			// 这时候last_code应该没有其他用途
+			snprintf(last_code,60,"%s%c",pre,next);
+			return last_code;
+		}
 	}
 	return NULL;
 }
@@ -2003,81 +2604,11 @@ void y_im_set_default(int index)
 	l_key_file_save(MainConfig,y_im_get_path("HOME"));	
 }
 
-static struct y_im_speed speed_all;
-static struct y_im_speed speed_last;
-static struct y_im_speed speed_cur;
-static struct y_im_speed speed_top;
-
-void y_im_speed_reset(void)
+void y_im_save_config(void)
 {
-	memset(&speed_all,0,sizeof(struct y_im_speed));
-	memset(&speed_cur,0,sizeof(struct y_im_speed));
-	memset(&speed_top,0,sizeof(struct y_im_speed));
-	memset(&speed_last,0,sizeof(struct y_im_speed));
-}
-
-static void im_speed_update(time_t now,int force)
-{
-	int delta;
-	delta=now-speed_cur.last;
-	if(delta<0)
-	{
-		memset(&speed_cur,0,sizeof(struct y_im_speed));
-	}
-	if(now-speed_cur.last<5 && !force)
+	if(!MainConfig)
 		return;
-	if(!speed_cur.last)
-	{
-		return;
-	}
-	delta=speed_cur.last+1-speed_cur.start;
-	if(delta>=5 || force)
-	{
-		speed_cur.speed=speed_cur.zi*60/delta;
-		speed_cur.last=delta;
-		speed_cur.start=0;
-		if(speed_cur.speed>speed_top.speed)
-			memcpy(&speed_top,&speed_cur,sizeof(struct y_im_speed));
-		memcpy(&speed_last,&speed_cur,sizeof(struct y_im_speed));
-		speed_all.last+=delta;
-		speed_all.zi+=speed_cur.zi;
-		speed_all.key+=speed_cur.key;
-		speed_all.space+=speed_cur.space;
-		speed_all.select2+=speed_cur.select2;
-		speed_all.select3+=speed_cur.select3;
-		speed_all.select+=speed_cur.select;
-		speed_all.back+=speed_cur.back;
-		speed_all.speed=speed_all.zi*60/speed_all.last;
-	}
-	memset(&speed_cur,0,sizeof(struct y_im_speed));
-}
-
-void y_im_speed_update(int key,const char *s)
-{
-	time_t now=time(NULL);
-	
-	im_speed_update(now,0);
-	if(key)
-	{
-		speed_cur.key++;
-		if(key==YK_SPACE)
-			speed_cur.space++;
-		else if(key==key_select[0])
-			speed_cur.select2++;
-		else if(key==key_select[1])
-			speed_cur.select3++;
-		else if(strchr(key_select_n,key))
-			speed_cur.select++;
-		else if(key==YK_BACKSPACE)
-			speed_cur.back++;
-		if(!speed_cur.start)
-			speed_cur.start=now;
-		speed_cur.last=now;
-	}
-	if(s)
-	{
-		speed_cur.zi+=gb_strlen((uint8_t*)s);
-	}
+	l_key_file_save(MainConfig,y_im_get_path("HOME"));	
 }
 
 void y_im_about_self(void)
@@ -2096,53 +2627,6 @@ void y_im_about_self(void)
 	y_ui_show_message(temp);
 }
 
-static char *y_im_speed_stat(void)
-{
-	char *res=l_alloc(2048);
-	char format[1024];
-	int len=0;
-	double zi;
-	static const char *split="------------------------------------------------------------------------\n";
-	struct y_im_speed *speed;
-
-	im_speed_update(time(0),1);
-	
-	sprintf(format,"%s: %%d%s \t%s: %%d%s\n"
-		"%s: %%.2f%s \t%s: %%.2f%s \t%s: %%.2f%s\n"
-		"%s: %%.2f%s \t%s: %%.2f%s\n",
-			YT("输入"),YT("字"),YT("速度"),YT("字/分"),
-			YT("击键"),YT("键/秒"),YT("码长"),YT("键/字"),YT("空格"),YT("次/字"),
-			YT("选字"),YT("次/字"),YT("回退"),YT("次/字")
-		);
-	
-	speed=&speed_all;
-	zi=speed->zi+0.01;
-	len+=sprintf(res+len,"%s\n%s",YT("全部"),split);
-	len+=sprintf(res+len,format,
-			speed->zi,speed->speed,
-			speed->key*1.0f/(speed->last+(speed->last?0:1)),speed->key/zi,speed->space/zi,
-			speed->select/zi,speed->back/zi);
-	len+=sprintf(res+len,"\n");
-
-	speed=&speed_top;
-	zi=speed->zi+0.01;
-	len+=sprintf(res+len,"%s\n%s",YT("最高"),split);
-	len+=sprintf(res+len,format,
-			speed->zi,speed->speed,
-			speed->key*1.0f/(speed->last+(speed->last?0:1)),speed->key/zi,speed->space/zi,
-			speed->select/zi,speed->back/zi);
-	len+=sprintf(res+len,"\n");
-	
-	speed=&speed_last;
-	zi=speed->zi+0.01;
-	len+=sprintf(res+len,"%s\n%s",YT("上一次"),split);
-	/*len+=*/sprintf(res+len,format,
-			speed->zi,speed->speed,
-			speed->key*1.0f/(speed->last+(speed->last?0:1)),speed->key/zi,speed->space/zi,
-			speed->select/zi,speed->back/zi);
-
-	return res;
-}
 
 void *y_im_module_open(char *path)
 {
@@ -2219,6 +2703,17 @@ char *y_im_get_im_config_string(int index,const char *key)
 	if(!entry)
 		return NULL;
 	return y_im_get_config_string(entry,key);
+}
+
+const char *y_im_get_im_config_data(int index,const char *key)
+{
+	char temp[8];
+	const char *entry;
+	sprintf(temp,"%d",index);
+	entry=l_key_file_get_data(MainConfig,"IM",temp);
+	if(!entry)
+		return NULL;
+	return y_im_get_config_data(entry,key);
 }
 
 int y_im_has_im_config(int index,const char *key)
@@ -2339,7 +2834,7 @@ void y_im_setup_config(void)
 		sprintf(prog+strlen(prog)," --active=%s",temp);
 	}
 
-	y_im_run_helper(prog,config,YongReloadAll);
+	y_im_run_helper(prog,config,YongReloadAll,NULL);
 #endif
 }
 
@@ -2368,6 +2863,7 @@ struct im_helper{
 	char *watch;
 	time_t mtime;
 	void (*cb)(void);
+	void (*exit_cb)(int);
 };
 static struct im_helper helper_list[4];
 
@@ -2422,24 +2918,26 @@ static VOID CALLBACK HelperTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD 
 			l_free(p->watch);
 			p->watch=0;
 			KillTimer(NULL,idEvent);
+			if(p->exit_cb)
+				p->exit_cb((int)code);
 		}
 		break;
 	}
 }
 
-void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
+int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int))
 {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
 	BOOL ret;
 	int i;
 	WCHAR wprog[MAX_PATH];
-	int is_setup=0;
 	LPCWSTR lpCurrentDirectory=NULL;
 	
-	if(strstr(prog,"yong-config.exe"))
-		is_setup=1;
 #ifdef _WIN64
+	int is_setup=0;
+	if(strstr(prog,"yong-config"))
+		is_setup=1;
 	if(!is_setup)
 	{
 		if(!strchr(prog,':') && !l_file_exists(prog))
@@ -2456,8 +2954,8 @@ void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 	{
 		char *p=helper_list[i].prog;
 		if(!p) continue;
-		if(!is_setup && !strcmp(p,prog))
-			return;
+		if(!strcmp(p,prog))
+			return -1;
 	}
 	l_utf8_to_utf16(prog,wprog,sizeof(wprog));
 	
@@ -2469,7 +2967,7 @@ void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,lpCurrentDirectory,&si,&pi);
 	if(!ret)
 	{
-		return;
+		return -2;
 	}
 	CloseHandle(pi.hThread);
 
@@ -2478,14 +2976,16 @@ void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 		struct im_helper *p=helper_list+i;
 		if(p->prog) continue;
 		p->prog=l_strdup(prog);
-		p->watch=watch?l_strdup(watch):0;
+		p->watch=watch?l_strdup(watch):NULL;
 		p->pid=pi.hProcess;
-		p->mtime=y_im_last_mtime(watch);
+		p->mtime=watch?y_im_last_mtime(watch):0;
 		p->timer=SetTimer(NULL,0,1000,HelperTimerProc);
 		p->cb=cb;
-		return;
+		p->exit_cb=exit_cb;
+		return 0;
 	}
 	CloseHandle(pi.hProcess);
+	return -1;
 }
 #else
 static void  HelperExit(GPid pid,gint status,gpointer data)
@@ -2512,6 +3012,8 @@ static void  HelperExit(GPid pid,gint status,gpointer data)
 		p->watch=0;
 		g_source_remove(p->timer);
 		g_source_remove(p->child);
+		if(p->exit_cb)
+			p->exit_cb((int)status);
 	}
 	g_spawn_close_pid(pid);
 }
@@ -2533,7 +3035,7 @@ static gboolean HelperTimerProc(gpointer data)
 	return TRUE;
 }
 
-void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
+int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int))
 {
 	int i;
 	gint argc;
@@ -2544,16 +3046,16 @@ void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 		char *p=helper_list[i].prog;
 		if(!p) continue;
 		if(!strcmp(p,prog))
-			return;
+			return -1;
 	}
 	if(!g_shell_parse_argv(prog,&argc,&argv,NULL))
-		return;
+		return -1;
 	if(!g_spawn_async(0,argv,0,
 			G_SPAWN_DO_NOT_REAP_CHILD|G_SPAWN_SEARCH_PATH,
 			0,0,&pid,0))
 	{
 		g_strfreev(argv);
-		return;
+		return -1;
 	}
 	g_strfreev(argv);
 	for(i=0;i<4;i++)
@@ -2561,15 +3063,17 @@ void y_im_run_helper(const char *prog,char *watch,void (*cb)(void))
 		struct im_helper *p=helper_list+i;
 		if(p->prog) continue;
 		p->prog=g_strdup(prog);
-		p->watch=watch?g_strdup(watch):0;
+		p->watch=watch?g_strdup(watch):NULL;
 		p->pid=pid;
-		p->mtime=y_im_last_mtime(watch);
+		p->mtime=watch?y_im_last_mtime(watch):0;
 		p->timer=g_timeout_add(1000,HelperTimerProc,p);
 		p->cb=cb;
+		p->exit_cb=exit_cb;
 		p->child=g_child_watch_add(pid,HelperExit,p);
-		return;
+		return 0;
 	}
 	g_spawn_close_pid(pid);
+	return -1;
 }
 #endif
 #endif
@@ -2750,7 +3254,9 @@ void y_im_update_sub_config(const char *name)
 			y_im_get_path("DATA"),NULL);
 	}
 	else
+	{
 		SubConfig=NULL;
+	}
 }
 
 void y_im_free_config(void)
@@ -2806,6 +3312,17 @@ int y_im_has_config(const char *group,const char *key)
 		if(s) return 1;
 	}
 	return l_key_file_get_data(MainConfig,group,key)?1:0;
+}
+
+void y_im_set_config_string(const char *group,const char *key,const char *val)
+{
+	if(!MainConfig)
+	{
+		MainConfig=l_key_file_open("yong.ini",1,y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
+		if(!MainConfig)
+			return;
+	}
+	l_key_file_set_string(MainConfig,group,key,val);
 }
 
 void y_im_verbose(const char *fmt,...)
@@ -2870,6 +3387,7 @@ int y_im_handle_menu(const char *cmd)
 		void *out=NULL;
 		ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
+		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
 		if(ret!=0 || !out) return 0;
 		y_im_backup_file(out,".bak");
@@ -2882,6 +3400,7 @@ int y_im_handle_menu(const char *cmd)
 		void *out=NULL;
 		ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
+		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
 		if(ret!=0 || !out) return 0;
 		y_im_backup_file(out,".bak");
@@ -2911,7 +3430,7 @@ int y_im_handle_menu(const char *cmd)
 		}
 		out=y_im_auto_path(out);
 		sprintf(temp,"%s %s",ed,(char*)out);
-		y_im_run_helper(temp,out,YongReloadAll);
+		y_im_run_helper(temp,out,YongReloadAll,NULL);
 		l_free(ed);
 		l_free(out);
 	}

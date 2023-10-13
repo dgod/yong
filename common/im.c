@@ -168,9 +168,9 @@ int y_im_load_extra(IM *im,const char *name)
 	char *p;
 	CONNECT_ID id={.dummy=1};
 	
-	p=y_im_get_config_string(name,"overlay");
-	y_im_update_sub_config(p);
-	l_free(p);
+	// p=y_im_get_config_string(name,"overlay");
+	// y_im_update_sub_config(p);
+	// l_free(p);
 #ifdef CFG_XIM_WEBIM
 	extern EXTRA_IM EIM;
 	eim=&EIM;
@@ -386,15 +386,18 @@ const char *YongGetPunc(int key,int bd,int peek)
 	int i;
 	key&=~KEYM_SHIFT;
 	if(key & KEYM_MASK)
-		return 0;
+		return NULL;
 	t=strchr(punc,(char)key);
-	if(!t) return 0;
+	if(!t)
+		return NULL;
+	i=(int)(t-punc);
+	if(!strcmp(PUNC[i].punc[0],"NONE"))
+		return NULL;
 	if(bd==LANG_EN)
 	{
 		bd_en[0]=(char)key;
 		return bd_en;
 	}
-	i=(int)(t-punc);
 	switch(PUNC[i].which)
 	{
 		case 0:

@@ -27,7 +27,7 @@
 #define l_free free
 #define l_strdup(p) strdup(p)
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 #define l_strndup(p,n) strndup(p,n)
 #define l_alloca(s) alloca(s)
 #define l_strdupa(s) ((s)?strcpy(l_alloca(strlen(s)+1),(s)):NULL)

@@ -469,6 +469,7 @@ static int GetKey_r(int yk)
 
 	switch(yk){
 	case YK_BACKSPACE:vk=IBUS_BackSpace;break;
+	case YK_ESC:vk=IBUS_Escape;break;
 	case YK_DELETE:vk=IBUS_Delete;break;
 	case YK_ENTER:vk=IBUS_Return;break;
 	case YK_HOME:vk=IBUS_Home;break;

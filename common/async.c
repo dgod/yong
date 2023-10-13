@@ -214,3 +214,242 @@ int y_im_async_wait(int timeout)
 	return -1;
 }
 
+#if defined(__linux__) && !defined(CFG_XIM_ANDROID)
+typedef struct {
+	int fd;
+	GIOChannel *ch;
+	GPid pid;
+	LString *str;
+	void (*cb)(const char *,void*);
+	void *user;
+}SPAWN_ARG;
+
+static gboolean cb_stdout(GIOChannel* channel, GIOCondition condition, SPAWN_ARG *arg)
+{
+	char temp[32];
+	gsize bytes;
+
+	GIOStatus status=g_io_channel_read_chars(channel,temp,sizeof(temp),&bytes,NULL);
+	if(status == G_IO_STATUS_NORMAL && bytes>0)
+	{
+		l_string_append(arg->str,temp,bytes);
+		return TRUE;
+	}
+
+	if(arg->str->len>8192)
+	{
+		arg->cb(NULL,arg->user);
+	}
+	else
+	{
+		char temp[16*1024];
+		l_utf8_to_gb(arg->str->str,temp,sizeof(temp));
+		l_str_trim_right(temp);
+		if(l_str_has_prefix(temp,"yong:text "))
+			memmove(temp,temp+10,strlen(temp+10)+1);
+		arg->cb(temp,arg->user);
+	}
+	g_io_channel_unref(arg->ch);
+	close(arg->fd);
+	l_string_free(arg->str);
+	l_free(arg);
+
+	return FALSE;
+}
+
+static void child_handler(GPid pid, int status, SPAWN_ARG *arg)
+{
+	g_spawn_close_pid(pid);
+}
+
+int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user)
+{
+	gboolean ret;
+	SPAWN_ARG *arg=l_new0(SPAWN_ARG);
+	GError *error=NULL;
+	ret=g_spawn_async_with_pipes(NULL,
+			argv,
+			NULL,
+			G_SPAWN_DO_NOT_REAP_CHILD|G_SPAWN_SEARCH_PATH,
+			NULL,
+			arg,
+			&arg->pid,
+			NULL,
+			&arg->fd,
+			NULL,
+			&error);
+	if(ret!=TRUE)
+	{
+		printf("%s\n",error->message);
+		g_error_free(error);
+		l_free(arg);
+		return -1;
+	}
+	arg->cb=cb;
+	arg->user=user;
+	arg->str=l_string_new(1024);
+	arg->ch=g_io_channel_unix_new(arg->fd);
+	g_io_channel_set_encoding(arg->ch,NULL,NULL);
+	g_io_add_watch(arg->ch,G_IO_IN | G_IO_ERR | G_IO_HUP,(GIOFunc)cb_stdout , (gpointer)arg);
+	g_child_watch_add(arg->pid , (GChildWatchFunc)child_handler, arg);
+	return 0;
+}
+#endif
+
+#ifdef _WIN32
+#include "ui.h"
+
+typedef struct {
+	LString *str;
+	void (*cb)(const char *text,void *user);
+	void *user;
+}SPAWN_ARG;
+
+static void spawn_arg_cb(SPAWN_ARG *arg,char *text)
+{
+	void **p=l_cnew(3,void*);
+	if(text!=NULL)
+		l_str_trim_right(text);
+	if(text!=NULL && l_str_has_prefix(text,"yong:text "))
+		memmove(text,text+10,strlen(text+10)+1);
+	p[0]=arg->cb;
+	p[1]=text;
+	p[2]=arg->user;
+	PostMessage(y_ui_main_win(),WM_USER+118,0x7377652e,(LPARAM)p);
+}
+
+static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
+{
+	STARTUPINFO si={0};
+	PROCESS_INFORMATION pi={0};
+	SECURITY_ATTRIBUTES sa={.nLength=sizeof(sa),.bInheritHandle=TRUE};
+	WCHAR temp[16*1024];
+	int is_node=l_str_has_prefix(arg->str->str,"node ");
+	l_gb_to_utf16(arg->str->str,temp,sizeof(temp));
+	arg->str->str[0]=0;
+	arg->str->len=0;
+	si.cb=sizeof(si);
+	si.dwFlags=STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
+	si.wShowWindow=SW_HIDE;
+	HANDLE readPipe=NULL,writePipe=NULL;
+	if(!CreatePipe(&readPipe,&writePipe,&sa,20*1024))
+	{
+		l_string_free(arg->str);
+		spawn_arg_cb(arg,NULL);
+		l_free(arg);
+		return 0;
+	}
+	si.hStdOutput=writePipe;
+	si.hStdError=writePipe;
+#ifdef _WIN64
+	LPCTSTR cwd=_T("..");
+#else
+	LPCTSTR cwd=NULL;
+#endif
+	BOOL ret=CreateProcess(NULL,temp,NULL,NULL,TRUE,0,NULL,cwd,&si,&pi);
+	CloseHandle(writePipe);
+	if(ret!=TRUE)
+	{
+		// printf("CreateProcess: %lu\n",GetLastError());
+		CloseHandle(readPipe);
+		l_string_free(arg->str);
+		spawn_arg_cb(arg,NULL);
+		l_free(arg);
+		return 0;
+	}
+	while(1)
+	{
+		char temp[1024];
+		DWORD bytes;
+		ret=ReadFile(readPipe,temp,sizeof(temp),&bytes,NULL);
+		if(ret!=TRUE)
+		{
+			//printf("Read: %lu %d\n",GetLastError(),arg->str->len);
+			break;
+		}
+		l_string_append(arg->str,temp,bytes);
+	}
+	CloseHandle(readPipe);
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	if(arg->str->len>8192)
+	{
+		spawn_arg_cb(arg,NULL);
+	}
+	else
+	{
+		UINT acp=GetACP();
+		if(is_node)
+		{
+			l_utf8_to_gb(arg->str->str,(void*)temp,sizeof(temp));
+			arg->str->len=0;
+			l_string_append(arg->str,(const char*)temp,-1);
+		}
+		else if(acp!=936 && acp!=54936)
+		{
+			MultiByteToWideChar(CP_ACP,0,arg->str->str,-1,temp,L_ARRAY_SIZE(temp));
+			l_utf16_to_gb(temp,arg->str->str,arg->str->size);
+		}
+		spawn_arg_cb(arg,arg->str->str);
+		arg->str->str=NULL;
+	}
+	l_string_free(arg->str);
+	l_free(arg);
+	return 0;
+}
+
+static LString *cmdline_from_argv(char **argv)
+{
+	LString *s=l_string_new(8192);
+	char *p,c;
+	for(int i=0;(p=argv[i])!=NULL;i++)
+	{
+		if(i!=0)
+			l_string_append_c(s,' ');
+		int space=strchr(p,' ')?1:0;
+		if(space)
+			l_string_append_c(s,'"');
+		for(int j=0;(c=p[j])!=0;j++)
+		{
+			if(i==0 && c=='/')
+				c='\\';
+			if(c=='"')
+				l_string_append(s,"\\\"",2);
+			else if(i!=0 && c=='\\' && !l_str_has_prefix(argv[0],"cmd"))
+				l_string_append(s,"\\\\",2);
+			else
+				l_string_append_c(s,c);
+		}
+		if(space)
+			l_string_append_c(s,'"');
+		if(s->len>8192)
+		{
+			l_string_free(s);
+			return NULL;
+		}
+	}
+	return s;
+}
+
+int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user)
+{
+	SPAWN_ARG *arg=l_new0(SPAWN_ARG);
+	arg->str=cmdline_from_argv(argv);
+	if(!arg->str)
+	{
+		l_free(arg);
+		return -1;
+	}
+	arg->user=user;
+	arg->cb=cb;
+	HANDLE thread=CreateThread(NULL,0,(void*)spawn_thread,arg,0,NULL);
+	if(thread==NULL)
+	{
+		l_string_free(arg->str);
+		l_free(arg);
+		return -2;
+	}
+	return 0;
+}
+#endif
+

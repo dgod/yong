@@ -10,9 +10,6 @@ env("LDFLAGS+=$(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
 function run(target){
-	if(target=="js") {
-		env("LIBS-=$(LLIB_LDADD)");
-	}
 	cd(target);
 	include("../../rules.txt");
 	if(target=="l32" || target=="l64"){
@@ -27,10 +24,7 @@ function run(target){
 	end(function(){
 		push();
 		env("LDFLAGS+=-shared");
-		if(target=="js")
-			ld(OBJS,'$(DESTDIR)/libmb.bc');
-		else
-			ld(OBJS,'$(DESTDIR)/libmb.so');
+		ld(OBJS,'$(DESTDIR)/libmb.so');
 		pop();
 
 	});

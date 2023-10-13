@@ -588,14 +588,14 @@ int SyncUpload(CUCtrl p,int arc,char **arg)
 		in_sync=0;
 		return -1;
 	}
-	if(local->count>64)
+	if(local->count>128)
 	{
 		status("文件数量太多");
 		file_list_free(local);
 		in_sync=0;
 		return -1;
 	}
-	if(local->size>0x200000)
+	if(local->size>0x400000)
 	{
 		status("空间占用太大");
 		file_list_free(local);
@@ -750,6 +750,7 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 	remove_empty_dir(base);
 	status("下载完成");
 	in_sync=0;
+	cu_notify_reload();
 	return 0;
 }
 
@@ -824,7 +825,196 @@ static int get_pass(char key[64])
 	return 1;
 }
 
-int SyncMain(void)
+#ifdef _WIN32
+
+static char *get_clipboard_text(void)
+{
+	char *r=NULL;
+	BOOL ret=OpenClipboard(NULL);
+	if(ret==FALSE)
+		return NULL;
+	HGLOBAL hData=GetClipboardData(CF_UNICODETEXT);
+	if(!hData)
+		goto out0;
+	LPWSTR t=GlobalLock(hData);
+	if(!t)
+		goto out1;
+	if(wcslen(t)>1024)
+		goto out2;
+	char temp[4096];
+	l_utf16_to_gb(t,temp,sizeof(temp));
+	r=strdup(temp);
+out2:
+	GlobalUnlock(hData);
+out1:
+	GlobalFree(hData);
+out0:
+	CloseClipboard();
+	return r;
+}
+
+static int set_clipboard_text(const char *text)
+{
+	WCHAR temp[1024];
+	l_gb_to_utf16(text,temp,sizeof(temp));
+
+	if(!OpenClipboard(NULL))
+		return -1;
+	HGLOBAL hData=GlobalAlloc(GMEM_MOVEABLE|GMEM_DDESHARE,wcslen(temp)*2+2);
+	LPWSTR t=GlobalLock(hData);
+	wcscpy(t,temp);
+	GlobalUnlock(hData);
+	EmptyClipboard();
+	SetClipboardData(CF_UNICODETEXT,hData);
+	CloseClipboard();
+	return 0;
+}
+#else
+#include <gtk/gtk.h>
+
+#if GTK_CHECK_VERSION(4,0,0)
+static void on_get_select_cb(GObject* source_object,GAsyncResult* result,char **res)
+{
+	char *text=gdk_clipboard_read_text_finish(GDK_CLIPBOARD(source_object),result,NULL);
+	if(text && text[0] && strlen(text)<=3*1024)
+	{
+		char temp[4096];
+		l_utf8_to_gb(text,temp,sizeof(temp));
+		if(strlen(temp)<=2*1024)
+			*res=l_strdup(temp);
+	}
+	g_free(text);
+}
+
+static char *get_clipboard_text(void)
+{
+	setenv("GDK_BACKEND","x11",1);
+	char *res=NULL;
+	GMainLoop *main_loop=g_main_loop_new(NULL,FALSE);
+	gtk_init();
+	GdkClipboard *clipboard=gdk_display_get_clipboard(gdk_display_get_default());
+	gdk_clipboard_read_text_async(clipboard,NULL,(GAsyncReadyCallback)on_get_select_cb,&res);
+	g_main_loop_run(main_loop);
+	return res;
+}
+
+static gboolean quit_latter(GMainLoop *loop)
+{
+	g_main_loop_quit(loop);
+	return FALSE;
+}
+
+static int set_clipboard_text(const char *text)
+{
+	setenv("GDK_BACKEND","x11",1);
+	char temp[4096];
+	l_gb_to_utf8(text,temp,sizeof(temp));
+	GMainLoop *main_loop=g_main_loop_new(NULL,FALSE);
+	gtk_init();
+	GdkClipboard *clipboard=gdk_display_get_clipboard(gdk_display_get_default());
+	gdk_clipboard_set_text(clipboard,temp);
+	g_timeout_add(50,(GSourceFunc)quit_latter,main_loop);
+	g_main_loop_run(main_loop);
+	return 0;
+}
+#else
+static void on_get_select_cb(GtkClipboard *clipboard,const char *text,void **res)
+{
+	if(text!=NULL && text[0] && strlen(text)<=3*1024)
+	{
+		char temp[4096];
+		l_utf8_to_gb(text,temp,sizeof(temp));
+		if(strlen(temp)<=2*1024)
+			*res=l_strdup(temp);
+	}
+	gtk_main_quit();
+}
+
+static gboolean request_text(void **res)
+{
+	gtk_clipboard_request_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),(GtkClipboardTextReceivedFunc)on_get_select_cb,res);
+	return FALSE;
+}
+
+static char *get_clipboard_text(void)
+{
+	char *res=NULL;
+	setenv("GDK_BACKEND","x11",1);
+	gtk_init(NULL,NULL);
+	request_text((void**)&res);
+	gtk_main();
+	return res;
+}
+
+static gboolean quit_latter(void *unused)
+{
+	gtk_main_quit();
+	return FALSE;
+}
+
+static int set_clipboard_text(const char *text)
+{
+	setenv("GDK_BACKEND","x11",1);
+	char temp[4096];
+	l_gb_to_utf8(text,temp,sizeof(temp));
+	gtk_init(NULL,NULL);
+	GtkClipboard *clipboard=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	gtk_clipboard_set_text(clipboard,temp,-1);
+	g_timeout_add(50,(GSourceFunc)quit_latter,NULL);
+	gtk_main();
+	return 0;
+}
+#endif
+#endif
+
+static int upload_clipboard(void)
+{
+	const char *user,*sid;
+	int r=-1;
+
+	user=l_key_file_get_data(config,"sync","user");
+	sid=l_key_file_get_data(config,"sync","sid");
+	if(!user || !sid || !user[0] || !sid[0])
+		return -1;
+	char *temp=get_clipboard_text();
+	if(!temp)
+		return -2;
+	size_t size=strlen(temp);
+	char path[256];
+	sprintf(path,"%s/clipboard.txt",y_im_get_path("HOME"));
+	l_file_set_contents(path,temp,size,NULL);
+	l_free(temp);
+	if(0!=upload_remote_file(user,sid,y_im_get_path("HOME"),"/clipboard.txt",NULL))
+		return -3;
+	r=0;
+	return r;
+}
+
+static int download_clipboard(void)
+{
+	const char *user,*sid;
+
+	user=l_key_file_get_data(config,"sync","user");
+	sid=l_key_file_get_data(config,"sync","sid");
+	if(!user || !sid || !user[0] || !sid[0])
+		return -1;
+
+	if(0!=download_remote_file(user,sid,y_im_get_path("HOME"),"/clipboard.txt",NULL))
+		return -2;
+
+	char *text=l_file_get_contents("clipboard.txt",NULL,y_im_get_path("HOME"),NULL);
+	if(!text)
+		return -3;
+	if(0!=set_clipboard_text(text))
+	{
+		l_free(text);
+		return -4;
+	}
+	l_free(text);
+	return 0;
+}
+
+int SyncMain(int argc,char **argv)
 {
 	CUCtrl win;
 	LXml *custom;
@@ -835,6 +1025,19 @@ int SyncMain(void)
 	WSADATA wsaData;
 	WSAStartup(0x0202,&wsaData);
 #endif
+	if(argc>0)
+	{
+		if(!strcmp(argv[0],"--upload-clipboard"))
+		{
+			int ret=upload_clipboard();
+			return ret?-1:0;
+		}
+		else if(!strcmp(argv[0],"--download-clipboard"))
+		{
+			int ret=download_clipboard();
+			return ret?-1:0;
+		}
+	}
 	cu_init();
 	custom=l_xml_load((const char*)config_sync);
 	win=cu_ctrl_new(NULL,custom->root.child);
@@ -937,6 +1140,30 @@ JNIEXPORT void JNICALL Java_net_dgod_yong_SyncThread_syncAbort
   (JNIEnv *env, jobject sync)
 {
 	cu_quit_ui=1;
+}
+
+JNIEXPORT jstring JNICALL Java_net_dgod_yong_YongSync_getUpdateUrl
+  (JNIEnv *env, jobject sync)
+{
+	char temp[256];
+	LKeyFile *config=l_key_file_open("yong.ini",0,y_im_get_path("HOME"),NULL);
+	if(!config)
+		return NULL;
+	const char *server=l_key_file_get_data(config,"sync","server");
+	if(!server || strlen(server)>64)
+	{
+		l_key_file_free(config);
+		return NULL;
+	}
+	sprintf(temp,"http://%s/sync/update.php",server);
+	jstring res=(*env)->NewStringUTF(env,temp);	
+	l_key_file_free(config);
+	return res;
+}
+
+void cu_notify_reload(void)
+{
+	// do nothing, reload config at java side
 }
 
 #endif

@@ -9,8 +9,6 @@ env("LDFLAGS+=-shared $(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
 function run(target){
-	if(target=="js")
-		env("LIBS-=$(LLIB_LDADD)");
 	cd(target);
 	include("../../rules.txt");
 	if(target=="w32" || target=="w64")
@@ -21,10 +19,7 @@ function run(target){
 	begin();
 	cc(SRCS,OBJS);
 	end(function(){
-		if(target=="js")
-			ld(OBJS,'$(DESTDIR)/libcloud.bc');
-		else
-			ld(OBJS,'$(DESTDIR)/libcloud.so');
+		ld(OBJS,'$(DESTDIR)/libcloud.so');
 	});
 }
 

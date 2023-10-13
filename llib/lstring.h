@@ -8,6 +8,7 @@ void l_strfreev(char **list);
 int l_strv_length(char **list);
 bool l_str_has_prefix(const char *str,const char *prefix);
 bool l_str_has_suffix(const char *str,const char *suffix);
+#define l_str_has_surround(str,prefix,suffix)	(l_str_has_prefix((str),(prefix)) && l_str_has_suffix((str),(suffix)))
 char *l_str_trim_left(char *str);
 char *l_str_trim_right(char *str);
 char *l_str_trim(char *str);

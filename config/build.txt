@@ -21,9 +21,9 @@ function run(target){
 		var ARCH=target.split('-')[0];
 		var GTK=target.split('-')[1];
 		if(GTK=="gtk2")
-			env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
+			env("CFLAGS+=`pkg-config --cflags gtk+-2.0` -Wno-deprecated-declarations");
 		else if(GTK=='gtk3')
-			env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
+			env("CFLAGS+=`pkg-config --cflags gtk+-3.0` -Wno-deprecated-declarations");
 		else
 			env("CFLAGS+=`pkg-config --cflags gtk4`");
 		if(ARCH=="l32")
@@ -60,9 +60,9 @@ if(target=="clean"){
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
 } else if(target=="xml") {
-	bin2c("custom.xml","custom.c",{static:true,zero:true,name:"config_custom"});
-	bin2c("sync.xml","custom_sync.c",{static:true,zero:true,name:"config_sync"});
-	bin2c("update.xml","custom_update.c",{static:true,zero:true,name:"config_update"});
+	bin2c("custom.xml","custom.c",{static:true,zero:true,readonly:true,name:"config_custom"});
+	bin2c("sync.xml","custom_sync.c",{static:true,zero:true,readonly:true,name:"config_sync"});
+	bin2c("update.xml","custom_update.c",{static:true,zero:true,readonly:true,name:"config_update"});
 } else if(target=="l32"){
 	build(undefined,undefined,["l32-gtk2","l32-gtk3","l32-gtk4"]);
 } else if(target=="l64"){

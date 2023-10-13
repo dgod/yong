@@ -34,19 +34,21 @@ function run(target){
 		env('LDFLAGS=-m32');
 		env('CFLAGS=-m32');
 		env('DLL=.so');
-		env('CROSS_COMPILE=/home/dgod/git/emscripten/');
+		env('CROSS_COMPILE=/home/dgod/git/emsdk/upstream/emscripten/');
 		env('CC:=$(CROSS_COMPILE)emcc');
+		env('AR:=$(CROSS_COMPILE)ar');
+		env('LDFLAGS+=-shared -Wno-emcc');	
 	} else {
 		return;
 	}
+	env("CFLAGS+=-Wall -pipe -g -O2");
 	if(target!='js'){
 		env('CC:=$(CROSS_COMPILE)gcc');
 		env('AR:=$(CROSS_COMPILE)ar');
 		env('STRIP:=$(CROSS_COMPILE)strip');
 		env('DLLTOOL:=$(CROSS_COMPILE)dlltool');
+		env('LDFLAGS+=-shared');	
 	}
-	env("CFLAGS+=-Wall -pipe -g -O2");
-	env('LDFLAGS+=-shared');	
 	var OBJS=wildcard(SRCS,function(input){
 		return target+'/'+input.replace(/\.c$/,'.o');
 	});

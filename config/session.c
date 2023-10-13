@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 typedef int SOCKET;
@@ -39,6 +40,7 @@ struct _HttpSession{
 	char host[68];
 	int keep_alive;
 	volatile int abort;
+	volatile int *p_abort;
 	int timeout;
 	char *header;
 	char *cookie;
@@ -46,7 +48,17 @@ struct _HttpSession{
 	int auth_type;
 	char *user;
 	char *pass;
+	char *proxy;
 };
+
+typedef struct{
+	char protocol[8];
+	char auth[32];
+	char host[68];
+	char ip[64];
+	int port;
+	char path[256];
+}URL;
 
 #include "session.h"
 
@@ -104,7 +116,7 @@ int http_session_sockc_connect(HttpSession *ss,const char *host,int port)
 	sock_nonblock(s,1);
 	ret=connect(s,(struct sockaddr*)&sa,sizeof(sa));
 	//printf("%d %d\n",ret,WSAGetLastError());
-	for(i=0;i<ss->timeout && !ss->abort;i++)
+	for(i=0;i<ss->timeout && !http_session_is_abort(ss);i++)
 	{
 		fd_set fdw,fde;
 		struct timeval tv;
@@ -134,7 +146,7 @@ int http_session_sockc_send(HttpSession *ss,const void *buf,size_t size)
 	fd_set fdw;
 	struct timeval tv;
 	
-	for(i=0;i<ss->timeout && !ss->abort;i++)
+	for(i=0;i<ss->timeout && !http_session_is_abort(ss);i++)
 	{
 		int ret;
 		FD_ZERO(&fdw);
@@ -158,7 +170,7 @@ int http_session_sockc_sendn(HttpSession *ss,const void *buf,size_t size)
 	struct timeval tv;
 	const char *p=buf;
 	
-	for(i=0;i<ss->timeout && !ss->abort;i++)
+	for(i=0;i<ss->timeout && !http_session_is_abort(ss) && size>0;i++)
 	{
 		int ret;
 		FD_ZERO(&fdw);
@@ -184,8 +196,7 @@ int http_session_sockc_recv(HttpSession *ss,void *buf,size_t size)
 	int i;
 	fd_set fdr;
 	struct timeval tv;
-	
-	for(i=0;i<50 && !ss->abort;i++)
+	for(i=0;i<50 && !http_session_is_abort(ss);i++)
 	{
 		int ret;
 		FD_ZERO(&fdr);
@@ -295,6 +306,69 @@ static unsigned long resolv_host(const char *host,char *ip)
 	return addr.l;
 }
 
+static int url_parse2(const char *url,URL *r,int resolv)
+{
+	const char *p;
+	size_t len;
+	u_long addr;
+
+	memset(r,0,sizeof(*r));
+
+	p=strstr(url,"://");
+	if(p==NULL)
+		return -1;
+	if((len=(size_t)(p-url))>7)
+		return -2;
+	memcpy(r->protocol,url,len);
+	r->protocol[len]=0;
+	url=p+3;
+	p=strchr(url,'@');
+	if(p!=NULL)
+	{
+		if((len=(size_t)(p-url))>=sizeof(r->auth))
+			return -3;
+		memcpy(r->auth,url,len);
+		r->auth[len]=0;
+		url=p+1;
+	}
+	p=strpbrk(url,":/");
+	if(p==url)
+		return -4;
+	if(!p)
+		p=strchr(url,'\0');
+	if((len=(size_t)(p-url))>=sizeof(r->host))
+		return -5;
+	memcpy(r->host,url,len);
+	r->host[len]=0;
+	if(resolv)
+	{
+		addr=resolv_host(r->host,r->ip);
+		if(addr==INADDR_NONE || addr==INADDR_ANY)
+		{
+			return -5;
+		}
+	}
+	url=p;
+	if(url[0]==':')
+	{
+		r->port=atoi(url+1);
+		p=strchr(url,'/');
+		if(!p)
+			p=strchr(url,'\0');
+		url=p;
+	}
+	else
+	{
+		if(!strcmp(r->protocol,"http"))
+			r->port=80;
+	}
+	if(url[0]=='/')
+		snprintf(r->path,sizeof(r->path)-1,"%s",url);
+	else
+		strcpy(r->path,"/");
+	return 0;
+}
+
 static int url_parse(const char *url,char *host,char *ip,int *port,char *path)
 {
 	const char *p;
@@ -306,7 +380,7 @@ static int url_parse(const char *url,char *host,char *ip,int *port,char *path)
 	url+=7;
 	p=strpbrk(url,":/");
 	if(!p || p==url)
-		return -1;
+		return -2;
 	temp=strclip(url,p);
 	if(host)
 		strcpy(host,temp);
@@ -314,7 +388,7 @@ static int url_parse(const char *url,char *host,char *ip,int *port,char *path)
 	free(temp);
 	if(addr==INADDR_NONE || addr==INADDR_ANY)
 	{
-		return -1;
+		return -3;
 	}
 	url=p;
 	if(url[0]==':')
@@ -341,6 +415,7 @@ static int http_parse_header(HBUF *buf,char **h)
 	char *p;
 	int ret;
 	int ver[2],code;
+	int line_break_size=4;
 	ret=sscanf(buf->data,"HTTP/%d.%d %d",ver+0,ver+1,&code);
 	if(ret!=3) return -1;
 	if(code!=200 && code!=302) return -1;
@@ -349,13 +424,18 @@ static int http_parse_header(HBUF *buf,char **h)
 			memcmp(buf->data,"HTTP/1.1 302",12))
 		return -1;*/
 	p=strstr(buf->data,"\r\n\r\n");
+	if(!p)
+	{
+		p=strstr(buf->data,"\n\n");
+		line_break_size=2;
+	}
 	if(!p && buf->len>1400)
 		return -1;
 	if(!p)
 		return 0;
 	if(h)
 	{
-		int size=p+4-buf->data;
+		int size=p+line_break_size-buf->data;
 		if(*h!=NULL)
 			free(*h);
 		*h=malloc(size+1);
@@ -459,6 +539,7 @@ static int build_chunked(HBUF *buf)
 		{
 			if(len==0)
 			{
+				buf->data[olen]=0;
 				buf->len=olen;
 				return 0;
 			}
@@ -484,26 +565,61 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 	int chunked=0;
 	int quit=0;
 	int i;
+	char*proxy_auth=NULL;
 
-	if(!strncmp(url,"http://",7))
+	if(ss->proxy)
 	{
-		ret=url_parse(url,ss->host,ip,&port,path);
-		if(ret!=0)
-			return NULL;
-		http_session_clear(ss);
-	}
-	else if(ss->socket==-1)
-	{
-		if(INADDR_NONE==resolv_host(ss->host,ip))
+		URL r;
+		if(0!=url_parse2(ss->proxy,&r,1))
 		{
+			free(ss->proxy);
+			ss->proxy=NULL;
 			return NULL;
 		}
-		port=ss->port;
-		strcpy(path,url);
+		strcpy(ip,r.ip);
+		port=r.port;
+		if(r.auth[0])
+		{
+			proxy_auth=alloca(sizeof(r.auth)*3/2+3);
+			http_session_base64_encode(proxy_auth,r.auth,strlen(r.auth));
+		}
+		if(!strncmp(url,"http://",7))
+		{
+			if(0==url_parse2(url,&r,0))
+			{
+				strcpy(ss->host,r.host);
+				ss->port=r.port;
+			}
+			strcpy(path,url);
+		}
+		else
+		{
+			sprintf(path,"http://%s:%d%s",ss->host,ss->port,url);
+		}
 	}
 	else
 	{
-		strcpy(path,url);
+		if(!strncmp(url,"http://",7))
+		{
+			ret=url_parse(url,ss->host,ip,&port,path);
+			if(ret!=0)
+				return NULL;
+			ss->port=port;
+			http_session_clear(ss);
+		}
+		else if(ss->socket==-1)
+		{
+			if(INADDR_NONE==resolv_host(ss->host,ip))
+			{
+				return NULL;
+			}
+			port=ss->port;
+			strcpy(path,url);
+		}
+		else
+		{
+			strcpy(path,url);
+		}
 	}
 	if(ss->socket==-1)
 	{
@@ -521,6 +637,11 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 		return NULL;
 	}
 	ss->state=SESS_STATE_CONNECTED;
+	char host[128];
+	if(ss->port && ss->port!=80)
+		sprintf(host,"%s:%d",ss->host,ss->port);
+	else
+		strcpy(host,ss->host);
 	if(!post)
 	{
 		ret=sprintf(data,
@@ -528,13 +649,15 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 			"Host: %s\r\n"
 			"Accept-Encoding: gzip\r\n"
 			"Connection: keep-alive\r\n",
-			path,ss->host);
+			path,host);
 		if(ss->cookie)
 			ret+=sprintf(data+ret,"Cookie: %s\r\n",ss->cookie);
 		if(ss->header)
 			ret+=sprintf(data+ret,"%s",ss->header);
 		if(ss->auth_type==HTTP_AUTH_BASIC)
 			ret+=build_auth_string(data+ret,ss->user,ss->pass);
+		if(proxy_auth!=NULL)
+			ret+=sprintf(data+ret,"Proxy-Authorization: Basic %s\r\n",proxy_auth);
 		ret+=sprintf(data+ret,"\r\n");
 	}
 	else if(post_len<=0)
@@ -544,13 +667,15 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 			"Host: %s\r\n"
 			"Connection: keep-alive\r\n"
 			"Content-Length: %d\r\n",
-			method,path,ss->host,(int)strlen(post));
+			method,path,host,(int)strlen(post));
 		if(ss->cookie)
 			ret+=sprintf(data+ret,"Cookie: %s\r\n",ss->cookie);
 		if(ss->header)
 			ret+=sprintf(data+ret,"%s",ss->header);
 		if(ss->auth_type==HTTP_AUTH_BASIC)
 			ret+=build_auth_string(data+ret,ss->user,ss->pass);
+		if(proxy_auth!=NULL)
+			ret+=sprintf(data+ret,"Proxy-Authorization: Basic %s\r\n",proxy_auth);
 		ret+=sprintf(data+ret,"\r\n");
 		ret+=sprintf(data+ret,"%s",post);
 	}
@@ -561,13 +686,15 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 			"Host: %s\r\n"
 			"Connection: keep-alive\r\n"
 			"Content-Length: %d\r\n",
-			method,path,ss->host,post_len);
+			method,path,host,post_len);
 		if(ss->cookie)
 			ret+=sprintf(data+ret,"Cookie: %s\r\n",ss->cookie);
 		if(ss->header)
 			ret+=sprintf(data+ret,"%s",ss->header);
 		if(ss->auth_type==HTTP_AUTH_BASIC)
 			ret+=build_auth_string(data+ret,ss->user,ss->pass);
+		if(proxy_auth!=NULL)
+			ret+=sprintf(data+ret,"Proxy-Authorization: Basic %s\r\n",proxy_auth);
 		ret+=sprintf(data+ret,"\r\n");
 	}
 	assert(ret<=sizeof(data));
@@ -592,7 +719,7 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 	for(i=0;i<300;i++)						// keep connection 30s
 	{
 		ret=sockc_select(s,100);
-		if(ss->abort || ret==-1)
+		if(http_session_is_abort(ss) || ret==-1)
 		{
 			//fprintf(stderr,"sockc_select fail\n");
 			http_session_clear(ss);
@@ -635,13 +762,14 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 	}
 	p=strstr(header,"Content-Length:");
 	if(!p) p=strstr(header,"Content-length:");
+	if(!p) p=strstr(header,"content-length:");
 	if(p!=NULL)
 		clen=atoi(p+15);
 	if(strstr(header,"Connection: close"))
 		conn_close=1;
-	if(strstr(header,"Content-Encoding: gzip"))
+	if(strstr(header,"Content-Encoding: gzip") || strstr(header,"content-encoding: gzip"))
 		gzip=1;
-	if(strstr(header,"Transfer-Encoding: chunked"))
+	if(strstr(header,"Transfer-Encoding: chunked") || strstr(header,"transfer-encoding: chunked"))
 		chunked=1;
 
 	if(strstr(header,"Set-Cookie: "))
@@ -652,7 +780,8 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 		do{
 			char *end,*path;
 			temp=strstr(temp,"Set-Cookie: ");
-			if(!temp) break;
+			if(!temp)
+				break;
 			temp+=12;
 			end=strchr(temp,'\r');*end=0;
 			path=strstr(temp," PATH=");
@@ -669,6 +798,22 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 	ss->state=SESS_STATE_RESPONSE;
 	for(;!quit && ((clen>0 && buf.len<clen) || (clen==-1));)
 	{
+		if(chunked)
+		{
+			ret=check_chunked(&buf);
+			if(ret<0)
+			{
+				free(buf.data);
+				http_session_clear(ss);
+				return NULL;
+			}
+			if(ret>0)
+			{
+				ret=build_chunked(&buf);
+				assert(ret==0);
+				break;
+			}
+		}
 		ret=http_session_sockc_recv(ss,data,sizeof(data));
 		if(ret<0)
 		{
@@ -684,21 +829,6 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 		else
 		{
 			hbuf_append(&buf,data,ret);
-		}
-		if(chunked)
-		{
-			ret=check_chunked(&buf);
-			if(ret<0)
-			{
-				free(buf.data);
-				http_session_clear(ss);
-				return NULL;
-			}
-			if(ret==0)
-				continue;
-			ret=build_chunked(&buf);
-			assert(ret==0);
-			break;
 		}
 	}
 
@@ -750,6 +880,7 @@ HttpSession *http_session_new(void)
 	ss->port=80;
 	ss->keep_alive=300;
 	ss->timeout=30;
+	ss->p_abort=&ss->abort;
 	return ss;
 }
 
@@ -781,6 +912,11 @@ void http_session_free(HttpSession *ss)
 		free(ss->pass);
 		ss->pass=NULL;
 	}
+	if(ss->proxy)
+	{
+		free(ss->proxy);
+		ss->proxy=NULL;
+	}
 	free(ss->cookie);
 	free(ss);
 }
@@ -807,6 +943,25 @@ int http_session_set_host(HttpSession *ss,const char *host,int port)
 const char *http_session_get_host(HttpSession *ss)
 {
 	return ss->host;
+}
+
+int http_session_get_port(HttpSession *ss)
+{
+	return ss->port;
+}
+
+int http_session_is_abort(HttpSession *ss)
+{
+	return *ss->p_abort;
+}
+
+int http_session_set_abort(HttpSession *ss,int *abort)
+{
+	if(abort)
+		ss->p_abort=abort;
+	else
+		ss->p_abort=&ss->abort;
+	return 0;
 }
 
 int http_session_set_header(HttpSession *ss,const char *header)
@@ -1032,7 +1187,7 @@ int http_session_download(HttpSession *ss,const char *remote,const char *local)
 	return 0;
 }
 
-static int url_encode(const char *in,char *out)
+static int url_encode(const char *in,char *out,int size)
 {
 	int i,c,pos=0;
 	pos=0;
@@ -1064,7 +1219,7 @@ char *http_session_post_form(HttpSession *ss,const char *path,int *len,const cha
 	do{
 		if(val==NULL) val="";
 		pos+=sprintf(data+pos,"%s=",name);
-		pos+=url_encode(val,data+pos);
+		pos+=url_encode(val,data+pos,sizeof(data)-pos);
 		name=va_arg(ap,const char*);
 		if(name!=NULL)
 		{
@@ -1074,6 +1229,7 @@ char *http_session_post_form(HttpSession *ss,const char *path,int *len,const cha
 	}while(name!=NULL);
 	va_end(ap);
 	data[pos]=0;
+	assert(pos<sizeof(data));
 	http_session_set_header(ss,"Content-Type: application/x-www-form-urlencoded\r\n");
 	return http_session_get(ss,path,len,data,pos);
 }
@@ -1111,6 +1267,22 @@ int http_session_get_auth(HttpSession *ss,char **user,char **pass)
 {
 	*user=ss->user;
 	*pass=ss->pass;
+	return 0;
+}
+
+int http_session_set_proxy(HttpSession *ss,const char *proxy)
+{
+	if(ss->proxy)
+	{
+		free(ss->proxy);
+		ss->proxy=NULL;
+	}
+	if(!proxy)
+		return 0;
+	URL r;
+	if(0!=url_parse2(proxy,&r,0))
+		return -1;
+	ss->proxy=strdup(proxy);
 	return 0;
 }
 
@@ -1163,3 +1335,5 @@ void http_session_base64_encode(char *out, const void *in_data, int inlen)
 	}
 	*out = '\0';
 }
+
+

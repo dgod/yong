@@ -12,6 +12,13 @@ typedef struct{
 	int x,y,w,h;
 }UI_RECT;
 
+typedef union{
+	struct{
+		uint8_t b,g,r,a;
+	};
+	uint32_t color;
+}UI_COLOR;
+
 typedef struct{
 	/* scale factor */
 	int scale;
@@ -27,6 +34,8 @@ typedef struct{
 	char *bg;
 	/* border color */
 	char *border;
+	/* border radius */
+	int radius;
 	/* transparent */
 	int tran;
 	/* auto transparent */
@@ -44,6 +53,8 @@ typedef struct{
 	char *bg[2];
 	/* border color */
 	char *border;
+	/* border radius */
+	int radius;
 	/* text colors */
 	char *text[7];
 	/* font of the text */
@@ -75,7 +86,14 @@ typedef struct{
 	/* mode of input window, 0:2 lines 1:1 lines 2:mulitlines */
 	int line;
 	/* if show page number */
-	int page;
+	struct{
+		int show;
+		uint32_t text[2];
+		double scale;
+		UI_COLOR color;
+	}page;
+	/* skin custom page text */
+	uint32_t page_text[2];
 	/* if show caret */
 	int caret;
 	/* howto show no can cand list */
@@ -204,6 +222,7 @@ typedef struct{
 extern Y_UI y_ui;
 void ui_setup_default(Y_UI *p);
 void ui_setup_fbterm(Y_UI *p);
+UI_COLOR ui_color_parse(const char *s);
 
 int y_ui_init(const char *name);
 #define y_ui_loop() \

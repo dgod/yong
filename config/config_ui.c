@@ -45,10 +45,8 @@ static int LaunchSync(CUCtrl,int,char **);
 extern int UpdateDownload(CUCtrl,int,char **);
 static int LaunchUpdate(CUCtrl,int,char **);
 
-#ifdef _WIN32
 static int CheckAutoStart(CUCtrl,int,char **);
 static int SaveAutoStart(CUCtrl,int,char **);
-#endif
 
 const struct{
 	const char *name;
@@ -72,10 +70,8 @@ const struct{
 	{"LaunchSync",LaunchSync},
 	{"UpdateDownload",UpdateDownload},
 	{"LaunchUpdate",LaunchUpdate},
-#ifdef _WIN32
 	{"CheckAutoStart",CheckAutoStart},
 	{"SaveAutoStart",SaveAutoStart},
-#endif
 	{NULL,NULL},
 };
 
@@ -1453,3 +1449,72 @@ static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 }
 
 #endif
+
+
+#if defined(__linux__) && !defined(CFG_XIM_ANDROID)
+
+static bool GetStartupPath(char *pszPath)
+{
+	char *p=getenv("XDG_CONFIG_HOME");
+	if(p)
+	{
+		sprintf(pszPath,"%s/autostart",p);
+		return true;
+	}
+	p=getenv("HOME");
+	if(p)
+	{
+		sprintf(pszPath,"%s/.config/autostart",p);
+		return true;
+	}
+    return false;
+}
+
+static bool LinkExist(const char *path)
+{
+	char temp[512];
+	snprintf(temp,sizeof(temp),"%s/yong.desktop",path);
+	return l_file_exists(temp);
+}
+
+static int CheckAutoStart(CUCtrl p,int arc,char **arg)
+{
+	char path[256];
+	GetStartupPath(path);
+	if(!LinkExist(path))
+	{
+		cu_ctrl_set_self(p,"0");
+	}
+	else
+	{
+		cu_ctrl_set_self(p,"1");
+	}
+	return 0;
+}
+
+static int SaveAutoStart(CUCtrl p,int arc,char **arg)
+{
+	char path[256];
+	GetStartupPath(path);
+	bool exist=LinkExist(path);
+	char *s=cu_ctrl_get_self(p);
+	strcat(path,"/yong.desktop");
+	if(s[0]=='1' && !exist)
+	{
+		const char *text=
+			"[Desktop Entry]\n"
+			"Name=yong\n"
+			"Exec=/usr/bin/yong -d\n"
+			"Type=Application";
+		l_file_set_contents(path,text,strlen(text),NULL);
+	}
+	else if(s[0]!='1' && exist)
+	{
+		l_remove(path);
+	}
+	l_free(s);
+	return 0;
+}
+
+#endif
+

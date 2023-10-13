@@ -37,6 +37,44 @@ static uint32_t code_to_mask(Y_LAYOUT *layout,const char *l,const char *r)
 	return mask;
 }
 
+static void key_unescape(const char *in,char *out)
+{
+	char temp[128];
+	int pos,i,c;
+	for(i=pos=0;(c=in[pos++])!=0;i++)
+	{
+		if(c!='\\' || in[pos]=='\0')
+		{
+			temp[i]=c;
+			continue;
+		}
+		c=in[pos++];
+		if(c=='r')
+		{
+			temp[i]='\r';
+		}
+		else if(c=='b')
+		{
+			temp[i]='\b';
+		}
+		else if(c=='t')
+		{
+			temp[i]='\t';
+		}
+		else if(c=='x' && in[pos]=='1' && in[pos+1]=='b')
+		{
+			temp[i]='\x1b';
+			pos+=2;
+		}
+		else
+		{
+			break;
+		}
+	}
+	temp[i]=0;
+	strcpy(out,temp);
+}
+
 Y_LAYOUT * y_layout_load(const char *path)
 {
 	Y_LAYOUT *layout;
@@ -55,6 +93,8 @@ Y_LAYOUT * y_layout_load(const char *path)
 	
 	while((len=l_get_line(line,sizeof(line),fp))>=0)
 	{
+		if(len==0 || line[0]=='#')
+			continue;
 		if(!strcmp(line,"up=1"))
 		{
 			layout->flag|=LAYOUT_FLAG_KEYUP;
@@ -137,12 +177,14 @@ Y_LAYOUT * y_layout_load(const char *path)
 	{
 		int ret;
 		int key;
-		char c[8],l[4],r[4];
+		char c[8],l[8],r[8];
 		ret=l_sscanf(line,"%5s %4s %4s",c,l,r);
 		if(ret<2) break;
 		if(ret==2) r[0]=0;
 		key=str_to_key(c);
 		if(key<0) break;
+		key_unescape(l,l);
+		key_unescape(r,r);
 		layout->map[key]=code_to_mask(layout,l,r);
 		if(!layout->map[key]) break;
 

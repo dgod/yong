@@ -10,6 +10,7 @@ void py_init(int split,char *sp);
 
 int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(int,const char*,void *),void *arg);
 int py_build_string(char *out,py_item_t *token,int count);
+int py_build_string_no_split(char *out,py_item_t *token,int count);
 int py_build_sp_string(char *out,py_item_t *token,int count);
 int py_prepare_string(char *to,const char *from,int *caret);
 int py_parse_sp_jp(const char *input,py_item_t *token);
@@ -19,6 +20,7 @@ int py_string_step(char *input,int caret,uint8_t step[],int max);
 int py_conv_from_sp(const char *in,char *out,int size,int split);
 int py_conv_to_sp(const char *s,const char *zi,char *out);
 int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint32_t,char*,void*),void *arg);
+int py_conv_to_sp3(const char *s,char *out);
 int py_is_valid_input(int sp,int c,int pos);
 int py_is_valid_code(const char *in);
 int py_is_valid_quanpin(const char *input);

@@ -1,6 +1,7 @@
 #include "llib.h"
 #include "ui.h"
 #include "common.h"
+#include "ui-draw.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -9,29 +10,81 @@ typedef struct{
 	int event,x,y,which;
 }UI_EVENT;
 
-typedef struct{
-	uint8_t r,g,b,a;
-}UI_COLOR;
-
 static char skin_path[64];
 static double ui_scale=1.0;
 
-static bool ui_image_path(const char *file,char path[])
+bool ui_image_path(const char *file,char path[],int where)
 {
-	sprintf(path,"%s/%s/%s",y_im_get_path("HOME"),skin_path,file);
-	if(l_file_exists(path))
-		return true;
-	sprintf(path,"%s/skin/%s",y_im_get_path("HOME"),file);
-	if(l_file_exists(path))
-		return true;
-	sprintf(path,"%s/%s/%s",y_im_get_path("DATA"),skin_path,file);
-	if(l_file_exists(path))
-		return true;
-	sprintf(path,"%s/skin/%s",y_im_get_path("DATA"),file);
-	if(l_file_exists(path))
-		return true;
+	if((where&IMAGE_SKIN)!=0)
+	{
+		sprintf(path,"%s/%s/%s",y_im_get_path("HOME"),skin_path,file);
+		if(l_file_exists(path))
+			return true;
+	}
+	if(strcmp(skin_path,"skin") && (where&IMAGE_SKIN_DEF)!=0)
+	{
+		sprintf(path,"%s/skin/%s",y_im_get_path("HOME"),file);
+		if(l_file_exists(path))
+			return true;
+	}
+	if((where&IMAGE_SKIN)!=0)
+	{
+		sprintf(path,"%s/%s/%s",y_im_get_path("DATA"),skin_path,file);
+		if(l_file_exists(path))
+			return true;
+	}
+	if(strcmp(skin_path,"skin") && (where&IMAGE_SKIN_DEF)!=0)
+	{
+		sprintf(path,"%s/skin/%s",y_im_get_path("DATA"),file);
+		if(l_file_exists(path))
+			return true;
+	}
+	if((where&IMAGE_ROOT)!=0)
+	{
+		sprintf(path,"%s/%s",y_im_get_path("HOME"),file);
+		if(l_file_exists(path))
+			return true;
+		sprintf(path,"%s/%s",y_im_get_path("DATA"),file);
+		if(l_file_exists(path))
+			return true;
+	}
 	return false;
+}
 
+UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,int where)
+{
+	const char *scale_str=NULL;
+	UI_IMAGE p=NULL;
+	if(scale>0.99 && scale<1.01)
+		scale_str="1";
+	else if(scale>1.24 && scale<1.26)
+		scale_str="1.25";
+	else if(scale>1.49 && scale<1.51)
+		scale_str="1.5";
+	else if(scale>1.74 && scale<1.76)
+		scale_str="1.75";
+	else if(scale>1.99 && scale<2.01)
+		scale_str="2";
+	if(scale_str)
+	{
+		char temp[64];
+		snprintf(temp,sizeof(temp),"%s/%s",scale_str,file);
+		p=ui_image_load(temp,where);
+	}
+	if(!p)
+	{
+		if(width>0 && height>0)
+		{
+			width=(int)round(scale*width);
+			height=(int)round(scale*height);
+			p=ui_image_load_at_size(file,width,height,where);
+		}
+		else
+		{
+			p=ui_image_load(file,where);
+		}
+	}
+	return p;
 }
 
 #ifdef _WIN32
@@ -41,88 +94,17 @@ static bool ui_image_path(const char *file,char path[])
 #else
 
 #include <gtk/gtk.h>
-typedef GdkPixbuf *UI_IMAGE;
-typedef GdkPixbuf *UI_ICON;
-typedef PangoLayout *UI_FONT;
-typedef GtkWidget *UI_WINDOW;
-typedef cairo_t *UI_DC;
 typedef char UI_CHAR;
-#if GTK_CHECK_VERSION(3,0,0)
 typedef cairo_region_t *UI_REGION;
-#else
-typedef GdkRegion *UI_REGION;
-#endif
 
 UI_WINDOW MainWin;
 
 #define ui_icon_load(x) ui_image_load(x)
 #define ui_icon_free(x) ui_icon_free(x)
 
-typedef struct{
-	int width;
-	int height;
-}AtScaleData;
-
-static void image_load_cb(GdkPixbufLoader *loader,GdkPixbuf **pixbuf)
-{
-	if(*pixbuf)
-		return;
-	*pixbuf=gdk_pixbuf_loader_get_pixbuf(loader);
-	g_object_ref(*pixbuf);
-}
-
-static UI_IMAGE ui_image_load_at_size(const char *file,int width,int height)
-{
-	char path[256];
-	GdkPixbuf *pixbuf;
-	if(!file)
-	{
-		return 0;
-	}
-	{
-		if(!ui_image_path(file,path))
-		{
-			// printf("get image path fail %s\n",file);
-			return NULL;
-		}
-		char *contents;
-		size_t length;
-		GdkPixbufLoader *load;
-		contents=l_file_get_contents(path,&length,NULL);
-		if(!contents)
-		{
-			// fprintf(stderr,"load %s contents fail\n",file);
-			return NULL;
-		}
-		load=gdk_pixbuf_loader_new();
-		if(width>0 && height>0)
-		{
-			gdk_pixbuf_loader_set_size(load,width,height);
-		}
-		pixbuf=NULL;
-		g_signal_connect(load,"area-prepared",G_CALLBACK(image_load_cb),&pixbuf);
-		if(!gdk_pixbuf_loader_write(load,(const guchar*)contents,length,NULL))
-		{
-			l_free(contents);
-		 	// fprintf(stderr,"load image %s fail\n",file);
-			return NULL;
-		}
-		l_free(contents);
-		gdk_pixbuf_loader_close(load,NULL);
-	}
-	return pixbuf;
-}
-#define ui_image_load(file) ui_image_load_at_size(file,-1,-1)
-
 UI_IMAGE ui_image_part(UI_IMAGE img,int x,int y,int w,int h)
 {
 	return gdk_pixbuf_new_subpixbuf(img,x,y,w,h);
-}
-
-static void ui_image_free(UI_IMAGE img)
-{
-	if(!img) return;
-	g_object_unref(img);
 }
 
 static int ui_image_size(UI_IMAGE img,int *w,int *h)
@@ -145,160 +127,6 @@ static void ui_image_draw(UI_DC dc,UI_IMAGE img,int x,int y)
 	cairo_reset_clip(dc);
 }
 
-static void ui_image_stretch(UI_DC dc,UI_IMAGE img,int x,int y,int w,int h)
-{
-	int w0,h0;
-	double sx=1,sy=1;
-	double ox=0,oy=0;
-
-	if(!img)
-		return;
-	
-	ui_image_size(img,&w0,&h0);
-	if(w!=w0)
-	{
-		sx=(double)(w)/(double)(w0-1);
-		ox=-0.5;
-	}
-	if(h!=h0)
-	{
-		sy=(double)h/(double)(h0-1);
-		oy=-0.5;
-	}
-	
-	cairo_save(dc);
-	
-	cairo_translate(dc,x,y);
-	cairo_rectangle(dc,0,0,w,h);
-	cairo_clip(dc);
-	cairo_scale(dc,sx,sy);
-	gdk_cairo_set_source_pixbuf(dc,img,ox,oy);
-	cairo_paint(dc);
-	
-	cairo_restore(dc);
-}
-
-static UI_FONT ui_font_parse(UI_WINDOW w,const char *s)
-{
-	PangoFontDescription *desc;
-	GdkWindow *window;
-	PangoLayout *res;
-	cairo_t *cr;
-
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
-	window=gtk_widget_get_window(w);
-#else
-	window=w->window;
-#endif
-
-	desc=pango_font_description_from_string(s);
-	assert(desc!=NULL);
-	// NOTE: GDK_DPI_SCALE not affect this, so scale the size by ourself
-	gint size=pango_font_description_get_size(desc);
-	//pango_font_description_set_absolute_size(desc,size/1024*ui_scale*96/72*PANGO_SCALE);
-	pango_font_description_set_size(desc,(int)size*ui_scale);
-	
-	cr=gdk_cairo_create(window);
-	res=pango_cairo_create_layout(cr);
-	cairo_destroy(cr);
-	assert(res!=NULL);
-	pango_layout_set_font_description(res,desc);
-	pango_font_description_free(desc);
-		
-	return res;
-}
-
-static void ui_font_free(UI_FONT font)
-{
-	if(!font)
-		return;
-	g_object_unref(font);
-}
-
-static void ui_set_source_color(UI_DC dc,UI_COLOR c)
-{
-	double r,g,b,a;
-	r=c.r/255.0;
-	g=c.g/255.0;
-	b=c.b/255.0;
-	a=c.a/255.0;
-	cairo_set_source_rgba(dc,r,g,b,a);
-}
-
-static void ui_draw_text(UI_DC dc,UI_FONT font,int x,int y,const void *text,UI_COLOR color)
-{
-	pango_layout_set_text (font, text, -1);
-	cairo_move_to(dc,x,y);
-	cairo_set_source_rgba(dc,color.r/255.0,color.g/255.0,color.b/255.0,color.a/255.0);
-	pango_cairo_show_layout(dc,font);
-}
-
-static void ui_text_size(UI_DC dc,UI_FONT font,const char *text,int *w,int *h)
-{
-	if(!text[0])
-	{
-		pango_layout_set_text(font," ",-1);
-		pango_layout_get_pixel_size(font,w,h);
-		*w=0;
-	}
-	else
-	{
-		pango_layout_set_text(font,text,-1);
-		pango_layout_get_pixel_size(font,w,h);
-	}	
-}
-
-static void ui_draw_line(UI_DC dc,int x0,int y0,int x1,int y1,UI_COLOR color,double line_width)
-{
-	if(line_width>2) line_width=2;
-	ui_set_source_color(dc,color);
-	if(line_width==1 || line_width==2)
-	{
-		cairo_set_line_width(dc,line_width);
-		cairo_move_to(dc,x0,y0);
-		cairo_line_to(dc,x1,y1);
-	}
-	else
-	{
-		cairo_set_line_width(dc,1);
-		cairo_move_to(dc,x0,y0);
-		cairo_line_to(dc,x1,y1);
-		cairo_stroke(dc);
-		
-		color.a*=line_width-1;
-		ui_set_source_color(dc,color);
-		if(y0==y1)
-		{
-			cairo_move_to(dc,x0,y0+1);
-			cairo_line_to(dc,x1,y1+1);
-		}
-		else
-		{
-			cairo_move_to(dc,x0+1,y0);
-			cairo_line_to(dc,x1+1,y1);
-		}
-	}
-	cairo_stroke(dc);
-}
-
-static void ui_draw_rect(UI_DC dc,int x,int y,int w,int h,UI_COLOR color,double line_width)
-{
-	if(line_width>2) line_width=2;
-	cairo_set_antialias(dc,CAIRO_ANTIALIAS_DEFAULT);
-	ui_set_source_color(dc,color);
-	cairo_set_line_width(dc,line_width);
-	cairo_rectangle(dc,x+line_width/2,y+line_width/2,w-line_width,h-line_width);
-	cairo_stroke(dc);
-	cairo_set_antialias(dc,CAIRO_ANTIALIAS_NONE);
-}
-
-static void ui_fill_rect(UI_DC dc,int x,int y,int w,int h,UI_COLOR color)
-{
-	ui_set_source_color(dc,color);
-	cairo_rectangle(dc,x,y,w,h);
-	cairo_fill(dc);
-}
-
 static void UpdateMainWindow(void)
 {
 	gtk_widget_queue_draw(MainWin);
@@ -306,26 +134,10 @@ static void UpdateMainWindow(void)
 
 static void ui_region_destroy(UI_REGION r)
 {
-#if GTK_CHECK_VERSION(3,0,0)
 	cairo_region_destroy(r);
-#else
-	gdk_region_destroy(r);
-#endif
 }
 
 #endif
-
-/*
-static void ui_image_tile(UI_DC dc,UI_IMAGE img,int x,int y,int w,int h)
-{
-	int w0,h0,cx,cy,i,j;
-	ui_image_size(img,&w0,&h0);
-	cx=w/w0,cy=h/h0;
-	for(j=0;j<cy;j++)
-	for(i=0;i<cx;i++)
-		ui_image_draw(dc,img,x+w0*i,y+h0*j);
-}
-*/
 
 enum{
 	UI_STATE_NORMAL=0,
@@ -387,7 +199,7 @@ struct{
 	int RealHeight,RealWidth;
 	int Left,Right;
 	int Top,Bottom;
-	int WorkLeft,WorkRight;
+	int WorkLeft,WorkRight,WorkBottom;
 	int MaxHeight;
 	UI_IMAGE bg[3];
 #ifndef _WIN32
@@ -404,7 +216,6 @@ struct{
 	int root;
 	int noshow;
 	int line;
-	int page;
 	int caret;
 	int no;
 	int strip;
@@ -412,13 +223,22 @@ struct{
 	int tran;
 	double line_width;
 	int onspot;
+	int radius;
 	uint8_t pad[4];
+	struct{
+		int show;
+		uint32_t text[2];
+		double scale;
+		UI_FONT layout;
+		UI_COLOR color;
+	}page;
 }InputTheme;
 
 struct{
 	int scale;
 	double line_width;
 	int move_style;
+	int radius;
 }MainTheme;
 
 static bool ui_pt_in_rect(const UI_RECT *rc,int x,int y)
@@ -427,7 +247,7 @@ static bool ui_pt_in_rect(const UI_RECT *rc,int x,int y)
 		x<rc->x+rc->w && y<rc->y+rc->h;
 }
 
-static UI_COLOR ui_color_parse(const char *s)
+UI_COLOR ui_color_parse(const char *s)
 {
 	UI_COLOR clr;
 	int len=strlen(s);
@@ -438,60 +258,6 @@ static UI_COLOR ui_color_parse(const char *s)
 		l_sscanf(s,"#%02x%02x%02x",&r,&g,&b);
 	clr.a=a;clr.g=g;clr.b=b;clr.r=r;
 	return clr;
-}
-
-#ifdef _WIN32
-static UI_IMAGE ui_image_load_at_size(const char *file,int width,int height)
-{
-	char path[256];
-	void *buf;
-	size_t length;
-	HBITMAP p;
-	if(!ui_image_path(file,path))
-		return NULL;
-	buf=l_file_get_contents(path,&length,NULL);
-	p=dw_load_hbitmap(buf,(int)length,width,height);
-	if(!p)
-		p=ui_image_load(file);
-	l_free(buf);
-	return p;
-}
-#endif
-
-static UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height)
-{
-	const char *scale_str=NULL;
-	UI_IMAGE p=NULL;
-	if(scale>0.99 && scale<1.01)
-		scale_str="1";
-	else if(scale>1.24 && scale<1.26)
-		scale_str="1.25";
-	else if(scale>1.49 && scale<1.51)
-		scale_str="1.5";
-	else if(scale>1.74 && scale<1.76)
-		scale_str="1.75";
-	else if(scale>1.99 && scale<2.01)
-		scale_str="2";
-	if(scale_str)
-	{
-		char temp[64];
-		snprintf(temp,sizeof(temp),"%s/%s",scale_str,file);
-		p=ui_image_load(temp);
-	}
-	if(!p)
-	{
-		if(width>0 && height>0)
-		{
-			width=(int)round(scale*width);
-			height=(int)round(scale*height);
-			p=ui_image_load_at_size(file,width,height);
-		}
-		else
-		{
-			p=ui_image_load(file);
-		}
-	}
-	return p;
 }
 
 static void ui_popup_menu(void);
@@ -626,28 +392,22 @@ int ui_button_update(int id,UI_BUTTON *param)
 		btn->rc.w=0;
 		return 0;
 	}
-#ifdef _WIN32
-	png_blend=true;
-#endif
 	if(MainTheme.scale!=1)
 	{
-		btn->bmp[0]=ui_image_load_scale(param->normal,ui_scale,param->w,param->h);
+		btn->bmp[0]=ui_image_load_scale(param->normal,ui_scale,param->w,param->h,IMAGE_SKIN);
 		if(param->down)
-			btn->bmp[1]=ui_image_load_scale(param->down,ui_scale,param->w,param->h);
+			btn->bmp[1]=ui_image_load_scale(param->down,ui_scale,param->w,param->h,IMAGE_SKIN);
 		if(param->over)
-			btn->bmp[2]=ui_image_load_scale(param->over,ui_scale,param->w,param->h);
+			btn->bmp[2]=ui_image_load_scale(param->over,ui_scale,param->w,param->h,IMAGE_SKIN);
 	}
 	else
 	{
-		btn->bmp[0]=ui_image_load(param->normal);
+		btn->bmp[0]=ui_image_load(param->normal,IMAGE_SKIN);
 		if(param->down)
-			btn->bmp[1]=ui_image_load(param->down);
+			btn->bmp[1]=ui_image_load(param->down,IMAGE_SKIN);
 		if(param->over)
-			btn->bmp[2]=ui_image_load(param->over);
+			btn->bmp[2]=ui_image_load(param->over,IMAGE_SKIN);
 	}
-#ifdef _WIN32
-	png_blend=false;
-#endif
 	if(btn->bmp[0])
 	{
 		int w,h;
@@ -671,14 +431,14 @@ int ui_button_update(int id,UI_BUTTON *param)
 	{
 		double save=ui_scale;
 		ui_scale=1;
-		btn->font=ui_font_parse(MainWin,param->font);
+		btn->font=ui_font_parse(MainWin,param->font,ui_scale);
 		ui_scale=save;
 	}
 	else
 	{
-		btn->font=param->font?ui_font_parse(MainWin,param->font):0;
+		btn->font=param->font?ui_font_parse(MainWin,param->font,ui_scale):0;
 	}
-	btn->color=param->color?ui_color_parse(param->color):(UI_COLOR){0,0,9,0};
+	btn->color=param->color?ui_color_parse(param->color):(UI_COLOR){{0,0,0,0}};
 	btn->click=param->click;
 	btn->arg=param->arg;
 	if(id==UI_BTN_MENU || id==UI_BTN_NAME || id==UI_BTN_KEYBOARD)
@@ -710,33 +470,29 @@ static void ui_skin_path(const char *p)
 	skin_path[63]=0;
 }
 
-static void ui_draw_main_win(UI_DC cr)
+static void ui_draw_main_win(DRAW_CONTEXT1 *ctx)
 {
 	double scale=MainTheme.scale!=1?ui_scale:1;
 	int i;
 
-#ifndef _WIN32
-	//if(MainWin_bg || MainTheme.line_width==1 || MainTheme.line_width==2)
-		cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
-#endif
-	
 	if(MainWin_bg)
 	{
-#ifndef _WIN32
-		cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
-#endif
-		ui_image_stretch(cr,MainWin_bg,0,0,MainWin_W,MainWin_H);
-#ifndef _WIN32
-		cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
-#endif
+		ui_stretch_image(ctx,MainWin_bg,0,0,MainWin_W,MainWin_H);
 	}
 	else
 	{
 		double w=MainWin_W;
 		double h=MainWin_H;
-		
-		ui_fill_rect(cr,0,0,w,h,MainWin_bgc);
-		ui_draw_rect(cr,0,0,w,h,MainWin_border,MainTheme.line_width*scale);
+	
+		if(MainTheme.radius)
+		{
+			ui_draw_round_rect(ctx,0,0,w,h,MainTheme.radius,MainWin_border,MainWin_bgc,MainTheme.line_width*scale);
+		}
+		else
+		{	
+			ui_fill_rect(ctx,0,0,w,h,MainWin_bgc);
+			ui_draw_rect(ctx,0,0,w,h,MainWin_border,MainTheme.line_width*scale);
+		}
 		if(MainWin_move.w>=3 && MainWin_move.h>=3)
 		{
 			if(MainTheme.move_style==0)
@@ -744,8 +500,8 @@ static void ui_draw_main_win(UI_DC cr)
 				double x=MainWin_move.x*scale+MainWin_move.w*scale/2+0.5;
 				double y=MainWin_move.y*scale+0.5;
 			
-				ui_draw_line(cr,x,y,x,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
-				ui_draw_line(cr,x+2,y,x+2,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
+				ui_draw_line(ctx,x,y,x,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
+				ui_draw_line(ctx,x+2,y,x+2,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
 			}
 			else
 			{
@@ -753,8 +509,8 @@ static void ui_draw_main_win(UI_DC cr)
 				double y=MainWin_move.y*scale+0.5;
 				double d=MainWin_move.w*scale/3;
 
-				ui_draw_line(cr,x,y,x,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
-				ui_draw_line(cr,x+d,y,x+d,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
+				ui_draw_line(ctx,x,y,x,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
+				ui_draw_line(ctx,x+d,y,x+d,MainWin_move.h*scale+y,MainWin_border,MainTheme.line_width*scale);
 			}				
 		}
 	}
@@ -770,40 +526,38 @@ static void ui_draw_main_win(UI_DC cr)
 		int h=(int)round(r->h*scale);
 
 		if((btn->state==UI_STATE_DOWN) && btn->bmp[1])
-			ui_image_stretch(cr,btn->bmp[1],x,y,w,h);
+			ui_stretch_image(ctx,btn->bmp[1],x,y,w,h);
 		else if(btn->state==UI_STATE_OVER && btn->bmp[2])
-			ui_image_stretch(cr,btn->bmp[2],x,y,w,h);
+			ui_stretch_image(ctx,btn->bmp[2],x,y,w,h);
 		else
-			ui_image_stretch(cr,btn->bmp[0],x,y,w,h);
+			ui_stretch_image(ctx,btn->bmp[0],x,y,w,h);
 
 		if(btn->text[0])
 		{
 			int tw,th;
 #ifdef _WIN32
 			UI_FONT old;
-			old=SelectObject(cr,btn->font);
+			old=SelectObject(ctx->dc,btn->font->gdi);
 #endif
-			ui_text_size(cr,btn->font,btn->text,&tw,&th);
+			ui_text_size(ctx->dc,btn->font,btn->text,&tw,&th);
 #ifdef _WIN32
-			SelectObject(cr,old);
+			SelectObject(ctx->dc,old);
 #endif
-			x=x+(w-tw)/2;y=y+(h-th)/2;	
-			ui_draw_text(cr,btn->font,x,y,btn->text,btn->color);
+			x=x+(w-tw)/2;y=y+(h-th)/2;
+			ui_draw_text_begin(ctx);
+			ui_draw_text(ctx,btn->font,x,y,btn->text,btn->color);
+			ui_draw_text_end(ctx);
 		}
 	}
 }
 
-static void ui_draw_input_win(UI_DC cr)
+static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 {
 	double scale=InputTheme.scale!=1?ui_scale:1;
 	UI_COLOR color;
 	int count=0,i;
 	EXTRA_IM *eim=CURRENT_EIM();
 		
-#ifndef _WIN32
-	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
-#endif
-
 	if(eim)
 		count=eim->CandWordCount;
 
@@ -811,100 +565,160 @@ static void ui_draw_input_win(UI_DC cr)
 	{
 		double w=InputTheme.RealWidth;
 		double h=InputTheme.RealHeight;
-		//int line=InputTheme.line;
-		ui_fill_rect(cr,0,0,w,h,InputTheme.bg_color);
-		//ui_draw_rect(cr,0,0,w,h,InputTheme.border,InputTheme.line_width*scale);
+		if(InputTheme.radius)
+		{
+			ui_draw_round_rect(ctx,0,0,w,h,InputTheme.radius,InputTheme.border,InputTheme.bg_color,InputTheme.line_width*scale);
+		}
+		else
+		{
+			ui_fill_rect(ctx,0,0,w,h,InputTheme.bg_color);
+			ui_draw_rect(ctx,0,0,w,h,InputTheme.border,InputTheme.line_width*scale);
+		}
 	}
 	else/* if(InputTheme.line!=2)*/
 	{
-#ifndef _WIN32
-		cairo_set_operator(cr,CAIRO_OPERATOR_SOURCE);
-#endif
 		if(InputTheme.bg[0])
 		{
-			ui_image_draw(cr,InputTheme.bg[0],0,0);
+			ui_draw_image(ctx,InputTheme.bg[0],0,0);
 		}
 		if(InputTheme.bg[2])
 		{
-			ui_image_draw(cr,InputTheme.bg[2],InputTheme.RealWidth-InputTheme.Right,0);
+			ui_draw_image(ctx,InputTheme.bg[2],InputTheme.RealWidth-InputTheme.Right,0);
 		}
-		ui_image_stretch(cr,InputTheme.bg[1],
+		ui_stretch_image(ctx,InputTheme.bg[1],
 				InputTheme.Left,0,
 				InputTheme.RealWidth-InputTheme.Left-InputTheme.Right,
 				InputTheme.RealHeight);
-#ifndef _WIN32
-		cairo_set_operator(cr,CAIRO_OPERATOR_OVER);
-#endif
 	}
 	
 	if(InputTheme.line!=1 && InputTheme.sep.a!=0)
 	{
 		double w=InputTheme.RealWidth;
 		double h=InputTheme.Height;
-		ui_draw_line(cr,4,h/2-1,w-5,h/2-1,InputTheme.sep,InputTheme.line_width*scale);
+		ui_draw_line(ctx,4,h/2-1,w-5,h/2-1,InputTheme.sep,InputTheme.line_width*scale);
 	}
+	
+	if(InputTheme.caret && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
+	{
+		ui_draw_line(ctx,im.CodePos[2],InputTheme.CodeY+2,
+					im.CodePos[2],InputTheme.CodeY+im.cursor_h,
+					InputTheme.text[3],InputTheme.line_width);
+	}
+	if(eim->SelectIndex>=0 && eim->SelectIndex<count && InputTheme.bg_first.a!=0)
+	{
+		i=eim->SelectIndex;
+		double *posx=im.CandPosX+3*i;
+		double *posy=im.CandPosY+3*i;
+		int x,y,w,h;
+		int border=(int)ceil(InputTheme.line_width*scale);
+		if(InputTheme.line!=2)
+		{
+			x=posx[0];
+			y=MIN(MIN(posy[0],posy[1]),posy[2]);
+			w=im.CandWidth[i];
+			h=im.CandHeight[i];
+		}
+		else
+		{
+			x=InputTheme.WorkLeft;
+			y=MIN(MIN(posy[0],posy[1]),posy[2]);
+			w=InputTheme.RealWidth-InputTheme.WorkLeft-InputTheme.WorkRight;
+			h=im.CandHeight[i];
+		}
+		color=InputTheme.bg_first;
+		x-=InputTheme.pad[3];
+		y-=InputTheme.pad[0];
+		w+=InputTheme.pad[1]+InputTheme.pad[3];
+		h+=InputTheme.pad[0]+InputTheme.pad[2];
+		if(x<border)
+		{
+			w-=border-x;
+			x=border;
+		}
+		if(x+w>InputTheme.RealWidth-border)
+		{
+			w=InputTheme.RealWidth-border-x;
+		}
+		if(InputTheme.line==1 && y<border)
+		{
+			h-=border-y;
+			y=border;
+		}
+		if(InputTheme.line!=1 && y<InputTheme.Height/2-1+border)
+		{
+			double t=InputTheme.Height/2-1+border;
+			h-=t-y;
+			y=t;
+		}
+		if(y+h>InputTheme.RealHeight-border)
+		{
+			h=InputTheme.RealHeight-border-y;
+		}
+		ui_fill_rect(ctx,x,y,w,h,color);
+	}
+
+	ui_draw_text_begin(ctx);
 
 	if(eim && eim->StringGet[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
 	{
-		ui_draw_text(cr,InputTheme.layout,im.CodePos[0],InputTheme.CodeY,
+		ui_draw_text(ctx,InputTheme.layout,im.CodePos[0],InputTheme.CodeY,
 			im.StringGet,InputTheme.text[6]);
 
 	}
 	if(im.CodeInput[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
 	{
-		ui_draw_text(cr,InputTheme.layout,im.CodePos[1],InputTheme.CodeY,
+		ui_draw_text(ctx,InputTheme.layout,im.CodePos[1],InputTheme.CodeY,
 			im.CodeInput,InputTheme.text[5]);
 	}
-	if(/*!im.EnglishMode && */eim && eim->CandPageCount>1 && InputTheme.page)
+	if(/*!im.EnglishMode && */eim && eim->CandPageCount>1 && InputTheme.page.show)
 	{
 		double pos_x,pos_y;
 		pos_x=im.PagePosX;
 		pos_y=im.PagePosY;
-		ui_draw_text(cr,InputTheme.layout,pos_x,pos_y,im.Page,InputTheme.text[4]);
+		UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
+		if(InputTheme.page.text[0])
+		{
+#ifdef _WIN32
+			WCHAR temp[8];
+#else
+			char temp[8];
+#endif
+			int pos;
+			UI_COLOR color;
+#ifdef _WIN32
+			pos=l_unichar_to_utf16(InputTheme.page.text[0],(void*)temp)/2;
+#else
+			pos=l_unichar_to_utf8(InputTheme.page.text[0],(void*)temp);
+#endif
+			temp[pos]=0;
+			color=eim->CurCandPage>0?InputTheme.text[4]:InputTheme.page.color;
+			ui_draw_text(ctx,font,pos_x,pos_y,temp,color);
+#ifdef _WIN32
+			pos=l_unichar_to_utf16(InputTheme.page.text[1],(void*)temp)/2;
+#else
+			pos=l_unichar_to_utf8(InputTheme.page.text[1],(void*)temp);
+#endif
+			temp[pos]=0;
+			color=eim->CurCandPage<eim->CandPageCount-1?InputTheme.text[4]:InputTheme.page.color;
+			ui_draw_text(ctx,font,pos_x+im.PageLen[0]+im.PageLen[1],pos_y,temp,color);
+		}
+		else
+		{
+			ui_draw_text(ctx,font,pos_x,pos_y,im.Page,InputTheme.text[4]);
+		}
 	}
-	if(InputTheme.caret)
-	{
-		ui_draw_line(cr,im.CodePos[2],InputTheme.CodeY+2,
-					im.CodePos[2],InputTheme.CodeY+im.cursor_h,
-					InputTheme.text[3],InputTheme.line_width);
-	}
-
+	
 	for(i=0;i<count;i++)
 	{
 		double *posx=im.CandPosX+3*i;
 		double *posy=im.CandPosY+3*i;
-
-		if(i==eim->SelectIndex && InputTheme.bg_first.a!=0)
-		{
-			int x,y,w,h;
-			if(InputTheme.line!=2)
-			{
-				x=posx[0];
-				y=MIN(MIN(posy[0],posy[1]),posy[2]);
-				w=im.CandWidth[i];
-				h=im.CandHeight[i];
-			}
-			else
-			{
-				x=InputTheme.WorkLeft;
-				y=MIN(MIN(posy[0],posy[1]),posy[2]);
-				w=InputTheme.RealWidth-InputTheme.WorkLeft-InputTheme.WorkRight;
-				h=im.CandHeight[i];
-			}
-			color=InputTheme.bg_first;
-			x-=InputTheme.pad[3];
-			y-=InputTheme.pad[0];
-			w+=InputTheme.pad[1]+InputTheme.pad[3];
-			h+=InputTheme.pad[0]+InputTheme.pad[2];
-			ui_fill_rect(cr,x,y,w,h,color);
-		}
 
 		if(InputTheme.no==0)
 		{
 			color=InputTheme.text[0];
 			if(i==eim->SelectIndex && InputTheme.bg_first.a!=0)
 				color=InputTheme.text[1];
-			ui_draw_text(cr,InputTheme.layout,posx[0],posy[0],YongGetSelectNumber(i),color);
+			ui_draw_text(ctx,InputTheme.layout,posx[0],posy[0],YongGetSelectNumber(i),color);
 		}
 		else
 		{
@@ -912,19 +726,14 @@ static void ui_draw_input_win(UI_DC cr)
 		}
 		
 		if(i==eim->SelectIndex) color=InputTheme.text[1];
-		ui_draw_text(cr,InputTheme.layout,posx[1],posy[1],im.CandTable[i],color);
+		ui_draw_text(ctx,InputTheme.layout,posx[1],posy[1],im.CandTable[i],color);
 
 		if(im.Hint && eim->CodeTips && eim->CodeTips[i][0])
 		{
 			color=InputTheme.text[2];
-			ui_draw_text(cr,InputTheme.layout,posx[2],posy[2],im.CodeTips[i],color);
+			ui_draw_text(ctx,InputTheme.layout,posx[2],posy[2],im.CodeTips[i],color);
 		}
 	}
-	if(!InputTheme.bg[1])
-	{
-		double w=InputTheme.RealWidth;
-		double h=InputTheme.RealHeight;
-		ui_draw_rect(cr,0,0,w,h,InputTheme.border,InputTheme.line_width*scale);
-	}
+	ui_draw_text_end(ctx);
 }
 

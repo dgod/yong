@@ -136,6 +136,7 @@ static int l_zip_get_central_file(FILE *fp,const LZipEndOfFile *e,const char *na
 		return -1;
 	for(i=0;/*i<e->central_total*/;i++)
 	{
+		(void)i;
 		r32(c->signature);
 		if(c->signature!=CENTRAL_FILE_SIGNATURE)
 		{

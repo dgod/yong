@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #include "ltypes.h"
@@ -504,6 +505,32 @@ int l_rmdir(const char *name)
 	return 0;
 }
 
+#ifdef _WIN32
+char *l_fullpath(char *abs,const char *rel,size_t size)
+{
+	wchar_t rel_temp[MAX_PATH];
+	wchar_t abs_temp[MAX_PATH];
+	l_utf8_to_utf16(rel,rel_temp,sizeof(rel_temp));
+	wchar_t *ret=_wfullpath(abs_temp,rel_temp,MAX_PATH);
+	if(!ret)
+		return NULL;
+	l_utf16_to_utf8(abs_temp,abs,size);
+	return abs;
+}
+#else
+char *l_fullpath(char *abs,const char *rel,size_t size)
+{
+	char temp[PATH_MAX];
+	char *ret=realpath(rel,temp);
+	if(!ret)
+		return NULL;
+	if(strlen(temp)>=size-1)
+		return NULL;
+	strcpy(abs,temp);
+	return abs;
+}
+#endif
+
 #ifdef __linux__
 
 char *l_getcwd(void)
@@ -513,16 +540,33 @@ char *l_getcwd(void)
 	return l_strdup(temp);
 }
 
+#else
+
+char *l_getcwd(void)
+{
+	wchar_t temp[MAX_PATH];
+	wchar_t *ret=getcwd(temp,MAX_PATH);
+	if(!ret)
+		return NULL;
+	char temp2[MAX_PATH];
+	l_utf16_to_utf8(temp,temp2,sizeof(temp2));
+	return l_strdup(temp2);
+}
+
+#endif
+
 char *l_path_resolve(const char *path)
 {
 	if(!path || !path[0])
 		return NULL;
 	if(path[0]=='/')
 		return l_strdup(path);
-	char *cwd=l_getcwd();
-	char *ret=l_sprintf("%s/%s",cwd,path);
-	l_free(cwd);
-	return ret;
+	char temp[PATH_MAX];
+	char *ret=l_fullpath(temp,path,sizeof(temp));
+	if(!ret)
+		return NULL;
+	return l_strdup(temp);
 }
-#endif
+
+
 

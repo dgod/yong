@@ -17,10 +17,7 @@ function run(target){
 		return input.replace(/\.c$/,'.o');
 	});
 	cc(SRCS,OBJS);
-	if(target=="js")
-		ld(OBJS,'$(DESTDIR)/libgbk.bc');
-	else
-		ld(OBJS,'$(DESTDIR)/libgbk.so');
+	ld(OBJS,'$(DESTDIR)/libgbk.so');
 }
 
 if(target=="clean"){

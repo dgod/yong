@@ -107,7 +107,7 @@ void *l_slist_nth(void *h,int n)
 {
 	LSList *p=h;
 	int i;
-	for(i=0;i<n;i++)
+	for(i=0;i<n && p;i++)
 		p=p->next;
 	return p;
 }

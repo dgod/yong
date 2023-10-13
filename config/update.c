@@ -177,7 +177,11 @@ static int allow_update(const char *file)
 	if(file[0]=='/') file++;
 	if(strncmp(file,"mb/",3) || !l_str_has_suffix(file,".txt"))
 	{
-		return 1;
+		allow=1;
+	}
+	else
+	{
+		allow=0;
 	}
 	fp=l_file_open(file,"rb",y_im_get_path("DATA"),NULL);
 	if(!fp)
@@ -190,6 +194,11 @@ static int allow_update(const char *file)
 		if(!strcmp(line,"update=1"))
 		{
 			allow=1;
+			break;
+		}
+		if(!strcmp(line,"update=0") || strstr(line," update=\"0\""))
+		{
+			allow=0;
 			break;
 		}
 	}
@@ -250,7 +259,7 @@ static int download_remote_file(const FITEM *it)
 		return -1;
 	}
 	
-	if(l_str_has_suffix(file,".txt") || l_str_has_suffix(file,".ini"))
+	if(l_str_has_suffix(file,".txt") || l_str_has_suffix(file,".ini") || l_str_has_suffix(file,".xml"))
 	{
 		sprintf(path,"%s",file);
 		if(allow_update(file) && 0!=l_file_set_contents(path,res,len,y_im_get_path("DATA"),NULL))

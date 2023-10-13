@@ -324,6 +324,15 @@ int y_im_set_exec(void)
 	return 0;
 }
 
+void cu_notify_reload()
+{
+#ifdef _WIN32
+	ShellExecute(NULL,L"open",L"yong-vim.exe",L"--reload-all",NULL,SW_SHOWNORMAL);
+#else
+	g_spawn_command_line_async("./yong-vim --reload-all",NULL);
+#endif
+}
+
 int GetSetConfigMain(int argc,char **argv)
 {
 	int i;
@@ -354,6 +363,8 @@ int GetSetConfigMain(int argc,char **argv)
 			const char *group=argv[++i];
 			const char *key=argv[++i];
 			const char *val=argv[++i];
+			if(!strcmp(val,"null"))
+				val=NULL;
 			l_key_file_set_string(config,group,key,val);
 		}
 		else if(!strcmp(argv[i],"--reload"))
@@ -370,16 +381,7 @@ int GetSetConfigMain(int argc,char **argv)
 		cu_config_save();
 		if(reload)
 		{
-#ifdef _WIN32
-	#ifdef _WIN64
-			ShellExecute(NULL,L"open",L"w64\\yong-vim.exe",L"--reload-all",NULL,SW_SHOWNORMAL);
-	#else
-			ShellExecute(NULL,L"open",L"yong-vim.exe",L"--reload-all",NULL,SW_SHOWNORMAL);
-	#endif
-#else
-
-			g_spawn_command_line_async("./yong-vim --reload-all",NULL);
-#endif
+			cu_notify_reload();
 		}
 	}
 	return 0;
@@ -408,7 +410,8 @@ int main(int arc,char *arg[])
 		}
 		else if(!strcmp(arg[i],"--sync"))
 		{
-			return SyncMain();
+			i++;
+			return SyncMain(arc-i,arg+i);
 		}
 		else if(!strcmp(arg[i],"--update"))
 		{
@@ -416,7 +419,7 @@ int main(int arc,char *arg[])
 		}
 		else if(!strcmp(arg[i],"--get") || !strcmp(arg[i],"--set"))
 		{
-			return GetSetConfigMain(arc-1,arg+i);
+			return GetSetConfigMain(arc-1,arg+1);
 		}
 	}
 	

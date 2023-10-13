@@ -4,7 +4,7 @@ var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
 	'keydesc.c','ui.c','fbterm.c','keycode.c','select.c','layout.c','translate.c',
 	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c','ybus-ibus.c',
 	'menu.c','history.c','replace.c','ybus-wayland.c',
-	'app.c','async.c'];
+	'app.c','async.c','ui-draw.c','speed.c'];
 
 var DIRS=['l32-gtk3','l64-gtk3'];
 
@@ -16,6 +16,7 @@ env("LDFLAGS+=$(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
 env("CFLAGS+=-I$(TOPDIR)/im -I$(TOPDIR)/im/IMdkit");
+env("CFLAGS+=-DCFG_XIM_YBUS");
 env("CFLAGS+=-DCFG_XIM_IBUS `pkg-config --cflags ibus-1.0`");
 env("CFLAGS+=-DCFG_XIM_FBTERM -I$(TOPDIR)/im/fbterm");
 env("CFLAGS+=-DL_CALL_GLIB_SERVER -DL_CALL_GLIB_CLIENT");
@@ -31,9 +32,9 @@ function run(target){
 	if("GTK_CFLAGS" in process.env)
 		env("CFLAGS","+=",process.env.GTK_CFLAGS);
 	else if(GTK=="gtk2")
-		env("CFLAGS+=`pkg-config --cflags gtk+-2.0`");
+		env("CFLAGS+=`pkg-config --cflags gtk+-2.0` -Wno-unused-const-variable");
 	else
-		env("CFLAGS+=`pkg-config --cflags gtk+-3.0`");
+		env("CFLAGS+=`pkg-config --cflags gtk+-3.0` -Wno-unused-const-variable");
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});
@@ -76,15 +77,17 @@ if(target=="clean"){
 	build("gtk-im",undefined,['l32-gtk2','l32-gtk3']);
 	build("gtk4-im",undefined,['l32-gtk4']);
 	build("qt5-im",undefined,['l32-qt5','l32-qt6']);
-	build(undefined,undefined,['l32-gtk2','l32-gtk3']);
+	build(undefined,undefined,['l32-gtk3']);
 } else if(target=="l64") {
 	build("IMdkit",undefined,"l64");
 	build("gtk-im",undefined,['l64-gtk2','l64-gtk3']);
 	build("gtk4-im",undefined,['l64-gtk4']);
 	build("qt5-im",undefined,['l64-qt5','l64-qt6']);
-	build(undefined,undefined,['l64-gtk2','l64-gtk3']);
+	build(undefined,undefined,['l64-gtk3']);
 } else if(target=="test"){
 	exec("install l64-gtk3/yong ../install/yong/l64/yong-gtk3");
+} else if(target=='xml'){
+	bin2c("../data/keyboard.xml","../common/keyboard.xml.c",{static:true,zero:true,readonly:true,name:"keyboard_xml"});
 } else {
 	run(target);
 }

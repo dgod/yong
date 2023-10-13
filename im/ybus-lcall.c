@@ -363,7 +363,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 	YBUS_CONNECT *yconn;
 	int ret;
 	
-	//printf("lcall %s\n",name);
+	// printf("lcall %s\n",name);
 	if(!strcmp(name,"tool"))
 	{
 		int type,param;
@@ -434,7 +434,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		key.client=client_id;
 		key.seq=buf->seq;
 		key.sync=buf->flag&L_CALL_FLAG_SYNC;
-		//printf("\t%d %x\n",key.status,key.key);
+		// printf("\t%d %x\n",key.status,key.key);
 		ret=serv_input(yconn,client,&key);
 		return ret;
 	}

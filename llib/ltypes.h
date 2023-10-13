@@ -76,5 +76,9 @@ typedef struct{
   #define L_WORD_SIZE			32
 #endif
 
+#ifndef L_ALIGNED_ACCESS
+	#define L_ALIGNED_ACCESS		0
+#endif
+
 #endif/*_LTYPES_H_*/
 

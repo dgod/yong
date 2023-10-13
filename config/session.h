@@ -13,6 +13,8 @@ HttpSession *http_session_new(void);
 void http_session_free(HttpSession *ss);
 int http_session_clear(HttpSession *ss);
 int http_session_abort(HttpSession *ss);
+int http_session_set_abort(HttpSession *ss,int *abort);
+int http_session_is_abort(HttpSession *ss);
 int http_session_set_host(HttpSession *ss,const char *host,int port);
 const char *http_session_get_host(HttpSession *ss);
 int http_session_set_header(HttpSession *ss,const char *header);
@@ -25,6 +27,7 @@ int http_session_set_auth_type(HttpSession *ss,int type);
 int http_session_get_auth(HttpSession *ss,char **user,char **pass);
 int http_session_set_cookie(HttpSession *ss,const char *cookie);
 const char *http_session_get_cookie(HttpSession *ss);
+int http_session_set_proxy(HttpSession *ss,const char *proxy);
 
 int http_session_test(HttpSession *ss);
 int http_session_sockc_connect(HttpSession *ss,const char *host,int port);

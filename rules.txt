@@ -23,7 +23,7 @@ if(BUILD=="w32"){
 	process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
 }else if(BUILD=="w64"){
 	env("CROSS_COMPILE=x86_64-w64-mingw32-");
-	env("CFLAGS+=-D_UNICODE -DUNICODE");
+	env("CFLAGS+=-D_UNICODE -DUNICODE -Wno-return-local-addr");
 	env("LDFLAGS+=-static-libgcc");
 	env("EXE=.exe");
 	env("DESTDIR=$(TOPDIR)/winim/yong/w64");
@@ -44,7 +44,8 @@ if(BUILD=="w32"){
 	env("LDFLAGS+=-m32");
 	env("EXE=.bin");
 	env("DESTDIR=.");
-	env("CROSS_COMPILE=/home/dgod/git/emscripten/");
+	env("CROSS_COMPILE=/home/dgod/git/emsdk/upstream/emscripten/");
+	env("LDFLAGS+=-Wno-emcc");
 	env("CC:=$(CROSS_COMPILE)emcc");
 	env("CFLAGS+=-Wno-invalid-source-encoding");
 }else if(BUILD=="loongson"){
@@ -60,10 +61,12 @@ env("VPATH+=$(TOPDIR)/common");
 env("AR?=$(CROSS_COMPILE)ar cr");
 env("RANLIB:=$(CROSS_COMPILE)ranlib");
 env("WINDRES:=$(CROSS_COMPILE)windres");
-env("STRIPL=$(CROSS_COMPILE)strip");
+env("STRIP=$(CROSS_COMPILE)strip");
 env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
 
-env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -fms-extensions -Wno-format-truncation -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
+env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -fms-extensions -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
+if(BUILD=='js')
+	env("CFLAGS+=-Wno-microsoft-anon-tag");
 
 env("LLIB_PATH:=$(TOPDIR)/llib");
 env("LLIB_CFLAGS:=-I$(LLIB_PATH)");

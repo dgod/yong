@@ -70,6 +70,7 @@ static int key_keyboard_s;
 static int key_bihua;
 static int key_dict=ALT_ENTER;
 static int key_crab;
+static int key_repeat_code;
 static char sym_in_num[8];
 #ifndef CFG_NO_KEYTOOL
 static Y_KEY_TOOL *key_tools;
@@ -121,11 +122,21 @@ static bool is_sym_in_num(int key)
 static int y_im_virt_key_conv(int key)
 {
 	if(key==virt_key_query)
+	{
 		return YK_VIRT_QUERY;
+	}
 	else if(key==virt_key_add)
+	{
+		if(key==virt_key_del && im.eim->CandWordCount>0 && im.eim->CodeLen>0)
+		{
+			return YK_VIRT_DEL;
+		}
 		return YK_VIRT_ADD;
+	}
 	else if(key==virt_key_del)
+	{
 		return YK_VIRT_DEL;
+	}
 	else
 		return key;
 }
@@ -355,6 +366,10 @@ void update_main_window(void)
 	{
 		param.border=l_key_file_get_string(ConfigSkin,"main","border");
 		if(!param.border) param.border=l_strdup("#CBCAE6");
+		param.radius=l_key_file_get_int(ConfigSkin,"main","radius");
+		if(param.radius<0 || param.radius>7)
+			param.radius=0;
+		// param.radius=7;
 	}
 	param.tran=l_key_file_get_int(ConfigSkin,"main","tran");
 	if(param.tran<0 || param.tran>255) param.tran=0;
@@ -505,6 +520,7 @@ int get_input_strip(void)
 
 void update_input_window(void)
 {
+#if !defined(CFG_XIM_ANDROID)
 	UI_INPUT param;
 	char *tmp,*p,*t;
 	int i;
@@ -519,7 +535,28 @@ void update_input_window(void)
 		param.line_width=strtod(tmp,NULL);
 	param.line=l_key_file_get_int(ConfigSkin,"input","line");
 	param.caret=l_key_file_get_int(ConfigSkin,"input","caret");
-	param.page=l_key_file_get_int(ConfigSkin,"input","page");
+	tmp=l_key_file_get_string(ConfigSkin,"input","page");
+	if(tmp)
+	{
+		char temp[16],color[16];
+		const uint8_t *next;
+		int ret=l_sscanf(tmp,"%d %15s %lf %15s",&param.page.show,temp,&param.page.scale,color);
+		if(ret>1)
+		{
+			next=l_utf8_offset((uint8_t*)temp,1);
+			if(next)
+			{
+				param.page.text[0]=l_utf8_to_unichar((uint8_t*)temp);
+				param.page.text[1]=l_utf8_to_unichar(next);
+			}
+		}
+		if(ret>3)
+		{
+			param.page.color=ui_color_parse(color);
+		}
+		l_free(tmp);
+		// printf("%d %d %x %x %x\n",ret,param.page.show,param.page.text[0],param.page.text[1],param.page.color.color);
+	}
 	tmp=l_key_file_get_string(ConfigSkin,"input","bg");
 	if(!tmp)
 	{
@@ -534,6 +571,7 @@ void update_input_window(void)
 		p=strtok(NULL,",");
 		param.bg[1]=p?l_strdup(p):NULL;
 		l_free(tmp);
+		// param.bg[1]=l_strdup("#ff0000");
 
 		tmp=l_key_file_get_string(ConfigSkin,"input","pad");
 		if(tmp)
@@ -574,6 +612,10 @@ void update_input_window(void)
 		param.border=l_key_file_get_string(ConfigSkin,"input","border");
 		if(!param.border)
 			param.border=l_strdup("#CBCAE6");
+		param.radius=l_key_file_get_int(ConfigSkin,"input","radius");
+		if(param.radius<0 || param.radius>7)
+			param.radius=0;
+		// param.radius=7;
 	}
 	else
 	{
@@ -701,7 +743,8 @@ void update_input_window(void)
 	l_free(param.sep);
 	for(i=0;i<L_ARRAY_SIZE(param.text);i++)
 		l_free(param.text[i]);
-		
+#endif
+
 	y_ui_cfg_ctrl("onspot",y_im_get_config_int("IM","onspot"));
 }
 
@@ -720,7 +763,7 @@ static void update_config_skin(void)
 	char *end;
 	
 	l_key_file_free(ConfigSkin);
-	ConfigSkin=0;
+	ConfigSkin=NULL;
 	
 	tmp=y_im_get_im_config_string(im.Index,"skin");
 	if(tmp && !tmp[0])
@@ -872,6 +915,7 @@ void update_key_config(void)
 	key_repeat=y_im_get_key("repeat",-1,YK_NONE);
 	if(key_repeat!=YK_NONE && key_repeat<0x80)
 		key_repeat=tolower(key_repeat);
+	key_repeat_code=y_im_get_key("repeat_code",-1,YK_NONE);
 	key_stop=y_im_get_key("stop",-1,YK_NONE);
 	key_keymap=y_im_get_key("keymap",-1,YK_NONE);
 	key_keyboard=y_im_get_key("keyboard",0,CTRL_ALT_K);
@@ -915,12 +959,23 @@ void update_im(void)
 
 	/* use eim as temp here*/
 
+	eim=y_im_get_im_config_string(im.Index,"overlay");
+	y_im_update_sub_config(eim);
+	l_free(eim);
+
 	eim=y_im_get_config_string("IM","num");
 	if(eim && !strcmp(eim,"push"))
 		num_mode=1;
 	else
 		num_mode=0;
 	l_free(eim);
+
+	/* diff engine may have different keys */
+	update_key_config();	
+	y_im_key_desc_update();
+#ifndef CFG_NO_REPLACE
+	y_replace_init(y_im_get_config_data("IM","crab"));
+#endif
 
 	sprintf(which,"%d",im.Index);
 	eim=y_im_get_config_string("IM",which);
@@ -943,8 +998,9 @@ void update_im(void)
 	else if(im.CandWord>10) im.CandWord=10;
 	if(ConfigSkin)
 	{
+		int line=l_key_file_get_int(ConfigSkin,"input","line");
 		const char *s=l_key_file_get_data(ConfigSkin,"input","stretch");
-		if(!s || !strchr(s,' '))
+		if(!s || (line==2 && !strchr(s,' ')))
 		{
 			tmp=l_key_file_get_int(ConfigSkin,"input","cand_max");
 			if(tmp>=2 && tmp<=10)
@@ -970,13 +1026,6 @@ void update_im(void)
 	im.AssocLoop=y_im_get_im_config_int(im.Index,"assoc_loop");
 	assoc_hide=y_im_get_im_config_int(im.Index,"assoc_hide");
 	InitExtraIM(&im,bim,im.eim?im.eim->Bihua:NULL);
-	
-	/* diff engine may have different keys */
-	update_key_config();	
-	y_im_key_desc_update();
-#ifndef CFG_NO_REPLACE
-	y_replace_init(y_im_get_config_data("IM","crab"));
-#endif
 	
 	eim=y_im_get_config_string("IM","space");
 	if(eim && !strcmp(eim,"full"))
@@ -1274,6 +1323,8 @@ static int YongCallDict(void)
 		}
 		return 0;
 	}
+	if(eim->SelectIndex<0)
+		return 0;
 
 #if !defined(CFG_NO_DICT)
 	if(local_dic)
@@ -1391,7 +1442,7 @@ int YongHotKey(int key)
 	}
 	else if(key==key_s2t)
 	{
-		if(id->state)
+		if(id->state && id->lang==LANG_CN)
 		{
 			const char *temp;
 			YongSetTrad(!id->trad);
@@ -1404,7 +1455,7 @@ int YongHotKey(int key)
 	else if(key==key_main_show && MainNoShow)
 	{
 		if(MainShow)
-			y_ui_main_show(1);
+			y_ui_main_show(2);
 		return 1;
 	}
 	else if(key==key_keymap)
@@ -1449,7 +1500,7 @@ int YongHotKey(int key)
 		return 1;
 	}
 #endif
-	else if(key&KEYM_MASK)
+	else// if(key&KEYM_MASK)
 	{
 		for(i=0;i<10;i++)
 		{
@@ -1517,6 +1568,25 @@ static int YongAppendPunc(CONNECT_ID *id,char *res,int key)
 		return biaodian?1:0;
 	}
 	return 0;
+}
+
+void YongUpdateInputDesc(EXTRA_IM *eim)
+{
+	if(eim->WorkMode==EIM_WM_ASSIST)
+	{
+		char first[2]={eim->CodeInput[0],0};
+		y_im_key_desc_translate(first,NULL,0,"\x01",(char*)im.CodeInput,MAX_CODE_LEN+1);
+		int len=y_im_str_len(im.CodeInput);
+		y_im_str_encode(eim->CodeInput+1,(char*)(im.CodeInput+len),DONT_ESCAPE);
+	}
+	else if(eim->WorkMode!=EIM_WM_NORMAL)
+	{
+		y_im_str_encode(eim->CodeInput,im.CodeInput,DONT_ESCAPE);
+	}
+	else
+	{
+		y_im_key_desc_translate(eim->CodeInput,eim->CodeTips[eim->SelectIndex],0,eim->CandTable[eim->SelectIndex],(char*)im.CodeInput,MAX_CODE_LEN+1);
+	}
 }
 
 int YongKeyInput(int key,int mod)
@@ -1641,7 +1711,12 @@ ENGLISH_MODE:
 		}
 		if(!im.EnglishMode && key==key_repeat && !eim->CodeLen && !eim->CandWordCount)
 		{
-			y_xim_send_string(0);
+			y_xim_send_string(NULL);
+			return 1;
+		}
+		else if(!im.EnglishMode && key==key_repeat_code && !eim->CodeLen && !eim->CandWordCount)
+		{
+			y_ui_idle_add(y_im_repeat_last_code,NULL);
 			return 1;
 		}
 		if(im.EnglishMode)
@@ -1656,7 +1731,7 @@ ENGLISH_MODE:
 
 		if(!im.StopInput)
 		{
-			if(key==YK_VIRT_QUERY && eim->CandWordCount>0 && !strcmp(eim->CandTable[eim->SelectIndex],"$LAST"))
+			if(key==YK_VIRT_QUERY && eim->CandWordCount>0 && eim->SelectIndex>=0 && !strcmp(eim->CandTable[eim->SelectIndex],"$LAST"))
 			{
 				strcpy(eim->CandTable[eim->SelectIndex],y_xim_get_last());
 			}
@@ -1689,10 +1764,10 @@ ENGLISH_MODE:
 		}
 IMR_TEST:
 		{
-			char *p=eim->CodeInput;
-			//p=y_im_key_desc_translate(p,eim->CandTable[eim->SelectIndex]);
-			//y_im_str_encode(p,im.CodeInput,DONT_ESCAPE);
-			y_im_key_desc_translate(p,0,eim->CandTable[eim->SelectIndex],(char*)im.CodeInput,MAX_CODE_LEN+1);
+			if(eim->SelectIndex>=0)
+			{
+				YongUpdateInputDesc(eim);
+			}
 			y_im_str_encode(s2t_conv(eim->StringGet),im.StringGet,0);
 		}
 		
@@ -1730,6 +1805,7 @@ IMR_TEST:
 					return 1;
 				}
 				y_xim_send_string(s2t_conv(eim->StringGet));
+				y_im_set_last_code(eim->CodeInput,eim->StringGet);
 				YONG_DO_LEGEND();
 				YongResetIM();
 				return 1;
@@ -1779,11 +1855,15 @@ IMR_TEST:
 			int pos;
 			if(key==key_pagedown)
 			{
+				if(eim->CurCandPage>=eim->CandPageCount-1)
+					return 1;
 				ret=eim->GetCandWords(PAGE_NEXT);
 				goto IMR_TEST;
 			}
 			else if(key==key_pageup)
 			{
+				if(eim->CandPageCount==0)
+					return 1;
 				ret=eim->GetCandWords(PAGE_PREV);
 				goto IMR_TEST;
 			}
@@ -1810,6 +1890,7 @@ IMR_TEST:
 					char *p=eim->GetCandWord(pos);
 					if(p)
 					{
+						y_im_set_last_code(eim->CodeInput,p);
 						if(s2t_select(p))
 						{
 							y_ui_input_draw();
@@ -1832,6 +1913,7 @@ IMR_TEST:
 				char *p=eim->GetCandWord(eim->SelectIndex);
 				if(p)
 				{
+					y_im_set_last_code(eim->CodeInput,p);
 					if(s2t_select(p))
 					{
 						y_ui_input_draw();
@@ -1889,6 +1971,7 @@ IMR_TEST:
 				else p=eim->GetCandWord(eim->SelectIndex);
 				if(p)
 				{
+					y_im_set_last_code(eim->CodeInput,p);
 					if(num_mode==0 && !num_push)
 					{
 						if(s2t_select(p))
@@ -1981,12 +2064,14 @@ IMR_TEST:
 				if(eim->SelectIndex>0)
 				{
 					eim->SelectIndex=eim->SelectIndex-1;
+					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
 				else if(eim->CurCandPage>0)
 				{
 					eim->GetCandWords(PAGE_PREV);
 					eim->SelectIndex=eim->CandWordCount-1;
+					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
 				return 1;
@@ -1996,12 +2081,14 @@ IMR_TEST:
 				if(eim->SelectIndex<eim->CandWordCount-1)
 				{
 					eim->SelectIndex=eim->SelectIndex+1;
+					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
 				else if(eim->CurCandPage<eim->CandPageCount-1)
 				{
 					eim->GetCandWords(PAGE_NEXT);
 					eim->SelectIndex=0;
+					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
 			
@@ -2244,11 +2331,14 @@ void YongReloadAll(void)
 	update_tray_icon();
 	y_im_load_urls();
 	y_im_load_book();
+	y_im_speed_save();
 	update_im();
 	y_ui_update_menu();
 	YongUpdateMain(0);
 	/* redo it for something new from config file */
 	YongResetIM();
+	if(tip_main)
+		y_ui_show_tip(YT("重载输入法配置完成"));
 }
 
 void YongDestroyIM(void)
@@ -2260,6 +2350,7 @@ void YongDestroyIM(void)
 		y_im_module_close(im.handle);
 		im.handle=0;
 	}
+	y_im_speed_save();
 	y_im_history_free();
 #ifndef CFG_NO_KEYTOOL
 	y_key_tools_free(key_tools);
@@ -2268,31 +2359,15 @@ void YongDestroyIM(void)
 }
 
 #ifdef __WIN32
-#ifndef ATTACH_PARENT_PROCESS
-#define ATTACH_PARENT_PROCESS   ((DWORD)-1)
-#endif
 
 static void attach_console(void)
 {
-	if (fileno (stdout) != -1 &&
-		_get_osfhandle (fileno (stdout)) != -1)
+	if(AttachConsole (ATTACH_PARENT_PROCESS))
 	{
-	}
-	else
-	{
-		typedef BOOL (* WINAPI AttachConsole_t) (DWORD);
-
-		AttachConsole_t p_AttachConsole =
-			(AttachConsole_t) GetProcAddress (GetModuleHandle (_T("kernel32.dll")),
-							  "AttachConsole");
-
-		if (p_AttachConsole != NULL && p_AttachConsole (ATTACH_PARENT_PROCESS))
-		{
-			freopen ("CONOUT$", "w", stdout);
-			dup2 (fileno (stdout), 1);
-			freopen ("CONOUT$", "w", stderr);
-			dup2 (fileno (stderr), 2);
-		}
+		freopen ("CONOUT$", "w", stdout);
+		dup2 (fileno (stdout), 1);
+		freopen ("CONOUT$", "w", stderr);
+		dup2 (fileno (stderr), 2);
 	}
 }
 #endif
@@ -2414,13 +2489,12 @@ int main(int arc,char *arg[])
 #ifdef _WIN32
 		else if(!strcmp(arg[i],"-exec") && i+2==arc)
 		{
-			//MessageBoxA(0,arg[i+1],0,0);
 			int y_im_is_url(const char *s);
 			int show=SW_SHOWNORMAL;
 			char cmdline[256];
 			char *p=cmdline;
 			snprintf(cmdline,256,"%s",arg[i+1]);
-			y_im_expand_env(p);
+			y_im_expand_env(p,sizeof(cmdline));
 			if(y_im_is_url(p))
 			{
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
@@ -2443,20 +2517,28 @@ int main(int arc,char *arg[])
 					cmd=l_strndup(p+1,param-p-1);
 					param++;
 					if(*param==' ') param++;
-					else param=0;
+					else param=NULL;
 				}
 				else
 				{
 					param=strchr(p+1,' ');
 					if(!param)
 					{
-						cmd=p;
+						cmd=l_strdup(p);
+						param=NULL;
 					}
 					else
 					{
 						cmd=l_strndup(p,param-p);
 						param++;
 					}
+				}
+				if(!param)
+					param="";
+				if(!strcmp(cmd,"yong-config"))
+				{
+					l_free(cmd);
+					cmd=l_strdup("yong-config.exe");
 				}
 
 				fix_path_sep(cmd);
@@ -2470,7 +2552,8 @@ int main(int arc,char *arg[])
 				info.hwnd=y_ui_main_win();
 				info.lpVerb="open";
 #ifdef _WIN64
-				info.lpDirectory="..";
+				if(!l_str_has_prefix(cmd,"yong-config"))
+					info.lpDirectory="..";
 #endif
 				if(strstr(cmd,"yong-config") && strstr(param,"--update"))
 				{
@@ -2487,7 +2570,6 @@ int main(int arc,char *arg[])
 					info.lpDirectory=NULL;
 				}
 				ShellExecuteExA(&info);
-				//ShellExecuteA(NULL,"open",cmd,param,NULL,show);
 			}			
 			return 0;
 		}
@@ -2549,7 +2631,10 @@ int main(int arc,char *arg[])
 	y_im_load_urls();
 	y_im_load_book();
 	y_im_history_init();
+	y_im_speed_init();
+#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
 	y_im_load_app_config();
+#endif
 	
 	if(!xim || strcmp(xim,"fbterm"))
 	{
@@ -2559,7 +2644,7 @@ int main(int arc,char *arg[])
 	}
 
 	VERBOSE("load soft keyboard\n");
-	y_kbd_init("keyboard.ini");
+	y_kbd_init("keyboard.xml");
 	
 	/* xim init should before update_im, but may have other problem */
 	VERBOSE("init xim\n");
@@ -2605,7 +2690,7 @@ int y_main_init(int index)
 	InputNoShow=y_im_get_config_int("input","noshow");
 	y_im_load_urls();
 	y_im_load_book();
-#ifndef CFG_XIM_ANDROID
+#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
 	y_im_load_app_config();
 #endif
 	y_xim_init(NULL);

@@ -75,11 +75,16 @@ static struct{
 	int root;
 	int noshow;
 	int line;
-	int page;
 	int caret;
 	int no;
 	int strip;
 	int x,y;
+	struct{
+		int show;
+		uint32_t text[2];
+		double scale;
+		UI_COLOR color;
+	}page;
 }InputTheme;
 
 static int im_pipe[2];
@@ -486,6 +491,8 @@ static void xim_fbterm_send_string(const char *s,int flags)
 
 static void xim_explore_url(const char *s)
 {
+	if(l_str_has_prefix(s,"action:"))
+		return;
 	char temp[256];
 	y_im_str_encode(s,temp,0);
 	if(y_im_is_url(temp))
@@ -572,7 +579,7 @@ static void input_expose(void)
 	{
 		draw_text(im.CodePos[1],InputTheme.CodeY,InputTheme.text[0],InputTheme.bg_color,im.CodeInput);
 	}
-	if(eim && eim->CandPageCount>1 && InputTheme.page)
+	if(eim && eim->CandPageCount>1 && InputTheme.page.show)
 	{
 		draw_text(im.PagePosX,im.PagePosY,InputTheme.text[4],InputTheme.bg_color,im.Page);
 	}
@@ -634,7 +641,11 @@ static int ui_fbterm_input_update(UI_INPUT *param)
 {
 	InputTheme.line=param->line;
 	InputTheme.caret=param->caret;
-	InputTheme.page=param->page;
+	InputTheme.page.show=param->page.show;
+	InputTheme.page.text[0]=param->page.text[0];
+	InputTheme.page.text[1]=param->page.text[1];
+	InputTheme.page.color=param->page.color;
+	InputTheme.page.scale=param->page.scale;
 	InputTheme.noshow=param->noshow;
 	InputTheme.root=param->root;
 	InputTheme.space=param->space;
@@ -730,9 +741,10 @@ static int fbterm_page_width(void)
 	if(eim && eim->CandPageCount>1)
 	{
 		sprintf(im.Page,"%d/%d",eim->CurCandPage+1,eim->CandPageCount);
-		im.PageLen=get_text_width(im.Page,NULL);
+		im.PageLen[0]=get_text_width(im.Page,NULL);
+		im.PageLen[1]=im.PageLen[2]=0;
 		im.PagePosY=InputTheme.CodeY;
-		ret=im.PageLen;
+		ret=im.PageLen[0]+im.PageLen[1]+im.PageLen[2];
 	}
 	return ret;
 }
@@ -835,7 +847,7 @@ static int ui_fbterm_input_draw(void)
 	}
 
 	CodeWidth=fbterm_code_width();
-	if(InputTheme.page)
+	if(InputTheme.page.show)
 		PageWidth=fbterm_page_width();
 	if(eim) count=eim->CandWordCount;
 
@@ -845,21 +857,28 @@ static int ui_fbterm_input_draw(void)
 		for(i=0;i<count;i++)
 		{
 			char *p=im.CandTable[i];
-			int len;
-			if(eim->WorkMode==EIM_WM_ASSIST)
-				len=0;
-			y_im_key_desc_translate(eim->CodeTips[i],len,p,
+			int len=eim->CodeLen;
+			if(eim->WorkMode!=EIM_WM_NORMAL)
+			{	
+				y_im_key_desc_translate(eim->CodeTips[i],NULL,0,eim->CandTable[i],
 					im.CodeTips[i],MAX_TIPS_LEN+1);
-			if(eim->WorkMode==EIM_WM_QUERY)
-			{
-				char *s=eim->CandTable[i];
-				y_im_key_desc_translate(s,0,eim->CodeInput,p,MAX_TIPS_LEN+1);
 			}
 			else
 			{
-				const char *s=s2t_conv(eim->CandTable[i]);
+				y_im_key_desc_translate(eim->CodeInput,eim->CodeTips[i],len,eim->CandTable[i],
+					im.CodeTips[i],MAX_TIPS_LEN+1);
+			}
+			if(eim->WorkMode==EIM_WM_QUERY)
+			{
+				char *s=eim->CandTable[i];
+				y_im_key_desc_translate(s,NULL,0,eim->CodeInput,p,MAX_TIPS_LEN+1);
+			}
+			else
+			{
+				const char *s=eim->CandTable[i];
 				y_im_disp_cand(s,p,(InputTheme.strip>>(16*(i==eim->SelectIndex)+0))&0xff,
-					(InputTheme.strip>>(16*(i==eim->SelectIndex)+8))&0xff);
+					(InputTheme.strip>>(16*(i==eim->SelectIndex)+8))&0xff,
+					eim->CodeInput,eim->CodeTips[i]);
 			}
 		}
 		CandWidth=fbterm_cand_width();

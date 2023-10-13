@@ -1,6 +1,6 @@
 #include "md5.h"
 
-static void Transform ();
+static void Transform(uint32_t *buf,const uint32_t *in);
 
 static uint8_t PADDING[64] = {
   0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

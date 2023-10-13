@@ -88,8 +88,9 @@ static inline int gb_is_gb18030(const uint8_t *s)
 	return gb_is_gbk(s) || gb_is_gb18030_ext(s);
 }
 
-static inline int gb_strlen(const uint8_t *s)
+static inline int gb_strlen(const void *p)
 {
+	const uint8_t *s=p;
 	int len=0;
 	
 	while(s[0])
@@ -150,8 +151,9 @@ static inline int gb_strlen2(const uint8_t *s,int size)
 	return len;
 }
 
-static inline void *gb_offset(const uint8_t *s,int offset)
+static inline void *gb_offset(const void *p,int offset)
 {
+	const uint8_t *s=p;
 	while(s[0] && offset>0)
 	{
 		if(!(s[0]&0x80))
@@ -179,7 +181,7 @@ static inline uint32_t gb_first(const uint8_t *s)
 	}
 	else if(gb_is_gbk(s))
 	{
-#if defined(__arm__) || defined(EMSCRIPTEN)
+#if !defined(EMSCRIPTEN)
 		r=*(uint16_t*)(s);
 #else
 		r=s[0]|(s[1]<<8);
@@ -187,7 +189,7 @@ static inline uint32_t gb_first(const uint8_t *s)
 	}
 	else if(gb_is_gb18030_ext(s))
 	{
-#if defined(__arm__) || defined(EMSCRIPTEN)
+#if !defined(EMSCRIPTEN)
 		r=*(uint32_t*)(s);
 #else
 		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
@@ -199,6 +201,46 @@ static inline uint32_t gb_first(const uint8_t *s)
 	}
 	return r;
 }
+
+static inline const void *gb_next(const uint8_t *s,uint32_t *hz)
+{
+	uint32_t r;
+
+	if(!s || !s[0])
+		return NULL;
+	
+	if(!(s[0]&0x80))
+	{
+		r=s[0];
+		s++;
+	}
+	else if(gb_is_gbk(s))
+	{
+#if !defined(EMSCRIPTEN)
+		r=*(uint16_t*)(s);
+#else
+		r=s[0]|(s[1]<<8);
+#endif
+		s+=2;
+	}
+	else if(gb_is_gb18030_ext(s))
+	{
+#if !defined(EMSCRIPTEN)
+		r=*(uint32_t*)(s);
+#else
+		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
+#endif
+		s+=4;
+	}
+	else
+	{
+		return NULL;
+	}
+	if(hz)
+		*hz=r;
+	return s;
+}
+#define GB_NEXT(s,hz)	gb_next((const uint8_t*)(s),(hz))
 
 static inline uint32_t gb_first_be(const uint8_t *s)
 {
@@ -221,6 +263,37 @@ static inline uint32_t gb_first_be(const uint8_t *s)
 		r=0;
 	}
 	return r;
+}
+
+static inline const void *gb_next_be(const uint8_t *s,uint32_t *hz)
+{
+	uint32_t r;
+	
+	if(!s || !s[0])
+		return NULL;
+
+	if(!(s[0]&0x80))
+	{
+		r=s[0];
+		s++;
+	}
+	else if(gb_is_gbk(s))
+	{
+		r=s[1]|(s[0]<<8);
+		s+=2;
+	}
+	else if(gb_is_gb18030_ext(s))
+	{
+		r=s[3]|(s[2]<<8)|(s[1]<<16)|(s[0]<<24);
+		s+=4;
+	}
+	else
+	{
+		return NULL;
+	}
+	if(hz)
+		*hz=r;
+	return s;
 }
 
 static inline uint32_t gb_last(const uint8_t *s)

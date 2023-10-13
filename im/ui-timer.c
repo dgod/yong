@@ -1,6 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
-#
+#elif defined(__EMSCRIPTEN__)
+#include <emscripten/html5.h>
 #else
 #include <glib.h>
 #endif
@@ -12,6 +13,8 @@ typedef struct{
 	void *arg;
 #ifdef _WIN32
 	UINT_PTR id;
+#elif defined(__EMSCRIPTEN__)
+	long id;
 #else
 	guint id;
 #endif
@@ -21,7 +24,7 @@ static UI_CALLBACK l_timers[MAX_TIMER_CB];
 static UI_CALLBACK l_idles[MAX_IDLE_CB];
 
 #ifdef _WIN32
-static VOID CALLBACK _timer(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
+static void CALLBACK _timer(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
 {
 	int i;
 	KillTimer(NULL,idEvent);
@@ -54,6 +57,36 @@ static void _idle(void)
 			void *arg=l_idles[i].arg;
 			l_idles[i].cb=NULL;
 			l_idles[i].arg=NULL;
+			cb(arg);
+		}
+	}
+}
+
+#elif defined(__EMSCRIPTEN__)
+
+static void _timer(UI_CALLBACK *p)
+{
+	void (*cb)(void*)=p->cb;
+	void *arg=p->arg;
+	p->cb=NULL;
+	p->arg=NULL;
+	p->id=0;
+	if(cb)
+		cb(arg);
+}
+
+static void _idle(void *unused)
+{
+	int i;
+	for(i=0;i<MAX_IDLE_CB;i++)
+	{
+		if(l_idles[i].cb)
+		{
+			void (*cb)(void*)=l_idles[i].cb;
+			void *arg=l_idles[i].arg;
+			l_idles[i].cb=NULL;
+			l_idles[i].arg=NULL;
+			l_idles[i].id=0;
 			cb(arg);
 		}
 	}
@@ -95,6 +128,8 @@ static void ui_timer_del(void (*cb)(void *),void *arg)
 			l_timers[i].arg=NULL;
 #ifdef _WIN32
 			KillTimer(NULL,l_timers[i].id);
+#elif defined(__EMSCRIPTEN__)
+			emscripten_clear_timeout(l_timers[i].id);
 #else
 			g_source_remove(l_timers[i].id);
 #endif
@@ -113,7 +148,9 @@ static void ui_idle_del(void (*cb)(void *),void *arg)
 		{
 			l_idles[i].cb=NULL;
 			l_idles[i].arg=NULL;
-#ifndef _WIN32
+#if defined(__EMSCRIPTEN__)
+			emscripten_clear_immediate(l_idles[i].id);
+#elif !defined(_WIN32)
 			g_source_remove(l_idles[i].id);
 #endif
 			l_idles[i].id=0;
@@ -137,6 +174,8 @@ static int ui_timer_add(unsigned interval,void (*cb)(void *),void *arg)
 	l_timers[i].arg=arg;
 #ifdef _WIN32
 	l_timers[i].id=SetTimer(NULL,0,interval,_timer);
+#elif defined(__EMSCRIPTEN__)
+	l_timers[i].id=emscripten_set_timeout((void*)_timer,interval,&l_timers[i]);
 #else
 	l_timers[i].id=g_timeout_add(interval,(GSourceFunc)_timer,GINT_TO_POINTER(i));
 #endif
@@ -158,6 +197,8 @@ static int ui_idle_add(void (*cb)(void *),void *arg)
 	l_idles[i].arg=arg;
 #ifdef _WIN32
 	PostMessage(InputWin,WM_USER_IDLE,0,0);
+#elif defined(__EMSCRIPTEN__)
+	l_timers[i].id=emscripten_set_immediate((void*)_timer,&l_idles[i]);
 #else
 	l_idles[i].id=g_idle_add((GSourceFunc)_idle,GINT_TO_POINTER(i));
 #endif

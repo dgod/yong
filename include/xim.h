@@ -42,6 +42,7 @@ typedef struct{
 	int (*input_key)(int key);
 	void (*update_config)(void);
 	void (*explore_url)(const char *s);
+	int (*send_keys)(int *keys,int count);
 }Y_XIM;
 
 CONNECT_ID *YongGetConnect(void);
@@ -75,5 +76,6 @@ void YongSendClipboard(const char *s);
 int YongInputKey(int key);
 const void *YongGetSelectNumber(int n);
 void YongLogWrite(const char *fmt,...);
+void YongUpdateInputDesc(EXTRA_IM *eim);
 
 #endif/*_XIM_H_*/

@@ -13,6 +13,7 @@
 
 #include "yong.h"
 #include "trie.h"
+#include "pinyin.h"
 
 #define Y_MB_KEY_SIZE		63
 #define Y_MB_DATA_SIZE		255
@@ -30,7 +31,7 @@ struct y_mb_code{
 			uint8_t virt:1;	/* only used to auto phrase */
 			uint8_t main:1; /* this is from main mb */
 			uint8_t len:6;
-			uint8_t data[3];
+			uint8_t data[];
 		};
 		uint32_t val;
 	};
@@ -167,8 +168,8 @@ struct y_mb{
 	int dirty_max;
 
 	/* assist mb */
-	char lead;
-	struct y_mb *ass;
+	char ass_lead;
+	struct y_mb *ass_mb;
 	char *ass_main;
 	
 	/* quick mb */
@@ -209,6 +210,8 @@ struct y_mb{
 	uint8_t capital:1;
 	uint8_t jing_used:1;
 	uint8_t code_hint:1;
+	uint8_t quick_lead0:1;
+	uint8_t ass_lead0:1;
 	uint8_t encrypt;
 	uint8_t auto_move;
 	uint8_t sloop;
@@ -261,6 +264,7 @@ struct y_mb{
 #define MB_FLAG_ZI		0x08		/* force load zi at assist */
 #define MB_FLAG_CODE	0x10		/* only load code */
 #define MB_FLAG_NOUSER	0x20		/* don't load user dict */
+#define MB_FLAG_NODICTS	0x40
 #define MB_FLAG_ASSIST_CODE 0x19
 
 /* params used to adjust default mb */
@@ -335,6 +339,8 @@ int y_mb_error_init(struct y_mb *mb);
 int y_mb_error_add(struct y_mb *mb,const char *phrase);
 int y_mb_error_del(struct y_mb *mb,const char *phrase);
 bool y_mb_error_has(struct y_mb *mb,const char *phrase);
+const char *y_mb_skip_display(const char *s,int len);
+bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);
@@ -344,8 +350,8 @@ static inline struct y_mb *Y_MB_ACTIVE(struct y_mb *mb)
 {
 	char *s=EIM.CodeInput,c=s[0];
 	if(!c) return mb;
-	if(mb->ass && c==mb->lead)
-		return mb->ass;
+	if(mb->ass_mb && c==mb->ass_lead)
+		return mb->ass_mb;
 	if(mb->quick_mb && c==mb->quick_lead)
 		return mb->quick_mb;
 	return mb;

@@ -197,7 +197,7 @@ int cu_ctrl_init_check(CUCtrl p)
 	return 0;
 }
 
-void button_click(GtkWidget *w,CUCtrl p)
+static void button_click(GtkWidget *w,CUCtrl p)
 {
 	cu_ctrl_action_run(p,p->action);
 }

@@ -1,19 +1,16 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
-#if GTK_CHECK_VERSION(3,0,0)
 #include <gdk/gdkwayland.h>
-#endif
 #include <cairo.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include "common.h"
-
-#include "ybutton.h"
 
 #include "ui.h"
 #include "translate.h"
@@ -64,6 +61,7 @@ static int ui_button_label(int id,const char *text);
 #include "ui-timer.c"
 
 static int MainWin_over;
+static bool MainWin_visible;
 
 static GtkStatusIcon *StatusIcon;
 static GdkPixbuf *IconPixbuf[2];
@@ -110,16 +108,13 @@ static gboolean im_pipe_cb(GIOChannel *source,GIOCondition condition,gpointer da
 }
 
 static void (*set_opacity)(GdkWindow *window,gdouble opacity);
+static void (*set_opacity2)(GtkWidget *window,gdouble opacity);
 static gboolean (*is_composited)(GtkWidget *widget);
 
 static void load_sound_system()
 {
 	my_gdk_window_beep=dlsym(NULL,"gdk_window_beep");
-#if !GTK_CHECK_VERSION(3,0,0)
-	my_ca_gtk_play_for_widget=dlsym(dlopen("libcanberra-gtk.so.0",RTLD_LAZY),"ca_gtk_play_for_widget");
-#else
 	my_ca_gtk_play_for_widget=dlsym(dlopen("libcanberra-gtk3.so.0",RTLD_LAZY),"ca_gtk_play_for_widget");
-#endif
 }
 
 #if 0
@@ -159,12 +154,10 @@ int ui_init(void)
 		}
 	}
 
-#if !GTK_CHECK_VERSION(3,0,0)
-	gtk_set_locale();
-#endif
 	gtk_init(NULL,NULL);
 
 	set_opacity=dlsym(NULL,"gdk_window_set_opacity");
+	set_opacity2=dlsym(NULL,"gtk_widget_set_opacity");
 	is_composited=dlsym(NULL,"gtk_widget_is_composited");
 	load_sound_system();
 		
@@ -179,18 +172,6 @@ int ui_init(void)
 		gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
 	}
 
-	//if(CompMgrExist())
-#if !GTK_CHECK_VERSION(3,0,0)
-	{
-		GdkScreen *screen = gdk_screen_get_default();
-		GdkColormap *colormap = gdk_screen_get_rgba_colormap(screen);
-		if(colormap)
-		{
-			gtk_widget_push_colormap(colormap);
-			gtk_widget_set_default_colormap(colormap);
-		}
-	}
-#endif
 	YongSetXErrorHandler();
 	
 	{
@@ -208,16 +189,6 @@ int ui_init(void)
 		}
 	}
 	
-#if GTK_CHECK_VERSION(3,0,0)
-	{
-		GdkDisplay *dpy=gdk_display_get_default();
-		if(!GDK_IS_X11_DISPLAY(dpy))
-		{
-			// TODO: set surface to compositor's input method system
-		}
-	}
-#endif
-
 	return 0;
 }
 
@@ -347,25 +318,14 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	
 	if(event->button==1 && click==0 && !MainWin_Drag)
 	{
-#if 0//GTK_CHECK_VERSION(3,0,0)
-		gdk_window_begin_move_drag(gtk_widget_get_window(window),event->button,event->x_root,event->y_root,event->time);
-#else
 		cursor = gdk_cursor_new (GDK_FLEUR);   
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 		gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
 				gtk_widget_get_window(window),GDK_OWNERSHIP_NONE,TRUE,
 				(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),cursor,event->time);
 		g_object_unref (cursor);
-#else
-		gdk_pointer_grab (window->window, TRUE,
-			(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),
-			NULL, cursor, event->time);
-		gdk_cursor_unref (cursor);
-#endif
 		MainWin_Drag=TRUE;
 		MainWin_Drag_X=event->x_root;
 		MainWin_Drag_Y=event->y_root;
-#endif
 		return TRUE;
 	}
 	else if(event->button==1 && click==1 && MainWin_Drag)
@@ -374,11 +334,7 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 		int scr_w,scr_h;
 		gtk_window_get_position(GTK_WINDOW(window), &MainWin_X, &MainWin_Y);
 		MainWin_Drag=FALSE;
-#if GTK_CHECK_VERSION(3,0,0)
 		gdk_device_ungrab(gdk_event_get_device((GdkEvent*)event),event->time);
-#else
-		gdk_pointer_ungrab(event->time);
-#endif
 		if(MainWin_X<0) MainWin_X=0;
 		if(MainWin_Y<0) MainWin_Y=0;
 		w=MainWin_W;h=MainWin_H;
@@ -392,31 +348,27 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	return FALSE;
 }
 
-void ui_win_tran(GdkWindow *win,int tran)
+static void ui_win_tran(GtkWidget *w,int tran)
 {
-	if(set_opacity)
-		set_opacity(win,(gdouble)(255.0-tran)/255.0);
+	double val=(255.0-tran)/255.0;
+	if(set_opacity2)
+	{
+		set_opacity2(w,val);
+	}
+	else if(set_opacity)
+	{
+		set_opacity(gtk_widget_get_window(w),val);
+	}
 }
 
 static gboolean on_main_draw(GtkWidget *window,cairo_t *cr)
 {
-	ui_draw_main_win(cr);
+	DRAW_CONTEXT1 ctx;
+	ui_draw_begin(&ctx,window,cr);
+	ui_draw_main_win(&ctx);
+	ui_draw_end(&ctx);
 	return TRUE;
 }
-
-#if !GTK_CHECK_VERSION(3,0,0)
-static gboolean main_expose(GtkWidget *window,GdkEventExpose *event)
-{
-#ifdef GSEAL_ENABLE
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(window));
-#else
-	cairo_t *cr=gdk_cairo_create(window->window);
-#endif
-	on_main_draw(window,cr);
-	cairo_destroy(cr);
-	return TRUE;
-}
-#endif
 
 static gboolean main_enter_leave_notify(GtkWidget *window,GdkEventCrossing *event)
 {
@@ -443,13 +395,18 @@ static gboolean main_enter_leave_notify(GtkWidget *window,GdkEventCrossing *even
 	}
 	if(MainWin_auto_tran && !MainWin_over)
 		tran=255-(255-tran)*2/3;
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
-	ui_win_tran(gtk_widget_get_window(MainWin),tran);
-#else
-	ui_win_tran(MainWin->window,tran);
-#endif
+	ui_win_tran(MainWin,tran);
 
 	return TRUE;
+}
+
+static void ui_set_css(GtkWidget *widget,const gchar *data)
+{
+	GtkCssProvider *provider=gtk_css_provider_new();
+	GtkStyleContext *context=gtk_widget_get_style_context(widget);
+	gtk_css_provider_load_from_data(provider,data,-1,NULL);
+	gtk_style_context_add_provider(context,GTK_STYLE_PROVIDER(provider),GTK_STYLE_PROVIDER_PRIORITY_USER);
+	g_object_unref(provider);
 }
 
 static UI_REGION create_rgn(GdkPixbuf *);
@@ -459,42 +416,28 @@ int ui_main_update(UI_MAIN *param)
 	if(!MainWin)
 	{
 		MainWin = gtk_window_new(GTK_WINDOW_POPUP);
-		//MainWin = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 		assert(MainWin);
-#if GTK_CHECK_VERSION(3,0,0)
+		GdkScreen *screen = gdk_screen_get_default();
+		GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+		if(visual)
 		{
-			GdkScreen *screen = gdk_screen_get_default();
-			GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-			if(visual)
-			{
-				gtk_widget_set_visual(MainWin,visual);
-			}
+			gtk_widget_set_visual(MainWin,visual);
 		}
-#endif
 		gtk_window_set_title(GTK_WINDOW(MainWin),"main");
 		gtk_window_set_decorated(GTK_WINDOW(MainWin),FALSE);
 		gtk_window_set_accept_focus(GTK_WINDOW(MainWin),FALSE);
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(MainWin),TRUE);
 		gtk_window_set_skip_pager_hint(GTK_WINDOW(MainWin),TRUE);
 		gtk_window_set_keep_above(GTK_WINDOW(MainWin),TRUE);
-		//gtk_window_set_modal(GTK_WINDOW(MainWin),FALSE);
 		gtk_widget_realize(MainWin);
 		
-#if !GTK_CHECK_VERSION(3,0,0)
-		gdk_window_set_events(MainWin->window,
-				gdk_window_get_events(MainWin->window) |
-				GDK_BUTTON_PRESS_MASK|GDK_BUTTON_RELEASE_MASK|
-				GDK_ENTER_NOTIFY_MASK|GDK_LEAVE_NOTIFY_MASK|GDK_POINTER_MOTION_MASK);
-		g_signal_connect(G_OBJECT(MainWin),"expose-event",
-			G_CALLBACK(main_expose),0);
-#else
 		gdk_window_set_events(gtk_widget_get_window(MainWin),
 				gdk_window_get_events(gtk_widget_get_window(MainWin)) |
 				GDK_BUTTON_PRESS_MASK|GDK_BUTTON_RELEASE_MASK|
 				GDK_ENTER_NOTIFY_MASK|GDK_LEAVE_NOTIFY_MASK|GDK_POINTER_MOTION_MASK);
 		g_signal_connect(G_OBJECT(MainWin),"draw",
 			G_CALLBACK(on_main_draw),0);
-#endif
+
 		g_signal_connect(G_OBJECT(MainWin),"enter-notify-event",
 			G_CALLBACK(main_enter_leave_notify),0);
 		g_signal_connect(G_OBJECT(MainWin),"leave-notify-event",
@@ -506,6 +449,8 @@ int ui_main_update(UI_MAIN *param)
 			G_CALLBACK (main_click_cb),GINT_TO_POINTER (1));
 		g_signal_connect (G_OBJECT(MainWin), "motion-notify-event",
 			G_CALLBACK(main_motion_cb),NULL);
+
+		ui_set_css(GTK_WIDGET(MainWin),"window{background-color:transparent}\n");
 	}
 
 	if(MainWin_bg)
@@ -521,6 +466,7 @@ int ui_main_update(UI_MAIN *param)
 	MainTheme.scale=param->scale;
 	MainTheme.line_width=param->line_width;
 	MainTheme.move_style=param->move_style;
+	MainTheme.radius=param->radius;
 	if(param->bg[0]=='#')
 	{
 		MainWin_bgc=ui_color_parse(param->bg);
@@ -530,20 +476,17 @@ int ui_main_update(UI_MAIN *param)
 		{
 			MainWin_W=(int)(MainWin_W*ui_scale);
 			MainWin_H=(int)(MainWin_H*ui_scale);
+			MainTheme.radius=(int)round(param->radius*ui_scale);
 		}
-#if GTK_CHECK_VERSION(3,0,0)
 		gtk_widget_shape_combine_region(MainWin,NULL);
-#else
-		gtk_widget_shape_combine_mask(MainWin,NULL,0,0);
-#endif
 	}
 	else
 	{
-		MainWin_bg=ui_image_load(param->bg);
+		MainWin_bg=ui_image_load(param->bg,IMAGE_SKIN);
 		if(!MainWin_bg) return -1;
 		if(param->scale!=1 && param->force_scale)
 		{
-			MainWin_bg=ui_image_load_scale(param->bg,ui_scale,param->rc.w,param->rc.h);
+			MainWin_bg=ui_image_load_scale(param->bg,ui_scale,param->rc.w,param->rc.h,IMAGE_SKIN);
 			MainWin_W=param->rc.w;MainWin_H=param->rc.h;
 			if(param->scale!=1 && ui_scale!=1)
 			{
@@ -559,27 +502,13 @@ int ui_main_update(UI_MAIN *param)
 		}
 		if(!is_composited || !is_composited(MainWin))
 		{
-#if !GTK_CHECK_VERSION(3,0,0)
-			GdkBitmap *bitmap;
-			gdk_pixbuf_render_pixmap_and_mask(MainWin_bg, 0, &bitmap, 80);
-			gtk_widget_shape_combine_mask(MainWin,bitmap,0,0);
-			g_object_unref(bitmap);
-#else
 			UI_REGION r=create_rgn(MainWin_bg);
 			gtk_widget_shape_combine_region(MainWin,r);
 			ui_region_destroy(r);
-#endif
 		}
 		else
 		{
-			//gdk_pixbuf_render_pixmap_and_mask(MainWin_bg, 0, &bitmap, 1);
-			//gtk_widget_input_shape_combine_mask(MainWin,bitmap,0,0);
-			//g_object_unref(bitmap);
-#if !GTK_CHECK_VERSION(3,0,0)
-			gtk_widget_shape_combine_mask(MainWin,NULL,0,0);
-#else
 			gtk_widget_shape_combine_region(MainWin,NULL);
-#endif
 		}
 	}
 	gtk_window_resize(GTK_WINDOW(MainWin),MainWin_W,MainWin_H);
@@ -591,16 +520,10 @@ int ui_main_update(UI_MAIN *param)
 	tran=MainWin_tran;
 	if(MainWin_auto_tran && !MainWin_over)
 		tran=255-(255-tran)*2/3;
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
-	ui_win_tran(gtk_widget_get_window(MainWin),tran);
-#else
-	ui_win_tran(MainWin->window,tran);
-#endif
+	ui_win_tran(MainWin,tran);
 	ui_main_show(-1);
 	return 0;
 }
-
-#if 1//!GTK_CHECK_VERSION(3,0,0)
 
 static gboolean input_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointer user_data)
 {
@@ -620,7 +543,6 @@ static gboolean input_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointe
 	}
 	return FALSE;
 }
-#endif
 
 static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer user_data)
 {
@@ -646,29 +568,16 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 				}
 			}
 		}
-#if 0//GTK_CHECK_VERSION(3,0,0)
-		gdk_window_begin_move_drag(gtk_widget_get_window(InputWin),event->button,event->x_root,event->y_root,event->time);
-		InputWin_Drag_X=event->x_root;
-		InputWin_Drag_Y=event->y_root;
-#else
 		motion_handler = g_signal_connect (G_OBJECT(window), "motion-notify-event",
 			G_CALLBACK(input_motion_cb),NULL);
 		cursor = gdk_cursor_new (GDK_FLEUR);
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 		gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
 				gtk_widget_get_window(window),GDK_OWNERSHIP_NONE,TRUE,
 				(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),cursor,event->time);
 		g_object_unref (cursor);
-#else
-		gdk_pointer_grab (window->window, TRUE,
-			(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),
-			NULL, cursor, event->time);
-		gdk_cursor_unref (cursor);
-#endif
 		InputWin_Drag=TRUE;
 		InputWin_Drag_X=event->x_root;
 		InputWin_Drag_Y=event->y_root;
-#endif
 		return TRUE;
 	}
 	else if(click==1)
@@ -707,12 +616,9 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 					}
 					else
 					{
-						char *p=eim->CodeInput;
-						//p=y_im_key_desc_translate(p,eim->CandTable[eim->SelectIndex]);
-						//y_im_str_encode(p,im.CodeInput,DONT_ESCAPE);
-						y_im_key_desc_translate(p,0,eim->CandTable[eim->SelectIndex],im.CodeInput,MAX_CODE_LEN+1);
+						if(eim->SelectIndex>=0)
+							YongUpdateInputDesc(eim);
 						y_im_str_encode(eim->StringGet,im.StringGet,0);
-						//YongDrawInput();
 						y_ui_input_draw();
 					}
 					break;					
@@ -723,11 +629,7 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 		g_signal_handler_disconnect (G_OBJECT (window), motion_handler);
 		gtk_window_get_position(GTK_WINDOW(window), &InputWin_X, &InputWin_Y);
 		InputWin_Drag=FALSE;
-#if GTK_CHECK_VERSION(3,0,0)
 		gdk_device_ungrab(gdk_event_get_device((GdkEvent*)event),event->time);
-#else
-		gdk_pointer_ungrab(event->time);
-#endif
 		if(InputWin_X<0) InputWin_X=0;
 		if(InputWin_Y<0) InputWin_Y=0;
 		gtk_window_get_size(GTK_WINDOW(InputWin),&w,&h);
@@ -736,7 +638,6 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 		if(InputWin_X+w>scr_w) InputWin_X=scr_w-w;
 		if(InputWin_Y+h>scr_h) InputWin_Y=scr_h-h;
 		gtk_window_move(GTK_WINDOW(window),InputWin_X,InputWin_Y);
-		//id=YongGetConnect();
 		id=y_xim_get_connect();
 		if(id)
 		{
@@ -751,23 +652,12 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 
 static gboolean on_input_draw(GtkWidget *window,cairo_t *cr)
 {
-	ui_draw_input_win(cr);
+	DRAW_CONTEXT1 ctx;
+	ui_draw_begin(&ctx,window,cr);
+	ui_draw_input_win(&ctx);
+	ui_draw_end(&ctx);
 	return TRUE;
 }
-
-#if !GTK_CHECK_VERSION(3,0,0)
-static gboolean input_expose(GtkWidget *window,GdkEventExpose *event)
-{
-#ifdef GSEAL_ENABLE
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(window));
-#else
-	cairo_t *cr=gdk_cairo_create(window->window);
-#endif
-	on_input_draw(window,cr);
-	cairo_destroy(cr);
-	return TRUE;
-}
-#endif
 
 static guchar get_pixel_alpha(GdkPixbuf *pixbuf,int x,int y)
 {
@@ -805,11 +695,7 @@ static UI_REGION create_rgn(GdkPixbuf *p)
 		return NULL;
 	w = gdk_pixbuf_get_width (p);
 	h = gdk_pixbuf_get_height (p);
-#if GTK_CHECK_VERSION(3,0,0)
 	rgn=cairo_region_create();
-#else
-	rgn=gdk_region_new();
-#endif
 	for(j=0;j<h;j++)
 	{
 		rc.x=0;
@@ -823,11 +709,7 @@ static UI_REGION create_rgn(GdkPixbuf *p)
 			{
 				if(rc.width)
 				{
-#if GTK_CHECK_VERSION(3,0,0)
 					cairo_region_union_rectangle(rgn,&rc);
-#else
-					gdk_region_union_with_rect(rgn,&rc);
-#endif
 					rc.width=0;
 				}
 				continue;
@@ -844,11 +726,7 @@ static UI_REGION create_rgn(GdkPixbuf *p)
 		}
 		if(rc.width)
 		{
-#if GTK_CHECK_VERSION(3,0,0)
 			cairo_region_union_rectangle(rgn,&rc);
-#else
-			gdk_region_union_with_rect(rgn,&rc);
-#endif
 		}
 	}
 	return rgn;
@@ -860,43 +738,21 @@ static void set_rgn(void)
 	UI_REGION u,t;
 	if(!InputTheme.rgn[0] && !InputTheme.rgn[2])
 		return;
-#if GTK_CHECK_VERSION(3,0,0)
 	u=cairo_region_create();
-#else
-	u=gdk_region_new();
-#endif
 	if(InputTheme.rgn[0])
 	{
-#if GTK_CHECK_VERSION(3,0,0)
 		cairo_region_union(u,InputTheme.rgn[0]);
-#else
-		gdk_region_union(u,InputTheme.rgn[0]);
-#endif
 	}
 	InputTheme.clip.width=InputTheme.RealWidth-InputTheme.Left-InputTheme.Right;
-#if GTK_CHECK_VERSION(3,0,0)
 	cairo_region_union_rectangle(u,&InputTheme.clip);
-#else
-	gdk_region_union_with_rect(u,&InputTheme.clip);
-#endif
 	if(InputTheme.rgn[2])
 	{
-#if GTK_CHECK_VERSION(3,0,0)
 		t=cairo_region_copy(InputTheme.rgn[2]);
 		cairo_region_translate(t,InputTheme.RealWidth-InputTheme.Right,0);
 		cairo_region_union(u,t);
-#else
-		t=gdk_region_copy(InputTheme.rgn[2]);
-		gdk_region_offset(t,InputTheme.RealWidth-InputTheme.Right,0);
-		gdk_region_union(u,t);
-#endif
 		ui_region_destroy(t);
 	}
-#if GTK_CHECK_VERSION(3,0,0)
 	gdk_window_shape_combine_region(gtk_widget_get_window(InputWin),u,0,0);
-#else
-	gdk_window_shape_combine_region(InputWin->window,u,0,0);
-#endif
 	ui_region_destroy(u);
 }
 
@@ -907,12 +763,15 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 	int w,h,w0,h0;
 	double scale;
 	
-	if(InputTheme.line!=2)
+	if(InputTheme.line==0)
 		return bg;
-	if(InputTheme.Top==InputTheme.Bottom)
+	if(InputTheme.Top==InputTheme.Bottom && InputTheme.Top==0)
 		return bg;
 	if(!bottom) bottom=InputTheme.Bottom;
-	cand=y_im_get_config_int("IM","cand");
+	if(InputTheme.line==2)
+		cand=y_im_get_config_int("IM","cand");
+	else
+		cand=1;
 		
 	ui_image_size(bg,&w0,&h0);
 
@@ -955,31 +814,20 @@ int ui_input_update(UI_INPUT *param)
 	if(!InputWin)
 	{
 		InputWin = gtk_window_new(GTK_WINDOW_POPUP);
-		//InputWin = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 		assert(InputWin);
-#if GTK_CHECK_VERSION(3,0,0)
-		{
-			GdkScreen *screen = gdk_screen_get_default();
-			GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-			if(visual)
-				gtk_widget_set_visual(InputWin,visual);
-		}
-#endif
+		GdkScreen *screen = gdk_screen_get_default();
+		GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+		if(visual)
+			gtk_widget_set_visual(InputWin,visual);
 		gtk_window_set_title(GTK_WINDOW(InputWin),"input");
 		gtk_window_set_decorated(GTK_WINDOW(InputWin),FALSE);
 		gtk_window_set_accept_focus(GTK_WINDOW(InputWin),FALSE);
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(InputWin),TRUE);
 		gtk_window_set_skip_pager_hint(GTK_WINDOW(InputWin),TRUE);
 		gtk_window_set_keep_above(GTK_WINDOW(InputWin),TRUE);
-		//gtk_window_set_modal(GTK_WINDOW(InputWin),FALSE);
 		gtk_widget_realize(InputWin);
-		
 
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 		window=gtk_widget_get_window(InputWin);
-#else
-		window=InputWin->window;
-#endif
 		gdk_window_set_events(window,
 				gdk_window_get_events(window) |
 				GDK_BUTTON_PRESS_MASK|GDK_BUTTON_RELEASE_MASK|
@@ -989,28 +837,25 @@ int ui_input_update(UI_INPUT *param)
 			G_CALLBACK(input_click_cb),GINT_TO_POINTER (0));
 		g_signal_connect (G_OBJECT(InputWin), "button-release-event",
 			G_CALLBACK(input_click_cb),GINT_TO_POINTER (1));
-#if !GTK_CHECK_VERSION(3,0,0)
-		g_signal_connect(G_OBJECT(InputWin),"expose-event",
-			G_CALLBACK(input_expose),0);
-#else
 		g_signal_connect(G_OBJECT(InputWin),"draw",
 			G_CALLBACK(on_input_draw),0);
-#endif
+		
+		ui_set_css(GTK_WIDGET(InputWin),"window{background-color:transparent}\n");
 	}
 	else
 	{
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 		window=gtk_widget_get_window(InputWin);
-#else
-		window=InputWin->window;
-#endif
 		gdk_window_shape_combine_region(window,NULL,0,0);
 	}
-
 	if(InputTheme.layout)
 	{
 		ui_font_free(InputTheme.layout);
 		InputTheme.layout=NULL;
+	}
+	if(InputTheme.page.layout)
+	{
+		ui_font_free(InputTheme.page.layout);
+		InputTheme.page.layout=NULL;
 	}
 	for(i=0;i<3;i++)
 	{
@@ -1021,14 +866,17 @@ int ui_input_update(UI_INPUT *param)
 		}
 		if(InputTheme.rgn[i])
 		{
-			//gdk_region_destroy(InputTheme.rgn[i]);
 			ui_region_destroy(InputTheme.rgn[i]);
 			InputTheme.rgn[i]=NULL;
 		}
 	}
 	InputTheme.line=param->line;
 	InputTheme.caret=param->caret;
-	InputTheme.page=param->page;
+	InputTheme.page.show=param->page.show;
+	InputTheme.page.text[0]=param->page.text[0];
+	InputTheme.page.text[1]=param->page.text[1];
+	InputTheme.page.color=param->page.color;
+	InputTheme.page.scale=param->page.scale;
 	InputTheme.noshow=param->noshow;
 	InputTheme.root=param->root;
 	InputTheme.space=param->space;
@@ -1048,17 +896,22 @@ int ui_input_update(UI_INPUT *param)
 	InputTheme.OffY=param->off.y;
 	
 	InputTheme.scale=param->scale;
-	
+	InputTheme.radius=param->radius;
+
 	if(InputTheme.scale==1 && ui_scale!=1)
 	{
 		double temp=ui_scale;
 		ui_scale=1;
-		InputTheme.layout=ui_font_parse(InputWin,param->font);
+		InputTheme.layout=ui_font_parse(InputWin,param->font,ui_scale);
+		if(param->page.show && param->page.scale!=0 && param->page.scale!=1)
+			InputTheme.page.layout=ui_font_parse(InputWin,param->font,ui_scale*param->page.scale);
 		ui_scale=temp;
 	}
 	else
 	{
-		InputTheme.layout=ui_font_parse(InputWin,param->font);
+		InputTheme.layout=ui_font_parse(InputWin,param->font,ui_scale);
+		if(param->page.show && param->page.scale!=0 && param->page.scale!=1)
+			InputTheme.page.layout=ui_font_parse(InputWin,param->font,ui_scale*param->page.scale);
 	}
 	
 	InputTheme.line_width=param->line_width;
@@ -1079,6 +932,7 @@ int ui_input_update(UI_INPUT *param)
 		InputTheme.Right=3;
 		InputTheme.WorkLeft=InputTheme.Left;
 		InputTheme.WorkRight=InputTheme.Right;
+		InputTheme.WorkBottom=param->work_bottom;
 		if(param->sep)
 			InputTheme.sep=ui_color_parse(param->sep);
 		else
@@ -1096,11 +950,18 @@ int ui_input_update(UI_INPUT *param)
 			h2+=(InputTheme.CodeY-param->code.y)*2;
 			InputTheme.RealHeight=InputTheme.Height=2*h2;
 			InputTheme.CandY=h2+(int)round(pad*ui_scale);
+			InputTheme.WorkBottom=(int)round(ui_scale*InputTheme.WorkBottom);
 
 			InputTheme.pad[0]*=ui_scale;
 			InputTheme.pad[1]*=ui_scale;
 			InputTheme.pad[2]*=ui_scale;
 			InputTheme.pad[3]*=ui_scale;
+
+			InputTheme.radius=(int)round(ui_scale*InputTheme.radius);
+		}
+		if(InputTheme.WorkBottom==0)
+		{
+			InputTheme.WorkBottom=InputTheme.CodeY;
 		}
 	}
 	else
@@ -1108,14 +969,14 @@ int ui_input_update(UI_INPUT *param)
 		if(param->sep)
 			InputTheme.sep=ui_color_parse(param->sep);
 		else
-			InputTheme.sep=(UI_COLOR){0,0,0,0};
+			InputTheme.sep=(UI_COLOR){0};
 		InputTheme.Left=param->left;;
 		InputTheme.Right=param->right;
 		InputTheme.Top=param->top;
 		InputTheme.Bottom=param->bottom;
 		if(param->scale!=1 && param->force_scale)
 		{
-			bg=ui_image_load_scale(tmp,ui_scale,param->w,param->h);
+			bg=ui_image_load_scale(tmp,ui_scale,param->w,param->h,IMAGE_SKIN);
 			bg_w=gdk_pixbuf_get_width(bg);
 			bg_h=gdk_pixbuf_get_height(bg);
 			if(bg_w!=param->w)
@@ -1140,13 +1001,14 @@ int ui_input_update(UI_INPUT *param)
 
 				param->work_left=(int)round(scale*param->work_left);
 				param->work_right=(int)round(scale*param->work_right);
+				param->work_bottom=(int)round(scale*param->work_bottom);
 
 				if(scale!=1 && !y_im_has_config("input","font"))
 				{
 					ui_font_free(InputTheme.layout);
 					double temp=ui_scale;
 					ui_scale=scale;
-					InputTheme.layout=ui_font_parse(InputWin,param->font);
+					InputTheme.layout=ui_font_parse(InputWin,param->font,ui_scale);
 					ui_scale=temp;
 				}
 
@@ -1158,7 +1020,7 @@ int ui_input_update(UI_INPUT *param)
 		}
 		else
 		{
-			bg=ui_image_load(tmp);
+			bg=ui_image_load(tmp,IMAGE_SKIN);
 		}
 		bg=ui_input_bg_adjust(bg,param->cand_max,param->work_bottom);
 
@@ -1166,7 +1028,15 @@ int ui_input_update(UI_INPUT *param)
 		bg_h=gdk_pixbuf_get_height(bg);
 
 		InputTheme.RealHeight=bg_h;
-	
+
+		if(param->work_bottom>0)
+		{
+			InputTheme.WorkBottom=param->work_bottom;
+		}
+		else
+		{
+			InputTheme.WorkBottom=InputTheme.CodeY;
+		}	
 		if(param->work_left>0 || param->work_right>0)
 		{
 			InputTheme.WorkLeft=param->work_left;
@@ -1198,13 +1068,8 @@ int ui_input_update(UI_INPUT *param)
 			if(!comp) InputTheme.rgn[1]=create_rgn(InputTheme.bg[1]);
 			if(InputTheme.rgn[1])
 			{
-#if GTK_CHECK_VERSION(3,0,0)
 				cairo_region_translate(InputTheme.rgn[1],InputTheme.Left,0);
 				cairo_region_get_extents(InputTheme.rgn[1],&InputTheme.clip);
-#else
-				gdk_region_offset(InputTheme.rgn[1],InputTheme.Left,0);
-				gdk_region_get_clipbox(InputTheme.rgn[1],&InputTheme.clip);
-#endif
 				ui_region_destroy(InputTheme.rgn[1]);
 				InputTheme.rgn[1]=0;
 			}
@@ -1238,7 +1103,7 @@ int ui_input_update(UI_INPUT *param)
 	{
 		char temp[8];
 		int cy;
-		int get_text_width(const char *s,PangoLayout *layout,int *height);
+		int get_text_width(const char *s,UI_FONT layout,int *height);
 		y_im_str_encode("测",temp,0);
 		get_text_width(temp,InputTheme.layout,&cy);
 		if(InputTheme.line==0 || InputTheme.line==2)
@@ -1265,7 +1130,7 @@ int ui_input_update(UI_INPUT *param)
 			}
 		}
 	}
-	ui_win_tran(window,param->tran);
+	ui_win_tran(InputWin,param->tran);
 	if(InputTheme.noshow==2)
 		y_ui_input_draw();
 	
@@ -1335,13 +1200,11 @@ int ui_input_move(int off,int *x,int *y)
 	return 0;
 }
 
-int get_text_width(const char *s,PangoLayout *layout,int *height)
+int get_text_width(const char *s,UI_FONT layout,int *height)
 {
-	int ret;
-	if(!layout) layout=InputTheme.layout;
-	pango_layout_set_text(layout,s,-1);
-	pango_layout_get_pixel_size(layout,&ret,height);
-	return ret;
+	if(!layout)
+		layout=InputTheme.layout;
+	return ui_text_size(NULL,layout,s,NULL,height);
 }
 
 int YongCodeWidth(void)
@@ -1389,10 +1252,40 @@ int YongPageWidth(void)
 	if(/*!im.EnglishMode && */eim && eim->CandPageCount>1)
 	{
 		int h;
-		sprintf(im.Page,"%d/%d",eim->CurCandPage+1,eim->CandPageCount);
-		im.PageLen=get_text_width(im.Page,InputTheme.layout,&h);
-		im.PagePosY=InputTheme.CodeY;
-		ret=im.PageLen;
+		UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
+		if(InputTheme.page.text[0]==0)
+		{
+			sprintf(im.Page,"%d/%d",eim->CurCandPage+1,eim->CandPageCount);
+			im.PageLen[0]=ui_text_size(NULL,font,im.Page,NULL,&h);
+			im.PageLen[1]=0;
+			im.PageLen[2]=0;
+			ret=im.PageLen;
+		}
+		else
+		{
+			double scale=InputTheme.scale!=1?ui_scale:1;
+			int pos;
+			pos=l_unichar_to_utf8(InputTheme.page.text[0],im.Page);
+			im.Page[pos]=0;
+			im.PageLen[0]=ui_text_size(NULL,font,im.Page,NULL,&h);
+			im.PageLen[1]=round(4*scale*InputTheme.page.scale);
+			pos=l_unichar_to_utf8(InputTheme.page.text[1],im.Page);
+			im.Page[pos]=0;
+			im.PageLen[2]=ui_text_size(NULL,font,im.Page,NULL,&h);
+			pos=l_unichar_to_utf8(InputTheme.page.text[0],im.Page);
+			pos+=l_unichar_to_utf8(InputTheme.page.text[1],im.Page+pos);
+			im.Page[pos]=0;	
+		}
+		if(font!=InputTheme.layout)
+		{
+			// printf("%d %d %d\n",(int)im.PageLen[0],(int)im.PageLen[1],(int)im.PageLen[2]);
+			im.PagePosY=InputTheme.CodeY+(im.cursor_h-im.cursor_h*InputTheme.page.scale)/2;
+		}
+		else
+		{
+			im.PagePosY=InputTheme.CodeY;
+		}
+		ret=im.PageLen[0]+im.PageLen[1]+im.PageLen[2];
 	}
 	return ret;
 }
@@ -1499,7 +1392,7 @@ int YongDrawInput(void)
 		CodeWidth=0;
 	else
 		CodeWidth=YongCodeWidth();
-	if(InputTheme.page)
+	if(InputTheme.page.show)
 		PageWidth=YongPageWidth();
 	if(eim) count=eim->CandWordCount;
 	if(count)
@@ -1508,21 +1401,28 @@ int YongDrawInput(void)
 		for(i=0;i<count;i++)
 		{
 			char *p=im.CandTable[i];
-			int len;
-			if(eim->WorkMode==EIM_WM_ASSIST)
-				len=0;
-			y_im_key_desc_translate(eim->CodeTips[i],len,eim->CandTable[i],
+			int len=eim->CodeLen;
+			if(eim->WorkMode!=EIM_WM_NORMAL)
+			{	
+				y_im_key_desc_translate(eim->CodeTips[i],NULL,0,eim->CandTable[i],
 					im.CodeTips[i],MAX_TIPS_LEN+1);
-			if(eim->WorkMode==EIM_WM_QUERY)
-			{
-				char *s=eim->CandTable[i];
-				y_im_key_desc_translate(s,0,eim->CodeInput,p,MAX_TIPS_LEN+1);
 			}
 			else
 			{
-				const char *s=s2t_conv(eim->CandTable[i]);
+				y_im_key_desc_translate(eim->CodeInput,eim->CodeTips[i],len,eim->CandTable[i],
+					im.CodeTips[i],MAX_TIPS_LEN+1);
+			}
+			if(eim->WorkMode==EIM_WM_QUERY)
+			{
+				char *s=eim->CandTable[i];
+				y_im_key_desc_translate(s,NULL,0,eim->CodeInput,p,MAX_TIPS_LEN+1);
+			}
+			else
+			{
+				const char *s=eim->CandTable[i];
 				y_im_disp_cand(s,p,(InputTheme.strip>>(16*(i==eim->SelectIndex)+0))&0xff,
-					(InputTheme.strip>>(16*(i==eim->SelectIndex)+8))&0xff);
+					(InputTheme.strip>>(16*(i==eim->SelectIndex)+8))&0xff,
+					eim->CodeInput,eim->CodeTips[i]);
 			}
 		}
 		CandWidth=YongCandWidth();
@@ -1592,12 +1492,7 @@ int YongDrawInput(void)
 	{
 		InputTheme.RealWidth=TempWidth;
 		InputTheme.RealHeight=TempHeight;
-#ifdef G_OS_WIN32
-		MoveWindow(InputWin,InputWin_X,InputWin_Y,
-			InputTheme.RealWidth,InputTheme.RealHeight,TRUE);
-#else
 		gtk_window_resize(GTK_WINDOW(InputWin),InputTheme.RealWidth,InputTheme.RealHeight);
-#endif
 	}
 	if(PageWidth && InputTheme.line==2)
 	{
@@ -1610,30 +1505,12 @@ int YongDrawInput(void)
 	ybus_ibus_input_draw(InputTheme.line);
 	YongShowInput(1);
 
-#ifdef G_OS_WIN32
-	InvalidateRect(InputWin,0,FALSE);
-#else
 	gtk_widget_queue_draw(InputWin);
-#endif
 	/* show at preedit area */
-	if(((eim && !eim->CandWordCount) || im.Preedit==1) && im.CodeInput[0])
+	if(((eim && !eim->CandWordCount) || im.Preedit==1) && (im.CodeInput[0]||im.StringGetEngine[0]))
 	{
 		if(im.StringGetEngine[0] || (eim && eim->CaretPos>=0 && eim->CaretPos<eim->CodeLen))
 		{
-#ifdef _WIN32
-			wchar_t temp[MAX_CAND_LEN+1];
-			wcscpy(temp,(wchar_t*)im.StringGet);
-			if(eim && eim->CaretPos>=0 && eim->CaretPos<eim->CodeLen)
-			{
-				wcsncat(temp,(wchar_t*)im.CodeInput,eim->CaretPos);
-				wcscpy(temp+wcslen((wchar_t*)im.StringGet)+eim->CaretPos,L"|");
-				wcscat(temp,(wchar_t*)im.CodeInput+eim->CaretPos);
-			}
-			else
-			{
-				wcscat(temp,(wchar_t*)im.CodeInput);
-			}
-#else
 			uint8_t temp[MAX_CAND_LEN+1];
 			strcpy((char*)temp,im.StringGet);
 			if(eim && eim->CaretPos>=0 && eim->CaretPos<eim->CodeLen)
@@ -1646,7 +1523,6 @@ int YongDrawInput(void)
 			{
 				strcat((char*)temp,im.CodeInput);
 			}
-#endif
 			//YongPreeditDraw((char*)temp,-1);
 			y_xim_preedit_draw((char*)temp,-1);
 		}
@@ -1657,7 +1533,8 @@ int YongDrawInput(void)
 	}
 	else if(im.Preedit==0 && eim && eim->CandWordCount)
 	{
-		y_xim_preedit_draw(im.CandTable[eim->SelectIndex],-1);
+		if(eim->SelectIndex>=0)
+			y_xim_preedit_draw(im.CandTable[eim->SelectIndex],-1);
 	}
 	return 0;
 }
@@ -1666,11 +1543,7 @@ void *ui_main_win(void)
 {
 	if(!MainWin)
 		return NULL;
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 	return gtk_widget_get_window(MainWin);
-#else
-	return MainWin->window;
-#endif
 }
 
 int ui_main_show(int show)
@@ -1705,15 +1578,16 @@ int ui_main_show(int show)
 	{
 		gtk_window_move(GTK_WINDOW(MainWin),MainWin_X,MainWin_Y);
 	}
+	if(show==2)
+		show=MainWin_visible?0:1;
 	if(show>0)
 	{
-#if GTK_CHECK_VERSION(3,0,0)
-		//gtk_window_resize(GTK_WINDOW(MainWin),MainWin_W,MainWin_H);
-#endif
+		MainWin_visible=true;
 		gtk_widget_show(MainWin);
 	}
 	else if(show==0)
 	{
+		MainWin_visible=false;
 		gtk_widget_hide(MainWin);
 	}
 	return 0;
@@ -1723,11 +1597,7 @@ static void *ui_input_win(void)
 {
 	if(!InputWin)
 		return NULL;
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 	return gtk_widget_get_window(InputWin);
-#else
-	return InputWin->window;
-#endif
 }
 
 int ui_input_show(int show)
@@ -1738,10 +1608,6 @@ int ui_input_show(int show)
 			return 0;
 		// 在这移动窗口是为了修复gtk_widget_hide之后可能自动修改窗口位置的bug
 		gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
-#if GTK_CHECK_VERSION(3,0,0)
-		// gtk3中有可能出现不显示的问题，怀疑是隐藏之后重新显示窗口大小被设成0了
-		//gtk_window_resize(GTK_WINDOW(InputWin),InputTheme.RealWidth,InputTheme.RealHeight);
-#endif
 		gtk_widget_show(InputWin);
 	}
 	else
@@ -1755,16 +1621,10 @@ int ui_input_show(int show)
 static void on_status_popup_menu(GtkStatusIcon *icon,
 	guint button,guint time,gpointer data)
 {
-#if 0
-	if(!cfg_menu) return;
-	ui_update_menu();
-	gtk_menu_popup(GTK_MENU(cfg_menu),NULL,NULL,my_status_icon_position_menu,icon,button,time);
-#else
 	LKeyFile *kf=y_im_get_menu_config();
 	ui_menu_t *m;
 	m=ui_build_menu(kf);
 	gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,my_status_icon_position_menu,icon,button,time);
-#endif
 }
 
 static void on_status_activate(void)
@@ -1806,7 +1666,7 @@ void ui_tray_update(UI_TRAY *param)
 		ret|=ui_image_get_path(param->icon[1],icon2,sizeof(icon2));
 		if(ret==0)
 		{
-			if(icon1 && strstr(icon1,".zip/"))
+			if(strstr(icon1,".zip/"))
 			{
 				snprintf(icon1,sizeof(icon1),"%s/skin/%s",y_im_get_path("DATA"),"tray1.png");
 				snprintf(icon2,sizeof(icon2),"%s/skin/%s",y_im_get_path("DATA"),"tray2.png");
@@ -1821,11 +1681,7 @@ void ui_tray_update(UI_TRAY *param)
 		if(!my_status_icon_new_from_pixbuf)
 			return;
 		my_status_icon_set_from_pixbuf=dlsym(NULL,"gtk_status_icon_set_from_pixbuf");
-#if GTK_CHECK_VERSION(3,0,0)
 		my_status_icon_set_tooltip=dlsym(NULL,"gtk_status_icon_set_tooltip_text");
-#else
-		my_status_icon_set_tooltip=dlsym(NULL,"gtk_status_icon_set_tooltip");
-#endif
 		my_status_icon_set_title=dlsym(NULL,"gtk_status_icon_set_title");
 		my_status_icon_position_menu=dlsym(NULL,"gtk_status_icon_position_menu");
 	}
@@ -1851,7 +1707,7 @@ void ui_tray_update(UI_TRAY *param)
 	{
 		if(param->icon[i])
 		{
-			IconPixbuf[i]=ui_image_load(param->icon[i]);
+			IconPixbuf[i]=ui_image_load(param->icon[i],IMAGE_SKIN|IMAGE_SKIN_DEF);
 		}
 	}
 	if(StatusIcon)
@@ -1924,7 +1780,7 @@ static gboolean YongSendFile_real(char *fn)
 	else
 	{
 		GdkPixbuf *pb;		
-		pb=ui_image_load(fn);
+		pb=ui_image_load(fn,IMAGE_ALL);
 		if(pb)
 		{
 			GtkClipboard *cb;
@@ -1953,13 +1809,18 @@ void YongSendFile(const char *fn)
 	g_idle_add_full(G_PRIORITY_DEFAULT,(GSourceFunc)YongSendFile_real,utf8,g_free);
 }
 
+static gboolean send_ctrl_v_at_idle(void*)
+{
+	y_xim_forward_key(CTRL_V,1);
+	return FALSE;
+}
 static gboolean YongSendClipboard_real(char *utf8)
 {
 	GtkClipboard *cb;
 	cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(cb!=NULL)
 		gtk_clipboard_set_text(cb,utf8,-1);
-	y_xim_forward_key(CTRL_V,1);
+	g_timeout_add(50,send_ctrl_v_at_idle,NULL);
 	return FALSE;
 }
 
@@ -1979,9 +1840,9 @@ void YongSendClipboard(const char *s)
 
 static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)(const char*))
 {
-	char phrase[128];
+	char phrase[1024];
 	int ret;
-	if(!text || strpbrk(text,"\r\n\t\v\b") || strlen(text)>50)
+	if(!text || text[0] || strlen(text)>512/* || strpbrk(text,"\r\n\t\v\b") || strlen(text)>50*/)
 	{
 		ret=cb(NULL);
 	}
@@ -1993,7 +1854,8 @@ static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)
 	if(ret==IMR_DISPLAY)
 	{
 		EXTRA_IM *eim=im.eim;
-		y_im_key_desc_translate(eim->CodeInput,0,eim->CandTable[eim->SelectIndex],(char*)im.CodeInput,MAX_CODE_LEN+1);
+		if(eim->SelectIndex>=0)
+			YongUpdateInputDesc(eim);
 		y_im_str_encode(s2t_conv(eim->StringGet),im.StringGet,0);
 		y_ui_input_draw();
 	}
@@ -2007,6 +1869,21 @@ char *ui_get_select(int (*cb)(const char *))
 	{
 		printf("yong: get clipboard fail\n");
 		return NULL;
+	}
+	if(!cb)
+	{
+		gchar *text=gtk_clipboard_wait_for_text(clipboard);
+		if(!text)
+			return NULL;
+		if(!text[0] || strlen(text)>=512/*strpbrk(text,"\r\n\t\v\b") || strlen(text)>50*/)
+		{
+			g_free(text);
+			return NULL;
+		}
+		char phrase[1024];
+		y_im_str_encode_r(text,phrase);
+		g_free(text);
+		return l_strdup(phrase);
 	}
 	gtk_clipboard_request_text(clipboard,(GtkClipboardTextReceivedFunc)on_ui_get_select_cb,cb);
 	return NULL;
@@ -2041,7 +1918,6 @@ void ui_show_message(const char *s)
 	gtk_widget_destroy(dlg);
 }
 
-#if 1//!GTK_CHECK_VERSION(3,0,0)
 static UI_COLOR ui_sys_color(GtkWidget *w,int index)
 {
 	if(index==0)
@@ -2051,66 +1927,33 @@ static UI_COLOR ui_sys_color(GtkWidget *w,int index)
 	else
 		return ui_color_parse("#0182e5");
 }
-#else
-static UI_COLOR ui_sys_color(GtkWidget *w,int index)
-{
-	UI_COLOR c;
-	GdkRGBA gc;
-	GtkStyleContext *ctx=gtk_widget_get_style_context(w);
-	if(index==0)
-		gtk_style_context_get_background_color(ctx,GTK_STATE_NORMAL,&gc);
-	else if(index==1)
-		gtk_style_context_get_background_color(ctx,GTK_STATE_ACTIVE,&gc);
-	else
-		gtk_style_context_get_color(ctx,GTK_STATE_NORMAL,&gc);
-	c.a=255;
-	c.r=(uint8_t)(gc.red*255);
-	c.g=(uint8_t)(gc.green*255);
-	c.b=(uint8_t)(gc.blue*255);
-	return c;
-}
-#endif
 
 static gboolean on_tip_draw(GtkWidget *window,cairo_t *cr)
 {
 	UI_COLOR color;
 	int w,h;
 	const char *text;
-	
+	DRAW_CONTEXT1 ctx;
 	text=g_object_get_data(G_OBJECT(window),"tip");
 	
 	gtk_widget_get_size_request(window,&w,&h);
-	
-	cairo_set_antialias(cr,CAIRO_ANTIALIAS_NONE);
+	ui_draw_begin(&ctx,window,cr);
+
 	cairo_set_line_width(cr,1.0);
 
 	//color=ui_color_parse("#FFFFFF");
 	color=ui_sys_color(window,0);
-	ui_fill_rect(cr,0,0,w,h,color);
+	ui_fill_rect(&ctx,0,0,w,h,color);
 	//color=ui_color_parse("#CBCAE6");
 	color=ui_sys_color(window,1);
-	ui_draw_rect(cr,0,0,w,h,color,MainTheme.line_width);
+	ui_draw_rect(&ctx,0,0,w,h,color,MainTheme.line_width);
 
 	//color=ui_color_parse("#0042C8");
 	color=ui_sys_color(window,2);
-	if(text) ui_draw_text(cr,InputTheme.layout,5,5,text,color);
+	if(text) ui_draw_text(&ctx,InputTheme.layout,5,5,text,color);
 	
 	return TRUE;
 }
-
-#if !GTK_CHECK_VERSION(3,0,0)
-static gboolean tip_expose(GtkWidget *window,GdkEventExpose *event)
-{
-#ifdef GSEAL_ENABLE
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(window));
-#else
-	cairo_t *cr=gdk_cairo_create(window->window);
-#endif
-	on_tip_draw(window,cr);
-	cairo_destroy(cr);
-	return TRUE;
-}
-#endif
 
 static guint tip_timer_id;
 static gboolean on_tip_timeout(GtkWidget *tip)
@@ -2142,13 +1985,8 @@ void ui_show_tip(const char *fmt,...)
 		tip=(GtkWidget*)gtk_window_new(GTK_WINDOW_POPUP);
 		gtk_window_set_type_hint (GTK_WINDOW (tip), GDK_WINDOW_TYPE_HINT_TOOLTIP);
 		gtk_widget_set_name (tip, "gtk-tooltip");
-#if !GTK_CHECK_VERSION(3,0,0)
-		g_signal_connect(G_OBJECT(tip),"expose-event",
-			G_CALLBACK(tip_expose),0);
-#else
 		g_signal_connect(G_OBJECT(tip),"draw",
 			G_CALLBACK(on_tip_draw),0);
-#endif
 	}
 	g_object_set_data_full(G_OBJECT(tip),"tip",g_strdup(text),g_free);
 	ui_text_size(NULL,InputTheme.layout,text,&w,&h);
@@ -2295,122 +2133,6 @@ static void show_system_info(void)
 	ui_show_message(temp);
 }
 
-#if 0
-static GtkWidget *im_manage_menu(void)
-{
-	char *engine;
-	GtkWidget *pop,*item;
-	char keymap[128];
-	char name[128];
-	
-	pop=gtk_menu_new();
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(im_manage),pop);
-	
-	y_im_str_encode(YT("输入统计"),name,0);
-	item=gtk_menu_item_new_with_label(name);
-	g_signal_connect(G_OBJECT(item),"activate",
-		G_CALLBACK(speed_stat),NULL);
-	gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-	gtk_widget_show(item);
-	
-	y_im_str_encode(YT("系统信息"),name,0);
-	item=gtk_menu_item_new_with_label(name);
-	g_signal_connect(G_OBJECT(item),"activate",
-		G_CALLBACK(show_system_info),NULL);
-	gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-	gtk_widget_show(item);
-	
-	if(0==y_im_get_keymap(keymap,128))
-	{
-		item=gtk_menu_item_new_with_label(keymap);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(y_im_show_keymap),NULL);
-		gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-		gtk_widget_show(item);
-	}
-	
-	engine=y_im_get_current_engine();
-	if(engine && !strcmp(engine,"libmb.so"))
-	{
-		y_im_str_encode(YT("码表优化"),name,0);
-		item=gtk_menu_item_new_with_label(name);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(do_optimize),NULL);
-		gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-		gtk_widget_show(item);
-		y_im_str_encode(YT("合并用户码表"),name,0);
-		item=gtk_menu_item_new_with_label(name);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(do_merge_user),NULL);
-		gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-		gtk_widget_show(item);
-		if(y_im_has_config("table","edit"))
-		{
-			y_im_str_encode(YT("编辑码表"),name,0);
-			item=gtk_menu_item_new_with_label(name);
-			g_signal_connect(G_OBJECT(item),"activate",
-				G_CALLBACK(do_edit_main),NULL);
-			gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-			gtk_widget_show(item);
-		}
-	}
-	
-	return pop;
-}
-#endif
-
-#if 0
-static void im_show_help_main(void)
-{
-	y_im_show_help("main");
-}
-
-static void im_show_help_cur(void)
-{
-	char item[64];
-	if(!y_im_get_current(item,sizeof(item)))
-		y_im_show_help(item);
-}
-#endif
-
-#if 0
-static GtkWidget *im_help_menu(GtkWidget *parent)
-{
-	GtkWidget *pop,*item;
-	char desc[128];
-	char cur[64];
-	
-	pop=gtk_menu_new();
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(parent),pop);
-	
-	if(!y_im_help_desc("main",desc,128))
-	{
-		item=gtk_menu_item_new_with_label(desc);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(im_show_help_main),0);
-		gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-		gtk_widget_show(item);
-	}
-	if(!y_im_get_current(cur,64) && !y_im_help_desc(cur,desc,128))
-	{
-		item=gtk_menu_item_new_with_label(desc);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(im_show_help_cur),0);
-		gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-		gtk_widget_show(item);
-	}
-	
-	y_im_str_encode(YT("关于"),desc,0);
-	item=gtk_menu_item_new_with_label(desc);
-	g_signal_connect(G_OBJECT(item),"activate",
-		G_CALLBACK(y_im_about_self),NULL);
-	gtk_menu_shell_append(GTK_MENU_SHELL(pop),item);
-	gtk_widget_show(item);
-	
-	return pop;
-}
-#endif
-
 static void menu_set_default(void)
 {
 	y_im_set_default(im.Index);
@@ -2419,7 +2141,6 @@ static void menu_set_default(void)
 void ui_update_menu(void)
 {
 }
-
 
 static GtkWidget *im_list_menu(void)
 {
@@ -2467,7 +2188,6 @@ static void ui_menu_on_cmd(GtkMenuItem *item,gpointer user_data)
 {
 	ui_menu_t *m;
 	int i;
-	//printf("active\n");
 	m=g_object_get_data(G_OBJECT(item),"m");
 	i=GPOINTER_TO_INT(user_data);
 	y_im_handle_menu(m->cmd[i]);
@@ -2477,7 +2197,6 @@ static void ui_menu_free(ui_menu_t *m);
 
 static void  ui_menu_on_done(GtkMenuShell *menushell,ui_menu_t *m)
 {
-	//printf("hide\n");
 	ui_menu_free(m);
 }
 
@@ -2777,19 +2496,39 @@ static gboolean on_image_win_draw(GtkWidget *widget,cairo_t *cr)
 	return TRUE;
 }
 
-#if !GTK_CHECK_VERSION(3,0,0)
-static gboolean image_win_expose(GtkWidget *widget)
+static gboolean on_image_win_scroll(GtkWidget* self,GdkEventScroll *event)
 {
-#ifdef GSEAL_ENABLE
-	cairo_t *cr=gdk_cairo_create(gtk_widget_get_window(widget));
-#else
-	cairo_t *cr=gdk_cairo_create(widget->window);
-#endif
-	on_image_win_draw(widget,cr);
-	cairo_destroy(cr);
+	int temp=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self),"tran"));
+	uint8_t orig=temp>>8&0xff;
+	int tran=temp&0xff;
+	if(event->direction==GDK_SCROLL_DOWN)
+	{
+		tran+=5;
+		if(tran>200)
+			tran=200;
+	}
+	else if(event->direction==GDK_SCROLL_UP)
+	{
+		tran-=5;
+		if(tran<0)
+			tran=0;
+	}
+	g_object_set_data(G_OBJECT(self),"tran",GINT_TO_POINTER(tran|(orig<<8)));
+	ui_win_tran(self,tran);
 	return TRUE;
 }
-#endif
+
+static gboolean on_image_win_click(GtkWidget *self,GdkEventButton *event)
+{
+	int temp=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self),"tran"));
+	uint8_t tran=temp>>8&0xff;
+	if(event->button==2)
+	{
+		g_object_set_data(G_OBJECT(self),"tran",GINT_TO_POINTER(tran|(tran<<8)));
+		ui_win_tran(self,tran);
+	}
+	return TRUE;
+}
 
 void ui_show_image(char *name,char *file,int top,int tran)
 {
@@ -2798,37 +2537,33 @@ void ui_show_image(char *name,char *file,int top,int tran)
 	if(!ImageWin)
 	{
 		ImageWin = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-		//gtk_window_set_modal(GTK_WINDOW(ImageWin),FALSE);
+		GdkScreen *screen = gdk_screen_get_default();
+		GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+		if(visual)
+		{
+			gtk_widget_set_visual(ImageWin,visual);
+		}
+
 		gtk_window_set_position(GTK_WINDOW(ImageWin),GTK_WIN_POS_CENTER);
 		gtk_window_set_accept_focus(GTK_WINDOW(ImageWin),FALSE);
+		gtk_window_set_resizable(GTK_WINDOW(ImageWin),FALSE);
 		g_signal_connect(ImageWin,"delete-event",G_CALLBACK(gtk_widget_hide_on_delete),NULL);
-#if !GTK_CHECK_VERSION(3,0,0)
-		g_signal_connect(ImageWin,"expose-event",G_CALLBACK(image_win_expose),NULL);
-#else
 		g_signal_connect(ImageWin,"draw",G_CALLBACK(on_image_win_draw),NULL);
-#endif
+		g_signal_connect(ImageWin,"scroll-event",G_CALLBACK(on_image_win_scroll),NULL);
+		g_signal_connect(ImageWin,"button-release-event",G_CALLBACK(on_image_win_click),NULL);
 	}
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 	if(!gtk_widget_get_realized(ImageWin))
-#else
-	if(!GTK_WIDGET_REALIZED(ImageWin))
-#endif
 	{
 		gtk_widget_realize(ImageWin);
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
+		gdk_window_set_events(gtk_widget_get_window(ImageWin),
+				gdk_window_get_events(gtk_widget_get_window(ImageWin)) |
+				GDK_BUTTON_RELEASE_MASK|GDK_SCROLL_MASK);
 		window=gtk_widget_get_window(ImageWin);
-#else
-		window=ImageWin->window;
-#endif
 		gdk_window_set_functions(window,GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
 	}
 	else
 	{
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 		window=gtk_widget_get_window(ImageWin);
-#else
-		window=ImageWin->window;
-#endif
 	}
 	if(gdk_window_is_visible(window))
 	{
@@ -2837,21 +2572,22 @@ void ui_show_image(char *name,char *file,int top,int tran)
 	}
 	gtk_window_set_title(GTK_WINDOW(ImageWin),name);
 	gtk_window_set_keep_above(GTK_WINDOW(ImageWin),top);
-	ui_win_tran(window,tran);
+	g_object_set_data(G_OBJECT(ImageWin),"tran",GINT_TO_POINTER(tran|(tran<<8)));
 	if(!image_file || strcmp(image_file,file))
 	{
 		free(image_file);
 		image_file=strdup(file);
 		if(ImageWin_bg) ui_image_free(ImageWin_bg);
-		ImageWin_bg=ui_image_load(image_file);
+		ImageWin_bg=ui_image_load(image_file,IMAGE_ALL);
 		if(ImageWin_bg)
 		{
 			int width,height;
 			ui_image_size(ImageWin_bg,&width,&height);
-			//gtk_widget_set_size_request(ImageWin,width,height);
 			gtk_window_resize(GTK_WINDOW(ImageWin),width,height);
+			gtk_widget_set_size_request(ImageWin,width,height);
 		}
 	}
+	ui_win_tran(ImageWin,tran);
 	gtk_widget_show(ImageWin);
 	gtk_window_deiconify(GTK_WINDOW(ImageWin));
 }
@@ -2872,11 +2608,7 @@ static void ui_beep(int c)
 		if(ca_gtk_play(id))
 			return;
 	}
-#if GTK_CHECK_VERSION(3,0,0)
 	gdk_window_beep(gtk_widget_get_window(InputWin));
-#else
-	gdk_window_beep(InputWin->window);
-#endif
 }
 
 static int ui_request(int cmd)

@@ -89,6 +89,7 @@ const char *y_im_get_path(const char *type);
 LKeyFile *y_im_load_config(char *fn);
 int y_im_set_default(int index);
 void cu_reload();
+void cu_notify_reload();
 
 int cfg_install(const char *name);
 int cfg_uninstall(const char *name);

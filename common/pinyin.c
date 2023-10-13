@@ -829,6 +829,9 @@ static int py_parse_r(PY_PARSER *parser,const char *input,int len)
 			}
 			if(last=='r' && !strncmp(input+p->len,"ong",3))
 				continue;
+			// 处理 愕然
+			//if(!strcmp(p->quan,"er") && !strncmp(input+p->len,"an",2))
+			//	continue;
 			/* 在n后无韵母的情况下en优先结合 */
 			if(last=='e' && next=='n' && (!input[p->len+1] || !strchr("aeiouv",input[p->len+1])))
 				continue;
@@ -1110,6 +1113,37 @@ int py_build_string(char *out,py_item_t *token,int count)
 			{
 				out[pos++]=' ';
 			}
+		}
+		out[pos]=0;
+		return pos;
+	}
+	else
+	{
+		int i,pos;
+		for(pos=0,i=0;i<count;i++)
+		{
+			char *p=(char*)&token[i];
+			int len=strlen(p);
+			memcpy(out+pos,p,len);
+			pos+=len;
+		}
+		out[pos]=0;
+		return pos;
+	}
+}
+
+int py_build_string_no_split(char *out,py_item_t *token,int count)
+{
+	if(py_type==0)
+	{
+		int i,pos;
+		
+		for(pos=0,i=0;i<count;i++)
+		{
+			if(token[i]==&py_caret)
+				continue;
+			memcpy(out+pos,token[i]->quan,token[i]->len);
+			pos+=token[i]->len;
 		}
 		out[pos]=0;
 		return pos;
@@ -1536,36 +1570,6 @@ int py_sp_has_semi(void)
 	return sp_semicolon;
 }
 
-static inline const char *hz_goto_next(const char *s,uint32_t *hz)
-{
-	if(gb_is_gbk((const uint8_t*)s))
-	{
-		*hz=GBK_MAKE_CODE(s[0],s[1]);
-		return s+2;
-	}
-	else if(gb_is_gb18030_ext((const uint8_t*)s))
-	{
-		*hz=0;
-		return s+4;
-	}
-	return NULL;
-}
-
-static inline const char *hz_goto_next2(const char *s,uint32_t *hz)
-{
-	if(gb_is_gbk((const uint8_t*)s))
-	{
-		*hz=*(uint16_t*)s;
-		return s+2;
-	}
-	else if(gb_is_gb18030_ext((const uint8_t*)s))
-	{
-		*hz=*(uint32_t*)s;
-		return s+4;
-	}
-	return NULL;
-}
-
 static inline int hz_get_first_code(int hz)
 {
 	static const uint16_t range[]={
@@ -1607,15 +1611,15 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 	struct py_item *it;
 	
 	/* 跳过第一个字 */
-	zi=hz_goto_next(zi,&hz);
-	if(!zi)
+	zi=gb_next_be((const uint8_t*)zi,&hz);
+	if(!zi || hz<0x80)
 	{
 		return -1;
 	}
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=hz_goto_next(zi,&hz);
+		zi=gb_next_be((const uint8_t*)zi,&hz);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{
@@ -1625,7 +1629,7 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 		{
 			it=py_all+py[0];
 		}
-		else if(!zi || !hz)		// 没有更多信息，简单最长匹配
+		else if(!zi || hz<0x80)		// 没有更多信息，简单最长匹配
 		{
 			it=py_all+py[count-1];
 		}
@@ -1691,21 +1695,22 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 	int py[6];
 	int count;
 	struct py_item *it;
-	
-	/* 跳过第一个字 */
-	zi=hz_goto_next2(zi,&hz);
-	if(!zi)
+
+	zi=gb_next((const uint8_t*)zi,&hz);
+	if(!zi || hz<0x80)
 	{
 		return -1;
 	}
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=hz_goto_next2(zi,&hz);
+		zi=gb_next((const uint8_t*)zi,&hz);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{
-			return -1;	// 分析错误
+			// 这里我们允许双拼仅能表示汉字前一段的情况
+			break;
+			//return -1;	// 分析错误
 		}
 		if(count==1)			// 不需要选择
 		{
@@ -1713,7 +1718,7 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 			if(!it->quan[it->yun])
 				return -1;
 		}
-		else if(!zi || !hz)		// 没有更多信息，简单最长匹配
+		else if(!zi || hz<0x80)		// 没有更多信息，简单最长匹配
 		{
 			it=py_all+py[count-1];
 			if(!it->quan[it->yun])
@@ -1769,11 +1774,35 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 		/* 这里假设不出现简拼的情况 */
 		*out++=(char)(it->val>>8);
 		*out++=(char)(it->val);
-		if(!zi && (s[0]==0 || s[0]==' ' || s[0]=='\t'))
+		if(/*!zi && */(s[0]==0 || s[0]==' ' || s[0]=='\t'))
 		{
 			*out=0;
 			return 0;
 		}
+	}
+	return -1;
+}
+
+int py_conv_to_sp3(const char *s,char *out)
+{
+	while(s[0]!=0)
+	{
+		int py[6];
+		int count=py_tree_get(&py_index,s,py);
+		py_item_t it;
+		if(count<=0)
+			return -1;
+		it=py_all+py[count-1];
+		s+=it->len;
+		*out++=(char)(it->val>>8);
+		*out++=(char)(it->val);
+		if((s[0]==0 || s[0]==' ' || s[0]=='\t'))
+		{
+			*out=0;
+			return 0;
+		}
+		if(s[0]=='\'')
+			s++;
 	}
 	return -1;
 }
@@ -1787,8 +1816,8 @@ int py_jp_from_qp(const char *s,const char *zi,char *out)
 		
 	while(s[0]!=0 && zi!=NULL)
 	{
-		zi=hz_goto_next(zi,&hz);
-		if(!zi)
+		zi=gb_next_be((const uint8_t*)zi,&hz);
+		if(!zi || hz<0x80)
 			return -1;
 		count=py_tree_get(&py_index,s,py);
 		

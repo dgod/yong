@@ -440,11 +440,12 @@ int l_zlib_decode(void *obuffer, int olen, const void *ibuffer, int ilen, int he
 void *l_zlib_decode_alloc(const void *buffer, int len, int *outlen, int header)
 {
 	zbuf a;
-	char *p = l_alloc(16*1024);
+	int initial_size=MAX(16*1024,len);
+	char *p = l_alloc(initial_size);
 	if (p == NULL) return NULL;
 	a.zbuffer = (uint8_t *) buffer;
 	a.zbuffer_end = (uint8_t *) buffer + len;
-	if (do_zlib(&a, p, 16*1024, 1, header))
+	if (do_zlib(&a, p, initial_size, 1, header))
 	{
 		if (outlen) *outlen = (int) (a.zout - a.zout_start);
 		return a.zout_start;

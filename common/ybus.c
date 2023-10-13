@@ -11,6 +11,7 @@
 #include "ybus.h"
 #include "im.h"
 #include "common.h"
+#include "translate.h"
 
 #ifndef _WIN32
 #include <dirent.h>
@@ -435,9 +436,11 @@ int ybus_on_cursor(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int x
 		client->track=1;
 		client->x=x;
 		client->y=y;
+		client->rel=0;
 	}
 	else
 	{
+		client->rel=1;
 		if(wm_focus.valid)
 		{
 			client->track=1;
@@ -533,15 +536,29 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 			wm_focus.valid=0;
 			break;
 		}
+		int ox=wm_focus.x,oy=wm_focus.y;
 		wm_focus.y=(int)(int16_t)(param>>16&0xffff);
 		wm_focus.x=(int)(int16_t)(param&0xffff);
 		wm_focus.valid=1;
+		YBUS_CLIENT *client=NULL;
+		ybus_get_active(NULL,&client);
+		if(client!=NULL && client->track && client->rel)
+		{
+			client->x=client->x-ox+wm_focus.x;
+			client->y=client->y-oy+wm_focus.y;
+			YongMoveInput(client->x,client->y);
+		}
 		//fprintf(stderr,"focus %d %d\n",wm_focus.x,wm_focus.y);
 		break;
 	}
 	case YBUS_TOOL_RELOAD_ALL:
 	{
 		YongReloadAll();
+		break;
+	}
+	case YBUS_TOOL_KEYBOARD:
+	{
+		y_kbd_select(param,0);
 		break;
 	}
 	default:
@@ -804,8 +821,41 @@ int xim_ybus_preedit_draw(const char *s,int len)
 	return 0;
 }
 
+static void upload_clipboard_cb(int code)
+{
+	if(code==0)
+		y_ui_show_tip(YT("上传成功"));
+	else
+		y_ui_show_tip(YT("上传失败"));
+}
+
+static void download_clipboard_cb(int code)
+{
+	if(code==0)
+		y_ui_show_tip(YT("下载成功"));
+	else
+		y_ui_show_tip(YT("下载失败"));
+}
+
+static void xim_action(const char *s)
+{
+	if(!strcmp(s,"copyCloud"))
+	{
+		y_im_run_helper("yong-config --sync --upload-clipboard",NULL,NULL,upload_clipboard_cb);
+	}
+	else if(!strcmp(s,"pasteCloud"))
+	{
+		y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
+	}
+}
+
 static void xim_explore_url(const char *s)
 {
+	if(l_str_has_prefix(s,"action:"))
+	{
+		xim_action(s+7);
+		return;
+	}
 	char temp[256];
 	y_im_str_encode(s,temp,0);
 	if(y_im_is_url(temp))
