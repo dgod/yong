@@ -66,8 +66,11 @@ const char *y_im_get_path(const char *type)
 			char *sys=getenv("ProgramFiles");
 			if(sys)
 			{
+				sys=l_strdupa(sys);
 				char path[MAX_PATH];
 				GetCurrentDirectoryA(sizeof(path),path);
+				if(l_str_has_suffix(sys," (x86)"))
+					sys[strlen(sys)-6]=0;
 				uac=!strncasecmp(sys,path,strlen(sys));
 			}
 			else

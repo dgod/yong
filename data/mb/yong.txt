@@ -785,7 +785,7 @@ bfke 本科
 bfkj 本刊
 bfkr 本款
 bfli 本利
-bfll 本来
+bfll 本来 兵分两路
 bflq 奔流
 bflt 北方领土
 bfly 本领
@@ -1663,6 +1663,7 @@ blnf 白嫩
 blnm 百年 拜年
 blns 摆弄
 blp 白
+blpc 白嫖
 blph 辩论会
 blpo 白
 blpy 摆平
@@ -6620,6 +6621,7 @@ ey' 而已
 eyfi 阿谀奉承
 eyht 二氧化碳
 eytf 二月份
+eytw 二一添作五
 eyvu 恶语中伤
 eywv 尔虞我诈
 ez' 而在
@@ -6769,7 +6771,7 @@ fbrf 否认
 fbud 腹背受敌
 fbuf 防不胜防
 fbuh 发布会
-fbuk 分不开
+fbuk 放不开 分不开
 fbuq 分不清
 fbuv 副部长
 fbw 缶
@@ -7593,7 +7595,7 @@ fuhb 附后
 fuhe 符合 复合 附和 负荷 复核
 fuhj 富含 复函
 fuhk 符号 富豪
-fuhl 风生鹤唳
+fuhl 风声鹤唳
 fuho 复活 俘获
 fuhp 复婚
 fuhv 附会 赴会
@@ -8035,6 +8037,7 @@ gbjw 购价 构架
 gbjx 勾结 够
 gbkm 功不可没
 gbkp 高不可攀
+gbld 狗粮
 gble 勾勒
 gblj 勾栏
 gblm 勾连
@@ -8942,6 +8945,7 @@ glql 光溜溜
 glsi 该死
 glsr 概算
 glt 垓
+gltm 改天
 gltr 垓
 glui 盖世
 gluj 改善
@@ -9177,6 +9181,7 @@ gpyr 滚圆
 gpyx 鲧
 gpzi 棍子
 gpzr 顾盼自若
+gpzx 顾盼自雄
 gq' 过去
 gqdd 高强度
 gqdj 顾全大局
@@ -9763,7 +9768,7 @@ gvqr 规劝
 gvqu 归去
 gvr 刽
 gvrd 刽
-gvru 归入
+gvru 归入 狗仗人势
 gvry 甘之如饴
 gvsm 观众们
 gvso 龟缩
@@ -11040,6 +11045,7 @@ hmgl 汗马功劳
 hmgm 灰蒙蒙
 hmha 或明或暗
 hmru 讳莫如深
+hmsv 火冒三丈
 hmyc 花名册
 hmyt 黄毛丫头
 hmyu 回眸一笑百媚生
@@ -11245,6 +11251,7 @@ hpw 珲
 hpwi 珲
 hpxc 混淆
 hpxr 昏眩
+hpxt 混血
 hpxy 荤腥
 hpy 诨
 hpyb 混有
@@ -11745,6 +11752,7 @@ hvfx 慧
 hvfz 会费
 hvg 辉
 hvgi 辉
+hvgj 和衷共济
 hvgl 悔改
 hvgo 回国 悔过
 hvgu 回顾 惠顾
@@ -12065,6 +12073,7 @@ hy' 还有
 hya 槐
 hyag 槐
 hyay 黑压压
+hybc 怀表
 hybk 怀抱
 hycb 毁誉参半
 hydc 坏掉
@@ -12130,6 +12139,7 @@ hzfw 胡作非为
 hzgb 黑狗
 hzgi 何足挂齿
 hzgo 黑锅
+hzgv 黑鬼
 hzhz 嘿嘿
 hzim 孩子们
 hziq 孩子气
@@ -13986,6 +13996,7 @@ jbun 决不能
 jbuq 经不起
 jbuu 决不是
 jbuv 记不住 经不住
+jbvd 脚不沾地
 jbwj 举步维艰
 jbyj 肩并肩
 jbyu 技不压身
@@ -15243,7 +15254,7 @@ jmvd 见状 健壮 简装 笺
 jmve 见着
 jmvf 减震 坚贞
 jmvg 见证 减征
-jmvh 简章 舰长 肩章
+jmvh 简章 舰长 肩章 近墨者黑
 jmvi 简直 兼职 监制 建制 剪纸 舰只 建置 减值
 jmvj 建站 舰 笕 简
 jmvl 减债
@@ -16449,7 +16460,7 @@ jvuv 君主制 急中生智
 jvuw 建筑物
 jvuy 借助于 见诸于 建筑业
 jvvh 记者招待会
-jvvi 近朱者赤，近墨者黑
+jvvi 近朱者赤
 jvvx 急转直下
 jvxd 见诸行动
 jvxh 禁止喧哗
@@ -17298,7 +17309,7 @@ kaba 卡巴
 kaer 卡尔
 kafu 卡夫
 kafz 咖啡
-kaia 卡嚓 咔喳
+kaia 咔嚓
 kaie 卡车
 kaii 卡尺
 kak 咖 喀 咔 咯
@@ -18548,12 +18559,14 @@ kstb 空头 空投
 kstc 空调
 kstj 空谈
 ksts 空桶
+kstx 客死他乡
 ksu 崆
 ksub 空手
 ksuf 空身
 ksug 崆
 ksux 可塑性
 ksv 箜
+ksvb 客随主便
 ksvg 箜
 ksvi 控制 空置
 ksvj 空战
@@ -18571,6 +18584,7 @@ ksxw 空暇 恐吓
 ksye 空页
 ksyp 空运
 ksyu 空余 空域
+ksyx 客死异乡
 ksz 孔
 kszg 孔
 kszi 孔子 空子
@@ -22681,6 +22695,7 @@ mhve 忙着
 mhvh 没话找话
 mhvj 门户之见
 mhvs 芒种
+mhvv 明火执仗
 mhw 盲 氓 邙
 mhwe 邙
 mhwf 盲文 忙问
@@ -23620,6 +23635,7 @@ mr' 每日
 mrbu 明人不做暗事
 mrfj 美人计
 mrfv 默认值
+mrgy 面如冠玉
 mrjj 猛然间
 mrmn 每人每年
 mrmt 每人每天
@@ -31727,6 +31743,7 @@ smig 四面楚歌
 smim 色迷迷
 smit 素面朝天
 smni 岁末年初
+smnv 驷马难追
 smpu 素昧平生
 smup 素昧生平
 smvy 三民主义
@@ -35074,6 +35091,7 @@ uaie 刹车
 uaif 沙尘
 uaih 沙场
 uais 杀虫
+uaiu 杀出
 uaix 厦
 uaj 铩
 uaja 铩
@@ -37693,6 +37711,7 @@ uvho 水货 水火
 uvhq 生长期
 uvhr 水患
 uvhu 水壶 水浒
+uvhv 睡会 谁会
 uvhw 水花 山珍海味
 uvid 谁知道
 uvie 水车
@@ -46638,6 +46657,7 @@ ybjy 幽静 又经 油井 铕 铀
 ybk 呦 囿
 ybkd 油矿 铀矿
 ybke 游客 又可
+ybkj 愚不可及
 ybkk 又靠
 ybkl 呦
 ybks 有空

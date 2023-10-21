@@ -198,7 +198,7 @@ typedef struct{
 	void (*tray_tooltip)(const char *tip);
 	
 	char *(*get_select)(int(*)(const char*));
-	void (*select_type)(char *type);
+	void (*set_select)(const char *text);
 	
 	void (*update_menu)(void);
 	void (*skin_path)(const char *p);

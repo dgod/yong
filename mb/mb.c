@@ -3529,8 +3529,30 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin)
 					pc->len=cp->len;
 					pc->pos=(int8_t)pos;
 					memcpy(pc->data,cp->data,cp->len);
-					item->list=l_slist_prepend(item->list,pc);
+					//item->list=l_slist_prepend(item->list,pc);
 					//printf("{%d}%s %s\n",pos,code,y_mb_ci_string(cp));
+					if(item->list==NULL)
+					{
+						item->list=pc;
+					}
+					else if(item->list->pos>=pc->pos)
+					{
+						pc->next=item->list;
+						item->list=pc;
+					}
+					else
+					{
+						struct y_mb_pin_ci *pp;
+						for(pp=item->list;pp!=NULL;pp=pp->next)
+						{
+							if(pp->next==NULL || pp->next->pos>=pc->pos)
+							{
+								pc->next=pp->next;
+								pp->next=pc;
+								break;
+							}
+						}
+					}
 				}
 				if(!cp->del)
 					pos++;

@@ -829,12 +829,29 @@ static void upload_clipboard_cb(int code)
 		y_ui_show_tip(YT("上传失败"));
 }
 
+/*
 static void download_clipboard_cb(int code)
 {
 	if(code==0)
 		y_ui_show_tip(YT("下载成功"));
 	else
 		y_ui_show_tip(YT("下载失败"));
+}*/
+static void download_clipboard_cb(const char *text,void *user)
+{
+	(void)user;
+	if(text==NULL)
+	{
+		y_ui_show_tip(YT("下载失败"));
+		return;
+	}
+	if(!y_ui.set_select)
+	{
+		y_ui_show_tip("不支持剪贴板粘贴");
+		return;
+	}
+	y_ui.set_select(text);
+	y_ui_show_tip(YT("下载成功"));
 }
 
 static void xim_action(const char *s)
@@ -845,7 +862,9 @@ static void xim_action(const char *s)
 	}
 	else if(!strcmp(s,"pasteCloud"))
 	{
-		y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
+		char *argv[]={"yong-config","--sync","--download-clipboard",NULL};
+		y_im_async_spawn(argv,download_clipboard_cb,NULL);
+		// y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
 	}
 }
 

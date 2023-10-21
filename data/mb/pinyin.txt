@@ -480,6 +480,7 @@ bainianshuren 百年树人
 bainianzhihao 百年之好
 bainianzhihou 百年之后
 bainong 摆弄
+baipiao 白嫖
 baiping 摆平
 baipishu 白皮书
 baiqi 白旗 白起 白棋
@@ -657,6 +658,7 @@ bangban 帮办
 bangbang 帮帮
 bangcheng 磅秤
 bangchui 棒槌
+bangdayuanyang 棒打鸳鸯
 bangdan 榜单
 bangdaomang 帮倒忙
 bangdayaoyuan 膀大腰圆
@@ -1487,6 +1489,7 @@ biansuqi 变速器
 biansuxiang 变速箱
 bianta 鞭挞
 biantai 变态
+biantaoti 扁桃体
 bianti 变体
 biantian 变天
 biantiao 便条
@@ -1802,6 +1805,7 @@ bingfazheng 并发症
 bingfei 并非
 bingfeiruci 并非如此
 bingfeng 冰封
+bingfenlianglu 兵分两路
 bingfu 禀赋
 binggan 饼干
 binggao 禀告
@@ -2330,6 +2334,7 @@ bukao 不靠 补考
 buke 不可 补课
 bukebimian 不可避免
 bukebu 不可不
+bukedejian 不可得兼
 bukeduode 不可多得
 bukefangwu 不可方物
 bukefouren 不可否认
@@ -2541,6 +2546,7 @@ buxingjie 步行街
 buxingrenshi 不省人事
 buxingzhe 步行者
 buxinxie 不信邪
+buxiqiang 补西墙
 buxiu 不朽
 buxiubianfu 不修边幅
 buxiugang 不锈钢
@@ -3069,6 +3075,7 @@ chaicheng 拆成
 chaichu 拆除
 chaichuan 拆穿
 chaidiao 拆掉
+chaidongqiang 拆东墙
 chaifen 拆分
 chaifeng 拆封
 chaihui 拆毁
@@ -4805,6 +4812,7 @@ cuileidan 催泪弹
 cuilian 淬炼
 cuilv 翠绿
 cuimian 催眠
+cuimianqu 催眠曲
 cuiming 催命
 cuiqu 萃取
 cuiren 催人
@@ -6737,6 +6745,7 @@ dongkai 洞开
 dongkou 洞口
 dongku 洞窟
 donglaxiche 东拉西扯
+dongle 懂了 动了
 dongli 动力
 dongliang 栋梁
 dongliansanjiu 冬练三九
@@ -7529,6 +7538,7 @@ eryanghualiu 二氧化硫
 eryanghuatan 二氧化碳
 eryao 而要
 eryi 而已
+eryitianzuowu 二一添作五
 eryou 而又
 eryu 耳语
 eryuan 二元
@@ -7714,6 +7724,7 @@ fangbei 防备
 fangbian 方便
 fangbianmian 方便面
 fangbing 防病
+fangbukai 放不开
 fangbushengfang 防不胜防
 fangbuxia 放不下
 fangcai 方才
@@ -8360,7 +8371,7 @@ fengshan 风扇
 fengshang 风尚
 fengshen 风神 封神
 fengsheng 风声 丰盛
-fengshengheli 风生鹤唳
+fengshengheli 风声鹤唳
 fengshengshuiqi 风生水起
 fengshenjunlang 丰神俊朗
 fengshenyanyi 封神演义
@@ -8859,6 +8870,7 @@ gaishi 盖世
 gaishu 概述 该书
 gaisi 该死
 gaisuan 概算
+gaitian 改天
 gaitianhuandi 改天换地
 gaitouhuanmian 改头换面
 gaiwei 改为
@@ -9856,6 +9868,7 @@ goujitiaoqiang 狗急跳墙
 goulan 勾栏
 goule 够了 勾勒
 goulian 勾连
+gouliang 狗粮
 goumai 购买
 goumaili 购买力
 gounian 狗年
@@ -9888,6 +9901,7 @@ gouyin 勾引
 gouyong 够用
 gouzai 狗仔
 gouzao 构造
+gouzhangrenshi 狗仗人势
 gouzhi 购置
 gouzhu 构筑
 gouzui 狗嘴
@@ -10597,6 +10611,7 @@ guozu 国足
 guozubuqian 裹足不前
 guozuleyin 过足了瘾
 gupanziruo 顾盼自若
+gupanzixiong 顾盼自雄
 gupi 孤僻
 gupiao 股票
 gupu 古朴
@@ -11191,6 +11206,7 @@ heidibaizi 黑底白字
 heidong 黑洞
 heifa 黑发
 heigou 黑狗
+heigui 黑鬼
 heiguo 黑锅
 heihei 嘿嘿
 heihu 黑户
@@ -11455,6 +11471,7 @@ hezhe 喝着
 hezhi 何止
 hezhiyuci 何至于此
 hezhong 何种
+hezhonggongji 和衷共济
 hezhu 合著
 hezhun 核准
 hezi 合资 盒子 赫兹
@@ -11758,6 +11775,7 @@ huahudie 花蝴蝶
 huahui 花卉 花会 划回
 huai 怀 坏 徊 淮 槐 踝
 huaibao 怀抱
+huaibiao 怀表
 huaibiqizui 怀璧其罪
 huaicaibuyu 怀才不遇
 huaichu 坏处
@@ -12463,6 +12481,7 @@ hunweiyiti 混为一体
 hunxiao 混淆
 hunxing 荤腥
 hunxuan 昏眩
+hunxue 混血
 hunyan 婚宴
 hunyin 婚姻
 hunyingmengrao 魂萦梦绕
@@ -12551,6 +12570,7 @@ huolu 火炉 活路
 huoluan 霍乱
 huoluo 活络
 huomai 活埋
+huomaosanzhang 火冒三丈
 huomian 豁免
 huomiao 火苗
 huoming 活命
@@ -13338,6 +13358,7 @@ jiaobian 狡辩
 jiaobinghanjiang 骄兵悍将
 jiaobu 脚步
 jiaobusheng 脚步声
+jiaobuzhandi 脚不沾地
 jiaocai 教材
 jiaocha 交叉 较差
 jiaochai 交差
@@ -14708,6 +14729,7 @@ jinmen 进门 金门
 jinmi 紧密
 jinmingliangnian 今明两年
 jinmingliangtian 今明两天
+jinmozhehei 近墨者黑
 jinmushuihuotu 金木水火土
 jinnang 锦囊
 jinnanqu 津南区
@@ -14882,6 +14904,7 @@ jinzhou 锦州 今周
 jinzhu 进驻
 jinzhuan 金砖
 jinzhui 紧追
+jinzhuzhechi 近朱者赤
 jinzi 金子 浸渍
 jinzita 金字塔
 jinzizhaopai 金字招牌
@@ -15687,6 +15710,7 @@ junzibuliweiqiangzhixia 君子不立危墙之下
 junzidongkoubudongshou 君子动口不动手
 junzilan 君子兰
 junzixieding 君子协定
+junziyiyan 君子一言
 junzong 军总
 junzuo 钧座
 jupa 惧怕
@@ -15782,7 +15806,7 @@ juzuqingzhong 举足轻重
 k 看 可 开 快 口
 ka 卡 喀 咯 咖 胩 咔 佧 呿 垰 珈 衉 裃 鉲
 kaba 卡巴
-kacha 卡嚓
+kacha 咔嚓
 kache 卡车
 kachi 卡尺
 kaer 卡尔
@@ -16508,8 +16532,11 @@ keshixing 可视性
 keshou 恪守 可收
 keshui 瞌睡 课税
 keshuo 可说
+kesitaxiang 客死他乡
+kesiyixiang 客死异乡
 kesou 咳嗽
 kesu 可塑
+kesuizhubian 客随主便
 kesuxing 可塑性
 ketan 可叹
 ketang 课堂
@@ -20868,6 +20895,7 @@ mengzou 猛揍
 mengzu 蒙族
 menhou 门后
 menhu 门户
+menhulu 闷葫芦
 menhuzhan 门户站
 menhuzhijian 门户之见
 menjiang 门将
@@ -21014,6 +21042,7 @@ mianqu 免去 棉区
 mianren 面人
 mianrong 面容
 mianruan 绵软
+mianruguanyu 面如冠玉
 mianrutaohua 面如桃花
 mianse 面色
 miansha 面纱 棉纱
@@ -21253,6 +21282,7 @@ minghuanghuang 明晃晃
 minghuayouzhu 名花有主
 minghui 名讳
 minghuo 明火
+minghuozhizhang 明火执仗
 mingji 铭记
 mingjia 名家
 mingjiang 名将
@@ -21276,6 +21306,7 @@ mingling 命令 明令
 minglinghang 命令行
 mingliu 名流
 minglu 名录
+minglukaidao 鸣锣开道
 mingluosunshan 名落孙山
 mingma 明码
 mingmai 命脉
@@ -22216,6 +22247,7 @@ naoxin 闹心
 naoxiuchengnu 恼羞成怒
 naoyan 脑炎
 naoyang 挠痒
+naoyangyang 挠痒痒
 naoyijian 闹意见
 naozai 闹灾
 naozhe 闹着
@@ -22823,6 +22855,7 @@ nita 你他
 nitan 泥潭
 nitang 泥塘
 nitian 逆天
+niting 你听 你挺
 nitong 你童
 nitu 泥土
 nituizi 泥腿子
@@ -24928,6 +24961,7 @@ qianxujinshen 谦虚谨慎
 qianxun 谦逊
 qianya 签押
 qianyan 前沿 前言 迁延
+qianyanbudahouyu 前言不搭后语
 qianyang 千阳 黔阳
 qianyanghouhe 前仰后合
 qianyanwanyu 千言万语
@@ -25433,6 +25467,7 @@ qingfang 轻纺
 qingfangchanpin 轻纺产品
 qingfen 情份
 qingfeng 清风 轻风
+qingfengxulai 清风徐来
 qingfu 轻浮 情妇 清福 倾覆
 qinggairugu 倾盖如故
 qinggan 情感
@@ -25706,6 +25741,7 @@ qinhan 秦汉
 qinheli 亲和力
 qinhua 侵华
 qinhuaibayan 秦淮八艳
+qinhuaihe 秦淮河
 qinhuangdao 秦皇岛
 qinhui 秦桧
 qinhuo 擒获
@@ -28010,6 +28046,7 @@ shachen 沙尘
 shachenbao 沙尘暴
 shachong 杀虫
 shachongji 杀虫剂
+shachu 杀出
 shachuang 纱窗
 shadaheicu 傻大黑粗
 shadai 沙袋
@@ -30635,6 +30672,7 @@ shuihu 水壶 水浒
 shuihua 水花
 shuihuan 水患
 shuihuang 水荒
+shuihui 睡会 谁会
 shuihuo 水货 水火
 shuihuobuxiangrong 水火不相容
 shuihuowuqing 水火无情
@@ -31239,6 +31277,7 @@ sima 司马
 simadanghuomayi 死马当活马医
 simadangzuohuomayi 死马当作活马医
 simai 私买 私卖
+simananzhui 驷马难追
 simao 思茅
 simaqian 司马迁
 simi 私密
@@ -34494,6 +34533,7 @@ wajue 挖掘
 wajueji 挖掘机
 wajueqianli 挖掘潜力
 wakeng 挖坑
+wakong 挖空 挖孔
 wakongxinsi 挖空心思
 waku 挖苦
 wale 挖了
@@ -38002,6 +38042,7 @@ xinjin 新近 新进 薪金
 xinjing 心境 心静
 xinjingdanzhan 心惊胆战
 xinjingroutiao 心惊肉跳
+xinjingyaoye 心旌摇曳
 xinjinzhi 薪金制
 xinjirufen 心急如焚
 xinjishu 新技术
@@ -42347,6 +42388,7 @@ yubian 预编
 yubianji 预编辑
 yubing 语病
 yubo 余波 玉帛
+yubukeji 愚不可及
 yucai 育才
 yuce 预测
 yucha 愈差
@@ -42877,6 +42919,7 @@ yuyue 预约 逾越 愉悦 鱼跃
 yuyuegan 愉悦感
 yuyuelongmen 鱼跃龙门
 yuyuerzhong 郁郁而终
+yuyuxiongzhang 鱼与熊掌
 yuzhao 预兆 雨罩
 yuzhe 遇着 余者
 yuzhen 余震
@@ -44811,6 +44854,7 @@ zhicai 制裁
 zhican 致残
 zhicha 只差 之差 枝杈
 zhichang 职场 之长
+zhichangzi 直肠子
 zhicheng 支撑 制成 职称 制程 至诚
 zhichengpin 制成品
 zhichengpingding 职称评定

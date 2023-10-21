@@ -272,7 +272,7 @@ LEARN_DATA *y_mb_learn_load(struct y_mb *mb,const char *in)
 	if(hdr.raw_size>0)
 	{
 		data->raw_size=hdr.raw_size;
-		data->raw_data=malloc(hdr.raw_size+64);
+		data->raw_data=malloc(hdr.raw_size+128);
 		if(!data->raw_data)
 		{
 			y_mb_learn_free(data);

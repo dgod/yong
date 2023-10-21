@@ -9,10 +9,10 @@ struct _lhashtable{
 	int size;
 	int offset;
 	int deref;
+	uint32_t count;
+	void **array;
 	LHashFunc hash;
 	LCmpFunc cmp;
-	void **array;
-	uint32_t count;
 };
 
 LHashTable *l_hash_table_new(int size,LHashFunc hash,LCmpFunc cmp)

@@ -1889,6 +1889,14 @@ char *ui_get_select(int (*cb)(const char *))
 	return NULL;
 }
 
+static void ui_set_select(const char *text)
+{
+	char temp[8192];
+	l_gb_to_utf8(text,temp,sizeof(temp));
+	GtkClipboard *cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	gtk_clipboard_set_text(cb,temp,-1);
+}
+
 static int menu_disable;
 static void menu_activate(GtkMenuItem *item,gpointer data)
 {
@@ -2649,6 +2657,7 @@ void ui_setup_default(Y_UI *p)
 	p->tray_tooltip=ui_tray_tooltip;
 	
 	p->get_select=ui_get_select;
+	p->set_select=ui_set_select;
 	
 	p->update_menu=ui_update_menu;
 	p->skin_path=ui_skin_path;

@@ -904,6 +904,7 @@ static gboolean quit_latter(GMainLoop *loop)
 	return FALSE;
 }
 
+#if 0
 static int set_clipboard_text(const char *text)
 {
 	setenv("GDK_BACKEND","x11",1);
@@ -917,6 +918,8 @@ static int set_clipboard_text(const char *text)
 	g_main_loop_run(main_loop);
 	return 0;
 }
+#endif
+
 #else
 static void on_get_select_cb(GtkClipboard *clipboard,const char *text,void **res)
 {
@@ -946,6 +949,7 @@ static char *get_clipboard_text(void)
 	return res;
 }
 
+#if 0
 static gboolean quit_latter(void *unused)
 {
 	gtk_main_quit();
@@ -965,6 +969,8 @@ static int set_clipboard_text(const char *text)
 	return 0;
 }
 #endif
+
+#endif
 #endif
 
 static int upload_clipboard(void)
@@ -978,7 +984,7 @@ static int upload_clipboard(void)
 		return -1;
 	char *temp=get_clipboard_text();
 	if(!temp)
-		return -2;
+		temp=l_strdup("");
 	size_t size=strlen(temp);
 	char path[256];
 	sprintf(path,"%s/clipboard.txt",y_im_get_path("HOME"));
@@ -1005,11 +1011,19 @@ static int download_clipboard(void)
 	char *text=l_file_get_contents("clipboard.txt",NULL,y_im_get_path("HOME"),NULL);
 	if(!text)
 		return -3;
+#ifdef __linux__
+	if(strlen(text)>=2*1024)
+		return -4;
+	char temp[8192];
+	l_gb_to_utf8(text,temp,sizeof(temp));
+	printf("%s",temp);
+#else
 	if(0!=set_clipboard_text(text))
 	{
 		l_free(text);
 		return -4;
 	}
+#endif
 	l_free(text);
 	return 0;
 }
