@@ -1,4 +1,4 @@
-var SRCS=['mb.c','face.c','pinyin.c','learn.c','legend.c','pyzip.c',
+var SRCS=['mb.c','face.c','pinyin.c','learn.c','assoc.c','pyzip.c',
 	'trie.c','fuzzy.c','cset.c','sentence.c'];
 var DIRS=['l32','l64',
 

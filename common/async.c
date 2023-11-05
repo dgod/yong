@@ -214,7 +214,7 @@ int y_im_async_wait(int timeout)
 	return -1;
 }
 
-#if defined(__linux__) && !defined(CFG_XIM_ANDROID)
+#if defined(__linux__) && !defined(CFG_XIM_ANDROID) && !defined(CFG_XIM_NODEJS)
 typedef struct {
 	int fd;
 	GIOChannel *ch;

@@ -755,7 +755,7 @@ int y_im_config_path(void)
 	return 0;
 }
 
-#if defined(CFG_XIM_ANDROID)
+#if defined(CFG_XIM_ANDROID) || defined(CFG_XIM_NODEJS)
 static void get_so_path(const char *file,char *out)
 {
 	FILE *fp;
@@ -790,14 +790,40 @@ static void get_so_path(const char *file,char *out)
 const char *y_im_get_path(const char *type)
 {
 	const char *ret;
-#if defined(CFG_XIM_ANDROID)
+#if defined(CFG_XIM_NODEJS)
+	if(!strcmp(type,"LIB"))
+	{
+		static char lib_path[128];
+		if(!lib_path[0])
+		{
+#ifdef OPENHARMONY
+			get_so_path("libyong.so",lib_path);
+#else
+			get_so_path("yong.node",lib_path);
+#endif
+		}
+		ret=lib_path;
+	}
+	else if(!strcmp(type,"HOME"))
+	{
+		ret=L_TO_STR(YONG_HOME_PATH);
+		if(!l_file_exists(ret))
+		{
+			l_mkdir(ret,0700);
+		}
+	}
+	else
+	{
+		ret=L_TO_STR(YONG_DATA_PATH);
+	}
+#elif defined(CFG_XIM_ANDROID)
 	if(!strcmp(type,"LIB"))
 	{
 		static char lib_path[128];
 		//ret="/data/data/net.dgod.yong/lib";
 		if(!lib_path[0])
 			get_so_path("libyong.so",lib_path);
-		ret=lib_path;			
+		ret=lib_path;	
 	}
 	else if(!strcmp(type,"HOME"))
 	{

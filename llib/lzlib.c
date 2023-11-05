@@ -22,6 +22,12 @@ typedef struct
    uint16_t value[288]; 
 } zhuffman;
 
+#if defined(__has_builtin) && __has_builtin(__builtin_bitreverse16)
+static inline int bit_reverse(int v, int bits)
+{
+	return __builtin_bitreverse16(v) >> (16-bits);
+}
+#else
 static inline int bitreverse16(int n)
 {
   n = ((n & 0xAAAA) >>  1) | ((n & 0x5555) << 1);
@@ -38,6 +44,7 @@ static inline int bit_reverse(int v, int bits)
    // e.g. 11 bits, bit reverse and shift away 5
    return bitreverse16(v) >> (16-bits);
 }
+#endif
 
 static int zbuild_huffman(zhuffman *z, uint8_t *sizelist, int num)
 {

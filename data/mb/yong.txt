@@ -4482,6 +4482,7 @@ dgxc 等效
 dgxm 等闲
 dgy 邓
 dgye 邓
+dgyi 道高一尺
 dgyj 瞪眼
 dgyt 登月
 dgyu 等于
@@ -5128,6 +5129,7 @@ dlfu 大夫
 dlfv 大力发展
 dlgb 代沟
 dlgz 带给
+dlhd 雕梁画栋
 dlhk 代号
 dlhv 带回
 dlia 待查
@@ -8942,6 +8944,7 @@ glnm 概念
 glo 胲
 glor 胲
 glql 光溜溜
+glri 改日
 glsi 该死
 glsr 概算
 glt 垓
@@ -11492,6 +11495,7 @@ hss 红
 hsse 红色
 hssg 红
 hsth 红糖
+hstj 红毯
 hstl 哄抬
 hsto 烘托
 hstu 宏图
@@ -13087,7 +13091,7 @@ ijdi 产地
 ijdl 单
 ijds 颤动
 ijdv 冁
-ijdy 禅定
+ijdy 禅定 穿金戴银
 ijf 搀 掺
 ijfa 阐发
 ijfe 搀
@@ -16519,7 +16523,7 @@ jwfh 甲方 家访 家纺
 jwfj 挟
 jwfl 见闻录
 jwfm 讲文明 泾渭分明
-jwfu 加付
+jwfu 家父
 jwfx 恝
 jwfz 钾肥
 jwgb 架构
@@ -20342,6 +20346,7 @@ llge 来个
 llgk 来稿
 llgo 来过
 llgz 来给
+llhh 流浪汉
 llhj 来函
 llho 来货
 llhv 来回
@@ -22629,6 +22634,7 @@ mgyk 猛药
 mgyn 蒙阴
 mgyr 蒙冤
 mgyt 盟约
+mgyv 魔高一丈
 mgz 孟 勐
 mgzb 猛揍
 mgzg 猛增
@@ -23166,6 +23172,7 @@ mlub 麦收
 mlue 埋设
 mluf 卖身
 mlum 卖
+mluu 名利双收
 mluw 名列首位
 mlv 买
 mlve 埋着 买者 卖者 迈着
@@ -23911,7 +23918,7 @@ mxy 谂
 mxyb 慢性病
 mxyl 木秀于林，风必摧之
 mxyq 每星期
-mxyx 谂
+mxyx 谂 命悬一线
 mxyz 慢性子
 mxzu 灭族
 mxzw 扪心自问
@@ -24129,7 +24136,7 @@ mzih 每场
 mzii 没吃
 mzik 美钞
 mzil 美差
-mzir 每船
+mzir 没穿 每船
 mziz 美滋滋
 mzj 镁 镅
 mzjc 没交
@@ -30891,6 +30898,7 @@ rv;n 汭
 rv' 认真
 rva 枘
 rvan 瑞安 枘
+rvbk 如坠冰窟
 rvc 芮 蕤 蕊
 rvcn 芮
 rvcu 蕤
@@ -30973,6 +30981,7 @@ ryjr 荣誉军人
 ryju 软硬兼施
 ryjv 燃用价值
 rykw 人言可畏
+rylx 仁义礼智信
 rymf 人仰马翻
 ryrb 若要人不知，除非己莫为
 ryrj 人与人之间
@@ -31343,7 +31352,7 @@ sijq 四旧 私酒
 sijw 四家
 sijx 四届 锶
 sik 嘶 嗣 咝 四
-sike 私刻 似可 四
+sike 死磕 私刻 似可 四
 sikj 随处可见 嘶
 sikk 思考
 sikl 撕开
@@ -35554,7 +35563,7 @@ uebc 射表
 uebj 视而不见
 uebu 十恶不赦
 uebx 赊
-uebz 设备
+uebz 设备 述而不作
 ued 奢
 uedc 舍掉
 uede 舍得
@@ -37855,6 +37864,7 @@ uwfv 水文站
 uwfw 身无分文
 uwgl 事务管理
 uwgz 涉外工作
+uwhb 耍猴
 uwhd 涉外活动
 uwhj 十万火急
 uwhm 视网膜
@@ -38623,7 +38633,7 @@ verf 这人 哲人
 verh 这让
 verj 专而精
 veru 折辱
-vesi 这死
+vesi 这厮 哲思
 vesj 折伞
 vesp 折损
 vesr 折算
@@ -45108,6 +45118,7 @@ xrlv 旋律
 xrmb 欣然命笔
 xrmc 玄妙
 xrmn 选民
+xrmu 炫目
 xrmz 选美
 xrnk 喧闹
 xrnm 悬念
@@ -46657,7 +46668,7 @@ ybjy 幽静 又经 油井 铕 铀
 ybk 呦 囿
 ybkd 油矿 铀矿
 ybke 游客 又可
-ybkj 愚不可及
+ybkj 愚不可及 遥不可及
 ybkk 又靠
 ybkl 呦
 ybks 有空

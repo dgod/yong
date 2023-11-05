@@ -5,7 +5,7 @@
 #include "gbk.h"
 #include "pinyin.h"
 #include "learn.h"
-#include "legend.h"
+#include "assoc.h"
 #include "cset.h"
 #include "fuzzy.h"
 #include "sentence.h"
@@ -496,7 +496,7 @@ static int TableInitReal(const char *arg)
 		name=EIM.GetConfig(0,"assoc_dict");
 		if(name && name[0])
 		{
-			assoc_handle=y_legend_new(name,assoc_save);
+			assoc_handle=y_assoc_new(name,assoc_save);
 		}
 	}
 	
@@ -608,7 +608,7 @@ static int TableDestroy(void)
 	y_mb_free(mb);
 	mb=NULL;
 	sentence_destroy();
-	y_legend_free(assoc_handle);
+	y_assoc_free(assoc_handle);
 	assoc_handle=NULL;
 	l_array_free(zi_output_codes,NULL);
 	zi_output_codes=NULL;
@@ -820,7 +820,7 @@ static char *TableGetCandWord(int index)
 	// 联想词组调频
 	if(assoc_mode && assoc_handle && assoc_move)
 	{
-		y_legend_move(assoc_handle,ret);
+		y_assoc_move(assoc_handle,ret);
 	}
 
 	// 词组自动调频
@@ -877,13 +877,13 @@ static int TableUpdateAssoc(int *mode)
 			if(!from) continue;
 			if(assoc_handle)
 			{
-				g->count=y_legend_get(
+				g->count=y_assoc_get(
 					assoc_handle,from,strlen(from),
 					assoc_count,g->phrase,g->size);
 			}
 			else
 			{
-				g->count=y_mb_get_legend(
+				g->count=y_mb_get_assoc(
 					mb,from,strlen(from),
 					assoc_count,g->phrase,Y_MB_DATA_CALC);
 			}
@@ -902,13 +902,13 @@ static int TableUpdateAssoc(int *mode)
 			sprintf(temp,"%s%s",h,from);
 			if(assoc_handle)
 			{
-				g->count=y_legend_get(
+				g->count=y_assoc_get(
 					assoc_handle,temp,strlen(temp),
 					assoc_count,g->phrase,Y_MB_DATA_CALC);
 			}
 			else
 			{
-				g->count=y_mb_get_legend(
+				g->count=y_mb_get_assoc(
 					mb,temp,strlen(temp),
 					assoc_count,g->phrase,Y_MB_DATA_CALC);
 			}
@@ -2110,6 +2110,16 @@ static int TableCall(int index,...)
 		if(at==-1)
 			at=EIM.CurCandPage*EIM.CandWordMaxReal;
 		res=cset_output(&cs,at,num,cand,tip);
+		if(mb->yong && (EIM.CodeLen==2 || EIM.CodeLen==3))
+		{
+			for(int i=0;i<res;i++)
+			{
+				if(i==0 && at==0)
+					continue;
+				if(tip[i][0]) continue;
+				y_mb_calc_yong_tip(mb,EIM.CodeInput,cand[i],tip[i]);
+			}
+		}
 		break;
 	}
 	default:
@@ -3122,7 +3132,7 @@ static char *PinyinGetCandWord(int index)
 
 			if(assoc_mode && assoc_handle && assoc_move)
 			{
-				y_legend_move(assoc_handle,EIM.StringGet);
+				y_assoc_move(assoc_handle,EIM.StringGet);
 			}
 		}
 	}
@@ -3173,13 +3183,13 @@ static int PinyinGetCandwords(int mode)
 		CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
 		if(assoc_handle)
 		{
-			g->count=y_legend_get(
+			g->count=y_assoc_get(
 				assoc_handle,from,strlen(from),
 				assoc_count,g->phrase,Y_MB_DATA_CALC);
 		}
 		else
 		{
-			g->count=y_mb_get_legend(
+			g->count=y_mb_get_assoc(
 				mb,from,strlen(from),
 				assoc_count,g->phrase,Y_MB_DATA_CALC);
 		}

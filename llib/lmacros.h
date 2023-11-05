@@ -37,6 +37,9 @@
 #define L_CAT(a,b) L_CAT_IMPL(a,b)
 #define L_CAT_IMPL(a,b) a##b
 
+#define L_TO_STR_IMPL(s)	#s
+#define L_TO_STR(s)	L_TO_STR_IMPL(s)
+
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #endif

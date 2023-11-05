@@ -5937,7 +5937,7 @@ struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand)
 struct _l_item{struct y_mb_ci *c;int f;};
 static int _l_item_cmpar(struct _l_item *it1,struct _l_item *it2)
 {return it2->f-it1->f;}
-int y_mb_get_legend(struct y_mb *mb,const char *src,int slen,
+int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,
 		int dlen,char calc[][MAX_CAND_LEN+1],int max)
 {
 	struct y_mb_zi *z,kz;

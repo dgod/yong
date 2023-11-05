@@ -11,13 +11,13 @@ typedef struct{
 	uint32_t index[0x8000];
 	size_t size;
 	int dirty;
-}LEGEND;
+}ASSOC;
 
 extern EXTRA_IM EIM;
 
-void *y_legend_new(const char *file,int save)
+void *y_assoc_new(const char *file,int save)
 {
-	LEGEND *p;
+	ASSOC *p;
 	FILE *fp;
 	const uint8_t *s;
 	int prev=0;
@@ -38,7 +38,7 @@ void *y_legend_new(const char *file,int save)
 		fclose(fp);
 		return NULL;
 	}
-	p=l_new0(LEGEND);
+	p=l_new0(ASSOC);
 	if(save)
 		p->file=l_strdup(file);
 	p->size=size;
@@ -68,7 +68,7 @@ next_line:
 	return p;
 }
 
-static int y_legend_save(LEGEND *p)
+static int y_assoc_save(ASSOC *p)
 {
 	FILE *fp;
 	if(!p || !p->dirty || !p->file)
@@ -81,27 +81,27 @@ static int y_legend_save(LEGEND *p)
 	return 0;
 }
 
-void y_legend_free(void *handle)
+void y_assoc_free(void *handle)
 {
-	LEGEND *p=handle;
+	ASSOC *p=handle;
 	if(!p) return;
-	y_legend_save(p);
+	y_assoc_save(p);
 	l_free(p->data);
 	l_free(p->file);
 	l_free(p);
 }
 
-void y_legend_reset(void *handle)
+void y_assoc_reset(void *handle)
 {
-	LEGEND *p=handle;
+	ASSOC *p=handle;
 	if(!p) return;
 	p->src[0]=0;
 }
 
-int y_legend_get(void *handle,const char *src,int slen,
+int y_assoc_get(void *handle,const char *src,int slen,
                 int dlen,char calc[][MAX_CAND_LEN+1],int max)
 {
-	LEGEND *p=handle;
+	ASSOC *p=handle;
 	int count=0;
 	uint32_t pos;
 	const uint8_t *s=(const uint8_t *)src;
@@ -177,9 +177,9 @@ skip:;
 	return count;
 }
 
-void y_legend_move(void *handle,const char *phrase)
+void y_assoc_move(void *handle,const char *phrase)
 {
-	LEGEND *p=handle;
+	ASSOC *p=handle;
 	uint32_t pos;
 	char temp[512];
 	const uint8_t *s=p->src;

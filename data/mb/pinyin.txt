@@ -2552,6 +2552,7 @@ buxiubianfu 不修边幅
 buxiugang 不锈钢
 buxu 不许 不须
 buxucisheng 不虚此生
+buxucixing 不虚此行
 buxue 补血
 buxuewushu 不学无术
 buya 不雅
@@ -4151,6 +4152,7 @@ chuanjia 传家
 chuanjiabao 传家宝
 chuanjiang 串讲 船浆
 chuanjiao 传教
+chuanjindaiyin 穿金戴银
 chuanjing 传经
 chuankai 传开
 chuankong 穿孔
@@ -5113,6 +5115,7 @@ dahailaozhen 大海捞针
 dahan 大喊 大汉 大寒 打鼾 大旱
 dahao 大好 打好
 dahaoshi 大好事
+dahaqian 打哈欠
 dahe 大河
 dahechang 大合唱
 dahei 大黑 打黑
@@ -5618,6 +5621,7 @@ daofeng 刀锋
 daofu 倒伏
 daogang 到港
 daogao 祷告
+daogaoyichi 道高一尺
 daoge 倒戈
 daogou 导购
 daogu 稻谷 捣鼓
@@ -6228,6 +6232,7 @@ diaolan 吊兰 吊篮 雕栏 雕阑
 diaole 掉了 调了 钓了 吊了
 diaolei 掉泪
 diaoli 调离
+diaolianghuadong 雕梁画栋
 diaolianzi 掉链子
 diaoling 凋零 调令
 diaoluo 掉落 凋落
@@ -8865,6 +8870,7 @@ gainian 概念
 gainianhua 概念化
 gaiqiyizhi 改旗易帜
 gaiqu 该去 该区 改去 该曲
+gairi 改日
 gaishan 改善
 gaishi 盖世
 gaishu 概述 该书
@@ -9504,6 +9510,7 @@ gerenban 个人版
 gerendeshi 个人得失
 gerensuodeshui 个人所得税
 geri 隔日
+gerouweiying 割肉喂鹰
 gesanchawu 隔三差五
 gese 各色
 geshe 割舍
@@ -9923,6 +9930,7 @@ guahudao 刮胡刀
 guai 怪 乖 拐 掴 夬
 guaibing 怪病
 guaibude 怪不得
+guaibugowan 拐不过弯
 guaidan 怪诞
 guaidian 拐点
 guaiguai 乖乖
@@ -11568,6 +11576,7 @@ hongshu 红薯
 hongshui 洪水
 hongshuimengshou 洪水猛兽
 hongtai 哄抬
+hongtan 红毯
 hongtang 红糖
 hongtangdaxiao 哄堂大笑
 hongtongtong 红彤彤 红通通
@@ -12774,7 +12783,7 @@ jiafang 甲方 家访 家纺
 jiafei 钾肥
 jiafen 加分
 jiafeng 夹缝 加封
-jiafu 加付
+jiafu 家父
 jiagai 加盖
 jiagao 加高 价高
 jiage 价格 加个 嫁个
@@ -15561,6 +15570,7 @@ jujin 距今 拘禁 拘谨
 jujinghuishen 聚精会神
 jujishou 狙击手
 juju 聚居
+jujuduxing 踽踽独行
 jujue 拒绝 咀嚼
 jujuqu 聚居区
 jukai 拒开
@@ -17854,7 +17864,7 @@ leguanzhuyi 乐观主义
 leguanzhuyizhe 乐观主义者
 lehehe 乐呵呵
 lehua 乐华
-lei 类 泪 累 雷 蕾 垒 磊 擂 肋 儡 羸 诔 镭 嘞 檑 嫘 缧 酹 耒 勒 漯 礌
+lei 类 泪 累 雷 蕾 垒 磊 擂 肋 儡 羸 诔 镭 嘞 檑 嫘 缧 酹 耒 勒 漯 礌 罍
 leibao 雷暴
 leibi 类比
 leibie 类别
@@ -19149,6 +19159,7 @@ liukou 流寇
 liukoushui 流口水
 liulan 浏览
 liulang 流浪
+liulanghan 流浪汉
 liulanqi 浏览器
 liule 留了 流了 溜了
 liulei 流泪
@@ -20526,7 +20537,7 @@ meiche 每车
 meicheng 美称
 meichengxiang 没成想
 meichi 没吃
-meichuan 每船
+meichuan 没穿 每船
 meici 每次
 meicuo 没错
 meida 每打
@@ -21304,6 +21315,7 @@ minglieqianmao 名列前茅
 minglieshouwei 名列首位
 mingling 命令 明令
 minglinghang 命令行
+minglishuangshou 名利双收
 mingliu 名流
 minglu 名录
 minglukaidao 鸣锣开道
@@ -21371,6 +21383,7 @@ mingxing 明星
 mingxinkegu 铭心刻骨
 mingxinpian 明信片
 mingxiuzhandao 明修栈道
+mingxuanyixian 命悬一线
 mingyan 名言 名烟
 mingyang 名扬
 mingyanren 明眼人
@@ -21566,6 +21579,7 @@ mofei 莫非
 mofeiwangtu 莫非王土
 mofen 墨粉
 mogaoku 莫高窟
+mogaoyizhang 魔高一丈
 mogen 摩根
 mogendatong 摩根大通
 mogu 蘑菇
@@ -23402,6 +23416,7 @@ pandu 判读
 panduan 判断
 panduanli 判断力
 panduannengli 判断能力
+panduola 潘多拉
 panfa 判罚
 panfu 攀附
 pang 旁 庞 胖 乓 膀 磅 彷 螃 滂 耪 逄 房 蒡 雱
@@ -27037,6 +27052,7 @@ renyanxishao 人烟稀少
 renyao 人妖
 renyi 任意 仁义
 renyidaode 仁义道德
+renyilizhixin 仁义礼智信
 renying 人影
 renyong 任用
 renyou 任由
@@ -27624,6 +27640,7 @@ ruzhipin 乳制品
 ruzhou 汝州
 ruzhu 入住 入主
 ruzhui 入赘
+ruzhuibingku 如坠冰窟
 ruzhulv 入住率
 ruzi 褥子
 ruzikejiao 孺子可教
@@ -30407,6 +30424,7 @@ shuabai 刷白
 shuabiganzi 耍笔杆子
 shuadapai 耍大牌
 shuafeng 耍风
+shuahou 耍猴
 shuahuaqiang 耍花腔
 shuahuatou 耍滑头
 shuahuazhao 耍花招
@@ -30589,6 +30607,7 @@ shuding 书钉
 shudu 熟读 数度
 shudui 书堆
 shue 数额
+shuerbuzuo 述而不作
 shufa 书法 抒发
 shufajia 书法家
 shufang 书房
@@ -31248,7 +31267,7 @@ sijushi 四居室
 sikai 撕开
 sikao 思考 司考
 sikaoti 思考题
-sike 似可 私刻
+sike 死磕 似可 私刻
 sikong 司空
 sikongjianguan 司空见惯
 siku 私库 司库
@@ -38710,6 +38729,7 @@ xuanmei 选美
 xuanmiao 玄妙
 xuanmin 选民
 xuanminzheng 选民证
+xuanmu 炫目
 xuannao 喧闹
 xuannian 悬念
 xuanniu 旋钮
@@ -39723,6 +39743,7 @@ yaobei 要被
 yaobi 要比
 yaobu 要不 腰部
 yaobude 要不得
+yaobukeji 遥不可及
 yaoburan 要不然
 yaobushi 要不是
 yaobuyao 要不要
@@ -44747,7 +44768,7 @@ zheshi 这是 这事 这使 这时
 zheshihou 这时候
 zheshouge 这首歌
 zheshuang 这双
-zhesi 这死
+zhesi 这厮 哲思
 zhesuan 这算 折算
 zhesun 折损
 zheta 这他

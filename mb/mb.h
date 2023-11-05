@@ -285,7 +285,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_get(struct y_mb *mb,int at,int num,
 	char cand[][MAX_CAND_LEN+1],char tip[][MAX_TIPS_LEN+1]);
 struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand);
-int y_mb_get_legend(struct y_mb *mb,const char *src,int slen,
+int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,
 		int dlen,char calc[][MAX_CAND_LEN+1],int max);
 int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super);
 int y_mb_get_simple(struct y_mb *mb,char *code,char *data,int p);

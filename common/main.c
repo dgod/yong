@@ -748,6 +748,7 @@ void update_input_window(void)
 	y_ui_cfg_ctrl("onspot",y_im_get_config_int("IM","onspot"));
 }
 
+#if !defined(CFG_BUILD_LIB)
 static void update_config_translate(void)
 {
 	char *config=y_im_get_config_string("main","translate");
@@ -755,6 +756,7 @@ static void update_config_translate(void)
 	y_translate_init(config);
 	l_free(config);
 }
+#endif
 
 static void update_config_skin(void)
 {
@@ -2632,7 +2634,7 @@ int main(int arc,char *arg[])
 	y_im_load_book();
 	y_im_history_init();
 	y_im_speed_init();
-#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
+#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__) && !defined(CFG_XIM_NODEJS)
 	y_im_load_app_config();
 #endif
 	
@@ -2690,7 +2692,7 @@ int y_main_init(int index)
 	InputNoShow=y_im_get_config_int("input","noshow");
 	y_im_load_urls();
 	y_im_load_book();
-#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
+#if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__) && !defined(CFG_XIM_NODEJS)
 	y_im_load_app_config();
 #endif
 	y_xim_init(NULL);
