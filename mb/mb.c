@@ -3341,10 +3341,6 @@ int mb_load_assist_code(struct y_mb *mb,FILE *fp,int pos)
 			if(clen>=pos && ((dlen==2 && gb_is_gbk((uint8_t*)data)) || 
 					(dlen==4 && gb_is_gb18030_ext((uint8_t*)data))))
 			{
-				char temp[64];
-				char gb[dlen+1];
-				memcpy(gb,data,dlen);gb[dlen]=0;
-				l_gb_to_utf8(gb,temp,64);
 				mb_add_zi(mb,line+pos,clen-pos,data,dlen,0);
 			}
 			data+=dlen;
@@ -3781,6 +3777,11 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 			if(list[0])
 			{
 				strcpy(mb->push,list[0]);
+				for(i=0;mb->push[i]!=0;i++)
+				{
+					if(mb->push[i]=='_')
+						mb->push[i]=' ';
+				}
 				if(list[1]) strcpy(stop,list[1]);
 			}
 			l_strfreev(list);
@@ -6230,6 +6231,23 @@ static int mb_super_test(struct y_mb *mb,struct y_mb_ci *c,char super)
 		{
 			s-=2;
 		}
+	}
+	if(mb->ass_mb && !mb->ass_lead)		// use extern assist code instead
+	{
+		mb=mb->ass_mb;
+		int key=mb->key[(int)super];
+		super=mb->map[(int)key];
+		if(!super)
+			return 0;
+		z=mb_find_zi(mb,(const char*)s);
+		if(!z)
+			return 0;
+		for(p=z->code;p;p=p->next)
+		{
+			if(super==((p->val>>8)&0x3f))
+			return 1;
+		}
+		return 0;
 	}
 	z=mb_find_zi(mb,(const char*)s);
 	if(!z)

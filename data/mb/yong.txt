@@ -1665,6 +1665,7 @@ blns 摆弄
 blp 白
 blpc 白嫖
 blph 辩论会
+blpk 白跑 白袍
 blpo 白
 blpy 摆平
 blqd 百强
@@ -5579,7 +5580,7 @@ dpzw 蹾
 dq 丢 铥
 dq' 的确
 dqdc 丢掉
-dqdl 大起大落
+dqdl 大起大落 大权独揽
 dqgr 丢官
 dqgz 丢给
 dqhi 荡气回肠
@@ -7505,6 +7506,7 @@ fqfg 非亲非故
 fquf 分清是非
 fqwu 废寝忘食
 fqwv 风情万种
+fqyd 风轻云淡
 fqyy 风起云涌
 fqyz 封妻荫子
 fqzu 飞禽走兽
@@ -7794,6 +7796,7 @@ fwtd 服务态度
 fwuf 服务费
 fwuq 服务器
 fwuy 服务业 服务员
+fwzl 非我族类
 fx' 发现
 fxbx 放心不下
 fxdb 风向标
@@ -7920,6 +7923,7 @@ fzpn 废品 妃嫔
 fzq 狒
 fzqf 狒
 fzqi 废弃 废气
+fzqm 费钱
 fzqt 肥缺
 fzrb 肥肉
 fzrf 非人
@@ -8120,6 +8124,7 @@ gddx 光碟
 gdeq 各地区
 gdfj 广泛
 gdfu 光复 光伏
+gdgd 逛逛 光光 咣咣
 gdgk 广告
 gdgp 光棍
 gdgu 光顾
@@ -9276,6 +9281,7 @@ grng 婠
 grnm 观念
 grnz 关内
 grqd 官腔
+grqi 关起
 grqw 关卡
 grqx 关切
 grr 倌
@@ -10120,6 +10126,7 @@ hbvs 厚重
 hbvu 篌
 hbvv 后缀
 hbwh 厚望
+hbws 悍不畏死
 hbwz 后卫
 hbxr 候选 互不相让
 hbxu 后续
@@ -10224,7 +10231,7 @@ hdtu 黄土
 hdu 磺
 hdua 黄沙
 hdub 磺
-hduh 皇上
+hduh 皇上 河东狮吼
 hdui 皇室
 hduj 黄山 黄鳝 荒山
 hdul 黄色
@@ -11504,6 +11511,7 @@ hsuk 红烧
 hsuu 红薯
 hsuv 洪水
 hsva 轰炸
+hsvr 红砖
 hsvs 红肿
 hswz 宏伟
 hsxm 红线
@@ -13750,7 +13758,7 @@ iujl 崇山峻岭 锄
 iujm 初见 出剑 初建
 iujq 初九
 iujt 触觉 处决
-iuju 出具 出局 初具 雏菊
+iuju 出具 出局 初具 雏菊 长生久视
 iujw 出价 出家 出嫁
 iujx 出借 出界
 iujy 处境 出境
@@ -13933,6 +13941,7 @@ ixdt 长吁短叹
 ixer 趁虚而入
 ixff 差相仿佛
 ixiy 诚心诚意
+ixjl 处心积虑
 ixkv 程序控制
 ixry 诚心如意
 ixsi 垂涎三尺
@@ -14696,7 +14705,7 @@ jijw 极佳 计价 机架 几家 几架
 jijx 季节 集结 机械 忌
 jijy 寂静 几经 机警 机井 即景
 jik 叽 唧 咭 哜 戢
-jikb 几口 极口
+jikb 几口 忌口
 jike 即可 即刻 既可 饥渴 机壳 唧
 jikg 戢
 jikj 季刊 叽
@@ -15854,6 +15863,7 @@ jqtl 就太 九台
 jqtm 九天
 jqto 久拖
 jqts 酒桶
+jqty 就听
 jqub 就手
 jqug 救生
 jqui 就是 就使 九十 九时 就势 旧事 旧式 旧时
@@ -17138,6 +17148,7 @@ jyml 静脉 经脉
 jymm 镜面
 jymn 警民
 jymo 静默 精
+jymt 金玉满堂
 jymu 敬慕
 jymy 精明
 jymz 精美
@@ -18579,7 +18590,7 @@ ksvr 空转
 ksvs 空中
 kswf 空文
 kswz 空位
-ksxd 空想
+ksxd 空想 空箱 空饷
 ksxi 空隙 空袭 孔隙
 ksxm 空闲
 ksxn 空心
@@ -19338,6 +19349,7 @@ ldag 老大哥
 ldan 两岸 老大娘 老大难
 ldax 椋
 lday 老大爷
+ldba 两把
 ldbc 量表
 ldbd 雷打不动 辽东半岛
 ldbi 两笔 谅必 漏洞百出
@@ -24293,7 +24305,7 @@ naff 那份 拿分 哪份
 nafx 捺
 nage 哪个 那个
 nagl 那该
-nago 纳过
+nago 拿过
 nags 纳贡
 nagz 拿给
 nahj 呐喊
@@ -24618,7 +24630,7 @@ nifn 旎
 nify 拟
 nigd 逆光
 nige 你哥 你个
-nigj 你干
+nigj 你敢 你干
 nigk 拟稿
 nigl 农场管理
 nigu 尼姑
@@ -25237,6 +25249,7 @@ nowz 挪威
 nox 懦
 noxe 懦
 noy 诺
+noyi 挪移
 noyj 诺言
 noys 挪用
 noyy 诺
@@ -26702,6 +26715,7 @@ pkuf 炮身
 pkug 炮声
 pkui 剖视
 pkve 跑着
+pkvf 疱疹
 pkvi 炮制 抛掷
 pkvr 抛砖
 pkwl 跑外
@@ -29510,6 +29524,7 @@ qxb 窃
 qxbd 窃
 qxbm 去向不明
 qxbu 且不
+qxby 其心必异
 qxc 茄
 qxck 茄
 qxcl 切菜
@@ -33789,6 +33804,7 @@ tmlj 天蓝
 tmll 天籁
 tmlm 田联
 tmln 田林
+tmlo 田螺
 tmlp 天伦
 tmlr 添乱
 tmls 天龙
@@ -37357,6 +37373,7 @@ urvf 率真
 urvi 率直
 urvu 拴住
 urwd 视若无睹
+urww 视若无物
 urxu 射人先射马，擒贼先擒王
 urxy 率性
 uryb 授人以柄
@@ -37855,6 +37872,7 @@ uwbl 刷白 十万八千里
 uwct 手无寸铁
 uwdv 水文地质
 uwdw 涉外单位
+uwdz 识文断字
 uwe 耍
 uwen 耍
 uwfb 史文彬
@@ -37870,6 +37888,7 @@ uwhj 十万火急
 uwhm 视网膜
 uwhw 水汪汪
 uwil 事务处理
+uwiw 身无长物
 uwjh 生物进化
 uwjj 涉外经济
 uwju 手挽手
@@ -40051,6 +40070,7 @@ vmct 抓苗头
 vmcu 专门从事
 vmdi 专门调查
 vmdl 争名夺利
+vmdu 钟鸣鼎食
 vmdx 指名道姓
 vmfh 专门化
 vmfm 装门面
@@ -51496,6 +51516,7 @@ zpz 遵
 zpzc 遵
 zq' 足球
 zqbx 自强不息
+zqdl 紫气东来
 zqdn 早起的鸟儿有虫吃，早起的虫儿被鸟吃
 zqgn 在全国范围内
 zqhl 增强活力

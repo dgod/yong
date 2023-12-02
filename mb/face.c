@@ -1324,9 +1324,11 @@ static int TableDoInput(int key)
 			ph=EIM.CandTable[EIM.SelectIndex];
 		else if(!EIM.CodeLen && EIM.GetSelect)
 		{
-			ph=EIM.GetSelect(TableOnVirtQuery);
-			if(ph==NULL)
+			char *temp=EIM.GetSelect(TableOnVirtQuery);
+			if(temp==NULL)
 				return IMR_BLOCK;
+			ph=l_strdupa(temp);
+			l_free(temp);
 		}
 		return TableOnVirtQuery(ph);
 	}
@@ -2118,6 +2120,26 @@ static int TableCall(int index,...)
 					continue;
 				if(tip[i][0]) continue;
 				y_mb_calc_yong_tip(mb,EIM.CodeInput,cand[i],tip[i]);
+			}
+		}
+		struct y_mb *active=Y_MB_ACTIVE(mb);
+		if(active==mb->ass_mb)
+		{
+			/* hint the main mb's code */
+			for(int i=0;i<res;i++)
+			{
+				int len;
+				char *data=cand[i];
+				tip[i][0]=0;
+				len=strlen(data);
+				if((len==2 && gb_is_gbk(data)) || (len==4 && gb_is_gb18030_ext(data)))
+				{
+					y_mb_get_full_code(mb,data,tip[i]);
+				}
+				else
+				{
+					y_mb_get_exist_code(mb,data,tip[i]);
+				}
 			}
 		}
 		break;
@@ -3488,9 +3510,11 @@ static int PinyinDoInput(int key)
 			ph=EIM.CandTable[EIM.SelectIndex];
 		else if(!EIM.CodeLen && EIM.GetSelect)
 		{
-			ph=EIM.GetSelect(TableOnVirtQuery);
-			if(ph==NULL)
+			char *temp=EIM.GetSelect(TableOnVirtQuery);
+			if(temp==NULL)
 				return IMR_BLOCK;
+			ph=l_strdupa(temp);
+			l_free(temp);
 		}
 		return TableOnVirtQuery(ph);
 	}
@@ -3516,6 +3540,7 @@ static int PinyinDoInput(int key)
 		if(SP)
 		{
 			py_conv_from_sp(EIM.CodeInput,code,sizeof(code),0);
+			strcat(code,CodeTips[EIM.SelectIndex]);
 		}
 		else
 		{

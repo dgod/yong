@@ -12,7 +12,6 @@ function copy_data(){
 	
 	cp('../data/README.txt','yong/');
 	cp('../data/yong.chm', 'yong/');
-	cp('../data/keyboard.ini','yong/');
 	cp('../data/bihua.bin','yong/');
 	cp('../data/normal.txt','yong/');
 	cp('../data/mb/wbx.txt','yong/mb/');

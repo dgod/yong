@@ -1589,13 +1589,25 @@ static char **y_im_parse_argv(const char *s,int size)
 		}
 		else if(!strcmp(p,"$CAND"))
 		{
-			if(!im.eim || !im.eim->CandWordCount)
+			EXTRA_IM *eim=YongCurrentIM();
+			if(!eim || !eim->CandWordCount)
 			{
 				l_ptr_array_free(arr,l_free);
 				return NULL;
 			}
 			l_free(p);
-			l_ptr_array_nth(arr,i)=l_strdup(im.eim->CandTable[im.eim->SelectIndex]);
+			l_ptr_array_nth(arr,i)=l_strdup(eim->CandTable[eim->SelectIndex]);
+		}
+		else if(!strcmp(p,"$CODE"))
+		{
+			EXTRA_IM *eim=YongCurrentIM();
+			if(!eim || !eim->CodeLen)
+			{
+				l_ptr_array_free(arr,l_free);
+				return NULL;
+			}
+			l_free(p);
+			l_ptr_array_nth(arr,i)=l_strdup(eim->CodeInput);
 		}
 		else if(!strcmp(p,"$CLIPBOARD"))
 		{

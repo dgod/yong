@@ -72,18 +72,19 @@ static inline int gb_is_gbk_ext(const uint8_t *s)
 	return (s[0]<=0xFE && s[0]>=0x81 && s[1]<=0xFE && s[1]>=0x40 && s[1]!=0x7F);
 }
 
-static inline int gb_is_gbk(const uint8_t *s)
+static inline int gb_is_gbk(const void *s)
 {
 	return gb_is_gb2312(s) || gb_is_gbk_ext(s);
 }
 
-static inline int gb_is_gb18030_ext(const uint8_t *s)
+static inline int gb_is_gb18030_ext(const void *p)
 {
+	const uint8_t *s=p;
 	return s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30 &&
 		s[2]<=0xFE && s[2]>=0x81 && s[3]<=0x39 && s[3]>=0x30;
 }
 
-static inline int gb_is_gb18030(const uint8_t *s)
+static inline int gb_is_gb18030(const void *s)
 {
 	return gb_is_gbk(s) || gb_is_gb18030_ext(s);
 }
