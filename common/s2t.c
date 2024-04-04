@@ -292,10 +292,10 @@ int s2t_select(const char *s)
 	eim->CandWordCount=i;
 	eim->CurCandPage=0;
 	eim->CandPageCount=1;
-	eim->CodeLen=0;
 	strcpy(eim->StringGet,s2t_open==1?"¼ò×ª·±£º":"·±×ª¼ò£º");
 	y_im_str_encode(eim->StringGet,im.StringGet,0);
 	GBK_MAKE_STRING(code,eim->CodeInput);
+	eim->CodeLen=strlen(eim->CodeInput);
 	y_im_str_encode(eim->CodeInput,im.CodeInput,DONT_ESCAPE);
 	im.SelectMode=1;
 	return i;

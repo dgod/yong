@@ -389,14 +389,18 @@ static inline char *gb_strchr(const uint8_t *s,int c)
 	return 0;
 }
 
-#define GB_NORMAL_EXT_COUNT		8
+#define GB_NORMAL_EXT_COUNT		64
 extern uint32_t gb_normal_map[0xFE - 0x81+1][(0xFE - 0x40+1+31)>>5];
 extern uint32_t gb_normal_ext[GB_NORMAL_EXT_COUNT];
+extern uint32_t gb_normal_ext_count;
+
+int l_int_equal(const void *v1,const void *v2);
 
 #ifdef GB_LOAD_NORMAL
 
 uint32_t gb_normal_map[0xFE - 0x81+1][(0xFE - 0x40+1+31)>>5];
 uint32_t gb_normal_ext[GB_NORMAL_EXT_COUNT];
+uint32_t gb_normal_ext_count;
 
 static int gb_load_normal(FILE *fp)
 {
@@ -424,7 +428,7 @@ static int gb_load_normal(FILE *fp)
 	}
 	else /* load normal from file */
 	{
-		uint8_t s[4];
+		L_ALIGN(uint8_t s[4],8);
 		while(1)
 		{
 			t=fread(s,1,1,fp);
@@ -447,16 +451,13 @@ static int gb_load_normal(FILE *fp)
 			if(t==0) break;
 			if(s[3]>=0x30 && s[3]<=0x39)
 			{
-				for(i=0;i<GB_NORMAL_EXT_COUNT;i++)
+				if(gb_normal_ext_count<GB_NORMAL_EXT_COUNT)
 				{
-					if(!gb_normal_ext[i])
-					{
-						memcpy(gb_normal_ext+i,s,4);
-						break;
-					}
+					gb_normal_ext[gb_normal_ext_count++]=*(uint32_t*)s;
 				}
 			}
 		}
+		qsort(gb_normal_ext,gb_normal_ext_count,sizeof(uint32_t),l_int_equal);
 	}
 	return 0;
 }
@@ -469,10 +470,8 @@ static inline int gb_is_normal(const uint8_t *s)
 	{
 		if(gb_is_gb18030_ext(s))
 		{
-			int i;
-			for(i=0;i<GB_NORMAL_EXT_COUNT && gb_normal_ext[i];i++)
-				if(!memcmp(s,&gb_normal_ext[i],4))
-					return 1;
+			uint32_t t=*(uint32_t*)s;
+			return bsearch(&t,gb_normal_ext,gb_normal_ext_count,sizeof(uint32_t),l_int_equal)?1:0;
 		}
 		return 0;
 	}

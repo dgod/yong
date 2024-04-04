@@ -3,10 +3,7 @@
 
 #include "config_ui.h"
 
-#if GTK_CHECK_VERSION(4,0,0)
-static GMainLoop *main_loop;
-#endif
-
+static GtkApplication *app;
 typedef int (*InitSelfFunc)(CUCtrl p);
 typedef void (*DestroySelfFunc)(CUCtrl p);
 
@@ -19,8 +16,7 @@ typedef struct{
 static gboolean on_window_del(GtkWindow *widget,CUCtrl p)
 {
 	assert(p->self==widget);
-	g_main_loop_quit(main_loop);
-	cu_quit_ui=1;
+	cu_quit();
 	return TRUE;
 }
 #else
@@ -28,8 +24,7 @@ static gboolean on_window_del(GtkWidget *widget,GdkEvent  *event,CUCtrl p)
 {
 	assert(p->self==widget);
 	p->self=NULL;
-	gtk_main_quit();
-	cu_quit_ui=1;
+	cu_quit();
 	return FALSE;
 }
 #endif
@@ -39,7 +34,7 @@ static gboolean on_window_del(GtkWidget *widget,GdkEvent  *event,CUCtrl p)
 int cu_ctrl_init_window(CUCtrl p)
 {
 	GtkWidget *w;
-	w=gtk_window_new();
+	w=gtk_application_window_new(app);
 	gtk_window_set_title(GTK_WINDOW(w),p->text);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
 	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
@@ -60,7 +55,7 @@ int cu_ctrl_init_window(CUCtrl p)
 int cu_ctrl_init_window(CUCtrl p)
 {
 	GtkWidget *w;
-	w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	w=gtk_application_window_new(app);
 	gtk_window_set_title(GTK_WINDOW(w),p->text);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
 	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
@@ -226,15 +221,16 @@ static void tree_changed(GtkTreeSelection *w,CUCtrl p)
 #if GTK_CHECK_VERSION(4,0,0)
 static gboolean tree_right_click(GtkGestureClick *gesture,int n_press, double x, double y, CUCtrl p)
 {
+	GtkWidget *tree=gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(p->self));
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 	gint x_bin_window, y_bin_window;
-	gtk_tree_view_convert_widget_to_bin_window_coords (GTK_TREE_VIEW (p->self), (gint) x, (gint) y, &x_bin_window, &y_bin_window);
+	gtk_tree_view_convert_widget_to_bin_window_coords (GTK_TREE_VIEW (tree), (gint) x, (gint) y, &x_bin_window, &y_bin_window);
 	GtkTreePath *path;
-	gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (p->self), x_bin_window, y_bin_window, &path, NULL, NULL, NULL);
+	gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (tree), x_bin_window, y_bin_window, &path, NULL, NULL, NULL);
 	if(!path)
 		return FALSE;
-	model=gtk_tree_view_get_model(GTK_TREE_VIEW(p->self));
+	model=gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 	gtk_tree_model_get_iter(model,&iter,path);
 	gtk_tree_path_free(path);
 	CUCtrl item;
@@ -251,14 +247,7 @@ static gboolean tree_right_click(GtkGestureClick *gesture,int n_press, double x,
 #else
 static gboolean tree_right_click(GtkWidget *treeview, GdkEventButton *event, CUCtrl p)
 {
-#if GTK_CHECK_VERSION(3,92,0)
-	GdkEventType type=gdk_event_get_event_type((GdkEvent*)event);
-	guint button;
-	gdk_event_get_button((GdkEvent*)event,&button);
-	if(type==GDK_BUTTON_RELEASE && button==3)
-#else
 	if (event->type == GDK_BUTTON_RELEASE  &&  event->button == 3)
-#endif
 	{
 		GtkTreeSelection *sel;
 		GtkTreeModel *model;
@@ -313,7 +302,7 @@ int cu_ctrl_init_tree(CUCtrl p)
 	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window),w);
 #else
 	GtkWidget *scrolled_window=gtk_scrolled_window_new(NULL,NULL);
-	gtk_container_add(scrolled_window,w);
+	gtk_container_add(GTK_CONTAINER(scrolled_window),w);
 #endif
 	p->self=scrolled_window;
 	gtk_widget_show(w);
@@ -686,6 +675,7 @@ int cu_ctrl_set_prop(CUCtrl p,const char *prop)
 {
 	return 0;
 }
+#if 0
 
 #if GTK_CHECK_VERSION(4,0,0)
 
@@ -728,6 +718,39 @@ int cu_loop(void)
 	return 0;
 }
 #endif
+
+#endif
+
+int cu_init(void)
+{
+	return 0;
+}
+
+static void gtk_activate(GtkApplication *app,CULoopArg *arg)
+{
+	int dpi=cu_screen_dpi();
+	if(dpi>96)
+		CU_SCALE=dpi/96.0;
+	void (*activate)(CULoopArg *)=arg->priv;
+	activate(arg);
+}
+
+int cu_loop(void (*activate)(CULoopArg *),CULoopArg*arg)
+{
+	app=gtk_application_new("net.dgod.yong.config",G_APPLICATION_DEFAULT_FLAGS);
+	arg->priv=activate;
+	g_signal_connect (app, "activate", G_CALLBACK(gtk_activate), arg);
+	g_application_run (G_APPLICATION (app), 0,NULL);
+	if(arg && arg->win)
+	{
+		cu_ctrl_free(arg->win);
+		arg->win=NULL;
+	}
+	g_object_unref(app);
+	app=NULL;
+
+	return 0;
+}
 
 int cu_screen_dpi(void)
 {
@@ -894,11 +917,7 @@ void cu_menu_popup(CUCtrl p,CUMenu m)
 int cu_quit(void)
 {
 	cu_quit_ui=1;
-#if GTK_CHECK_VERSION(4,0,0)
-	g_main_loop_quit(main_loop);
-#else
-	gtk_main_quit();
-#endif
+	g_application_quit(G_APPLICATION(app));
 	return 0;
 }
 

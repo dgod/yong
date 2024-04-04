@@ -31,6 +31,7 @@ typedef struct _CUAction *CUAction;
 typedef struct _CUCtrl *CUCtrl;
 typedef struct _CUMenu *CUMenu;
 typedef struct _CUMenuEntry *CUMenuEntry;
+typedef struct _CULoopArg CULoopArg;
 
 struct _CUAction{
 	CUAction next;
@@ -85,6 +86,12 @@ struct _CUMenu{
 	struct _CUMenuEntry entries[];
 };
 
+struct _CULoopArg{
+	LXml *custom;
+	CUCtrl win;
+	void *priv;
+};
+
 const char *y_im_get_path(const char *type);
 LKeyFile *y_im_load_config(char *fn);
 int y_im_set_default(int index);
@@ -133,7 +140,7 @@ CUMenu cu_menu_install(void);
 char *cu_translate(const char *s);
 
 int cu_init(void);
-int cu_loop(void);
+int cu_loop(void (*activate)(CULoopArg *),CULoopArg*);
 int cu_quit(void);
 int cu_step(void);
 

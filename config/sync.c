@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <llib.h>
 #include "ltricky.h"
@@ -1028,11 +1029,16 @@ static int download_clipboard(void)
 	return 0;
 }
 
+static void activate(CULoopArg *arg)
+{
+	CUCtrl win=cu_ctrl_new(NULL,arg->custom->root.child);
+	assert(win!=NULL);
+	cu_ctrl_show_self(win,1);
+	arg->win=win;
+}
+
 int SyncMain(int argc,char **argv)
 {
-	CUCtrl win;
-	LXml *custom;
-
 	set_server();
 
 #ifdef _WIN32
@@ -1053,11 +1059,9 @@ int SyncMain(int argc,char **argv)
 		}
 	}
 	cu_init();
-	custom=l_xml_load((const char*)config_sync);
-	win=cu_ctrl_new(NULL,custom->root.child);
-	cu_ctrl_show_self(win,1);
-	cu_loop();
-	cu_ctrl_free(win);
+	LXml *custom=l_xml_load((const char*)config_sync);
+	CULoopArg loop_arg={custom};
+	cu_loop(activate,&loop_arg);
 	l_xml_free(custom);
 	return 0;
 }

@@ -61,6 +61,7 @@ typedef struct{
 	int8_t sub;
 	uint8_t xim;
 	uint8_t first;
+	uint8_t show;
 }Y_KBD_STATE;
 
 static Y_KBD_STATE kst;
@@ -142,6 +143,12 @@ static void line_free(KBD_BTN *b)
 	r?atoi(r):0;								\
 })
 
+#define l_xml_get_prop_double(node,name,def)	\
+({												\
+ 	const char *r=l_xml_get_prop(node,name);	\
+	r?strtod(r,NULL):def;							\
+})
+
 #define l_xml_get_prop_color(node,name)			\
  	ui_color_parse(l_xml_get_prop(node,name))
 
@@ -184,6 +191,9 @@ static int kbd_select(int8_t pos,int8_t sub)
 	if(!layout)
 		return 0;
 	kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]=l_xml_get_prop_color(layout,"bg");
+	double layout_scale=l_xml_get_prop_double(layout,"scale",1.0);
+	scale*=layout_scale;
+	kst.layout.scale=scale;
 	int w=l_xml_get_prop_int(layout,"w");
 	int h=l_xml_get_prop_int(layout,"h");
 	kst.layout.main.rc.w=(short)(scale*w);
@@ -371,6 +381,27 @@ int y_kbd_show(int b)
 	{
 		kbd_main_show(b);
 		kbd_select(-1,0);
+	}
+	kst.show=b;
+	return 0;
+}
+
+int y_kbd_show_with_main(int b)
+{
+	if(b)
+	{
+		if(kst.show)
+		{
+			y_kbd_show(1);
+		}
+	}
+	else
+	{
+		if(kst.show)
+		{
+			y_kbd_show(0);
+			kst.show=1;
+		}
 	}
 	return 0;
 }

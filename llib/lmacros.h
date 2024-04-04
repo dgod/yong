@@ -17,7 +17,9 @@
   #define L_EXPORT(x) x
 #endif
 
-#if __GNUC__ >= 4
+#if __STDC_VERSION>=201112L
+	#define L_ALIGN(x,a)    alignas(a) x
+#elif __GNUC__ >= 4
 	#define L_ALIGN(x,a)	x __attribute__((aligned(a)))
 #else
 	#define L_ALIGN(x,a)	x

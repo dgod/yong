@@ -37,6 +37,7 @@ typedef struct{
 	char CodeInput[(MAX_CODE_LEN+1)*3];
 #endif
 	int CodeLen;
+	int CaretPos;
 	char CandTable[10][(MAX_CAND_LEN+1)*2];
 	char CodeTips[10][(MAX_TIPS_LEN+1)*2];
 

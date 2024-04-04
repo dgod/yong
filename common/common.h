@@ -80,6 +80,8 @@ void y_im_setup_config(void);
 int y_im_key_desc_update(void);
 int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char *data,char *res,int size);
 bool y_im_cand_desc_translate(const char *data,const char *code,const char *tip,char *res,int size);
+bool y_im_key_desc_is_first(int code);
+int y_im_key_desc_first(int code,int len,char *res,int size);
 int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int));
 char *y_im_auto_path(char *fn);
 uint32_t y_im_tick(void);
@@ -184,6 +186,7 @@ int y_im_handle_menu(const char *cmd);
 
 int y_kbd_init(const char *fn);
 int y_kbd_show(int b);
+int y_kbd_show_with_main(int b);
 void y_kbd_popup_menu(void);
 void y_kbd_select(int pos,int sub);
 

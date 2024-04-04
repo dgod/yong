@@ -64,7 +64,7 @@ env("WINDRES:=$(CROSS_COMPILE)windres");
 env("STRIP=$(CROSS_COMPILE)strip");
 env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
 
-env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -fms-extensions -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
+env("CFLAGS+=-Wall -g -O0 -fno-strict-aliasing -fms-extensions -pipe -I$(TOPDIR)/include -I$(TOPDIR)/common");
 if(BUILD=='js')
 	env("CFLAGS+=-Wno-microsoft-anon-tag");
 

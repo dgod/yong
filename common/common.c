@@ -79,7 +79,9 @@ static char **y_im_parse_argv(const char *s,int size);
 
 static void async_spawn_at_idle(char *s)
 {
-#if defined CFG_XIM_ANDROID
+#if defined(CFG_XIM_WEBIM)
+	// TODO:
+#elif defined(CFG_XIM_ANDROID)
 	y_im_expand_space(s);
 	xim.explore_url(s);
 	l_free(s);
@@ -3303,6 +3305,10 @@ void y_im_free_config(void)
 
 char *y_im_get_config_string(const char *group,const char *key)
 {
+#if CFG_XIM_ANDROID
+	if(!MainConfig)
+		y_im_update_main_config();
+#endif
 	if(SubConfig)
 	{
 		char *s=l_key_file_get_string(SubConfig,group,key);

@@ -35,7 +35,7 @@ int InputNoShow;
 bool MainNoShow;
 bool CaretUpdate;
 
-IM im;
+IM im={.CaretPos=-1};
 
 /* Hotkey list */
 static int virt_key_query=KEYM_CTRL|'/';
@@ -71,6 +71,7 @@ static int key_bihua;
 static int key_dict=ALT_ENTER;
 static int key_crab;
 static int key_repeat_code;
+static int key_speed;
 static char sym_in_num[8];
 #ifndef CFG_NO_KEYTOOL
 static Y_KEY_TOOL *key_tools;
@@ -93,11 +94,16 @@ static uint16_t assoc_hide;
 
 EXTRA_IM *YongCurrentIM(void)
 {
+#if 0
 	if(key_bihua &&	im.CodeInput[0]==key_bihua && 
 			!im.StringGetEngine[0] && 
 			y_bihua_good() &&
 			im.BihuaMode)
 		return y_bihua_eim();
+#else
+	if(im.BihuaMode)
+		return y_bihua_eim();
+#endif
 	else if(im.EnglishMode)
 		return y_english_eim();
 	else if(im.SelectMode)
@@ -151,6 +157,9 @@ static int key_do_select(int key)
 		if(key==key_select[i])
 			return i+1;
 	}
+
+	if(key==key_commit && key==' ')
+		return -1;
 	
 	i=y_strchr_pos(key_select_n,key);
 	if(i>=0)
@@ -918,6 +927,7 @@ void update_key_config(void)
 	if(key_repeat!=YK_NONE && key_repeat<0x80)
 		key_repeat=tolower(key_repeat);
 	key_repeat_code=y_im_get_key("repeat_code",-1,YK_NONE);
+	key_speed=y_im_get_key("speed",-1,YK_NONE);
 	key_stop=y_im_get_key("stop",-1,YK_NONE);
 	key_keymap=y_im_get_key("keymap",-1,YK_NONE);
 	key_keyboard=y_im_get_key("keyboard",0,CTRL_ALT_K);
@@ -1252,9 +1262,15 @@ void YongShowMain(int show)
 				y_ui_timer_add(100,ShowLangTipLater,id->lang==0?YT("ÖÐÎÄ"):YT("Ó¢ÎÄ"));
 			}
 		}
+#ifndef CFG_NO_KEYBOARD
+		y_kbd_show_with_main(1);
+#endif
 	}
 	else if(!show && MainShow)
 	{
+#ifndef CFG_NO_KEYBOARD
+		y_kbd_show_with_main(0);
+#endif
 		y_ui_main_show(0);
 		MainShow=FALSE;
 	}
@@ -1495,6 +1511,15 @@ int YongHotKey(int key)
 		}
 		return 1;
 	}
+	else if(key==key_speed)
+	{
+		char *stat=y_im_speed_stat();
+		if(stat)
+		{
+			y_ui_show_message(stat);
+			l_free(stat);
+		}
+	}
 #ifndef CFG_NO_REPLACE
 	else if(key==key_crab)
 	{
@@ -1529,11 +1554,16 @@ int YongHotKey(int key)
 	return 0;
 }
 
-#define YONG_DO_LEGEND() \
+#define YONG_DO_ASSOC() \
 	if(im.AssocLen && (!im.InAssoc || im.AssocLoop)) \
 	{ \
 		if(!strcmp(eim->StringGet,"$LAST")) \
 			strcpy(eim->StringGet,y_xim_get_last()); \
+		if(im.SelectMode) \
+		{ \
+			im.SelectMode=0; \
+			eim=im.eim; \
+		} \
 		ret=eim->GetCandWords(PAGE_ASSOC); \
 		if(ret==IMR_DISPLAY) \
 		{ \
@@ -1574,16 +1604,43 @@ static int YongAppendPunc(CONNECT_ID *id,char *res,int key)
 
 void YongUpdateInputDesc(EXTRA_IM *eim)
 {
-	if(eim->WorkMode==EIM_WM_ASSIST)
+	if(!eim->CodeInput[0])
 	{
-		char first[2]={eim->CodeInput[0],0};
-		y_im_key_desc_translate(first,NULL,0,"\x01",(char*)im.CodeInput,MAX_CODE_LEN+1);
+		y_im_str_encode("",(char*)(im.CodeInput),DONT_ESCAPE);
+		return;
+	}
+	if(eim->WorkMode==EIM_WM_ASSIST || y_im_key_desc_is_first(eim->CodeInput[0]))
+	{
+		char temp[16];
+		y_im_key_desc_first(eim->CodeInput[0],eim->CodeLen>1?2:1,temp,sizeof(temp));
+		y_im_str_encode(temp,im.CodeInput,DONT_ESCAPE);
 		int len=y_im_str_len(im.CodeInput);
 		y_im_str_encode(eim->CodeInput+1,(char*)(im.CodeInput+len),DONT_ESCAPE);
 	}
 	else if(eim->WorkMode!=EIM_WM_NORMAL)
 	{
 		y_im_str_encode(eim->CodeInput,im.CodeInput,DONT_ESCAPE);
+	}
+	else if(eim==y_bihua_eim())
+	{
+		char temp[16];
+		y_im_key_desc_first(eim->CodeInput[0],1,temp,sizeof(temp));
+		y_im_str_encode(temp,im.CodeInput,DONT_ESCAPE);
+		int len=y_im_str_len(im.CodeInput);
+		y_im_str_encode(eim->CodeInput+1,(char*)(im.CodeInput+len),DONT_ESCAPE);
+	}
+	else if(im.EnglishMode && key_temp_english && eim->CodeInput[0]==key_temp_english)
+	{
+		y_im_key_desc_translate(eim->CodeInput,eim->CodeTips[eim->SelectIndex],0,eim->CandTable[eim->SelectIndex],(char*)im.CodeInput,MAX_CODE_LEN+1);
+		if(eim->CaretPos!=-1)
+		{
+			int prev=strlen(eim->CodeInput);
+			int next=y_im_str_len(im.CodeInput);
+			if(next!=prev)
+			{
+				im.CaretPos=eim->CaretPos+next-prev;
+			}
+		}
 	}
 	else
 	{
@@ -1808,7 +1865,7 @@ IMR_TEST:
 				}
 				y_xim_send_string(s2t_conv(eim->StringGet));
 				y_im_set_last_code(eim->CodeInput,eim->StringGet);
-				YONG_DO_LEGEND();
+				YONG_DO_ASSOC();
 				YongResetIM();
 				return 1;
 			case IMR_COMMIT_DISPLAY:
@@ -1877,7 +1934,7 @@ IMR_TEST:
 					if(p)
 					{
 						y_xim_send_string(s2t_conv(p));
-						YONG_DO_LEGEND();
+						YONG_DO_ASSOC();
 						YongResetIM();
 						return 1;
 					}
@@ -1899,7 +1956,7 @@ IMR_TEST:
 							return 1;
 						}
 						y_xim_send_string(s2t_conv(p));
-						YONG_DO_LEGEND();
+						YONG_DO_ASSOC();
 						YongResetIM();
 					}
 					else
@@ -1922,7 +1979,7 @@ IMR_TEST:
 						return 1;
 					}
 					y_xim_send_string(s2t_conv(p));
-					YONG_DO_LEGEND();
+					YONG_DO_ASSOC();
 					YongResetIM();
 				}
 				else
@@ -1968,9 +2025,19 @@ IMR_TEST:
 				i=y_strchr_pos(key_select_n,key&~KEYM_KEYPAD);
 				if((key & KEYM_KEYPAD) && kp_mode==2)
 					num_push=1;
-				if(num_mode==0 && !num_push) p=eim->GetCandWord(i);
-				else if(im.InAssoc) p="";
-				else p=eim->GetCandWord(eim->SelectIndex);
+				if(num_mode==0 && !num_push && i>=0)
+				{
+					p=eim->GetCandWord(i);
+				}
+				else if(im.InAssoc)
+				{
+					p="";
+				}
+				else
+				{
+					p=eim->GetCandWord(eim->SelectIndex);
+					num_push=1;
+				}
 				if(p)
 				{
 					y_im_set_last_code(eim->CodeInput,p);
@@ -1982,7 +2049,7 @@ IMR_TEST:
 							return 1;
 						}
 						y_xim_send_string(s2t_conv(p));
-						YONG_DO_LEGEND();
+						YONG_DO_ASSOC();
 						YongResetIM();
 						return 1;	
 					}
@@ -2256,6 +2323,7 @@ static void YongResetIM_(void)
 	im.ChinglishMode=0;
 	im.StopInput=0;
 	im.CodeLen=0;
+	im.CaretPos=-1;
 	im.CodeInput[0]=im.CodeInput[1]=0;
 	im.StringGet[0]=im.StringGet[1]=0;
 	im.InAssoc=0;
@@ -2358,6 +2426,7 @@ void YongDestroyIM(void)
 	y_key_tools_free(key_tools);
 	key_tools=NULL;
 #endif
+	y_im_async_wait(1000);
 }
 
 #ifdef __WIN32
@@ -2394,17 +2463,6 @@ static void signal_handler(int sig)
 	}
 	_exit(0);
 }
-
-#ifdef _WIN32
-static void fix_path_sep(char *s)
-{
-	for(int i=0;s[i]!=0;i++)
-	{
-		if(s[i]=='/')
-			s[i]='\\';
-	}
-}
-#endif
 
 int main(int arc,char *arg[])
 {
@@ -2501,12 +2559,12 @@ int main(int arc,char *arg[])
 			{
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
 			}
-			else if(l_file_exists(p))
+			else if(!_access(p,F_OK))
 			{
 				int len=strlen(p);
 				if(len>4 && !strcmp(p+len-4,".bat"))
 					show=SW_HIDE;
-				fix_path_sep(p);
+				l_str_replace(p,'/','\\');
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
 			}			
 			else
@@ -2535,15 +2593,13 @@ int main(int arc,char *arg[])
 						param++;
 					}
 				}
-				if(!param)
-					param="";
 				if(!strcmp(cmd,"yong-config"))
 				{
 					l_free(cmd);
 					cmd=l_strdup("yong-config.exe");
 				}
 
-				fix_path_sep(cmd);
+				l_str_replace(cmd,'/','\\');
 				
 				SHELLEXECUTEINFOA info;
 				memset(&info,0,sizeof(info));
@@ -2553,11 +2609,12 @@ int main(int arc,char *arg[])
 				info.nShow=SW_SHOWNORMAL;
 				info.hwnd=y_ui_main_win();
 				info.lpVerb="open";
+
 #ifdef _WIN64
 				if(!l_str_has_prefix(cmd,"yong-config"))
 					info.lpDirectory="..";
 #endif
-				if(strstr(cmd,"yong-config") && strstr(param,"--update"))
+				if(strstr(cmd,"yong-config") && param!=NULL && strstr(param,"--update"))
 				{
 					static const char *sys="C:\\Program Files";
 					char path[MAX_PATH];

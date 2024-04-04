@@ -1,7 +1,7 @@
 #ifndef _LTRICKY_H_
 #define _LTRICKY_H_
 
-#ifdef __GLIBC__
+#if defined(__GLIBC__) && (defined(__i386__) || defined(__x86_64__))
 
 #include "ltypes.h"
 

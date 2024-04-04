@@ -66,7 +66,7 @@ static const char *desc_item_lookup(LArray *array,int pos)
 	for(i=0;i<array->len;i++)
 	{
 		struct desc_item *p=l_array_nth(array,i);
-		if(pos==p->pos)
+		if(pos==p->pos || p->pos==0)
 			return p->desc;
 	}
 	return 0;
@@ -86,6 +86,7 @@ static void key_desc_idx_free(struct key_desc_idx *idx)
 static struct key_desc_idx *p_key_desc_idx;
 static LHashTable *p_cand_desc_idx;
 static char *p_cand_desc_format;
+static char first_only[4];
 static void y_im_key_desc_free(void)
 {
 	l_slist_free(p_key_desc_idx,(LFreeFunc)key_desc_idx_free);
@@ -94,6 +95,7 @@ static void y_im_key_desc_free(void)
 	p_cand_desc_idx=NULL;
 	l_free(p_cand_desc_format);
 	p_cand_desc_format=NULL;
+	first_only[0]=0;
 }
 
 static void load_cand_desc(FILE *fp)
@@ -210,6 +212,11 @@ int y_im_key_desc_update(void)
 				idx->split=temp[0];
 			continue;
 		}
+		if(l_str_has_prefix(line,"first="))
+		{
+			l_strcpy(first_only,sizeof(first_only),line+6);
+			continue;
+		}
 		p=strchr(line,'=');if(!p) continue;*p=0;
 		ikey=key_array_lookup(idx->key,line);
 		if(!ikey)
@@ -230,7 +237,7 @@ int y_im_key_desc_update(void)
 			desc[0]=0;
 			ret=l_sscanf(p,"%d %s",&pos,desc);
 			if(ret<1) continue;
-			if(pos<=0 || pos>=32) continue;
+			if(pos<0 || pos>=32) continue;
 			if(ret==1) desc[0]=0;
 			temp.pos=pos;
 				snprintf(temp.desc,sizeof(temp.desc),"%s",desc);
@@ -333,6 +340,50 @@ end:
 	return true;
 }
 
+bool y_im_key_desc_is_first(int code)
+{
+	if(strchr(first_only,code))
+		return true;
+	return false;
+}
+
+int y_im_key_desc_first(int code,int len,char *res,int size)
+{
+	struct key_desc_idx *idx;
+	LArray *ikey;
+	const char *desc;
+	for(idx=p_key_desc_idx;idx;idx=idx->next)
+	{
+		if(1==idx->nchar)
+			break;
+	}
+	if(!idx)
+		goto QUIT;
+	char temp[2]={code,0};
+	ikey=key_array_lookup(idx->key,temp);
+	if(!ikey)
+	{
+		goto QUIT;
+	}
+	desc=desc_item_lookup(ikey,len);
+	if(!desc && len>1)
+		desc=desc_item_lookup(ikey,1);
+	if(!desc)
+	{
+		goto QUIT;
+	}
+	if(strlen(desc)+1>size)
+	{
+		goto QUIT;
+	}
+	strcpy(res,desc);
+	return 0;
+QUIT:
+	res[0]=code;
+	res[1]=0;
+	return 0;
+}
+
 int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char *data,char *res,int size)
 {
 	char out[size*2+1];
@@ -396,6 +447,7 @@ int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char 
 	}
 	/* get desc of code at special pos */
 	out[0]=0;
+	const char *orig_code=code;
 	code-=pos;
 	i=pos;
 NEXT:
@@ -433,6 +485,7 @@ NEXT:
 			}
 			if(!ikey && tlen==1)
 			{
+				code=orig_code;
 				goto QUIT;
 			}
 		}
@@ -445,6 +498,7 @@ NEXT:
 		}
 		if(!desc)
 		{
+			code=orig_code;
 			goto QUIT;
 		}
 		strcat(out,desc);

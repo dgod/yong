@@ -38,3 +38,6 @@ int http_session_sockc_recvn(HttpSession *ss,void *buf,size_t size);
 void http_session_sockc_close(HttpSession *ss);
 
 void http_session_base64_encode(char *out, const void *in, int inlen);
+
+int encodeURIComponent(const char *in,char *out,int size);
+

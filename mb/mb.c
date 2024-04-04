@@ -1,5 +1,6 @@
 #include "mb.h"
 #define GB_LOAD_NORMAL
+#include "llib.h"
 #include "gbk.h"
 #include "pinyin.h"
 
@@ -8,8 +9,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdarg.h>
-
-#include "llib.h"
 
 #include "fuzzy.h"
 
@@ -4897,10 +4896,10 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*fre
 					ci->dic+=10000;
 				item.m=(ci->len==2*len);
 				l_array_insert_sorted(array,&item,(LCmpFunc)_s_item_cmpar);
-				if(!freq && array->len>25)
-					array->len=25;
-				if(freq && array->len>10)
-					array->len=10;
+				if(!freq && array->len>100)
+					array->len=100;
+				if(freq && array->len>40)
+					array->len=40;
 			}
 		}
 	}

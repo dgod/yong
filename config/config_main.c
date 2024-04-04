@@ -390,9 +390,20 @@ int GetSetConfigMain(int argc,char **argv)
 	return 0;
 }
 
+static void activate(CULoopArg *arg)
+{
+	CUCtrl win=cu_ctrl_new(NULL,arg->custom->root.child);
+	assert(win!=NULL);
+	cu_ctrl_foreach(win,cu_init_all,NULL);
+	cu_ctrl_foreach(win,cu_init_all,NULL);
+	cu_show_page("page-im");
+	cu_ctrl_show_self(win,1);
+
+	arg->win=win;
+}
+
 int main(int arc,char *arg[])
 {
-	CUCtrl win;
 	char *temp;
 	int i;
 	
@@ -457,19 +468,8 @@ reload:
 		if(!config) return -1;
 	}
 	cu_quit_ui=0;
-
-	win=cu_ctrl_new(NULL,custom->root.child);
-	if(!win) return -1;
-
-	cu_ctrl_foreach(win,cu_init_all,NULL);
-
-	cu_ctrl_foreach(win,cu_init_all,NULL);
-	cu_show_page("page-im");
-	cu_ctrl_show_self(win,1);
-
-	cu_loop();
-	
-	cu_ctrl_free(win);win=NULL;
+	CULoopArg loop_arg={custom};
+	cu_loop((void*)activate,&loop_arg);
 	l_key_file_free(config);config=NULL;
 	if(cu_reload_ui) goto reload;
 

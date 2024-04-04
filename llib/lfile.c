@@ -17,6 +17,7 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <limits.h>
 #endif
 #include <ctype.h>
 

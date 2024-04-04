@@ -325,7 +325,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 	{
 		py_init(mb->split,0);
 	}
-	name=EIM.GetConfig("pinyin","simple");
+	name=EIM.GetConfig(NULL,"simple");
 	if(name)
 	{
 		l_predict_simple=atoi(name);
@@ -420,7 +420,7 @@ static int TableInitReal(const char *arg)
 	}
 	if(mb->pinyin)
 	{
-		name=EIM.GetConfig("pinyin","predict");
+		name=EIM.GetConfig(NULL,"predict");
 		if(name!=NULL)
 			y_mb_learn_load(mb,name);
 	}
@@ -808,7 +808,7 @@ static char *TableGetCandWord(int index)
 		}
 		else if(EIM.CodeInput[0])
 		{
-			y_mb_add_phrase(mb,EIM.CodeInput,ret,0,Y_MB_DIC_USER);
+			y_mb_add_phrase(mb,EIM.CodeInput,ret,Y_MB_APPEND,Y_MB_DIC_USER);
 			TableReset();
 			EIM.StringGet[0]=0;
 			y_mb_error_del(mb,ret);
@@ -854,7 +854,7 @@ static int TableUpdateAssoc(int *mode)
 	from=EIM.StringGet;
 	if(from[0]=='$' && from[1]=='[')
 	{
-		from=gb_strchr((const uint8_t*)from,']');
+		from=y_mb_skip_display(from,-1);
 		if(!from)
 			return IMR_BLOCK;
 		from++;
@@ -944,7 +944,7 @@ static int TableGetCandWords(int mode)
 	else
 		active=Y_MB_ACTIVE(mb);
 
-	if(active==mb->ass_mb)
+	if(active==mb->ass_mb || active==mb->quick_mb)
 		EIM.WorkMode=EIM_WM_ASSIST;
 	max=EIM.CandWordMax;
 	if(mb->ass_mb==active && cand_a)
@@ -1228,7 +1228,7 @@ static int TableDoInput(int key)
 	else if(key==YK_ENTER && InsertMode)
 	{
 		y_mb_error_del(mb,EIM.CandTable[EIM.SelectIndex]);
-		y_mb_add_phrase(mb,EIM.CodeInput,EIM.CandTable[EIM.SelectIndex],0,Y_MB_DIC_USER);
+		y_mb_add_phrase(mb,EIM.CodeInput,EIM.CandTable[EIM.SelectIndex],Y_MB_APPEND,Y_MB_DIC_USER);
 		TableReset();
 		return IMR_CLEAN;
 	}
@@ -1534,6 +1534,7 @@ static int TableDoInput(int key)
 					EIM.CodeLen=0;
 				}
 				cset_clear(&cs,CSET_TYPE_CALC);
+				hz_filter_temp=hz_filter;
 				ret=IMR_COMMIT_DISPLAY;
 				DoTipWhenCommit();
 			}
@@ -1761,8 +1762,8 @@ LIST:
 				int temp_count;
 				int temp_len;
 				struct y_mb_context ctx;
-				int commit_prev=0;
 commit_simple:
+				int commit_prev=0;
 				strcpy(temp,EIM.CodeInput+mb->commit_which);
 				temp_len=EIM.CodeLen-mb->commit_which;
 				if(key!=YK_TAB)
@@ -1829,6 +1830,7 @@ commit_simple:
 					if(EIM.CandWordCount>0)
 					{
 						ret=IMR_COMMIT_DISPLAY;
+						hz_filter_temp=hz_filter;
 						strcpy(EIM.StringGet,EIM.CandTable[EIM.SelectIndex]);
 						if(EIM.SelectIndex!=0 && auto_move && EIM.CodeLen>=auto_move_len[0] && EIM.CodeLen<=auto_move_len[1])
 						{
@@ -3013,7 +3015,7 @@ static char *PinyinGetCandWord(int index)
 		if(1!=cset_output(&cs,pos,1,(void*)ret,(void*)tip))
 			return NULL;
 	}
-	
+
 	if(ExtraZi.count>0 && ((cset_calc_group_count(&cs)==0 && pos>=PhraseListCount-ExtraZi.count) ||
 			(cset_calc_group_count(&cs)>0 && pos>=ExtraZi.mark)))
 	{
@@ -3310,7 +3312,7 @@ static int PinyinGetCandwords(int mode)
 static int PinyinDoInput(int key)
 {
 	int i;
-	
+
 	if(!TableReady)
 		return IMR_NEXT;
 
@@ -3359,9 +3361,9 @@ static int PinyinDoInput(int key)
 						Y_MB_DATA_CALC-g->count,
 						key,0);
 			}
+			ExtraZi.mark=g->count;
 			if(g->count<Y_MB_DATA_CALC && ExtraZi.count)
 			{
-				ExtraZi.mark=g->count;
 				g->count+=ExtraZiGet(0,Y_MB_DATA_CALC-g->count,g->phrase+g->count,key);
 			}
 			if(g->count)
@@ -3370,7 +3372,7 @@ static int PinyinDoInput(int key)
 				PhraseListCount=g->count;
 				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
 						((PhraseListCount%EIM.CandWordMax)?1:0);
-				PinyinGetCandwords(PAGE_FIRST);				
+				PinyinGetCandwords(PAGE_FIRST);
 				return IMR_DISPLAY;
 			}
 			return IMR_BLOCK;
@@ -3411,6 +3413,8 @@ static int PinyinDoInput(int key)
 	else if(key==py_switch)
 	{
 		if(EIM.CodeLen==0)
+			return IMR_NEXT;
+		if(InsertMode)
 			return IMR_NEXT;
 		l_predict_simple_mode=0;
 		if(CodeMatch>=1)

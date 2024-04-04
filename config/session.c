@@ -1187,11 +1187,32 @@ int http_session_download(HttpSession *ss,const char *remote,const char *local)
 	return 0;
 }
 
+int encodeURIComponent(const char *in,char *out,int size)
+{
+	int i,c,pos=0;
+	pos=0;
+	for(i=0;(c=in[i])!=0 && pos<size-1;i++)
+	{
+		if((c>='0' && c<='9') || (c>='a' && c<='z') || (c>='A' && c<='Z') || strchr("-_.!~*'()",c))
+		{
+			out[pos++]=c;
+		}
+		else
+		{
+			if(pos>=size-3)
+				break;
+			pos+=sprintf(out+pos,"%%%02X",(unsigned char)c);
+		}
+	}
+	out[pos]=0;
+	return pos;
+}
+
 static int url_encode(const char *in,char *out,int size)
 {
 	int i,c,pos=0;
 	pos=0;
-	for(i=0;(c=in[i])!=0;i++)
+	for(i=0;(c=in[i])!=0 && pos<size-1;i++)
 	{
 		if((c>='0' && c<='9') || (c>='a' && c<='z') || (c>='A' && c<='Z') || strchr(".-*_",c))
 		{
@@ -1203,6 +1224,8 @@ static int url_encode(const char *in,char *out,int size)
 		}
 		else
 		{
+			if(pos>=size-3)
+				break;
 			pos+=sprintf(out+pos,"%%%02X",(unsigned char)c);
 		}
 	}

@@ -12,6 +12,7 @@ bool l_str_has_suffix(const char *str,const char *suffix);
 char *l_str_trim_left(char *str);
 char *l_str_trim_right(char *str);
 char *l_str_trim(char *str);
+int l_str_replace(char *s,int from,int to);
 
 typedef struct{
 	char *str;

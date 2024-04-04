@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <llib.h>
 #include "ltricky.h"
@@ -23,6 +24,7 @@ const char *y_im_get_path(const char *type);
 
 static char server_host[32]="yong.dgod.net";
 static int server_port=80;
+static char user_import[32];
 
 typedef struct _FITEM{
 	char *file;
@@ -132,10 +134,15 @@ static LArray *build_remote_file_list(void)
 	LXmlNode *n;
 	LArray *l;
 #ifdef _WIN32
-	snprintf(path,sizeof(path),"/sync/yong-win.xml");
+	len=snprintf(path,sizeof(path),"/sync/yong-win.xml");
 #else
-	snprintf(path,sizeof(path),"/sync/yong-lin.xml");
+	len=snprintf(path,sizeof(path),"/sync/yong-lin.xml");
 #endif
+	if(user_import[0])
+	{
+		len+=sprintf(path+len,"?import=");
+		encodeURIComponent(user_import,path+len,sizeof(path)-len);
+	}
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
@@ -238,10 +245,15 @@ static int download_remote_file(const FITEM *it)
 	const char *file=it->file;
 	if(file[0]=='/') file++;
 #ifdef _WIN32
-	snprintf(path,sizeof(path),"/sync/yong-win/%s",file);
+	len=snprintf(path,sizeof(path),"/sync/yong-win/%s",file);
 #else
-	snprintf(path,sizeof(path),"/sync/yong-lin/%s",file);
+	len=snprintf(path,sizeof(path),"/sync/yong-lin/%s",file);
 #endif
+	if(user_import[0] && l_str_has_prefix(file,"mb/"))
+	{
+		len+=sprintf(path+len,"?import=");
+		encodeURIComponent(user_import,path+len,sizeof(path)-len);
+	}
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
@@ -389,23 +401,39 @@ static void set_server(void)
 	sscanf(t,"%31s %d",server_host,&server_port);
 }
 
+static void set_import(void)
+{
+	const char *t;
+	t=l_key_file_get_data(config,"sync","import");
+	if(!t || strlen(t)>=sizeof(user_import))
+	{
+		user_import[0]=0;
+		return;
+	}
+	strcpy(user_import,t);
+}
+
+static void activate(CULoopArg *arg)
+{
+	CUCtrl win=cu_ctrl_new(NULL,arg->custom->root.child);
+	assert(win!=NULL);
+	cu_ctrl_show_self(win,1);
+	arg->win=win;
+}
+
 int UpdateMain(void)
 {
-	CUCtrl win;
-	LXml *custom;
-
 	set_server();
+	set_import();
 	
 #ifdef _WIN32
 	WSADATA wsaData;
 	WSAStartup(0x0202,&wsaData);
 #endif
 	cu_init();
-	custom=l_xml_load((const char*)config_update);
-	win=cu_ctrl_new(NULL,custom->root.child);
-	cu_ctrl_show_self(win,1);
-	cu_loop();
-	cu_ctrl_free(win);
+	LXml *custom=l_xml_load((const char*)config_update);
+	CULoopArg loop_arg={custom};
+	cu_loop((void*)activate,&loop_arg);
 	l_xml_free(custom);
 	return 0;
 }

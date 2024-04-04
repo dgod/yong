@@ -6,8 +6,8 @@
 #include "pinyin.h"
 #include "trie.h"
 #include "ltricky.h"
-#include "gbk.h"
 #include "llib.h"
+#include "gbk.h"
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -520,6 +520,7 @@ static struct py_item py_all[]={
 
 static struct py_item *sp_index[PY_COUNT];
 static py_tree_t py_index;
+static const int py_count=PY_COUNT;
 
 const char * py_sp_get_chshzh(void)
 {
@@ -558,9 +559,9 @@ void py_init(int split,char *sp)
 	else
 		py_type=2;
 
-	for(i=0;i<PY_COUNT;i++)
+	for(i=0;i<py_count;i++)
 		py_all[i].len=strlen(py_all[i].quan);
-	qsort(py_all,PY_COUNT,sizeof(struct py_item),item_cmpr);
+	qsort(py_all,py_count,sizeof(struct py_item),item_cmpr);
 
 	if(sp && sp[0])
 	{
@@ -592,7 +593,7 @@ void py_init(int split,char *sp)
 				if(len==0)
 				{
 					int i;
-					for(i=0;i<PY_COUNT;i++)
+					for(i=0;i<py_count;i++)
 					{
 						res=py_all+i;
 						if(res->yun!=it.len)
@@ -607,7 +608,7 @@ void py_init(int split,char *sp)
 					}
 					continue;
 				}
-				res=bsearch(&it,py_all,PY_COUNT,sizeof(struct py_item),item_cmpr);
+				res=bsearch(&it,py_all,py_count,sizeof(struct py_item),item_cmpr);
 				if(!res)
 				{
 					//printf("not found %s\n",quan);
@@ -629,13 +630,13 @@ void py_init(int split,char *sp)
 		}
 	}
 	
-	for(i=0;i<PY_COUNT;i++)
+	for(i=0;i<py_count;i++)
 		sp_index[i]=&py_all[i];
-	qsort(sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+	qsort(sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 	
 	py_split_item.len=1;
 	py_tree_init(&py_index);
-	for(i=0;i<PY_COUNT;i++)
+	for(i=0;i<py_count;i++)
 	{
 		struct py_item *pi=py_all+i;
 		if(pi->val<0x100) continue;
@@ -972,7 +973,7 @@ int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(in
 			if(input[i+1])
 			{
 				p=&it;it.val=input[i]<<8|input[i+1];
-				pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+				pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 				if(pp)
 				{
 					p=*pp;
@@ -986,7 +987,7 @@ int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(in
 			}
 			p=&it;
 			it.val=input[i]<<8;
-			pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+			pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 			if(pp)
 			{
 				p=*pp;
@@ -1338,7 +1339,7 @@ int py_conv_from_sp(const char *in,char *out,int size,int split)
 		{
 			p=&it;
 			it.val=in[i]<<8|in[i+1];
-			pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+			pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 			if(pp)
 			{
 				p=*pp;
@@ -1356,7 +1357,7 @@ int py_conv_from_sp(const char *in,char *out,int size,int split)
 		}
 		p=&it;
 		it.val=in[i]<<8;
-		pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+		pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 		if(pp)
 		{
 			p=*pp;
@@ -1407,7 +1408,7 @@ int py_sp_unlikely_jp(const char *in)
 		{
 			p=&it;
 			it.val=in[i]<<8|in[i+1];
-			pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+			pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 			if(pp)
 			{
 				match=2;
@@ -1417,7 +1418,7 @@ int py_sp_unlikely_jp(const char *in)
 		}
 		p=&it;
 		it.val=in[i]<<8;
-		pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+		pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 		if(pp)
 		{
 			match=1;
@@ -1464,7 +1465,7 @@ int py_pos_of_sp(const char *in,int pos)
 		{
 			p=&it;
 			it.val=in[i]<<8|in[i+1];
-			pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+			pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 			if(pp)
 			{
 				p=*pp;
@@ -1475,7 +1476,7 @@ int py_pos_of_sp(const char *in,int pos)
 		}
 		p=&it;
 		it.val=in[i]<<8;
-		pp=bsearch(&p,sp_index,PY_COUNT,sizeof(struct py_item*),sp_cmpr);
+		pp=bsearch(&p,sp_index,py_count,sizeof(struct py_item*),sp_cmpr);
 		if(pp)
 		{
 			p=*pp;

@@ -347,3 +347,27 @@ int l_strpos(const char *haystack,const char *needle)
 	return (int)(size_t)(p-haystack);
 }
 
+int l_str_replace(char *s,int from,int to)
+{
+	int i=0;
+	if(to==0)
+	{
+		for(int j=0;s[j]!=0;j++)
+		{
+			if(s[j]!=from)
+				s[i++]=s[j];
+		}
+		s[i]=0;
+		return i;
+	}
+	else
+	{
+		for(i=0;s[i]!=0;i++)
+		{
+			if(s[i]==from)
+				s[i]=to;
+		}
+		return i;
+	}
+}
+

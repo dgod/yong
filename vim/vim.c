@@ -61,6 +61,7 @@ int main(int arc,char *arg[])
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <poll.h>
+#include <sys/time.h>
 
 #include <stdint.h>
 #include <stdio.h>

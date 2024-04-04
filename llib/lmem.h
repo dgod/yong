@@ -36,7 +36,11 @@
 #define l_strndup(p,n) strndup(p,n)
 #define l_alloca(s) alloca(s)
 #define l_strdupa(s) ((s)?strdupa(s):NULL)
+#ifdef strndupa
 #define l_strndupa(s,n) strndupa(s,n)
+#else
+#define l_strndupa(s,n) l_strncpy(l_alloca(n+1),(s),(n))
+#endif
 #else
 #define l_strndup(s,n) l_strncpy(l_alloc(n+1),(s),(n))
 #define l_alloca(s) _alloca(s)

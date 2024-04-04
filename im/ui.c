@@ -1237,10 +1237,11 @@ int YongCodeWidth(void)
 	}
 	else
 	{
-		char tmp=im.CodeInput[eim->CaretPos];
-		im.CodeInput[eim->CaretPos]=0;
+		int CaretPos=im.CaretPos>=0?im.CaretPos:eim->CaretPos;
+		char tmp=im.CodeInput[CaretPos];
+		im.CodeInput[CaretPos]=0;
 		im.CodePos[2]=get_text_width(im.CodeInput,InputTheme.layout,NULL)+im.CodePos[1];
-		im.CodeInput[eim->CaretPos]=tmp;
+		im.CodeInput[CaretPos]=tmp;
 	}
 	return (int)im.CodePos[3]+InputTheme.CodeX-InputTheme.WorkLeft;
 }
@@ -1400,7 +1401,6 @@ int YongDrawInput(void)
 		int i;
 		for(i=0;i<count;i++)
 		{
-			char *p=im.CandTable[i];
 			int len=eim->CodeLen;
 			if(eim->WorkMode!=EIM_WM_NORMAL)
 			{	
@@ -1415,12 +1415,12 @@ int YongDrawInput(void)
 			if(eim->WorkMode==EIM_WM_QUERY)
 			{
 				char *s=eim->CandTable[i];
-				y_im_key_desc_translate(s,NULL,0,eim->CodeInput,p,MAX_TIPS_LEN+1);
+				y_im_key_desc_translate(s,NULL,0,eim->CodeInput,im.CandTable[i],MAX_TIPS_LEN+1);
 			}
 			else
 			{
 				const char *s=eim->CandTable[i];
-				y_im_disp_cand(s,p,(InputTheme.strip>>(16*(i==eim->SelectIndex)+0))&0xff,
+				y_im_disp_cand(s,im.CandTable[i],(InputTheme.strip>>(16*(i==eim->SelectIndex)+0))&0xff,
 					(InputTheme.strip>>(16*(i==eim->SelectIndex)+8))&0xff,
 					eim->CodeInput,eim->CodeTips[i]);
 			}
@@ -1513,11 +1513,13 @@ int YongDrawInput(void)
 		{
 			uint8_t temp[MAX_CAND_LEN+1];
 			strcpy((char*)temp,im.StringGet);
+			int CaretPos=im.CaretPos>=0?im.CaretPos:eim->CaretPos;
 			if(eim && eim->CaretPos>=0 && eim->CaretPos<eim->CodeLen)
 			{
-				l_utf8_strncpy(temp+strlen((char*)temp),(uint8_t*)im.CodeInput,eim->CaretPos);
+				int CaretPos=im.CaretPos>=0?im.CaretPos:eim->CaretPos;
+				l_utf8_strncpy(temp+strlen((char*)temp),(uint8_t*)im.CodeInput,CaretPos);
 				strcat((char*)temp,"|");
-				strcat((char*)temp,(char*)l_utf8_offset((uint8_t*)im.CodeInput,eim->CaretPos));
+				strcat((char*)temp,(char*)l_utf8_offset((uint8_t*)im.CodeInput,CaretPos));
 			}
 			else
 			{

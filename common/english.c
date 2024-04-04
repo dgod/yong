@@ -1096,40 +1096,44 @@ static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 
 void y_english_key_desc(const char *code,char *res)
 {
-	int pos=0;
-	if(key_temp_english && ((EIM.CodeInput[0]&0x7f)==key_temp_english))
+	int ipos=0,opos=0;
+	if(key_temp_english && code[0]==key_temp_english)
 	{
-		res[pos++]=key_temp_english;
+		y_im_key_desc_first(key_temp_english,1,res,16);
+		opos=strlen(res);
+		ipos=1;
 	}
-	if(!strncasecmp(code+pos,"key ",4))
+	if(!strncasecmp(code+ipos,"key ",4))
 	{
 		//strcpy(res+pos,"key ");
-		memcpy(res+pos,code+pos,4);
-		res[pos+4]=0;
-		pos+=4;
+		memcpy(res+opos,code+ipos,4);
+		res[opos+4]=0;
+		ipos+=4;
+		opos+=4;
 	}
-	else if(!strncasecmp(code+pos,"miyao ",6))
+	else if(!strncasecmp(code+ipos,"miyao ",6))
 	{
-		//strcpy(res+1,"miyao ");
-		memcpy(res+pos,code+pos,6);
-		res[pos+6]=0;
-		pos+=6;
+		memcpy(res+opos,code+ipos,6);
+		res[opos+6]=0;
+		ipos+=6;
+		opos+=6;
 	}
 	else
 	{
-		//y_im_str_encode(code,res,DONT_ESCAPE);
-		strcpy(res,code);
+		strcpy(res+opos,code+ipos);
 		return;
 	}
-	if(code[pos]==' ')
+	if(code[ipos]==' ')
 	{
-		res[pos++]=' ';
+		res[opos]=' ';
+		ipos++;
+		opos++;
 	}
-	for(;code[pos]!=0;pos++)
+	for(;code[ipos]!=0;ipos++,opos++)
 	{
-		res[pos]='*';
+		res[opos]='*';
 	}
-	res[pos]=0;
+	res[opos]=0;
 }
 
 

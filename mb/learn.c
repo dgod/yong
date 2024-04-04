@@ -192,6 +192,8 @@ static int simple_code_from_item(LEARN_DATA *data,const LEARN_ITEM *it,char *sco
 
 static void y_mb_build_jp_index(LEARN_DATA *data)
 {
+	if(data->mb->split<=1)
+		return;
 	// clock_t start=clock();
 	for(int i=0;i<data->it_count;i++)
 	{
@@ -1605,10 +1607,10 @@ retry:
 					pitem.f+=10000;
 				pitem.m=(ci->len==depth);
 				l_array_insert_sorted(array,&pitem,(LCmpFunc)_p_item_cmpar);
-				if(!l_predict_data && array->len>25)
-					array->len=25;
-				if(l_predict_data && array->len>10)
-					array->len=10;
+				if(!l_predict_data && array->len>100)
+					array->len=100;
+				if(l_predict_data && array->len>40)
+					array->len=40;
 			}
 		}
 		n=trie_iter_path_next(&iter);
