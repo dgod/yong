@@ -60,6 +60,7 @@ static int ui_button_label(int id,const char *text);
 #include "ui-common.c"
 #include "ui-timer.c"
 
+static bool is_wayland=false;
 static int MainWin_over;
 static bool MainWin_visible;
 
@@ -168,8 +169,19 @@ int ui_init(void)
 	p=gtk_settings_get_default();
 	if(p)
 	{
-		gtk_settings_set_string_property(p,"gtk-im-module","gtk-im-context-simple",0);
-		gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
+		if(gtk_get_minor_version()>=16)
+		{
+			g_object_set(p,
+					"gtk-im-module","gtk-im-context-simple",
+					"gtk-show-input-method-menu",FALSE,
+					"gtk-enable-animations",FALSE,
+					NULL);
+		}
+		else
+		{
+			gtk_settings_set_string_property(p,"gtk-im-module","gtk-im-context-simple",0);
+			gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
+		}
 	}
 
 	YongSetXErrorHandler();
@@ -187,6 +199,10 @@ int ui_init(void)
 		{
 			ui_scale=strtod(temp,NULL);
 		}
+	}
+	if(l_str_has_prefix(gdk_display_get_name(gdk_display_get_default()),"wayland"))
+	{
+		is_wayland=true;
 	}
 	
 	return 0;
@@ -1193,7 +1209,14 @@ int ui_input_move(int off,int *x,int *y)
 	if(*y<0) *y=0;
 	else if(*y+height>scr_h)
 		*y=scr_h-height-18-30;
-	gtk_window_move(GTK_WINDOW(InputWin),*x,*y);
+	if(is_wayland)
+	{
+		// TODO:
+	}
+	else
+	{
+		gtk_window_move(GTK_WINDOW(InputWin),*x,*y);
+	}
 	InputWin_X=*x;
 	InputWin_Y=*y;
 
@@ -1260,21 +1283,21 @@ int YongPageWidth(void)
 			im.PageLen[0]=ui_text_size(NULL,font,im.Page,NULL,&h);
 			im.PageLen[1]=0;
 			im.PageLen[2]=0;
-			ret=im.PageLen;
+			ret=im.PageLen[0];
 		}
 		else
 		{
 			double scale=InputTheme.scale!=1?ui_scale:1;
 			int pos;
-			pos=l_unichar_to_utf8(InputTheme.page.text[0],im.Page);
+			pos=l_unichar_to_utf8(InputTheme.page.text[0],(uint8_t*)im.Page);
 			im.Page[pos]=0;
 			im.PageLen[0]=ui_text_size(NULL,font,im.Page,NULL,&h);
 			im.PageLen[1]=round(4*scale*InputTheme.page.scale);
-			pos=l_unichar_to_utf8(InputTheme.page.text[1],im.Page);
+			pos=l_unichar_to_utf8(InputTheme.page.text[1],(uint8_t*)im.Page);
 			im.Page[pos]=0;
 			im.PageLen[2]=ui_text_size(NULL,font,im.Page,NULL,&h);
-			pos=l_unichar_to_utf8(InputTheme.page.text[0],im.Page);
-			pos+=l_unichar_to_utf8(InputTheme.page.text[1],im.Page+pos);
+			pos=l_unichar_to_utf8(InputTheme.page.text[0],(uint8_t*)im.Page);
+			pos+=l_unichar_to_utf8(InputTheme.page.text[1],(uint8_t*)im.Page+pos);
 			im.Page[pos]=0;	
 		}
 		if(font!=InputTheme.layout)
@@ -1513,7 +1536,6 @@ int YongDrawInput(void)
 		{
 			uint8_t temp[MAX_CAND_LEN+1];
 			strcpy((char*)temp,im.StringGet);
-			int CaretPos=im.CaretPos>=0?im.CaretPos:eim->CaretPos;
 			if(eim && eim->CaretPos>=0 && eim->CaretPos<eim->CodeLen)
 			{
 				int CaretPos=im.CaretPos>=0?im.CaretPos:eim->CaretPos;
@@ -1556,7 +1578,14 @@ int ui_main_show(int show)
 		gint wa_x,wa_y,wa_w,wa_h;
 		w=MainWin_W;h=MainWin_H;
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
-		gtk_window_move(GTK_WINDOW(MainWin),wa_x+wa_w-w,wa_y+wa_h-h);
+		if(is_wayland)
+		{
+			// TODO:
+		}
+		else
+		{
+			gtk_window_move(GTK_WINDOW(MainWin),wa_x+wa_w-w,wa_y+wa_h-h);
+		}
 	}
 	else if(show && MainWin_X==1 && MainWin_Y==-1)
 	{
@@ -1564,7 +1593,14 @@ int ui_main_show(int show)
 		MainWin_Y=0;
 		w=MainWin_W;h=MainWin_H;
 		MainWin_X=(gdk_screen_width()-w)/2;
-		gtk_window_move(GTK_WINDOW(MainWin),MainWin_X,MainWin_Y);
+		if(is_wayland)
+		{
+			// TODO:
+		}
+		else
+		{
+			gtk_window_move(GTK_WINDOW(MainWin),MainWin_X,MainWin_Y);
+		}
 		(void)h;
 	}
 	else if(show && MainWin_X==2 && MainWin_Y==-1)
@@ -1573,12 +1609,26 @@ int ui_main_show(int show)
 		gint wa_x,wa_y,wa_w,wa_h;
 		w=MainWin_W;h=MainWin_H;
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
-		gtk_window_move(GTK_WINDOW(MainWin),wa_x,wa_y+wa_h-h);
+		if(is_wayland)
+		{
+			// TODO:
+		}
+		else
+		{
+			gtk_window_move(GTK_WINDOW(MainWin),wa_x,wa_y+wa_h-h);
+		}
 		(void)w;
 	}
 	else if(show)
 	{
-		gtk_window_move(GTK_WINDOW(MainWin),MainWin_X,MainWin_Y);
+		if(is_wayland)
+		{
+			// TODO:
+		}
+		else
+		{
+			gtk_window_move(GTK_WINDOW(MainWin),MainWin_X,MainWin_Y);
+		}
 	}
 	if(show==2)
 		show=MainWin_visible?0:1;
@@ -1609,7 +1659,14 @@ int ui_input_show(int show)
 		if(ybus_ibus_input_draw(InputTheme.line)==0)
 			return 0;
 		// 在这移动窗口是为了修复gtk_widget_hide之后可能自动修改窗口位置的bug
-		gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
+		if(is_wayland)
+		{
+			// TODO:
+		}
+		else
+		{
+			gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
+		}
 		gtk_widget_show(InputWin);
 	}
 	else
@@ -1660,6 +1717,12 @@ void ui_tray_update(UI_TRAY *param)
 {
 	int enable;
 	int i;
+
+	if(is_wayland)
+	{
+		// TODO: use libappindicator here
+		return;
+	}
 
 	{
 		int ret;
@@ -2013,7 +2076,14 @@ void ui_show_tip(const char *fmt,...)
 		x=(gdk_screen_width()-w)/2;
 		y=(gdk_screen_height()-h)/2;
 	}
-	gtk_window_move(GTK_WINDOW(tip),x,y);
+	if(is_wayland)
+	{
+		// TODO:
+	}
+	else
+	{
+		gtk_window_move(GTK_WINDOW(tip),x,y);
+	}
 	gtk_window_resize(GTK_WINDOW(tip),w,h);
 	gtk_widget_set_size_request(tip,w,h);
 	gtk_widget_queue_draw(tip);
@@ -2638,6 +2708,7 @@ void ui_setup_default(Y_UI *p)
 	p->init=ui_init;
 	p->loop=ui_loop;
 	p->clean=ui_clean;
+	p->quit=gtk_main_quit;
 	
 	p->main_update=ui_main_update;
 	p->main_win=ui_main_win;

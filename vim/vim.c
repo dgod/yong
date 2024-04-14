@@ -108,6 +108,7 @@ int l_call_connect(void)
 	}
 	setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&timeo,sizeof(timeo));
 	setsockopt(s,SOL_SOCKET,SO_SNDTIMEO,&timeo,sizeof(timeo));
+
 	return s;
 }
 

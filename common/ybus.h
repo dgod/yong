@@ -72,6 +72,7 @@ enum{
 	YBUS_TOOL_WM_FOCUS,
 	YBUS_TOOL_RELOAD_ALL,
 	YBUS_TOOL_KEYBOARD,
+	YBUS_TOOL_EXIT,
 };
 
 int ybus_init(void);

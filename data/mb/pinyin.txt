@@ -54,6 +54,7 @@ aiguozhuyi 爱国主义
 aihao 爱好 哀号
 aihaozhe 爱好者
 aihen 爱恨
+aihongbianye 哀鸿遍野
 aihu 爱护
 aiji 埃及
 aijiaaihu 挨家挨户
@@ -415,6 +416,7 @@ baigong 白宫
 baigu 白骨
 baiguan 百官
 baiguang 白光
+baihao 摆好
 baihe 百合 白鹤 捭阖
 baihu 白虎
 baihua 百花 白话 白花
@@ -1237,6 +1239,7 @@ beixi 悲喜
 beixia 卑下
 beixin 背心
 beixinqiyi 背信弃义
+beixuan 备选 被选
 beixuanwei 被选为
 beiyan 被淹
 beiyang 北洋
@@ -1644,6 +1647,7 @@ biduan 弊端
 biduolishao 弊多利少
 bie 别 憋 瘪 蹩 鳖 捌
 bieba 别把
+biechao 别吵
 biecheng 别称
 biechu 别处
 biechujizhu 别出机杼
@@ -3774,6 +3778,7 @@ cheye 彻夜
 chezai 车在 车载
 chezaidouliang 车载斗量
 chezhan 车站
+chezhe 扯着 车辙
 chezhi 撤职
 chezhou 掣肘
 chezi 车子
@@ -4344,6 +4349,7 @@ chuishiban 炊事班
 chuishou 垂首 垂手
 chuisi 垂死
 chuisizhengzha 垂死挣扎
+chuitankepo 吹弹可破
 chuitousangqi 垂头丧气
 chuiwei 垂危
 chuixia 垂下
@@ -5958,6 +5964,7 @@ dazhi 大致
 dazhidayong 大智大勇
 dazhong 大众 大中 打中
 dazhonghua 大众化
+dazhonglianchongpangzi 打肿脸充胖子
 dazhongxing 大中型
 dazhongxingqiye 大中型企业
 dazhuan 打转 大专
@@ -7788,6 +7795,7 @@ fanfu 反复 反腐
 fanfubai 反腐败
 fanfuchanglian 反腐倡廉
 fanfusuzi 凡夫俗子
+fanfuzouzu 贩夫走卒
 fang 方 放 仿 芳 房 访 防 妨 纺 彷 坊 肪 舫 钫 鲂 邡 枋 匚 昉 祊
 fangai 妨碍
 fangan 方案
@@ -9641,6 +9649,7 @@ geyao 歌谣
 geyechou 隔夜仇
 geyi 各异
 geyin 隔音
+geying 膈应
 geyong 歌咏
 geyou 各有
 geyougede 各有各的
@@ -9925,6 +9934,7 @@ gongzuo 工作
 gongzuodi 工作地
 gongzuohuibao 工作汇报
 gongzuohuiyi 工作会议
+gongzuokuang 工作狂
 gongzuoliang 工作量
 gongzuorenyuan 工作人员
 gongzuori 工作日
@@ -11035,6 +11045,7 @@ hantaikeju 憨态可掬
 hanwei 捍卫
 hanwo 喊我
 hanwudi 汉武帝
+hanwuji 寒武纪
 hanxiao 含笑
 hanxin 寒心 韩信
 hanxinruku 含辛茹苦
@@ -12411,6 +12422,7 @@ huimin 回民
 huimorushen 讳莫如深
 huimou 回眸
 huimouyixiaobaimeisheng 回眸一笑百媚生
+huinantian 回南天
 huinuan 回暖
 huipiao 汇票
 huipu 惠普
@@ -16864,6 +16876,7 @@ kongyuechengren 孔曰成仁
 kongyun 空运
 kongzai 空载
 kongzhan 空战
+kongzhe 空着
 kongzhi 控制 空置
 kongzhili 控制力
 kongzhilun 控制论
@@ -17960,6 +17973,7 @@ lashen 拉伸
 lasheng 拉升
 lashi 拉屎 拉矢
 lashou 拉手
+lasi 拉丝 辣死
 lasuo 拉锁
 lata 邋遢
 latui 拉腿
@@ -20148,7 +20162,7 @@ lvzhi 履职 铝制 滤纸
 lvzhou 绿洲
 lvzi 驴子
 m 没 吗 们 名 买 呒 呣
-ma 吗 妈 马 码 麻 骂 嘛 抹 玛 蚂 蟆 唛 杩 犸 嬷 么 孖 祃
+ma 吗 妈 马 码 麻 嘛 骂 抹 玛 蚂 蟆 唛 杩 犸 嬷 么 孖 祃
 maan 马鞍
 maanshan 马鞍山
 maanxing 马鞍形
@@ -22678,6 +22692,7 @@ nianglia 娘俩
 niangmen 娘们
 niangmi 酿蜜
 niangniang 娘娘
+niangpao 娘炮
 niangtai 娘胎
 nianguan 年关
 niangzao 酿造
@@ -24702,6 +24717,7 @@ puren 仆人
 pusa 菩萨
 pusaxinchang 菩萨心肠
 pushai 曝晒
+pushan 蒲扇
 pushe 铺设
 pushi 朴实
 pushuomili 扑朔迷离
@@ -25653,7 +25669,7 @@ qinggairugu 倾盖如故
 qinggan 情感
 qinggang 轻钢 青冈
 qinggao 清高
-qingge 情歌
+qingge 情歌 请个
 qinggemanwu 轻歌曼舞
 qinggenshenzhong 情根深种
 qinggong 庆功 轻工 请功 轻功
@@ -25723,6 +25739,7 @@ qinglian 清廉
 qingliang 清凉 清亮
 qingliangjie 请谅解
 qingliangyou 清凉油
+qinglie 清冽
 qingling 轻灵 请领 清零
 qingliu 清流
 qinglong 青龙
@@ -28191,6 +28208,7 @@ secha 色差
 seda 色达
 sedai 色带
 sediao 色调
+segui 色鬼
 selang 色狼
 selineiren 色厉内荏
 semang 色盲
@@ -30584,6 +30602,7 @@ shouzhang 手掌 首长 收账 手杖
 shouzhangaojie 首战告捷
 shouzhe 守着
 shouzhi 手指 收支 受制 手纸
+shouzhijia 手指甲
 shouzhipingheng 收支平衡
 shouzhiyiyu 授之以渔 授之以鱼
 shouzhiyoukui 受之有愧
@@ -30701,6 +30720,7 @@ shuanglie 双列
 shuangliu 双流
 shuanglongxizhu 双龙戏珠
 shuangmian 双面
+shuangmou 双眸
 shuangmu 双目
 shuangmushiming 双目失明
 shuangpai 双牌
@@ -30842,6 +30862,7 @@ shuichengxiang 谁成想
 shuichi 水池
 shuichuli 水处理
 shuidai 睡袋 水带
+shuidajiao 睡大觉
 shuidan 税单
 shuidao 水稻 水道
 shuidaoqucheng 水到渠成
@@ -32288,6 +32309,7 @@ taiqiu 台球
 taiquan 泰拳
 taiquandao 跆拳道
 tairan 泰然
+tairanchuzhi 泰然处之
 tairanziruo 泰然自若
 taire 太热
 tairuan 太软
@@ -35088,6 +35110,7 @@ wanwan 玩玩 玩完 万万 弯弯
 wanwanmeiyouxiangdao 万万没有想到
 wanwanquanquan 完完全全
 wanwanququ 弯弯曲曲
+wanwanzhengzheng 完完整整
 wanwei 玩味
 wanwu 万物 玩物
 wanwusangzhi 玩物丧志
@@ -37306,6 +37329,7 @@ xiaolin 小林
 xiaolingtong 小灵通
 xiaoliu 小刘
 xiaoliumang 小流氓
+xiaolongbao 小笼包
 xiaolongxia 小龙虾
 xiaolou 小楼
 xiaolu 小路 销路
@@ -37828,6 +37852,7 @@ xijierqi 喜极而泣
 xijin 吸进 锡金
 xijing 洗净
 xijinping 习近平
+xijinqianhua 洗尽铅华
 xijiu 喜酒 细究
 xiju 戏剧 喜剧
 xijuan 席卷
@@ -39667,6 +39692,7 @@ yangqiang 洋枪
 yangqiping 氧气瓶
 yangqiu 央求
 yangren 洋人
+yangrenbixi 仰人鼻息
 yangrong 羊绒
 yangrou 羊肉
 yangrouchuan 羊肉串
@@ -40463,7 +40489,7 @@ yiciyouyici 一次又一次
 yicong 已从 依从
 yicuerjiu 一蹴而就
 yicun 依存
-yida 一大 一打 已达 医大
+yida 一大 一打 已达 医大 一沓
 yidaban 一大半
 yidabang 一大帮
 yidabiqian 一大笔钱
@@ -42245,6 +42271,7 @@ youting 游艇
 youtong 油桶 幼童 邮筒
 youtou 由头
 youtoufenmian 油头粉面
+youtu 有图
 youtuo 幼托
 youwan 游玩
 youwang 有望

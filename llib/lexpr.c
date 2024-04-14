@@ -6,6 +6,7 @@
 #include "ltypes.h"
 #include "lqueue.h"
 #include "lmem.h"
+#include "ltricky.h"
 
 typedef struct expr_item{
 	struct expr_item *next;

@@ -8,6 +8,7 @@
 #include "lstring.h"
 #include "lslist.h"
 #include "lxml.h"
+#include "ltricky.h"
 
 enum{
 	REQ_ANY,

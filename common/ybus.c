@@ -561,6 +561,12 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		y_kbd_select(param,0);
 		break;
 	}
+	case YBUS_TOOL_EXIT:
+	{
+		y_ui_quit();
+		break;
+	}
+
 	default:
 		break;
 	}

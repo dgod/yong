@@ -12,6 +12,7 @@
 #include "lmacros.h"
 #include "larray.h"
 #include "lstring.h"
+#include "ltricky.h"
 
 typedef struct _keyvalue{
 	struct _keyvalue *next;

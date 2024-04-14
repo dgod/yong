@@ -76,6 +76,7 @@ agvd 按规定
 agvy 爱国主义
 ah 昂 肮 盎
 ah' 爱好
+ahby 哀鸿遍野
 ahgv 昂贵
 ahkv 爱好者
 aho 肮 昂
@@ -1622,6 +1623,7 @@ blgx 比例关系
 blh 稗
 blhb 稗
 blhe 百合 白鹤 捭阖
+blhk 摆好
 blho 百货 白活 败火
 blhu 白虎
 blhv 拜会
@@ -2491,6 +2493,7 @@ bxgy 别怪
 bxib 补习班
 bxif 变戏法
 bxig 别称
+bxik 别吵
 bxit 本系统
 bxiu 别处
 bxjc 蹩脚
@@ -2852,6 +2855,7 @@ bzwz 卑微 北纬
 bzx 悖
 bzxi 悲喜
 bzxn 背心
+bzxr 备选 被选
 bzxw 卑下
 bzxz 悖
 bzyb 备有
@@ -6086,7 +6090,7 @@ dvlm 对联
 dvlq 对流
 dvlu 对路
 dvlx 队列
-dvlz 对垒
+dvlz 对垒 打肿脸充胖子
 dvmf 对门
 dvmm 对面
 dvni 对你
@@ -6985,6 +6989,7 @@ ffzi 分子
 ffzk 分灶
 ffzl 分在
 ffzu 分组
+ffzz 贩夫走卒
 fg 风 封 疯 凤 丰 峰 逢 奉 缝 锋 讽 冯 蜂 枫 烽 俸 砜 唪 酆 葑 沣 沨
 fg; 沣 沨
 fg;f 沨 沣
@@ -8366,6 +8371,7 @@ geyk 歌谣
 geyn 隔音
 geys 歌咏
 geyt 个月
+geyy 膈应
 gezi 各自 鸽子 个子
 gezl 搁在
 gezu 各组 各族
@@ -10027,6 +10033,7 @@ gzle 给了
 gzli 给力
 gzni 给你
 gznn 给您
+gzok 工作狂
 gzol 工作量
 gzqm 给钱
 gzrf 给人
@@ -11107,6 +11114,7 @@ hnbd 好男不跟女斗
 hnhy 何年何月
 hnid 汗牛充栋
 hnjd 海南岛
+hnjt 回南天
 hnju 很难说 河南省 湖南省 海南省
 hnku 后脑勺
 hnmy 猴年马月
@@ -12569,6 +12577,7 @@ ieuf 车身
 ieui 砗
 iev 掣 屮
 ievb 掣肘
+ieve 扯着 车辙
 ievi 撤职
 ievj 车站
 ievl 屮
@@ -13736,6 +13745,7 @@ iszo 重做
 iszu 充足 重组
 it' 传统
 itbn 出头鸟
+itkp 吹弹可破
 itiw 彻头彻尾
 itsq 垂头丧气
 iu 处 出 除 楚 初 触 储 础 厨 畜 躇 橱 雏 矗 怵 锄 杵 搐 绌 黜 褚 蜍 蹰 刍 滁 楮 憷 亍 樗 诎 㤘 俶
@@ -18645,6 +18655,7 @@ ksug 崆
 ksux 可塑性
 ksv 箜
 ksvb 客随主便
+ksve 空着
 ksvg 箜
 ksvi 控制 空置
 ksvj 空战
@@ -19149,6 +19160,7 @@ larb 腊肉
 larj 蜡染
 laru 拉入
 lasa 拉萨
+lasi 拉丝 辣死
 laso 拉锁
 lat 垃
 lata 邋遢
@@ -24557,6 +24569,7 @@ ndmi 酿蜜
 ndn 娘
 ndnd 娘娘
 ndnl 娘
+ndpk 娘炮
 ndsx 能动性
 ndtl 娘胎
 ndub 女大十八变
@@ -27387,6 +27400,7 @@ puto 普陀
 puts 普通 扑通
 puue 铺设
 puui 朴实
+puuj 蒲扇
 puvd 陪审制度
 puvg 排水沟
 puvh 铺张
@@ -29834,7 +29848,7 @@ qylp 晴纶
 qylq 清流
 qyls 青龙 巧言令色
 qylv 情侣 青绿
-qylx 起义领袖
+qylx 清冽 起义领袖
 qyly 轻灵 请领 清零
 qymc 青苗
 qymh 潜移默化
@@ -31258,6 +31272,7 @@ seda 色达
 sedb 色
 sedc 色调
 sedl 色带
+segv 色鬼
 seh 穑
 sehh 穑
 seia 色差
@@ -34221,6 +34236,7 @@ trhe 团河
 trho 团伙
 trhy 天人合一
 trii 投入产出
+triv 泰然处之
 trji 湍急
 trjj 突然间
 trjl 天然林
@@ -35606,7 +35622,7 @@ udlq 双流
 udlt 事到临头
 udlx 双列
 udlz 书呆子
-udmb 水电部
+udmb 双眸 水电部
 udmf 水电费
 udmm 双面
 udmu 闪电式
@@ -44356,6 +44372,7 @@ xjll 喜结连理
 xjmp 小键盘
 xjnv 薪金制
 xjnx 先进性
+xjqh 洗尽铅华
 xjqj 雄赳赳
 xjqu 学究式
 xjrb 相敬如宾
@@ -44438,6 +44455,7 @@ xlqt 学龄前儿童
 xlrm 心乱如麻
 xlrv 血流如注
 xlrw 训练任务
+xlsb 小笼包
 xlud 夏绿蒂
 xluh 希腊神话 心领神会
 xlui 心灵深处
@@ -46884,6 +46902,7 @@ ybtl 犹太
 ybtm 油田
 ybto 幼托
 ybts 油桶 幼童 邮筒
+ybtu 有图
 ybtv 右腿
 ybty 游艇
 ybu 友 右 幽 尤 鼬 尢 有
@@ -47573,7 +47592,7 @@ yics 已从 依从
 yicx 薏 艾
 yicy 荑 苡
 yid 益 义 欹 殪 衤
-yida 已达 医大 一大 一打
+yida 已达 医大 一大 一打 一沓
 yidb 一抖 疑窦
 yidd 殪 衤
 yide 医德

@@ -177,6 +177,7 @@ typedef struct{
 	int (*init)(void);
 	void (*clean)(void);
 	int (*loop)(void);
+	void (*quit)(void);
 
 	int (*main_update)(UI_MAIN *);
 	void *(*main_win)(void);
@@ -229,6 +230,8 @@ int y_ui_init(const char *name);
 	y_ui.loop()
 #define y_ui_clean() \
 	y_ui.clean()
+#define y_ui_quit() \
+	do{if(y_ui.quit)y_ui.quit();}while(0)
 
 #define y_ui_main_update(a) \
 	(y_ui.main_update?y_ui.main_update(a):0)

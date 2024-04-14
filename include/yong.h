@@ -162,6 +162,14 @@ typedef struct {
 #define YK_RWIN		0xecu
 #define YK_DELETE	0xffu
 
+#define YK_IS_MASK(x)			\
+(__extension__					\
+	({							\
+	 	int _code=YK_CODE(x);	\
+		_code>=YK_LSHIFT && _code<=YK_RWIN;	\
+	})							\
+)
+
 #define YK_HOME		0xff50u
 #define YK_LEFT		0xff51u
 #define YK_UP		0xff52u
