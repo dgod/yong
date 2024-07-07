@@ -1,7 +1,7 @@
 #include "lmem.h"
 #include "ltypes.h"
 
-static char b64_list[] = 
+static const char b64_list[] = 
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 void l_base64_encode(char *out, const uint8_t *in, int inlen)
@@ -29,7 +29,7 @@ void l_base64_encode(char *out, const uint8_t *in, int inlen)
 }
 
 #define XX 99
-static uint8_t b64_index[128] = {
+static const uint8_t b64_index[128] = {
 	XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
 	XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
 	XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,62, XX,XX,XX,63,

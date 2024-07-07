@@ -341,6 +341,27 @@ function ibus_uninstall()
 	fi
 }
 
+function kde_install()
+{
+	CFG=/usr/share/applications/net.dgod.yong.kde.desktop
+	sed "s%\/usr\/share\/yong%`pwd`%" >$CFG <<EOF
+[Desktop Entry]
+Name=Yong Wayland
+Exec=/usr/bin/yong --wayland
+Type=Application
+X-KDE-Wayland-VirtualKeyboard=true
+Icon=/usr/share/yong/skin/tray1.png
+NoDisplay=true
+EOF
+}
+
+function kde_uninstall()
+{
+	if [ -f /usr/share/applications/net.dgod.yong.kde.desktop ] ; then
+		rm -f /usr/share/applications/net.dgod.yong.kde.desktop
+	fi
+}
+
 function gtk_install32()
 {
 	if ! [ -d l32 ] ; then
@@ -972,6 +993,7 @@ function install32()
 	ln -sf `pwd`/l32/yong-config-gtk3 /usr/bin/yong-config
 	locale_install
 	ibus_install
+	kde_install
 	gtk_install
 	if [ $DIST = "fedora" ] ; then
 		fedora_install
@@ -1001,6 +1023,7 @@ function install64()
 	
 	locale_install
 	ibus_install
+	kde_install
 	gtk_install
 	if [ $DIST = "fedora" ] ; then
 		fedora_install
@@ -1072,6 +1095,7 @@ elif [ $1 = "--uninstall" ] ; then
 	rm -rf /usr/bin/yong
 	rm -rf /usr/bin/yong-config
 	rm -rf /usr/bin/yong-vim
+	kde_uninstall
 	ibus_uninstall
 	gtk_uninstall
 	locale_uninstall

@@ -324,7 +324,6 @@ int cp_unzip_py(const char *in,char *out,int size)
 				*out++='i';*out++='a';*out++='o';
 				break;
 			case 'd':
-				//if(strchr("jlnqx",s))
 				if(s=='j' || s=='l' || s=='n' || s=='q' || s=='x')
 					*out++='i';
 				else
@@ -373,7 +372,6 @@ int cp_unzip_py(const char *in,char *out,int size)
 				if(s=='o')
 				{
 				}
-				// else if(strchr("abfmpqw",s))
 				else if(s=='a' || s=='b' || s=='f' || s=='m' || s=='p' || s=='q' || s=='w')
 				{
 					*out++='o';
@@ -400,7 +398,6 @@ int cp_unzip_py(const char *in,char *out,int size)
 				}
 				break;
 			case 's':
-				//if(strchr("jqx",s))
 				if(s=='j' || s=='q' || s=='x')
 				{
 					*out++='i';
@@ -422,7 +419,6 @@ int cp_unzip_py(const char *in,char *out,int size)
 				}
 				break;
 			case 'w':
-				// if(strchr("djlqx",s))
 				if(s=='d' || s=='j' || s=='l' || s=='q' || s=='x')
 					*out++='i';
 				else
@@ -433,7 +429,6 @@ int cp_unzip_py(const char *in,char *out,int size)
 				*out++='i';*out++='e';
 				break;
 			case 'y':
-				// if(strchr("ighkuv",s))
 				if(s=='i' || s=='g' || s=='h' || s=='k' || s=='u' || s=='v')
 				{
 					*out++='u';*out++='a';*out++='i';

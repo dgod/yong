@@ -1,5 +1,6 @@
 #include <gtk/gtk.h>
 #include <assert.h>
+#include <dlfcn.h>
 
 #include "config_ui.h"
 
@@ -10,6 +11,14 @@ typedef void (*DestroySelfFunc)(CUCtrl p);
 typedef struct{
 	bool scroll;
 }CU_PANEL_PRIV;
+
+#if !GTK_CHECK_VERSION(4,0,0)
+static void (*p_gtk_scrolled_window_set_overlay_scrolling) (
+  GtkScrolledWindow* scrolled_window,
+  gboolean overlay_scrolling
+);
+
+#endif
 
 #if GTK_CHECK_VERSION(4,0,0)
 // 由于菜单绑定在了主窗口上，那么我们不应该在这儿销毁窗口，否则GTK报错
@@ -303,6 +312,10 @@ int cu_ctrl_init_tree(CUCtrl p)
 #else
 	GtkWidget *scrolled_window=gtk_scrolled_window_new(NULL,NULL);
 	gtk_container_add(GTK_CONTAINER(scrolled_window),w);
+	if(p_gtk_scrolled_window_set_overlay_scrolling)
+	{
+		p_gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(scrolled_window),TRUE);
+	}
 #endif
 	p->self=scrolled_window;
 	gtk_widget_show(w);
@@ -354,7 +367,10 @@ int cu_ctrl_init_page(CUCtrl p)
 	p->self=gtk_scrolled_window_new();
 #else
 	p->self=gtk_scrolled_window_new(NULL, NULL);
+	if(p_gtk_scrolled_window_set_overlay_scrolling)
+		p_gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(p->self),TRUE);
 #endif
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(p->self),GTK_POLICY_NEVER,GTK_POLICY_AUTOMATIC);
 	g_object_set_data(G_OBJECT(p->self),"fixed",fixed);
 	gtk_widget_set_size_request(GTK_WIDGET(fixed),p->pos.w,p->pos.h);
 	gtk_widget_show(fixed);
@@ -723,6 +739,9 @@ int cu_loop(void)
 
 int cu_init(void)
 {
+#if !GTK_CHECK_VERSION(4,0,0)
+	p_gtk_scrolled_window_set_overlay_scrolling=dlsym(NULL,"gtk_scrolled_window_set_overlay_scrolling");
+#endif
 	return 0;
 }
 

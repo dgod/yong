@@ -182,14 +182,31 @@ void l_call_conn_free(LCallConn *conn)
 {
 	if(!conn)
 		return;
-	conn->user->free(conn);
+	if(conn->user)
+	{
+		conn->user->free(conn);
+	}
 	if(conn->serv)
+	{
 		conn->serv->conn=g_slist_remove(conn->serv->conn,conn);
+		conn->serv=NULL;
+	}
 	if(conn->id)
+	{
 		g_source_remove(conn->id);
-	g_io_channel_shutdown(conn->ch,TRUE,NULL);
-	g_io_channel_unref(conn->ch);
-	g_free(conn);
+		conn->id=0;
+	}
+	if(conn->ch)
+	{
+		g_io_channel_shutdown(conn->ch,TRUE,NULL);
+		g_io_channel_unref(conn->ch);
+		conn->ch=NULL;
+	}
+	conn->ref--;
+	if(conn->ref<=0)
+	{
+		g_free(conn);
+	}
 }
 
 static void l_call_build_path(char *path)
@@ -222,6 +239,32 @@ static int conn_read_data(LCallConn *conn)
 	conn->buf.size+=bytes_read;
 	return 0;
 }
+#ifdef L_CALL_WITH_GTK
+#include <gtk/gtk.h>
+static int conn_wait_data(LCallConn *conn)
+{
+	if(!conn->ch)
+		return -1;
+	LCallBuf *buf=&conn->buf;
+	while(!l_call_buf_ready(buf))
+	{
+#if GTK_CHECK_VERSION(4,0,0)
+		g_main_context_iteration (NULL, TRUE);
+#else
+		gtk_main_iteration();
+#endif
+		if(!conn->ch)
+		{
+			if(l_call_buf_ready(buf))
+				return 0;
+			return -1;
+		}
+	}
+	return 0;
+}
+#else
+#define conn_wait_data conn_read_data
+#endif
 
 static int conn_deal_data(LCallConn *conn)
 {
@@ -257,7 +300,7 @@ static LCallBuf *conn_wait_result(LCallConn *conn,uint16_t seq)
 
 	while(conn->id!=0)
 	{
-		if(conn_read_data(conn)!=0)
+		if(conn_wait_data(conn)!=0)
 		{
 			break;
 		}
@@ -427,6 +470,7 @@ LCallConn *l_call_conn_new(GIOChannel *channel,LCallUser *user)
 	conn=g_new0(LCallConn,1);
 	conn->user=user;
 	conn->ch=channel;
+	conn->ref=1;
 	l_call_buf_reset(&conn->buf);
 	conn->id=g_io_add_watch(channel,G_IO_ERR|G_IO_IN|G_IO_HUP,
 			(GIOFunc)conn_event,conn);
@@ -628,12 +672,18 @@ int l_call_client_call(const char *name,int *res,const char *param,...)
 	if(!_conn && (!strcmp(name,"enable") || !strcmp(name,"focus_in")))
 		l_call_client_connect();
 	if(!_conn) return -1;
+
+	LCallConn *conn=_conn;
 	
 	va_start(ap,param);
-	ret=l_call_conn_vcall(_conn,name,res,param,ap);
+	conn->ref++;
+	ret=l_call_conn_vcall(conn,name,res,param,ap);
 	va_end(ap);
 	if(ret!=0)
 		l_call_client_disconnect();
+	conn->ref--;
+	if(conn->ref==0)
+		l_call_conn_free(conn);
 
 	return ret;
 }

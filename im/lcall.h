@@ -72,6 +72,7 @@ struct _LCallConn{
 	gboolean res;
 	guint id;
 	void *arg;
+	int ref;
 };
 
 struct _LCallServ{

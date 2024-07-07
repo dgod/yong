@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
+#include <X11/Xatom.h>
 #include <IMdkit.h>
 #include <Xi18n.h>
 #include <XimFunc.h>
@@ -1134,6 +1135,34 @@ static int xim_init(void)
 
 	return 0;
 }
+
+void ybus_xim_get_workarea(int *x, int *y, int *width, int *height)
+{
+	if(!dpy)
+		return;
+	Window root = RootWindow(dpy, DefaultScreen(dpy));
+	Atom net_workarea_atom = XInternAtom(dpy, "_NET_WORKAREA", True);
+	if(net_workarea_atom==None)
+		return;
+	Atom actualType;
+	int format;
+	unsigned long numItems, bytesAfter;
+	unsigned char *data = NULL;
+	int status=XGetWindowProperty(dpy,root,net_workarea_atom,0,4,False,
+			AnyPropertyType,&actualType,&format,&numItems,&bytesAfter,&data);
+	if(status!=Success)
+		return;
+	if (actualType == XA_CARDINAL && numItems>=4)
+	{
+		long *workArea = (long*)data;
+		*x=workArea[0];
+		*y=workArea[1];
+		*width=workArea[2];
+		*height=workArea[3];
+	}
+	XFree(data);
+}
+
 
 int ybus_xim_init(void)
 {

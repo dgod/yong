@@ -53,5 +53,12 @@
 #define l_newa0(t) ((t*)l_alloca0(sizeof(t)))
 #define l_memdupa(p,s) memcpy(l_alloca(s),p,s)
 
+typedef struct _lslices LSlices;
+LSlices *l_slices_new(int n,...);
+void l_slices_free(LSlices *r);
+void *l_slice_alloc(LSlices *r,int size);
+#define l_slice_new(r,t) l_slice_alloc(r,sizeof(t))
+void l_slice_free(LSlices *r,void *p,int size);
+
 #endif/*_LMEM_H_*/
 

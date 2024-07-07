@@ -11,12 +11,17 @@
 LArray *l_array_new(int count,int size)
 {
 	LArray *array;
-	array=l_new0(LArray);
+	array=l_new(LArray);
 	array->count=count;
 	array->size=size;
+	array->len=0;
 	if(size>0)
 	{
 		array->data=l_alloc(array->count*array->size);
+	}
+	else
+	{
+		array->data=NULL;
 	}
 	return array;
 }
@@ -38,7 +43,7 @@ static void l_array_expand(LArray *array)
 	int v1,v2;
 	if(array->count-array->len>=1)
 		return;
-	v1=array->len+1;
+	v1=array->len+4;
 	v2=array->count*5/4;
 	array->count=v1>v2?v1:v2;
 	array->data=l_realloc(array->data,array->size*array->count);
@@ -109,7 +114,8 @@ void l_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg)
 
 void l_ptr_array_append(LArray *array,const void *val)
 {
-	l_array_append(array,&val);
+	l_array_expand(array);
+	array->ptr[array->len++]=(void*)val;
 }
 
 void l_ptr_array_insert(LArray *array,int n,const void *val)
@@ -125,7 +131,7 @@ void l_ptr_array_free(LArray *array,LFreeFunc func)
 	{
 		if(func) for(i=0;i<array->len;i++)
 		{
-			func(*(void**)(array->data+i*array->size));
+			func(array->ptr[i]);
 		}
 		l_free(array->data);
 	}
@@ -140,7 +146,7 @@ void l_ptr_array_clear(LArray *array,LFreeFunc func)
 		int i;
 		for(i=0;i<array->len;i++)
 		{
-			func(*(void**)(array->data+i*array->size));
+			func(array->ptr[i]);
 		}
 	}
 	array->len=0;

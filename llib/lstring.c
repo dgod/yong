@@ -7,10 +7,12 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include "ltypes.h"
 #include "lmem.h"
 #include "lstring.h"
+#include "lconv.h"
 #include "ltricky.h"
 
 char *l_sprintf(const char *fmt,...)
@@ -40,12 +42,28 @@ char *l_sprintf(const char *fmt,...)
 
 char **l_strsplit(const char *str,int delimiter)
 {
-	char *list[512];
-	int count=0;
-	int i;
-	for(i=0;i<511;i++)
+	char **list;
+	int count;
+	const char *p=str;
+
+	count=2;
+	do{
+		p=strchr(p,delimiter);
+		if(p!=NULL)
+		{
+			count++;
+			p++;
+			if(delimiter==0 && *p==0)
+			{
+				break;
+			}
+		}
+	}while(p!=NULL);
+	list=l_cnew(count,char*);
+	
+	for(count=0;;)
 	{
-		char *p=strchr(str,delimiter);
+		p=strchr(str,delimiter);
 		if(!p)
 		{
 			list[count++]=l_strdup(str);
@@ -54,15 +72,20 @@ char **l_strsplit(const char *str,int delimiter)
 		size_t len=p-str;
 		list[count++]=l_strndup(str,len);
 		str=p+1;
+		if(delimiter==0 && *str==0)
+		{
+			break;
+		}
 	}
-	list[count++]=0;
-	return l_memdup(list,sizeof(char*)*count);
+	list[count++]=NULL;
+	return list;
 }
 
 void l_strfreev(char **list)
 {
 	int i;
-	if(!list) return;
+	if(!list)
+		return;
 	for(i=0;list[i]!=NULL;i++)
 	{
 		l_free(list[i]);
@@ -128,7 +151,7 @@ void l_string_free(LString *string)
 	l_free(string);
 }
 
-static void l_string_expand(LString *string,int len)
+void l_string_expand(LString *string,int len)
 {
 	int v1,v2;
 	if(string->size-string->len>=len+1)
@@ -369,5 +392,200 @@ int l_str_replace(char *s,int from,int to)
 		}
 		return i;
 	}
+}
+
+#undef L_INT2STR_UTF8
+#undef L_INT2STR_INDIRECT
+
+#define L_INT2STR_UTF8			0x02
+#define L_INT2STR_INDIRECT		0x10
+
+int l_int_to_str(int64_t n,const char *format,int flags,char *out)
+{
+	if(format)
+	{
+		if(!strcmp(format,"%d"))
+			format="%"PRId64;
+		if(!strcmp(format,"%02d"))
+			format="%02"PRId64;
+	}
+	if((flags&L_INT2STR_MINSEC)!=0)
+	{
+		if(n<0 || n>59)
+			return -1;
+	}
+	if((flags&(L_INT2STR_MINSEC|L_INT2STR_HZ)) == (L_INT2STR_MINSEC|L_INT2STR_HZ))
+	{
+		flags&=~L_INT2STR_MINSEC;
+		if(n<10)
+		{
+			format="%02"PRId64;
+		}
+		else
+		{
+			flags|=L_INT2STR_INDIRECT;
+		}
+		
+	}
+	if(!(flags&L_INT2STR_HZ))
+	{
+		return sprintf(out,format?format:"%"PRId64,n);
+	}
+	const char *ch0=flags&L_INT2STR_ZERO0?"〇":"零";
+	const char *ch=flags&L_INT2STR_BIG?"壹贰叁肆伍陆柒捌玖":"一二三四五六七八九";
+	const char *dw=NULL;
+	if((flags&L_INT2STR_INDIRECT)!=0)
+	{
+		if((flags&L_INT2STR_BIG)!=0)
+			dw=flags&L_INT2STR_TRAD?"拾佰仟萬億":"拾佰仟万亿";
+		else
+			dw=flags&L_INT2STR_TRAD?"十百千萬億":"十百千万亿";
+	}
+	int pos=0;
+	bool is_utf8=(flags&L_INT2STR_UTF8)!=0;
+	flags&=~L_INT2STR_UTF8;
+	char *p=is_utf8?l_alloca(64):out;
+	if(!(flags&L_INT2STR_INDIRECT))
+	{
+		char t[32];
+		int len=sprintf(t,format?format:"%"PRId64,n);
+		for(int i=0;i<len;i++)
+		{
+			int c=t[i];
+			if(c=='0')
+			{
+				p[pos++]=ch0[0];
+				p[pos++]=ch0[1];
+			}
+			else
+			{
+				p[pos++]=ch[(c-'1')*2+0];
+				p[pos++]=ch[(c-'1')*2+1];
+			}
+		}
+	}
+	else
+	{
+		int strip10=!(flags&L_INT2STR_KEEP10) && n<20 && n>=10;	// 是否忽略十前面的一
+		int have_value=0;			// 之前是否有值
+		int prev_value=0;			// 上一位是否有值
+		// 亿
+		if(n/100000000)
+		{
+			pos+=l_int_to_str(n/100000000,format,flags|L_INT2STR_NEST,p+pos);
+			p[pos++]=dw[8];
+			p[pos++]=dw[9];
+			have_value=1;
+			prev_value=n/100000000%10;
+			n%=100000000;
+		}
+		if(have_value && !prev_value && n)
+		{
+			p[pos++]=ch0[0];
+			p[pos++]=ch0[1];
+			have_value=0;
+		}
+		// 万
+		if(n/10000)
+		{
+			pos+=l_int_to_str(n/10000,format,flags|L_INT2STR_NEST,p+pos);
+			p[pos++]=dw[6];
+			p[pos++]=dw[7];
+			have_value=1;
+			prev_value=n/10000%10;
+			n%=10000;
+		}
+		else
+		{
+			prev_value=0;
+		}
+		if(have_value && !prev_value && n)
+		{
+			p[pos++]=ch0[0];
+			p[pos++]=ch0[1];
+			have_value=0;
+		}
+		// 千
+		if(n/1000)
+		{
+			pos+=l_int_to_str(n/1000,format,flags|L_INT2STR_NEST,p+pos);
+			p[pos++]=dw[4];
+			p[pos++]=dw[5];
+			have_value=1;
+			prev_value=n/1000%10;
+			n%=1000;
+		}
+		else
+		{
+			prev_value=0;
+		}
+		if(have_value && !prev_value && n)
+		{
+			p[pos++]=ch0[0];
+			p[pos++]=ch0[1];
+			have_value=0;
+		}
+		// 百
+		if(n/100)
+		{
+			pos+=l_int_to_str(n/100,format,flags|L_INT2STR_NEST,p+pos);
+			p[pos++]=dw[2];
+			p[pos++]=dw[3];
+			have_value=1;
+			prev_value=n/100%10;
+			n%=100;
+		}
+		else
+		{
+			prev_value=0;
+		}
+		if(have_value && !prev_value && n)
+		{
+			p[pos++]=ch0[0];
+			p[pos++]=ch0[1];
+			have_value=0;
+		}
+		// 十
+		if(n/10)
+		{
+			if(n/10!=1 || !strip10)
+				pos+=l_int_to_str(n/10,format,flags|L_INT2STR_NEST,p+pos);
+			p[pos++]=dw[0];
+			p[pos++]=dw[1];
+			have_value=1;
+			prev_value=n/10%10;
+			n%=10;
+		}
+		else
+		{
+			prev_value=0;
+		}
+		if(have_value && !prev_value && n)
+		{
+			p[pos++]=ch0[0];
+			p[pos++]=ch0[1];
+			have_value=0;
+		}
+		if(n || (pos==0 && !(flags&L_INT2STR_NEST)))
+		{
+			if(n==0)
+			{
+				p[pos++]=ch0[0];
+				p[pos++]=ch0[1];
+			}
+			else
+			{
+				p[pos++]=ch[(n-1)*2+0];
+				p[pos++]=ch[(n-1)*2+1];
+			}
+		}
+	}
+	p[pos]=0;
+	if(is_utf8)
+	{
+		l_gb_to_utf8(p,out,64);
+		pos=strlen(out);
+	}
+	return pos;
 }
 

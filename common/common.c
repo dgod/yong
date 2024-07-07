@@ -117,6 +117,7 @@ static char temp_output[512];
 static char last_biaodian[12];
 static char last_biaodian_only;
 static char last_code[64];
+static int64_t last_output_time;
 
 void y_xim_set_last(const char *s)
 {
@@ -435,6 +436,14 @@ COPY:
 	y_im_history_write(s);
 	if(xim.send_string)
 	{
+		if(s[0]=='$')
+		{
+#if defined(_WIN32) && !defined(_WIN64)
+			last_output_time=_time64(NULL);
+#else
+			last_output_time=time(NULL);
+#endif
+		}
 #ifndef CFG_NO_REPLACE
 		if(key>0)
 			xim.send_string(s,(flag&SEND_RAW)?DONT_ESCAPE:0);
@@ -754,6 +763,8 @@ int y_im_config_path(void)
 	y_im_set_exec();
 #endif
 	y_im_copy_config();
+	l_setenv("_DATA",y_im_get_path("DATA"),1);
+	l_setenv("_HOME",y_im_get_path("HOME"),1);
 	return 0;
 }
 
@@ -1100,6 +1111,8 @@ int y_im_str_to_key(const char *s,int *repeat)
 							{
 								const char *s=last_output;
 								s+=y_im_str_desc(s,NULL);
+								if(s[0]=='$')
+									s=y_im_str_escape(s,0,last_output_time);
 								*repeat=last_biaodian_only?0:gb_strlen((const uint8_t*)s);
 								if(last_biaodian[0])
 									*repeat+=gb_strlen((const uint8_t*)last_biaodian);
@@ -1643,102 +1656,6 @@ static void str_replace(char *s1,int l1,const char *s2)
 	memcpy(s1,s2,l2);
 }
 
-static char *num2hz(int n,const char *fmt,int flag)
-{
-	const char *ch0="零一二三四五六七八九";
-	const char *ch1="〇一二三四五六七八九";
-	static char hz[64];
-	char t[32];
-
-	sprintf(t,fmt,n);
-	switch(flag){
-	case 0:
-	{
-		strcpy(hz,t);
-		break;
-	}
-	case 1:
-	{
-		int i;
-		for(i=0;t[i];i++)
-			memcpy(hz+2*i,ch0+(t[i]-'0')*2,2);
-		hz[2*i]=0;
-		break;
-	}
-	case 2:
-	{
-		int i;
-		for(i=0;t[i];i++)
-			memcpy(hz+2*i,ch1+(t[i]-'0')*2,2);
-		hz[2*i]=0;
-		break;
-	}
-	case 3:
-	{
-		int l=strlen(t);
-		if(l>2)
-		{
-			hz[0]=0;
-			break;
-		}
-		else if(l==1)
-		{
-			memcpy(hz,ch0+(t[0]-'0')*2,2);
-			hz[2]=0;
-		}
-		else if(l==2)
-		{
-			if(t[0]=='0')
-			{
-				if(t[1]!=0)
-				{
-					memcpy(hz,ch0,2);
-					memcpy(hz+2,ch0+(t[1]-'0')*2,2);
-					hz[4]=0;
-				}
-				else
-				{
-					memcpy(hz,ch0,2);
-					hz[2]=0;
-				}
-				break;
-			}
-			else if(t[0]=='1')
-			{
-				memcpy(hz,"十",2);
-				if(t[1]!='0')
-				{
-					memcpy(hz+2,ch0+(t[1]-'0')*2,2);
-					hz[4]=0;
-				}
-				else
-				{
-					hz[2]=0;
-				}
-				break;
-			}
-			memcpy(hz,ch0+(t[0]-'0')*2,2);
-			memcpy(hz+2,"十",2);
-			if(t[1]!='0')
-			{
-				memcpy(hz+4,ch0+(t[1]-'0')*2,2);
-				hz[6]=0;
-			}
-			else
-			{
-				hz[4]=0;
-			}
-		}
-		break;
-	}
-	default:
-	{
-		hz[0]=0;
-		break;
-	}}
-	return hz;
-}
-
 int y_im_forward_key(const char *s)
 {
 	int key,repeat=1;
@@ -1864,7 +1781,7 @@ int y_im_go_url(const char *s)
 		if(s[len-1]==')')
 		{
 			char go[256];
-			strcpy(go,s+4);go[len-5]=0;
+			/*strcpy(go,s+4);go[len-5]=0;
 			tmp=strchr(go,',');
 			if(tmp==NULL)
 			{
@@ -1873,7 +1790,18 @@ int y_im_go_url(const char *s)
 			else
 			{
 				tmp++;
-			}
+			}*/
+			static const L_ESCAPE_CONFIG c={
+				.lead='$',
+				.flags=L_ESCAPE_GB|L_ESCAPE_LAST,
+				.count=3,
+				.sep=',',
+				.env="$()",
+				.surround={'(',')'},
+				.map={{' ','_'},{',',','},{'$','$'}}
+			};
+			l_unescape(s+3,go,sizeof(go),&c);
+			tmp=go;
 			if(!strncmp(tmp,"$DECRYPT(",9) && l_str_has_suffix(tmp,")"))
 			{
 				char dec[80];
@@ -1883,7 +1811,7 @@ int y_im_go_url(const char *s)
 				y_xim_explore_url(dec);
 				return 0;
 			}
-			y_im_expand_with(tmp,tmp,sizeof(go)-(tmp-go),EXPAND_SPACE|EXPAND_ENV);
+			//y_im_expand_with(tmp,tmp,sizeof(go)-(tmp-go),EXPAND_SPACE|EXPAND_ENV);
 #ifndef CFG_XIM_ANDROID
 			if(!strcmp(tmp,"sync"))
 				tmp="yong-config --sync";
@@ -1964,16 +1892,10 @@ int y_im_str_desc(const char *s,void *out)
 	return ret+3;
 }
 
-char *y_im_str_escape(const char *s,int commit)
+char *y_im_str_escape(const char *s,int commit,int64_t t)
 {
 	char *ps;
 	struct tm *tm;
-#if defined(_WIN32) && !defined(_WIN64)
-	__time64_t t;
-#else
-	time_t t;
-#endif
-	char *tmp;
 	static char line[8192];
 
 	/* test if escape needed */
@@ -2012,19 +1934,18 @@ char *y_im_str_escape(const char *s,int commit)
 			int len=strlen(s);
 			if(s[len-1]==')')
 			{
+				static const L_ESCAPE_CONFIG c={
+					.lead='$',
+					.flags=L_ESCAPE_GB,
+					.count=3,
+					.sep=',',
+					.surround={'(',')'},
+					.map={{' ','_'},{',',','},{'$','$'}}
+				};
 				char go[MAX_CAND_LEN+1];
-				strcpy(go,s+4);go[len-5]=0;
-				if(strchr(go,',')==NULL)
-				{
-					strcpy(line,"->");
-					return line;
-				}
-				else
-				{
-					tmp=strtok(go,",");
-					snprintf(line,32,"->%s",tmp);
-					return line;
-				}
+				l_unescape(s+3,go,sizeof(go),&c);
+				snprintf(line,32,"->%s",go);
+				return line;
 			}
 			break;
 		}
@@ -2053,11 +1974,11 @@ char *y_im_str_escape(const char *s,int commit)
 	s=line;
 	ps=strchr(s,'$');
 #if defined(_WIN32) && !defined(_WIN64)
-	t=_time64(NULL);
+	if(!t) t=_time64(NULL);
 	tm=_localtime64(&t);
 #else
-	t=time(NULL);
-	tm=localtime(&t);
+	if(!t) t=time(NULL);
+	tm=localtime((time_t*)&t);
 #endif
 
 	/* escape the time and $ self */
@@ -2088,94 +2009,111 @@ char *y_im_str_escape(const char *s,int commit)
 		/* time */
 		else if(!strncmp(ps,"YYYY0",5))
 		{
-			tmp=num2hz(tm->tm_year+1900,"%d",2);
+			char tmp[64];
+			l_int_to_str(tm->tm_year+1900,NULL,L_INT2STR_HZ|L_INT2STR_ZERO0,tmp);
 			str_replace(ps-1,6,tmp);
 		}
 		else if(!strncmp(ps,"YYYY",4))
 		{
-			tmp=num2hz(tm->tm_year+1900,"%d",1);
+			char tmp[64];
+			l_int_to_str(tm->tm_year+1900,NULL,L_INT2STR_HZ,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"yyyy",4))
 		{
-			tmp=num2hz(tm->tm_year+1900,"%d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_year+1900,NULL,0,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"yy0",2))
 		{
-			tmp=num2hz(tm->tm_year%100,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_year%100,"%02d",0,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"MON",3))
 		{
-			tmp=num2hz(tm->tm_mon+1,"%d",3);
+			char tmp[64];
+			l_int_to_str(tm->tm_mon+1,NULL,L_INT2STR_INDIRECT,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"mon0",4))
 		{
-			tmp=num2hz(tm->tm_mon+1,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_mon+1,"%02d",0,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"mon",3))
 		{
-			tmp=num2hz(tm->tm_mon+1,"%d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_mon+1,NULL,0,tmp);
 			str_replace(ps-1,4,tmp);
 		}		
 		else if(!strncmp(ps,"DAY",3))
 		{
-			tmp=num2hz(tm->tm_mday,"%d",3);
+			char tmp[64];
+			l_int_to_str(tm->tm_mday,NULL,L_INT2STR_INDIRECT,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"day0",4))
 		{
-			tmp=num2hz(tm->tm_mday,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_mday,"%02d",0,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"day",3))
 		{
-			tmp=num2hz(tm->tm_mday,"%d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_mday,NULL,0,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"HOUR",4))
 		{
-			tmp=num2hz(tm->tm_hour,"%d",3);
+			char tmp[64];
+			l_int_to_str(tm->tm_hour,NULL,L_INT2STR_INDIRECT,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"hour0",5))
 		{
-			tmp=num2hz(tm->tm_hour,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_hour,"%02d",0,tmp);
 			str_replace(ps-1,6,tmp);
 		}
 		else if(!strncmp(ps,"hour",4))
 		{
-			tmp=num2hz(tm->tm_hour,"%d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_hour,NULL,0,tmp);
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"MIN",3))
 		{
-			tmp=num2hz(tm->tm_min,"%02d",3);
+			char tmp[64];
+			l_int_to_str(tm->tm_min,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"min",3))
 		{
-			tmp=num2hz(tm->tm_min,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_min,"%02d",0,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"SEC",3))
 		{
-			tmp=num2hz(tm->tm_sec,"%02d",3);
+			char tmp[64];
+			l_int_to_str(tm->tm_sec,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"sec",3))
 		{
-			tmp=num2hz(tm->tm_sec,"%02d",0);
+			char tmp[64];
+			l_int_to_str(tm->tm_sec,"%02d",0,tmp);
 			str_replace(ps-1,4,tmp);
 		}
 		else if(!strncmp(ps,"WEEK",4) || !strncmp(ps,"week",4))
 		{
 			static const char *week_name[]=
 				{"日","一","二","三","四","五","六",""};
-			tmp=(char*)week_name[tm->tm_wday];
+			const char *tmp=(char*)week_name[tm->tm_wday];
 			str_replace(ps-1,5,tmp);
 		}
 		else if(!strncmp(ps,"RIQI",4))
@@ -2186,18 +2124,7 @@ char *y_im_str_escape(const char *s,int commit)
 		}
 		else if(!strncmp(ps,"LAST",4))
 		{
-			/*size_t len=ps-line-1;
-			if(len>0)
-			{
-				char temp[len];
-				memcpy(temp,line,len);
-				temp[len]=0;
-				str_replace(ps-1,5,temp);
-			}
-			else*/
-			{
-				str_replace(ps-1,5,last_output);
-			}
+			str_replace(ps-1,5,last_output);
 		}
 		s=ps;ps=strchr(s,'$');
 	}while(ps!=NULL);
@@ -2288,7 +2215,7 @@ void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,co
 	}
 
 	/* escape the string */
-	s=y_im_str_escape(s,0);
+	s=y_im_str_escape(s,0,0);
 	/* strip key in it */
 	y_im_strip_key(s);
 SKIP:
@@ -2321,7 +2248,7 @@ int y_im_str_encode(const char *gb,void *out,int flags)
 	}
 	if(!(flags&DONT_ESCAPE))
 	{
-		s=y_im_str_escape(gb,1);
+		s=y_im_str_escape(gb,1,0);
 		y_im_strip_key(s);
 	}
 	else

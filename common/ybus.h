@@ -109,7 +109,7 @@ void xim_ybus_send_string(const char *s,int flags);
 int xim_ybus_preedit_clear(void);
 int xim_ybus_preedit_draw(const char *s,int len);
 
-int ybus_wm_ready(void);
+YBUS_CONNECT *ybus_wm_ready(void);
 void ybus_wm_icon(const char *icon1,const char *icon2);
 
 #endif/*_YBUS_H_*/

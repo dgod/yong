@@ -156,7 +156,7 @@ static void put_history2(const char *s)
 		if(!(s[0]&0x80))
 		{
 			temp_last=s[0];
-			if(s[0]<20 || isspace(s[0]) || ispunct(s[0]))
+			if(s[0]<20 || isspace(s[0]) || ispunct(s[0]) || isdigit(s[0]))
 			{
 				flush_history();
 			}

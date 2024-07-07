@@ -16,10 +16,16 @@
 #include <winsock2.h>
 #endif
 
+#ifdef CFG_XIM_ANDROID
+#include <android/log.h>
+#define  LOG_TAG    "libysync"
+#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
+#endif
+
 const char *y_im_get_path(const char *type);
 
 static char server_host[32]="yong.dgod.net";
-static int server_port=80;
+static int server_port=443;
 
 typedef struct{
 	int32_t alg:3;
@@ -308,7 +314,7 @@ static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *pat
 static FITEM_LIST *build_local_file_list(const char *base,const char *pass)
 {
 	FITEM_LIST *l=l_new0(FITEM_LIST);
-	l->list=l_hash_table_new(64,(LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp);
+	l->list=l_hash_table_new((LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp,64,0);
 	if(0!=build_local_file_list2(l,base,"",pass))
 	{
 		file_list_free(l);
@@ -410,14 +416,15 @@ static FITEM_LIST *build_remote_file_list(const char *user,const char *sid)
 		return NULL;
 	}
 	xml=l_xml_load(res);
-	l_free(res);
 	if(!xml)
 	{
 		status("分析远程文件列表失败");
+		l_free(res);
 		return NULL;
 	}
+	l_free(res);
 	l=l_new0(FITEM_LIST);
-	l->list=l_hash_table_new(64,(LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp);
+	l->list=l_hash_table_new((LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp,64,0);
 	n=l_xml_get_child(&xml->root,"list");
 	if(n) n=l_xml_get_child(n,"file");
 	for(;n!=NULL;n=n->next)
@@ -548,9 +555,11 @@ static int is_file_list_equal(FITEM_LIST *local,FITEM_LIST *remote)
 	if(local->size!=remote->size || local->count!=remote->count)
 		return 0;
 	l_hash_iter_init(&iter,local->list);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FITEM *lit=l_hash_iter_data(&iter);
+		FITEM *lit=l_hash_iter_next(&iter);
+		if(!lit)
+			break;
 		FITEM *rit=l_hash_table_find(remote->list,lit);
 		if(!rit) return 0;
 		if(lit->size!=rit->size) return 0;
@@ -613,9 +622,11 @@ int SyncUpload(CUCtrl p,int arc,char **arg)
 		return -1;
 	}
 	l_hash_iter_init(&iter,remote->list);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FITEM *rit=l_hash_iter_data(&iter);
+		FITEM *rit=l_hash_iter_next(&iter);
+		if(!rit)
+			break;
 		FITEM *lit=l_hash_table_find(local->list,rit);
 		if(!lit)
 		{
@@ -632,9 +643,11 @@ int SyncUpload(CUCtrl p,int arc,char **arg)
 		}
 	}
 	l_hash_iter_init(&iter,local->list);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FITEM *lit=l_hash_iter_data(&iter);
+		FITEM *lit=l_hash_iter_next(&iter);
+		if(!lit)
+			break;
 		FITEM *rit=l_hash_table_find(remote->list,lit);
 		if(!rit || lit->size!=rit->size || strcmp(lit->md5,rit->md5))
 		{
@@ -718,9 +731,11 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 		return -1;
 	}
 	l_hash_iter_init(&iter,local->list);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FITEM *lit=l_hash_iter_data(&iter);
+		FITEM *lit=l_hash_iter_next(&iter);
+		if(!lit)
+			break;
 		FITEM *rit=l_hash_table_find(remote->list,lit);
 		if(!rit)
 		{
@@ -729,9 +744,11 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 		}
 	}
 	l_hash_iter_init(&iter,remote->list);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FITEM *rit=l_hash_iter_data(&iter);
+		FITEM *rit=l_hash_iter_next(&iter);
+		if(!rit)
+			break;
 		FITEM *lit=l_hash_table_find(local->list,rit);
 		if(!lit || lit->size!=rit->size || strcmp(lit->md5,rit->md5))
 		{
@@ -1070,17 +1087,13 @@ int SyncMain(int argc,char **argv)
 
 #include <assert.h>
 #include <jni.h>
-#include <android/log.h>
 
 LKeyFile *config;
 int cu_quit_ui;
 
-static JNIEnv *a_env;
+JNIEnv *a_env;
 static jobject a_obj;
 static char a_pass[64];
-
-#define  LOG_TAG    "libysync"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 
 const char *y_im_get_path(const char *type)
 {

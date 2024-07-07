@@ -19,6 +19,8 @@ function run(target){
 	var ARCH=target.split('-')[0];
 	var QT=target.split('-')[1];
 	var VER=QT.substring(2);
+	if(ARCH=='l32')
+		env('CFLAGS+=-msse2');
 	env("CFLAGS+=`pkg-config --cflags glib-2.0`");
 	if(VER==5){
 		env("CFLAGS+=`pkg-config --cflags Qt5Core Qt5Gui`");
@@ -27,7 +29,7 @@ function run(target){
 	}
 		
 	var QT_VER=shell(`pkg-config --modversion Qt${VER}Core`);
-	env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lglib-2.0`);
+	env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lQt${VER}Widgets -lglib-2.0`);
 
 	env("QT_VER+="+QT_VER);
 	env("LIBS+=-ldl -lstdc++");
@@ -44,6 +46,7 @@ function run(target){
 	env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtWidgets`);
 	env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${LIBDIR}/qt${VER}/mkspecs/linux-g++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore`);
 	env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
 	env("CFLAGS+=-I$(TOPDIR)/im/qt5-im/"+target);
@@ -63,8 +66,71 @@ function run(target){
 	});
 }
 
+function build_wps(){
+	// https://github-wiki-see.page/m/kingsoft-wps/qt5/wiki/Build-Qt-for-WPS
+	var base=process.env.WPS_QT5 || '/home/dgod/git/qt5';
+	cd('wps');
+	include("../../../rules.txt");
+	env('CXX=clang++');
+	env('CC=clang');
+	env('LD=clang++');
+	var ARCH='l64';
+	var QT='qt5';
+	var VER=5;
+	var QT_VER='5.12.10';
+	env("CPPFLAGS+=-std=c++14 -DQT_NAMESPACE=kso_qt");
+	env("LDFLAGS+=-std=c++14");
+	env("CFLAGS+=-fPIC");
+	env("CFLAGS+=`pkg-config --cflags glib-2.0`");
+	var MOC=`${base}/build/qtbase/bin/moc`;
+	env("QT_VER+="+QT_VER);
+	env("CPPFLAGS+=-stdlib=libc++");
+	env("LIBS+= -lQt5GuiKso -lQt5CoreKso -lQt5WidgetsKso -ldl -lc++ -lglib-2.0");
+	var INCDIR=`${base}/build/qtbase/include`;
+	// var LIBDIR=`${base}/build/qtbase/lib`;
+	var LIBDIR='/opt/kingsoft/wps-office/office6';
+	env("CFLAGS","+=",`-I${INCDIR}`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtGui -DQT_GUI_LIB`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtCore -DQT_CORE_LIB`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtCore/${QT_VER}`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
+	env("CFLAGS","+=",`-I${INCDIR}/QtWidgets`);
+	env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${base}/qtbase/mkspecs/linux-clang-libc++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore -DQT_NAMESPACE=kso_qt`);
+	env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
+	env(`LDFLAGS+=-L${LIBDIR}`);
+	env("CFLAGS+=-I$(TOPDIR)/im/qt5-im/"+target);
+	env("CFLAGS+=-DFIX_WPS_QT");
+	cr('../main.h','moc_main.cpp',
+		MOC+' $(MOCFLAGS) $^ -o $@');
+	cr('../qyongplatforminputcontext.h','moc_qyongplatforminputcontext.cpp',
+		MOC+' $(MOCFLAGS) $^ -o $@');
+	begin();
+	cxx('moc_main.cpp');
+	cxx('moc_qyongplatforminputcontext.cpp');
+	cxx(SRCS_CXX);
+	cc(SRCS_C);
+	end(function(){
+		ld(OBJS,'libyongplatforminputcontextplugin.so');
+	});
+}
+
+function clean(targets){
+	if(!targets){
+		rmdir(DIRS,'*');
+		return;
+	}
+	targets.forEach(e=>{
+		if(!DIRS.includes(e)){
+			console.log("clean invalid target");
+			exit(-1);
+		}
+		rmdir(e,'*');
+	});
+}
+
 if(target=="clean"){
-	rmdir(DIRS,'*');
+	clean(target.targets);
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
 } else if(target=='l32'){
@@ -83,7 +149,18 @@ if(target=="clean"){
 			continue;
 		let cmd=`$(STRIP) ${file}`;
 		exec(cmd);
+		cmd=`symver --fix ${file}`;
+		exec(cmd);
 	}
+	if(fs.existsSync('wps/libyongplatforminputcontextplugin.so')){
+		let file='wps/libyongplatforminputcontextplugin.so';
+		let cmd=`$(STRIP) ${file}`;
+		exec(cmd);
+		cmd=`symver --fix ${file}`;
+		exec(cmd);
+	}
+} else if(target=='wps'){
+	build_wps();
 } else {
 	run(target);
 }

@@ -63,7 +63,7 @@ int y_replace_init(const char *file)
 	fp=y_im_open_file(file,"rb");
 	if(!fp) return 0;
 	R=l_new0(Y_REPLACE);
-	R->all=l_hash_table_new(1023,(LHashFunc)item_hash,(LCmpFunc)item_cmp);
+	R->all=l_hash_table_new((LHashFunc)item_hash,(LCmpFunc)item_cmp,1023,0);
 	for(i=0;i<3;)
 	{
 		ret=l_get_line(line,sizeof(line),fp);

@@ -98,7 +98,7 @@ void *y_dict_open(const char *file)
 	//fstat(fileno(fp),&st);
 	//dic->mtime=st.st_mtime;
 	dic->mtime=0;
-	dic->index=l_hash_table_new(7000,dict_item_hash,dict_item_cmp);
+	dic->index=l_hash_table_new(dict_item_hash,dict_item_cmp,7000,0);
 
 	pos=0; /* zero it here to avoid warning */
 	for(i=0,next=1;;i++)
@@ -451,37 +451,28 @@ static void dict_ui_creat(void)
 	gtk_window_set_keep_above(GTK_WINDOW(w),TRUE);
 	gtk_window_set_title(GTK_WINDOW(w),temp);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
-	//gtk_widget_set_usize(GTK_WIDGET(w),DICT_WIDTH,DICT_HEIGHT);
 	gtk_widget_set_size_request(GTK_WIDGET(w),DICT_WIDTH*scale,DICT_HEIGHT*scale);
 	gtk_window_set_position(GTK_WINDOW(w),GTK_WIN_POS_CENTER);
 	g_signal_connect(w,"delete-event",G_CALLBACK(gtk_widget_hide_on_delete),NULL);
 	gtk_window_set_modal(GTK_WINDOW(w),FALSE);
 	gtk_widget_realize(w);
-#if defined(GSEAL_ENABLE) || GTK_CHECK_VERSION(3,0,0)
 	gdk_window_set_functions(gtk_widget_get_window(w),GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
-#else
-	gdk_window_set_functions(w->window,GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
-#endif
 	l_dict=w;
-	//gtk_widget_show(w);
 
 	w=gtk_fixed_new();
 	gtk_container_add(GTK_CONTAINER(l_dict),GTK_WIDGET(w));
-	//gtk_widget_set_usize(GTK_WIDGET(w),DICT_WIDTH,DICT_HEIGHT);
 	gtk_widget_set_size_request(GTK_WIDGET(w),DICT_WIDTH*scale,DICT_HEIGHT*scale);
 	gtk_widget_show(w);
 
 	l_entry=gtk_entry_new();
 	//gtk_editable_set_editable(GTK_EDITABLE(l_entry),FALSE);
 	gtk_entry_set_max_length(GTK_ENTRY(l_entry),64);
-	//gtk_widget_set_usize(l_entry,DICT_WIDTH-100,26);
 	gtk_widget_set_size_request(l_entry,(DICT_WIDTH-110)*scale,26*scale);
 	gtk_fixed_put(GTK_FIXED(w),l_entry,0,2*scale);
 	gtk_widget_show(l_entry);
 
 	y_im_str_encode(YT("±¾µØ"),temp,0);
 	l_local=gtk_button_new_with_label(temp);
-	//gtk_widget_set_usize(l_local,50,26);
 	gtk_widget_set_size_request(l_local,50*scale,26*scale);
 	gtk_fixed_put(GTK_FIXED(w),l_local,(DICT_WIDTH-110)*scale,2*scale);
 	gtk_widget_show(l_local);
@@ -490,7 +481,6 @@ static void dict_ui_creat(void)
 	
 	y_im_str_encode(YT("ÍøÂç"),temp,0);
 	l_network=gtk_button_new_with_label(temp);
-	//gtk_widget_set_usize(l_network,50,26);
 	gtk_widget_set_size_request(l_network,50*scale,26*scale);
 	gtk_fixed_put(GTK_FIXED(w),l_network,(DICT_WIDTH-50)*scale,2*scale);
 	gtk_widget_show(l_network);
@@ -498,7 +488,6 @@ static void dict_ui_creat(void)
 			G_CALLBACK (btn_query_cb), GINT_TO_POINTER(1));
 	
 	l_view=gtk_scrolled_window_new(0,0);
-	//gtk_widget_set_usize(l_view,DICT_WIDTH-4,DICT_HEIGHT-32);
 	gtk_widget_set_size_request(l_view,(DICT_WIDTH-4)*scale,(DICT_HEIGHT-36)*scale);
 	gtk_fixed_put(GTK_FIXED(w),l_view,2*scale,34*scale);
 	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(l_view),GTK_SHADOW_IN);
@@ -507,7 +496,6 @@ static void dict_ui_creat(void)
 	w=l_view;
 
 	l_view=gtk_label_new("");
-	//gtk_container_add(GTK_CONTAINER(w),l_view);
 	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(w),l_view);
 	gtk_label_set_selectable(GTK_LABEL(l_view),TRUE);
 	gtk_misc_set_alignment (GTK_MISC(l_view),0,0);

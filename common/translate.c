@@ -38,7 +38,7 @@ void y_translate_init(const char *config)
 	{
 		return;
 	}
-	l_strings=l_hash_table_new(251,(LHashFunc)item_hash,(LCmpFunc)item_cmpr);
+	l_strings=l_hash_table_new((LHashFunc)item_hash,(LCmpFunc)item_cmpr,251,0);
 	while(1)
 	{
 		struct item *it;

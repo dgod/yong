@@ -15,6 +15,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <wchar.h>
 #else
 #include <unistd.h>
 #include <limits.h>
@@ -546,7 +547,7 @@ char *l_getcwd(void)
 char *l_getcwd(void)
 {
 	wchar_t temp[MAX_PATH];
-	wchar_t *ret=getcwd(temp,MAX_PATH);
+	wchar_t *ret=_wgetcwd(temp,MAX_PATH);
 	if(!ret)
 		return NULL;
 	char temp2[MAX_PATH];
@@ -568,6 +569,4 @@ char *l_path_resolve(const char *path)
 		return NULL;
 	return l_strdup(temp);
 }
-
-
 

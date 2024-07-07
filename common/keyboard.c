@@ -9,6 +9,9 @@
 #include <tchar.h>
 #else
 #include <gtk/gtk.h>
+void ybus_wayland_win_move(GtkWidget *w,int x,int y);
+void ybus_wayland_win_move_relative(GtkWidget *w,int dx,int dy);
+void ui_get_workarea(int *x, int *y, int *width, int *height);
 #endif
 #include <assert.h>
 
@@ -51,6 +54,9 @@ typedef struct{
 	KBD_BTN shift;
 	LPtrArray *line;
 	UI_WINDOW win;
+#if defined(GTK_CHECK_VERSION)
+	UI_WINDOW canvas;
+#endif
 	KBD_BTN *psel;
 }Y_KBD_LAYOUT;
 
@@ -65,6 +71,15 @@ typedef struct{
 }Y_KBD_STATE;
 
 static Y_KBD_STATE kst;
+extern UI_WINDOW MainWin;
+
+#if defined(GTK_CHECK_VERSION)
+bool ui_is_wayland(void);
+void ybus_wayland_set_window(GtkWidget *w,const char *role,int type);
+int ybus_wayland_get_custom(GtkWidget *w);
+void ui_win_show(GtkWidget *w,int show);
+void ui_set_css(GtkWidget *widget,const gchar *data);
+#endif
 
 #include "keyboard.xml.c"
 
@@ -334,17 +349,25 @@ static int kbd_select(int8_t pos,int8_t sub)
 #else
 	gtk_window_set_title(GTK_WINDOW(kst.layout.win),kst.layout.name);
 	gtk_widget_queue_draw(kst.layout.win);
+	gtk_widget_set_size_request(GTK_WIDGET(kst.layout.canvas),
+			kst.layout.main.rc.w,
+			kst.layout.main.rc.h);
 	if(kst.first)
 	{
-		gtk_window_set_position(GTK_WINDOW(kst.layout.win),GTK_WIN_POS_CENTER);
+		if(ui_is_wayland())
+		{
+			int x,y,w,h;
+			ui_get_workarea(&x,&y,&w,&h);
+			ybus_wayland_win_move(kst.layout.win,
+				x+(w-kst.layout.main.rc.w)/2,
+				y+h-kst.layout.main.rc.h);
+		}
+		else
+		{
+			gtk_window_set_position(GTK_WINDOW(kst.layout.win),GTK_WIN_POS_CENTER);
+		}
 		kst.first=0;
 	}
-	gtk_window_resize(GTK_WINDOW(kst.layout.win),
-			kst.layout.main.rc.w,
-			kst.layout.main.rc.h);
-	gtk_widget_set_size_request(GTK_WIDGET(kst.layout.win),
-			kst.layout.main.rc.w,
-			kst.layout.main.rc.h);
 #endif
 	kst.cur=pos;
 	kst.sub=sub;
@@ -388,6 +411,14 @@ int y_kbd_show(int b)
 
 int y_kbd_show_with_main(int b)
 {
+	// 打开软键盘，wayland中目标程序必然失去焦点
+	// gnome中拖动窗口时，也会导致目标程序失去焦点
+	// 此时这个函数又要求立刻关闭软键盘，导致没有意义
+	// linux下只在layer shell时实现这个功能
+#if defined(GTK_CHECK_VERSION)
+	if(!ui_is_wayland() || !ybus_wayland_get_custom(kst.layout.win))
+		return -1;
+#endif
 	if(b)
 	{
 		if(kst.show)
@@ -431,6 +462,18 @@ void y_kbd_select(int pos,int sub)
 	}
 }
 
+#ifndef _WIN32
+static gboolean keyboard_motion_cb(GtkWidget *window,GdkEventMotion *event,gpointer user_data)
+{
+	gint drag_x=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"drag-x"));
+	gint drag_y=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"drag-y"));
+	ybus_wayland_win_move_relative(kst.layout.win,
+			(gint) event->x_root - drag_x,
+			(gint) event->y_root - drag_y);
+	return TRUE;
+}
+#endif
+
 static int kbd_click(int x,int y,int up)
 {
 	if(!kst.config || !kst.layout.win)
@@ -469,7 +512,9 @@ static int kbd_click(int x,int y,int up)
 	{
 		KBD_BTN *btn=kst.layout.psel;
 		if(!btn)
+		{
 			return 0;
+		}
 		if(x>btn->rc.x && x<btn->rc.x+btn->rc.w &&
 				y>btn->rc.y && y<btn->rc.h+btn->rc.y)
 		{
@@ -566,7 +611,8 @@ static void menu_activate(GtkMenuItem *item,gpointer data)
 	_menu_click_cb(id);
 	_menu_click_cb=NULL;
 }
-static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int)
+
+static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int from)
 {
 	static GtkWidget *MainMenu;
 	int half=(l_ptr_array_length(arr)+1)/2;
@@ -574,8 +620,29 @@ static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int)
 	{
 		gtk_widget_destroy(MainMenu);
 	}
+	if(ui_is_wayland())
+	{
+		// gtk-layer-shell在没有显示时，直接显示菜单会导致程序崩溃，所以先显示一下
+		if(!gtk_widget_get_visible(kst.layout.win))
+		{
+			ui_win_show(kst.layout.win,0);
+			gtk_widget_show(kst.layout.win);
+		}
+	}
 	_menu_click_cb=cb;
 	MainMenu=gtk_menu_new();
+	if(from==1)
+	{
+		if(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(MainWin),"show"))-1<=0)
+		{
+			ui_win_show(MainWin,1);
+		}
+		gtk_menu_attach_to_widget(GTK_MENU(MainMenu),MainWin,NULL);
+	}
+	else
+	{
+		gtk_menu_attach_to_widget(GTK_MENU(MainMenu),kst.layout.win,NULL);
+	}
 	for(int i=0;i<l_ptr_array_length(arr);i++)
 	{
 		const char *name=l_ptr_array_nth(arr,i);
@@ -759,7 +826,11 @@ static void OnKeyboardPaint(DRAW_CONTEXT1 *ctx)
 	if(!font->dw)
 		SelectObject(ctx->dc,old);
 	ui_draw_text_end(ctx);
-#else	
+#else
+	if(!kst.layout.font)
+	{
+		return;	
+	}
 	if(sh->rc.w)
 	{
 		draw_button(ctx,sh,0);
@@ -918,7 +989,7 @@ static gboolean kbd_draw(GtkWidget *window,cairo_t *cr)
 	ui_draw_begin(&ctx,window,cr);
 	OnKeyboardPaint(&ctx);
 	ui_draw_end(&ctx);
-	return TRUE;
+	return FALSE;
 }
 
 static gboolean kbd_click_cb (GtkWidget *window,GdkEventButton *event,gpointer user_data)
@@ -926,11 +997,32 @@ static gboolean kbd_click_cb (GtkWidget *window,GdkEventButton *event,gpointer u
 	gint click=GPOINTER_TO_INT(user_data);
 	if(event->button==3 && click==1)
 	{
-		y_kbd_popup_menu();
+		y_kbd_popup_menu_real(0);
 	}
 	else if(event->button==1)
 	{
 		kbd_click(event->x,event->y,click);
+		
+		if(ui_is_wayland())
+		{
+			static guint keyboard_motion_handler;
+			if(!kst.layout.psel && click==0)
+			{
+				GdkCursor *cursor=gdk_cursor_new (GDK_FLEUR);
+				gdk_window_set_cursor(gtk_widget_get_window(kst.layout.win),cursor);
+				g_object_unref (cursor);
+				g_object_set_data(G_OBJECT(kst.layout.canvas),"drag-x",GINT_TO_POINTER(event->x_root));
+				g_object_set_data(G_OBJECT(kst.layout.canvas),"drag-y",GINT_TO_POINTER(event->y_root));
+				keyboard_motion_handler=g_signal_connect(G_OBJECT(kst.layout.canvas),"motion-notify-event",
+						G_CALLBACK(keyboard_motion_cb),NULL);
+			}
+			else if(keyboard_motion_handler)
+			{
+				g_signal_handler_disconnect (G_OBJECT(kst.layout.canvas),keyboard_motion_handler);
+				keyboard_motion_handler=0;
+				gdk_window_set_cursor(gtk_widget_get_window(kst.layout.win),NULL);
+			}
+		}
 	}
 	return TRUE;
 }
@@ -943,39 +1035,57 @@ static gboolean kbd_hide_cb(void)
 
 static void kbd_main_new(void)
 {
-	GtkWidget *InputBox,*InputEvent;
-	kst.layout.win=gtk_window_new (GTK_WINDOW_TOPLEVEL);
+	kst.layout.win=gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_keep_above(GTK_WINDOW(kst.layout.win),TRUE);
 	gtk_window_set_modal(GTK_WINDOW(kst.layout.win),FALSE);
 	gtk_window_set_resizable(GTK_WINDOW(kst.layout.win),FALSE);
+	if(!ui_is_wayland())
+	{
+		// header bar和layer shell配合有问题
+		// GtkWidget *titlebar=gtk_header_bar_new();
+		// gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(titlebar),TRUE);
+		// gtk_widget_show(titlebar);
+		// gtk_window_set_titlebar(GTK_WINDOW(kst.layout.win),titlebar);
+	}
+	GdkScreen *screen = gdk_screen_get_default();
+	GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+	if(visual)
+	{
+		gtk_widget_set_visual(kst.layout.win,visual);
+	}
+	if(ui_is_wayland())
+	{
+		ybus_wayland_set_window(kst.layout.win,"keyboard",2);
+		ui_set_css(kst.layout.win,"window{background-color:transparent}\n");
+	}
 	gtk_widget_realize(kst.layout.win);
 	gdk_window_set_functions(gtk_widget_get_window(kst.layout.win),GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);
 	gtk_window_set_accept_focus(GTK_WINDOW(kst.layout.win),FALSE);
-	InputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);
-	gtk_container_add(GTK_CONTAINER(kst.layout.win),GTK_WIDGET(InputBox));
-	InputEvent=gtk_event_box_new();
-	gtk_container_add(GTK_CONTAINER(InputBox),InputEvent);
-	gtk_event_box_set_visible_window(GTK_EVENT_BOX(InputEvent),FALSE);
-	gtk_widget_show(InputEvent);gtk_widget_show(InputBox);
+	kst.layout.canvas=gtk_drawing_area_new();
+	gtk_widget_show(kst.layout.canvas);
+	gtk_container_add(GTK_CONTAINER(kst.layout.win),GTK_WIDGET(kst.layout.canvas));
+	gtk_widget_add_events(kst.layout.canvas, GDK_EXPOSURE_MASK|GDK_BUTTON_RELEASE_MASK|GDK_BUTTON_PRESS_MASK|GDK_POINTER_MOTION_MASK);
 	g_signal_connect(kst.layout.win,"delete-event",
 			G_CALLBACK(kbd_hide_cb),NULL);
-	g_signal_connect (G_OBJECT(kst.layout.win), "button-press-event",
+	g_signal_connect (G_OBJECT(kst.layout.canvas), "button-press-event",
 			G_CALLBACK(kbd_click_cb),GINT_TO_POINTER (0));
-	g_signal_connect (G_OBJECT(kst.layout.win), "button-release-event",
+	g_signal_connect (G_OBJECT(kst.layout.canvas), "button-release-event",
 			G_CALLBACK(kbd_click_cb),GINT_TO_POINTER (1));
-	g_signal_connect(G_OBJECT(kst.layout.win),"draw",
-			G_CALLBACK(kbd_draw),0);
+	g_signal_connect(G_OBJECT(kst.layout.canvas),"draw",
+			G_CALLBACK(kbd_draw),NULL);
 }
 
 static void kbd_main_show(int b)
 {
 	if(!b)
 	{
-		gtk_widget_hide(kst.layout.win);
+		// layer shell下用gtk_widget_hide会导致程序崩溃
+		// gtk_widget_hide(kst.layout.win);
+		ui_win_show(kst.layout.win,0);
 	}
 	else
 	{
-		gtk_widget_show(kst.layout.win);
+		ui_win_show(kst.layout.win,1);
 		gtk_window_deiconify(GTK_WINDOW(kst.layout.win));
 	}
 }

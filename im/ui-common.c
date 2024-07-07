@@ -8,6 +8,7 @@
 
 typedef struct{
 	int event,x,y,which;
+	void *priv;
 }UI_EVENT;
 
 static char skin_path[64];
@@ -260,7 +261,7 @@ UI_COLOR ui_color_parse(const char *s)
 	return clr;
 }
 
-static void ui_popup_menu(void);
+static void ui_popup_menu(UI_EVENT *event);
 static int ui_button_event(UI_WINDOW win,UI_EVENT *event,UI_BTN_REAL **under)
 {
 	double scale=MainTheme.scale!=1?ui_scale:1;
@@ -324,7 +325,7 @@ static int ui_button_event(UI_WINDOW win,UI_EVENT *event,UI_BTN_REAL **under)
 		if(cur && event->which==UI_BUTTON_RIGHT)
 		{
 			if(cur==btns+UI_BTN_MENU)
-				ui_popup_menu();
+				ui_popup_menu(event);
 			else if(cur==btns+UI_BTN_KEYBOARD)
 				y_kbd_popup_menu();
 		}

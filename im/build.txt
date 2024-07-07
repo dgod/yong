@@ -10,7 +10,7 @@ var DIRS=['l32-gtk3','l64-gtk3'];
 
 env("VPATH+=$(TOPDIR)/im");
 env("VPATH+=$(TOPDIR)/im/fbterm");
-env("VPATH+=$(TOPDIR)/im/wayland2");
+env("VPATH+=$(TOPDIR)/im/wayland");
 
 env("CFLAGS+=$(LLIB_CFLAGS)");
 env("LDFLAGS+=$(LLIB_LDFLAGS)");

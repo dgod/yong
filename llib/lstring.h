@@ -20,8 +20,11 @@ typedef struct{
 	int size;
 }LString;
 
+#define L_STRING_INIT (LString){.size=0}
+
 LString *l_string_new(int size);
 void l_string_free(LString *string);
+void l_string_expand(LString *string,int len);
 void l_string_append(LString *string,const char *val,int len);
 void l_string_append_c(LString *string,int c);
 
@@ -37,6 +40,17 @@ void *l_strncpy(char *restrict dest,const char *restrict src,size_t n);
 void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_mempos(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_strpos(const char *haystack,const char *needle);
+
+#define L_INT2STR_HZ			0x01
+#define L_INT2STR_UTF8			0x03
+#define L_INT2STR_ZERO0			0x04
+#define L_INT2STR_BIG			0x08
+#define L_INT2STR_INDIRECT		0x11
+#define L_INT2STR_TRAD			0x20
+#define L_INT2STR_KEEP10		0x40
+#define L_INT2STR_MINSEC		0x80
+#define L_INT2STR_NEST			0x100
+int l_int_to_str(int64_t n,const char *format,int flags,char *out);
 
 #endif/*_LSTRING_H_*/
 

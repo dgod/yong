@@ -170,6 +170,8 @@ const uint8_t *l_utf8_offset(const uint8_t *s,int offset)
 	for(i=0;i<offset;i++)
 	{
 		s=l_utf8_next_char(s);
+		if(s==NULL)
+			return NULL;
 	}
 	return s;
 }

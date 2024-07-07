@@ -206,8 +206,10 @@ UI_FONT ui_font_parse(void * w,const char *s,double scale)
 	pango_context_set_language(pango_layout_get_context(res),lang);
 	pango_layout_set_text(res,"测",-1);
 	PangoContext *context=pango_layout_get_context(res);
+
 	PangoFontMetrics *metrics=pango_context_get_metrics(context,desc,lang);
 	int baseline=metrics->descent/1024;
+	pango_font_metrics_unref(metrics);
 	PangoRectangle ink,logical;
 	pango_layout_get_pixel_extents(res,&ink,&logical);
 

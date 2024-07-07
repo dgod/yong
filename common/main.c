@@ -345,7 +345,7 @@ static struct{
 	{"s2t",{"s2t_s","s2t_t"},UI_BTN_SIMP,s2t_change_cb},
 	{"keyboard",{"keyboard_img",0},UI_BTN_KEYBOARD,keyboard_cb},
 	{"name",{"name_img",0},UI_BTN_NAME,switch_im_cb},
-	{"menu",{"menu_img",0},UI_BTN_MENU,0},
+	{"menu",{"menu_img",0},UI_BTN_MENU,NULL},
 };
 
 void update_main_window(void)
@@ -395,7 +395,7 @@ void update_main_window(void)
 		param.force_scale=0;
 	}
 
-	tmp=y_im_get_config_string("main","pos");
+	tmp=(char*)y_im_get_config_data("main","pos");
 	if(tmp)
 	{
 		param.rc.y=-1;
@@ -406,12 +406,11 @@ void update_main_window(void)
 			y_ui_cfg_ctrl("calc",pos[1],&param.rc.y);
 		l_strfreev(pos);
 	}
-	tmp=l_key_file_get_string(ConfigSkin,"main","move");
+	tmp=(char*)l_key_file_get_data(ConfigSkin,"main","move");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d,%d,%d",&param.move.x,&param.move.y,
 			&param.move.w,&param.move.h);
-		l_free(tmp);
 	}
 	param.auto_tran=y_im_get_config_int("main","tran");
 
@@ -1104,7 +1103,6 @@ void update_im(void)
 
 int YongSwitchIM(int id)
 {
-	int prev;
 	YongResetIM();
 	if(id<0)
 	{
@@ -1116,7 +1114,8 @@ int YongSwitchIM(int id)
 	}
 	if(im.Index==id)
 		return -1;
-	prev=y_im_has_im_config(im.Index,"skin");
+	im.IndexPrev=im.Index;
+	int prev=y_im_has_im_config(im.Index,"skin");
 	im.Index=id;
 	y_im_update_main_config();
 	update_im();
@@ -1501,6 +1500,8 @@ int YongHotKey(int key)
 	else if(key==key_switch_default)
 	{
 		int d=y_im_get_config_int("IM","default");
+		if(d!=im.IndexPrev && im.Index==d)
+			d=im.IndexPrev;
 		YongSwitchIM(d);
 		char *name=y_im_get_im_name(im.Index);
 		if(name!=NULL)
@@ -2240,7 +2241,8 @@ IMR_TEST:
 			}
 			else if(key>='A' && key<='Z')
 			{
-				if(abcd_mode) return 0;
+				if(abcd_mode)
+					return 0;
 				goto ENGLISH_MODE;
 			}
 		}
@@ -2261,7 +2263,11 @@ IMR_TEST:
 		last&=~KEYM_KEYPAD;
 
 		if(last<='9' && last>='0' && is_sym_in_num(key))
+		{
+			char temp[2]={key,0};
+			y_im_history_write(temp);
 			return 0;
+		}
 
 		if(biaodian)
 		{
@@ -2309,6 +2315,8 @@ IMR_TEST:
 				return 1;
 			}
 		}
+		char temp[2]={key,0};
+		y_im_history_write(temp);
 	}
 	return 0;
 }
@@ -2514,6 +2522,21 @@ int main(int arc,char *arg[])
 			ybus_ibus_menu_enable(1);
 		}
 #endif
+#ifndef _WIN32
+		else if(!strcmp(arg[i],"--workarea"))
+		{
+			extern void ui_show_workarea(void);
+			ui_show_workarea();
+			return 0;
+		}
+		else if(!strcmp(arg[i],"--wayland"))
+		{
+			if(getenv("WAYLAND_DISPLAY"))
+			{
+				setenv("GDK_BACKEND","wayland",1);
+			}
+		}
+#endif	
 		else if(!strcmp(arg[i],"--tool=libmb.so"))
 		{
 			mb_tool=1;
@@ -2735,6 +2758,7 @@ int main(int arc,char *arg[])
 	VERBOSE("init done\n");
 
 	y_ui_loop();
+	//y_ui_clean();
 	return 0;
 }
 

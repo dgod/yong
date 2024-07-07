@@ -108,7 +108,7 @@ FUZZY_TABLE *fuzzy_table_load(const char *file)
 #endif
 	if(!fp)
 		return NULL;
-	ft=l_hash_table_new(401,(LHashFunc)fuzzy_hash,(LCmpFunc)fuzzy_cmp);
+	ft=l_hash_table_new((LHashFunc)fuzzy_hash,(LCmpFunc)fuzzy_cmp,401,0);
 	while(l_get_line(line,sizeof(line),fp)>=0)
 	{
 		if(line[0]=='#') continue;
@@ -355,11 +355,12 @@ int fuzzy_correct(FUZZY_TABLE *ft,char *s,int len)
 	LHashIter iter;
 	
 	l_hash_iter_init(&iter,ft);
-	while(!l_hash_iter_next(&iter))
+	while(1)
 	{
-		FUZZY_ITEM *item=l_hash_iter_data(&iter);
-		int i;
-		for(i=0;i<4;i++)
+		FUZZY_ITEM *item=l_hash_iter_next(&iter);
+		if(!item)
+			break;
+		for(int i=0;i<4;i++)
 		{
 			FUZZY_TO *pto=item->to+i;
 			if(!pto->code[0]) break;

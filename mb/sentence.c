@@ -297,7 +297,7 @@ int sentence_init(void)
 	sentence->count=count;
 	sentence->flush=10;
 	sentence->file=l_strdup(file);
-	sentence->cand_index=L_HASH_TABLE_STRING(ITEM,cand);
+	sentence->cand_index=L_HASH_TABLE_STRING(ITEM,cand,0);
 	sentence->que=l_queue_new((LFreeFunc)item_queue_free);
 	sentence->cset=(CSET_GROUP_SENTENCE){
 		.type=CSET_TYPE_SENTENCE,

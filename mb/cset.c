@@ -390,7 +390,7 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 	}
 	if(count<=0)
 		return;
-	LHashTable *assoc=L_HASH_TABLE_STRING(ASSOC_ITEM,phrase);
+	LHashTable *assoc=L_HASH_TABLE_STRING(ASSOC_ITEM,phrase,0);
 	int i,j;
 	for(i=0;i<count;i++)
 	{
@@ -545,9 +545,11 @@ out:
 		LHashIter iter;
 		int n=0;
 		l_hash_iter_init(&iter,cs->assoc);
-		while(!l_hash_iter_next(&iter))
+		while(1)
 		{
-			ASSOC_ITEM *it=l_hash_iter_data(&iter);
+			ASSOC_ITEM *it=l_hash_iter_next(&iter);
+			if(!it)
+				break;
 			if(!it->code)
 				continue;
 			int len=strlen(it->code);

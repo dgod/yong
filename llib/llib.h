@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdalign.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #include "ltypes.h"
 #include "lmacros.h"
@@ -31,4 +33,7 @@
 #include "lbase64.h"
 #include "lxml.h"
 #include "lzlib.h"
+#include "lbits.h"
+#include "lenv.h"
+#include "lescape.h"
 #include "ltricky.h"

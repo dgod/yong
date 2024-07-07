@@ -22,12 +22,17 @@ typedef struct
    uint16_t value[288]; 
 } zhuffman;
 
-#if defined(__has_builtin) && __has_builtin(__builtin_bitreverse16)
+#if defined(__has_builtin)
+#if __has_builtin(__builtin_bitreverse16)
 static inline int bit_reverse(int v, int bits)
 {
 	return __builtin_bitreverse16(v) >> (16-bits);
 }
-#else
+#define define_bit_reverse
+#endif
+#endif
+
+#if !defined(define_bit_reverse)
 static inline int bitreverse16(int n)
 {
   n = ((n & 0xAAAA) >>  1) | ((n & 0x5555) << 1);

@@ -19,12 +19,6 @@ LSList *l_slist_append(LSList *h,LSList *n)
 	return h;
 }
 
-LSList *l_slist_prepend(LSList *h,LSList *p)
-{
-	p->next=h;
-	return p;
-}
-
 void *l_slist_insert_before(LSList *h,LSList *sibling,LSList *data)
 {
 	data->next=sibling;

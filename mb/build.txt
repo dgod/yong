@@ -9,6 +9,8 @@ env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
 env("LDFLAGS+=$(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
+// env("CFLAGS+=-fanalyzer -Wno-analyzer-possible-null-dereference -Wno-analyzer-possible-null-argument -Wno-analyzer-malloc-leak");
+
 function run(target){
 	cd(target);
 	include("../../rules.txt");

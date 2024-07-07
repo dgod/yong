@@ -78,8 +78,11 @@ void local_load_pinyin(const char *fn)
 	fp=EIM.OpenFile(fn,"rb");
 	if(!fp) return;
 	
-	l_chars_pinyin=l_hash_table_new(7001,(LHashFunc)pinyin_item_hash,
-			(LCmpFunc)pinyin_item_cmp);
+	l_chars_pinyin=l_hash_table_new(
+			(LHashFunc)pinyin_item_hash,
+			(LCmpFunc)pinyin_item_cmp,
+			7001,0
+			);
 	
 	while(1)
 	{
@@ -294,8 +297,10 @@ void local_load_user(const char *fn)
 	fp=EIM.OpenFile(fn,"rb");
 	if(!fp) return;
 	
-	l_user=l_hash_table_new(7001,(LHashFunc)phrase_item_hash,
-			(LCmpFunc)phrase_item_cmp);
+	l_user=l_hash_table_new(
+			(LHashFunc)phrase_item_hash,
+			(LCmpFunc)phrase_item_cmp,
+			7001,0);
 	
 	while(1)
 	{

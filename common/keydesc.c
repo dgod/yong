@@ -101,7 +101,7 @@ static void y_im_key_desc_free(void)
 static void load_cand_desc(FILE *fp)
 {
 	char line[1024];
-	p_cand_desc_idx=L_HASH_TABLE_STRING(struct cand_desc,cand);
+	p_cand_desc_idx=L_HASH_TABLE_STRING(struct cand_desc,cand,0);
 	for(;l_get_line(line,sizeof(line),fp)>=0;)
 	{
 		if(line[0]==0 || line[0]=='#')

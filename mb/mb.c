@@ -12,215 +12,31 @@
 
 #include "fuzzy.h"
 
-/* somethin only used to debug */
-#define MB_DEBUG		0
-#define MB_LEAK			0
-
-#if 0
-void MB_LOG(const char *fmt,...)
-{
-	static FILE *fp;
-	va_list ap;
-	if(!fmt)
-	{
-		if(fp)
-		{
-			fclose(fp);
-			fp=NULL;
-		}
-		return;
-	}
-	if(!fp) fp=y_mb_open_file("log.txt","w");
-	if(!fp) return;
-	va_start(ap,fmt);
-	vfprintf(fp,fmt,ap);
-	va_end(ap);
-	fflush(fp);
-}
-#else
-#define MB_LOG(...)
-#endif
-
 /* prev delcare */
 int mb_load_data(struct y_mb *mb,FILE *fp,int dic);
 static int mb_load_user(struct y_mb *mb,const char *fn);
 
-/* mb slice start */
-#define MB_SLICE_COUNT	8
-static void *mb_slice_list;
-struct mb_slice{
-	uint8_t *p;
-	void *idle;
-	int left;
-	int block;
-	int step;
-};
-static struct mb_slice mb_slices[MB_SLICE_COUNT];
+static LSlices *mb_slices;
 
-static void mb_slice_init(int n,...)
+static inline void *mb_slice_alloc(size_t size)
 {
-#if !MB_LEAK
-	int i,j,init,block,step;
-	va_list ap;
-	struct mb_slice *ms;
-	uint8_t *p;
-	
-	va_start(ap,n);
-	for(i=0;i<n;i++)
-	{
-		init=va_arg(ap,int);
-		block=va_arg(ap,int);
-		step=va_arg(ap,int);
-		for(j=0;j<MB_SLICE_COUNT;j++)
-		{
-			ms=&mb_slices[j];
-			if(ms->block==block || ms->block==0)
-				break;
-		}
-		assert(j!=MB_SLICE_COUNT);
-		ms->block=block;
-		ms->left+=init;
-		ms->step=MAX(ms->step,step);
-		ms->idle=NULL;
-	}
-	va_end(ap);
-	for(i=0;i<MB_SLICE_COUNT;i++)
-	{
-		ms=&mb_slices[i];
-		if(!ms->block)
-			break;
-		p=malloc(sizeof(void*)+ms->left*ms->block);
-		ms->p=p+sizeof(void*);
-		*(void**)p=mb_slice_list;
-		mb_slice_list=p;
-		//printf("%d %d\n",ms->block,ms->left);
-	}
-#endif
-}
-
-static void mb_slice_clean(void)
-{
-#if !MB_LEAK
-	void *p,*n;
-	if(!mb_slice_list)
-		return;
-	p=mb_slice_list;
-	while(p)
-	{
-		n=*(void**)p;
-		free(p);
-		p=n;
-	}
-	mb_slice_list=NULL;
-#endif
-}
-
-#if 0
-int mb_slice_dump(void)
-{
-	struct mb_slice *ms;
-	int i;
-	for(i=0;i<MB_SLICE_COUNT;i++)
-	{
-		ms=&mb_slices[i];
-		if(!ms->block)
-			continue;
-		printf("slice %d %d %d\n",ms->block,ms->left+l_slist_length(ms->idle),ms->step);
-	}
-	return 0;
-}
-#endif
-
-static void *mb_slice_alloc(size_t size)
-{
-#if MB_LEAK
-	return malloc(size);
-#else
-	struct mb_slice *ms;
-	int i;
-	void *ret;
-	for(i=0;i<MB_SLICE_COUNT;i++)
-	{
-		ms=mb_slices+i;
-		if(ms->block!=size)
-			continue;
-		if(ms->idle)
-		{
-			ret=ms->idle;
-			ms->idle=*(void**)ret;
-			return ret;
-		}
-		if(!ms->left)
-		{
-			uint8_t *p;
-			p=malloc(sizeof(void*)+ms->block*ms->step);
-			ms->p=p+sizeof(void*);
-			ms->left=ms->step;
-			*(void**)p=mb_slice_list;
-			mb_slice_list=p;
-			//printf("%d %d\n",i,ms->block);
-		}
-		ms->left--;
-		ret=ms->p;
-		ms->p+=ms->block;
-		return ret;
-	}
-	assert(i!=MB_SLICE_COUNT);
-	return NULL;
-#endif
+	return l_slice_alloc(mb_slices,(int)size);
 }
 
 static void mb_slice_free1(size_t size,void *p)
 {
-#if MB_LEAK
-	free(p);
-#else
-	struct mb_slice *ms;
-	int i;
-	for(i=0;i<MB_SLICE_COUNT;i++)
-	{
-		ms=mb_slices+i;
-		if(ms->block!=size)
-			continue;
-		*(void**)p=ms->idle;
-		ms->idle=p;
-		return;
-	}
-	assert(i!=MB_SLICE_COUNT);
-#endif
+	l_slice_free(mb_slices,p,size);
 }
 
 static void mb_slice_free_chain1(size_t size,void *p)
 {
-#if MB_LEAK
 	void *n;
 	while(p)
 	{
 		n=*(void**)p;
-		free(p);
+		l_slice_free(mb_slices,p,size);
 		p=n;
 	}
-#else
-	struct mb_slice *ms;
-	int i;
-	void *n;
-
-	for(i=0;i<MB_SLICE_COUNT;i++)
-	{
-		ms=mb_slices+i;
-		if(ms->block!=size)
-			continue;
-		while(p)
-		{
-			n=*(void**)p;
-			*(void**)p=ms->idle;
-			ms->idle=p;
-			p=n;
-		}
-		return;
-	}
-	assert(i!=MB_SLICE_COUNT);
-#endif
 }
 
 #define mb_slice_new(t) mb_slice_alloc(sizeof(t))
@@ -229,40 +45,19 @@ static void mb_slice_free_chain1(size_t size,void *p)
 
 /* mb memory start */
 
-static void *mb_malloc(size_t size)
+static inline void *mb_malloc(size_t size)
 {
-#if L_WORD_SIZE==32
-	if(size<=8)
-		return mb_slice_alloc(8);
-	else 
-#endif
-	if(size<=12)
-		return mb_slice_alloc(12);
-	else if(size<=16)
-		return mb_slice_alloc(16);
-	else
-		return malloc(size);
+	return l_slice_alloc(mb_slices,(int)size);
 }
 
-static void mb_free(void *p,size_t size)
+static inline void mb_free(void *p,size_t size)
 {
-#if L_WORD_SIZE==32
-	if(size<=8)
-		return mb_slice_free1(8,p);
-	else 
-#endif
-	if(size<=12)
-		return mb_slice_free1(12,p);
-	else if(size<=16)
-		return mb_slice_free1(16,p);
-	else
-		free(p);
+	l_slice_free(mb_slices,p,size);
 }
 
 static void *mb_strdup(char *in)
 {
-	int l;
-	l=strlen(in)+1;
+	int l=strlen(in)+1;
 	return memcpy(mb_malloc(l),in,l);
 }
 
@@ -333,6 +128,7 @@ static int mb_slist_pos_custom(mb_slist_t h,mb_slist_t n,bool (*cb)(void *))
 	return -1;
 }
 
+#if 0
 static inline mb_slist_t mb_slist_insert_after(mb_slist_t h,mb_slist_t p,mb_slist_t n)
 {
 	*(void**)n=*(void**)p;
@@ -350,6 +146,7 @@ static mb_slist_t mb_slist_insert_before(mb_slist_t h,mb_slist_t p,mb_slist_t n)
 	*t=n;	
 	return h;
 }
+#endif
 
 static void mb_slist_foreach(mb_slist_t h,void (*cb)(void *,void *),void *user)
 {
@@ -362,6 +159,8 @@ static void mb_slist_foreach(mb_slist_t h,void (*cb)(void *,void *),void *user)
 	}
 }
 
+#define mb_slist_insert_after(h,p,n) l_slist_insert_after(h,p,n)
+#define mb_slist_insert_before(h,p,n) l_slist_insert_before(h,p,n)
 #define mb_slist_count(h) l_slist_length(h)
 #define mb_slist_nth(h,n) l_slist_nth((h),(n))
 #define mb_slist_remove(h,n) l_slist_remove((h),(n))
@@ -385,17 +184,18 @@ void mb_slist_assert(void *p)
 static void mb_hash_foreach(LHashTable *h,LFunc cb,void *arg)
 {
 	LHashIter iter;
+	void *data;
 	l_hash_iter_init(&iter,h);
-	while(!l_hash_iter_next(&iter))
+	while((data=l_hash_iter_next(&iter))!=NULL)
 	{
-		cb(l_hash_iter_data(&iter),arg);
+		cb(data,arg);
 	}
 }
 
 #define mb_hash_insert(h,v) l_hash_table_insert(h,v)
 #define mb_hash_find(h,v) l_hash_table_find((h),(v))
 #define mb_hash_free(h,f) l_hash_table_free((h),(LFreeFunc)f)
-#define mb_hash_new(a) L_HASH_TABLE_INT(struct y_mb_zi,data)
+#define mb_hash_new(a) L_HASH_TABLE_INT(struct y_mb_zi,data,(a))
 
 #if defined(__arm__) || defined(EMSCRIPTEN) || defined(__mips__)
 static inline uint16_t mb_read_u16(const void *p)
@@ -773,7 +573,7 @@ static int get_line_iconv(char *line, size_t n, FILE *fp)
 	return len;
 }
 
-static int mb_add_rule(struct y_mb *mb,char *s)
+static int mb_add_rule(struct y_mb *mb,const char *s)
 {
 	struct y_mb_rule *r;
 	char c;
@@ -817,7 +617,14 @@ static int mb_add_rule(struct y_mb *mb,char *s)
 		if(c=='.')
 			r->code[i].i=Y_MB_WILDCARD;
 		else if(c>='1' && c<='9')
+		{
 			r->code[i].i=c-'1'+1;
+			if(r->code[i].i > r->n || r->code[i].i<1)
+			{
+				printf("out of range\n");
+				goto err;
+			}
+		}
 		else
 		{
 			printf("1-9.\n");
@@ -845,17 +652,7 @@ next:
 			goto err;
 		}
 	}
-	if(mb->rule==NULL)
-	{
-		r->next=mb->rule;
-		mb->rule=r;
-	}
-	else
-	{
-		struct y_mb_rule *p=mb->rule;
-		while(p->next) p=p->next;
-		p->next=r;		
-	}
+	mb->rule=l_slist_append(mb->rule,r);
 	return 0;
 err:
 	free(r);
@@ -2597,7 +2394,7 @@ int y_mb_error_init(struct y_mb *mb)
 {
 	if(mb->error)
 		return 0;
-	mb->error=L_HASH_TABLE_STRING(ERROR_PHRASE,phrase);
+	mb->error=L_HASH_TABLE_STRING(ERROR_PHRASE,phrase,0);
 	return 0;
 }
 
@@ -3480,7 +3277,7 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin)
 		l_hash_table_free(mb->pin,(LFreeFunc)pin_free);
 		mb->pin=NULL;
 	}
-	mb->pin=L_HASH_TABLE_STRING(struct y_mb_pin_item,data);
+	mb->pin=L_HASH_TABLE_STRING(struct y_mb_pin_item,data,0);
 	mb_load_data(mb,fp,Y_MB_DIC_PIN);
 	fclose(fp);	
 	
@@ -4237,31 +4034,19 @@ void y_mb_save_user(struct y_mb *mb)
 
 void y_mb_init(void)
 {
-#if L_WORD_SIZE==32
-	mb_slice_init(
-		6,
-		50000,sizeof(struct y_mb_item),		1000,
-		7000 ,sizeof(struct y_mb_zi),  		100,
-		800  ,sizeof(struct y_mb_index),	30,
-		10000, 8,                       	500,
-		10000, 12,                      	500,
-		8000, 16,                      		500
-		);
-#else
-	mb_slice_init(
-		5,
-		50000,sizeof(struct y_mb_item),		1000,
-		7000 ,sizeof(struct y_mb_zi),  		100,
-		800  ,sizeof(struct y_mb_index),	30,
-		500, 12,                      		100,
-		10000, 16,                      	500
-		);
-#endif
+	mb_slices=l_slices_new(6,
+			(int)sizeof(struct y_mb_item),
+			(int)sizeof(struct y_mb_zi),
+			(int)sizeof(struct y_mb_index),
+			8,
+			12,
+			16);
 }
 
 void y_mb_cleanup(void)
 {
-	mb_slice_clean();
+	l_slices_free(mb_slices);
+	mb_slices=NULL;
 }
 
 void y_mb_free(struct y_mb *mb)
@@ -5133,17 +4918,14 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 
 static int mb_pin_phrase_fuzzy(struct y_mb *mb,LArray *list,const char *code)
 {
-	char data[sizeof(struct y_mb_pin_item)+32];
-	struct y_mb_pin_item *key,*item;
+	struct y_mb_pin_item *item;
 	struct y_mb_pin_ci *c;
 	if(!mb->pin)
 		return 0;
-	key=(struct y_mb_pin_item *)data;
-	key->len=(uint8_t)strlen(code);
-	if(key->len>8)
+	int len=(uint8_t)strlen(code);
+	if(len>8)
 		return 0;
-	strcpy(key->data,code);
-	item=l_hash_table_find(mb->pin,key);
+	item=l_hash_table_lookup(mb->pin,code);
 	if(!item)
 		return 0;
 	for(c=item->list;c!=NULL;c=c->next)
@@ -6721,7 +6503,10 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 		else if(mb->ass_main)
 			fprintf(fp,"assist=%s\n",mb->ass_main);
 		if(mb->rule)
+		{
 			mb_rule_dump(mb,fp);
+			fprintf(fp,"code_hint=%d\n",mb->code_hint);
+		}
 		fprintf(fp,"[DATA]\n");
 	}
 	for(index=mb->index;index;index=index->next)
@@ -7282,10 +7067,6 @@ int y_mb_play(struct y_mb *mb,FILE *fp,const char *fn)
 	return 0;
 }
 
-static int _str_compar(const char **v1, const char **v2)
-{
-	return strcmp(*v1,*v2);
-}
 int y_mb_sort_file(const char *fn,int flag,const char *with)
 {
 	FILE *fp;
@@ -7309,7 +7090,7 @@ int y_mb_sort_file(const char *fn,int flag,const char *with)
 		char *p=l_strdup(with);
 		l_ptr_array_append(list,p);
 	}
-	qsort(list->data,list->len,list->size,(LCmpFunc)_str_compar);
+	l_ptr_array_sort(list,(LCmpFunc)strcmp);	
 	fp=fopen(fn,"w");
 	if(fp!=NULL)
 	{

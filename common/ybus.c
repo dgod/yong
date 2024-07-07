@@ -573,9 +573,9 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 	return res;
 }
 
-int ybus_wm_ready(void)
+YBUS_CONNECT *ybus_wm_ready(void)
 {
-	return conn_wm?1:0;
+	return conn_wm;
 }
 
 void ybus_wm_icon(const char *icon1,const char *icon2)

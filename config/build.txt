@@ -1,7 +1,7 @@
 var SRCS=['config_ui.c','config_main.c','translate.c',
-	'sync.c','gz.c','session.c','aes.c','update.c'];
-var SRCS_WIN=['config_win.c','lpng.c'];
-var SRCS_LIN=['config_gtk.c'];
+	'sync.c','gz.c','aes.c','update.c'];
+var SRCS_WIN=['config_win.c','lpng.c','session_win.c'];
+var SRCS_LIN=['config_gtk.c','session_curl.c'];
 var DIRS=['l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',
 
 	];
@@ -23,7 +23,7 @@ function run(target){
 		if(GTK=='gtk3')
 			env("CFLAGS+=`pkg-config --cflags gtk+-3.0` -Wno-deprecated-declarations");
 		else
-			env("CFLAGS+=`pkg-config --cflags gtk4`");
+			env("CFLAGS+=`pkg-config --cflags gtk4` -Wno-deprecated-declarations");
 		if(ARCH=="l32")
 			process.env.PKG_CONFIG_PATH="/usr/lib/pkgconfig";
 		else
@@ -38,13 +38,14 @@ function run(target){
 		cr('yong-config.rc','yong-config.res','$(WINDRES) -i $^ -o $@ -O coff');
 		OBJS.push("yong-config.res");
 		env("LDFLAGS+=-mwindows");
-		env("LIBS+=-lgdi32 -lcomctl32 -lcomdlg32 -lws2_32 -lole32 -luuid");
+		env("LIBS+=-lgdi32 -lcomctl32 -lcomdlg32 -lws2_32 -lole32 -luuid -lwinhttp");
 	} else {
 		env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
 		if(GTK=="gtk3")
 			env("LIBS+=`pkg-config --libs gtk+-3.0`");
 		else
 			env("LIBS+=`pkg-config --libs gtk4`");
+		env("LIBS+=-lcurl");
 	}
 	end(function(){
 		ld(OBJS,'$(DESTDIR)/yong-config$(EXE)');

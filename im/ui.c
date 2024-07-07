@@ -20,6 +20,15 @@
 #ifdef CFG_XIM_YBUS
 #include "ybus.h"
 #include "ybus-ibus.h"
+
+int ybus_wayland_ui_init(void);
+void ybus_wayland_set_window(GtkWidget *w,const char *role,int type);
+void ybus_wayland_win_move(GtkWidget *w,int x,int y);
+void ybus_wayland_win_move_relative(GtkWidget *w,int dx,int dy);
+int ybus_wayland_win_show(GtkWidget *w,int show);
+
+int wayland_show_hack,wayland_tip_center;
+
 #endif
 
 #define FIX_CAIRO_LINETO
@@ -67,34 +76,22 @@ static bool MainWin_visible;
 static GtkStatusIcon *StatusIcon;
 static GdkPixbuf *IconPixbuf[2];
 static int IconSelected;
-static GtkStatusIcon *(*my_status_icon_new_from_pixbuf)(GdkPixbuf *pixbuf);
-static void (*my_status_icon_set_from_pixbuf)(GtkStatusIcon *status_icon,GdkPixbuf *pixbuf);
-static void (*my_status_icon_set_tooltip)(GtkStatusIcon *status_icon,const char *tooltip);
-static void (*my_status_icon_set_title)(GtkStatusIcon *status_icon,const gchar *title);
-static void (*my_status_icon_position_menu)(GtkMenu *menu,gint *x,gint *y,gboolean *push_in,gpointer user_data);
 static void (*my_ca_gtk_play_for_widget)(GtkWidget *,uint32_t id,...);
 static void (*my_gdk_window_beep)(GdkWindow *window);
+static void (*my_menu_popup_at_pointer)(GtkMenu* menu,const GdkEvent* trigger_event);
+
+static void *(*app_indicator_new)(const gchar *id,const gchar *icon_name,int category);
+static void (*app_indicator_set_status)(void *self,int status);
+static void (*app_indicator_set_icon_full)(void *self,const gchar *icon_name,const gchar *icon_desc);
+static void (*app_indicator_set_attention_icon_full)(void *self,const gchar *icon_name,const gchar *icon_desc);
+static void (*app_indicator_set_menu)(void *self,GtkMenu *menu);
+static GtkMenu *(*app_indicator_get_menu)(void *self);
+static void (*app_indicator_set_title)(void *self,const gchar *title);
 
 static GtkWidget *ImageWin;
 static UI_IMAGE ImageWin_bg;
 
-#if 0
-static GtkWidget *cfg_menu;
-static GtkWidget *im_list;
-static GtkWidget *im_manage;
-static GtkWidget *im_help;
-#endif
-
 static int im_pipe[2];
-
-#if 0
-static void ui_popup_menu(void)
-{
-	if(!cfg_menu) return;
-	ui_update_menu();
-	gtk_menu_popup(GTK_MENU(cfg_menu),NULL,NULL,NULL,NULL,0,gtk_get_current_event_time());
-}
-#endif
 
 static gboolean im_pipe_cb(GIOChannel *source,GIOCondition condition,gpointer data)
 {
@@ -112,10 +109,35 @@ static void (*set_opacity)(GdkWindow *window,gdouble opacity);
 static void (*set_opacity2)(GtkWidget *window,gdouble opacity);
 static gboolean (*is_composited)(GtkWidget *widget);
 
-static void load_sound_system()
+static void load_sound_system(void)
 {
 	my_gdk_window_beep=dlsym(NULL,"gdk_window_beep");
 	my_ca_gtk_play_for_widget=dlsym(dlopen("libcanberra-gtk3.so.0",RTLD_LAZY),"ca_gtk_play_for_widget");
+}
+
+static void load_app_indicator(void)
+{
+	// if(!is_wayland)
+		// return;
+	void *so=dlopen("libappindicator3.so.1",RTLD_LAZY);
+	if(!so)
+	{
+		so=dlopen("libayatana-appindicator3.so.1",RTLD_LAZY);
+		if(!so)
+			return;
+	}
+	app_indicator_new=dlsym(so,"app_indicator_new");
+	app_indicator_set_status=dlsym(so,"app_indicator_set_status");
+	app_indicator_set_icon_full=dlsym(so,"app_indicator_set_icon_full");
+	app_indicator_set_attention_icon_full=dlsym(so,"app_indicator_set_attention_icon_full");
+	app_indicator_set_menu=dlsym(so,"app_indicator_set_menu");
+	app_indicator_get_menu=dlsym(so,"app_indicator_get_menu");
+	app_indicator_set_title=dlsym(so,"app_indicator_set_title");
+}
+
+bool ui_is_wayland(void)
+{
+	return is_wayland;
 }
 
 #if 0
@@ -128,12 +150,32 @@ static gboolean CompMgrExist(void)
 }
 #endif
 
+static void calc_ui_scale(void)
+{
+	int dpi;
+	if(MainWin==NULL)
+	{
+		GtkWidget *w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
+		gtk_widget_destroy(w);
+	}
+	dpi=(int)gdk_screen_get_resolution(gdk_screen_get_default());
+	if(dpi>=96)
+		ui_scale=dpi/96.0;
+	// printf("%d %.2f\n",dpi,ui_scale);
+	const char *temp=y_im_get_config_data("main","scale");
+	if(temp)
+	{
+		ui_scale=strtod(temp,NULL);
+	}
+}
+
 void YongSetXErrorHandler(void);
-int ui_init(void)
+static int ui_init(void)
 {
 	GtkSettings*p;
 	GIOChannel *chn;
 
+	setenv("GTK_CSD","0",1);
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 		setenv("GDK_BACKEND","x11",1);
 	if(getenv("GDK_SCALE"))
@@ -160,8 +202,9 @@ int ui_init(void)
 	set_opacity=dlsym(NULL,"gdk_window_set_opacity");
 	set_opacity2=dlsym(NULL,"gtk_widget_set_opacity");
 	is_composited=dlsym(NULL,"gtk_widget_is_composited");
+	my_menu_popup_at_pointer=dlsym(NULL,"gtk_menu_popup_at_pointer");
 	load_sound_system();
-		
+	
 	pipe(im_pipe);
 	chn=g_io_channel_unix_new(im_pipe[0]);
 	guint src=g_io_add_watch(chn,G_IO_IN,im_pipe_cb,NULL);
@@ -172,38 +215,31 @@ int ui_init(void)
 		if(gtk_get_minor_version()>=16)
 		{
 			g_object_set(p,
-					"gtk-im-module","gtk-im-context-simple",
+					// "gtk-im-module","gtk-im-context-simple",
 					"gtk-show-input-method-menu",FALSE,
 					"gtk-enable-animations",FALSE,
 					NULL);
 		}
 		else
 		{
-			gtk_settings_set_string_property(p,"gtk-im-module","gtk-im-context-simple",0);
+			// gtk_settings_set_string_property(p,"gtk-im-module","gtk-im-context-simple",0);
 			gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
 		}
 	}
 
 	YongSetXErrorHandler();
 	
-	{
-		GtkWidget *w;
-		int dpi;
-		w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
-		gtk_widget_destroy(w);
-		dpi=(int)gdk_screen_get_resolution(gdk_screen_get_default());
-		if(dpi>96)
-			ui_scale=dpi/96.0;
-		const char *temp=y_im_get_config_data("main","scale");
-		if(temp)
-		{
-			ui_scale=strtod(temp,NULL);
-		}
-	}
+	calc_ui_scale();
 	if(l_str_has_prefix(gdk_display_get_name(gdk_display_get_default()),"wayland"))
 	{
 		is_wayland=true;
 	}
+
+	ybus_wayland_ui_init();
+	wayland_show_hack=y_im_get_config_int("main","wayland_show_hack");
+	wayland_tip_center=y_im_get_config_int("main","wayland_tip_center");
+
+	load_app_indicator();
 	
 	return 0;
 }
@@ -224,6 +260,32 @@ int ui_loop(void)
 
 static void get_workarea (int *x, int *y, int *width, int *height)
 {
+#if 0
+	// 暂时不用，等将来确定某些桌面不能正确获取该信息再启用
+	const char *tmp=y_im_get_config_data("main","workarea");
+	if(tmp && tmp[0])
+	{
+		if(4==l_sscanf(tmp,"%d,%d,%d,%d",x,y,width,height))
+		{
+			return;
+		}
+	}
+#endif
+	
+	*x = 0;
+	*y = 0;
+	*width = gdk_screen_width();
+	*height = gdk_screen_height();
+
+	if(is_wayland)
+	{
+		// wayland本身无法获取工作区域，用x11来获取
+		void ybus_xim_get_workarea(int *x, int *y, int *width, int *height);
+		ybus_xim_get_workarea(x,y,width,height);
+		// printf("%d %d %d %d\n",*x,*y,*width,*height);
+		return;
+	}
+
 	GdkAtom net_current_desktop_atom = gdk_atom_intern ("_NET_CURRENT_DESKTOP", TRUE);;
 	GdkAtom net_workarea_atom = gdk_atom_intern ("_NET_WORKAREA", TRUE);
 	GdkWindow *root_window = gdk_get_default_root_window ();
@@ -231,11 +293,6 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 	gint format, length;
 	guint current_desktop = 0;
 	guchar *data;
-
-	*x = 0;
-	*y = 0;
-	*width = gdk_screen_width();
-	*height = gdk_screen_height();
 
 	if (net_current_desktop_atom != GDK_NONE)
 	{
@@ -265,6 +322,58 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 	}
 }
 
+void ui_get_workarea(int *x, int *y, int *width, int *height)
+{
+	get_workarea(x,y,width,height);
+}
+
+void ui_show_workarea(void)
+{
+	setenv("GDK_BACKEND","x11",1);
+	gdk_init(NULL,NULL);
+
+	int x = 0;
+	int y = 0;
+	int width = gdk_screen_width();
+	int height = gdk_screen_height();
+
+	GdkAtom net_current_desktop_atom = gdk_atom_intern ("_NET_CURRENT_DESKTOP", TRUE);;
+	GdkAtom net_workarea_atom = gdk_atom_intern ("_NET_WORKAREA", TRUE);
+	GdkWindow *root_window = gdk_get_default_root_window ();
+	GdkAtom atom_ret;
+	gint format, length;
+	guint current_desktop = 0;
+	guchar *data;
+
+	if (net_current_desktop_atom != GDK_NONE)
+	{
+		gboolean found = gdk_property_get (root_window,
+			net_current_desktop_atom, GDK_NONE, 0, G_MAXLONG, FALSE,
+			&atom_ret, &format, &length, &data);
+		if (found && format == 32 && length / sizeof(glong) > 0)
+		current_desktop = ((glong*)data)[0];
+		if (found)
+			g_free (data);
+	}
+
+	if (net_workarea_atom != GDK_NONE)
+	{
+		gboolean found = gdk_property_get (root_window,
+			net_workarea_atom, GDK_NONE, 0, G_MAXLONG, FALSE,
+			&atom_ret, &format, &length, &data);
+		if (found && format == 32 && length / sizeof(glong) >= (current_desktop + 1) * 4)
+		{
+			x      = ((glong*)data)[current_desktop * 4];
+			y      = ((glong*)data)[current_desktop * 4 + 1];
+			width  = ((glong*)data)[current_desktop * 4 + 2];
+			height = ((glong*)data)[current_desktop * 4 + 3];
+		}
+		if (found)
+			g_free (data);
+	}
+	printf("%d %d %d %d\n",x,y,width,height);
+}
+
 static gboolean main_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointer user_data)
 {
 	UI_EVENT ue;
@@ -272,13 +381,22 @@ static gboolean main_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointer
 	if ((event->state & (GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK)) != 0 &&
         	MainWin_Drag)
 	{
-		gtk_window_get_position (GTK_WINDOW (window), &pos_x, &pos_y);
-		gtk_window_move (GTK_WINDOW (MainWin), 
-			pos_x + ((gint) event->x_root - MainWin_Drag_X),
-			pos_y + ((gint) event->y_root - MainWin_Drag_Y));
+		if(is_wayland)
+		{
+			ybus_wayland_win_move_relative(window,
+					(gint) event->x_root - MainWin_Drag_X,
+					(gint) event->y_root - MainWin_Drag_Y);
+		}
+		else
+		{
+			gtk_window_get_position (GTK_WINDOW (window), &pos_x, &pos_y);
+			gtk_window_move (GTK_WINDOW (MainWin), 
+				pos_x + ((gint) event->x_root - MainWin_Drag_X),
+				pos_y + ((gint) event->y_root - MainWin_Drag_Y));
 
-		MainWin_Drag_X = (gint) event->x_root;
-		MainWin_Drag_Y = (gint) event->y_root;
+			MainWin_Drag_X = (gint) event->x_root;
+			MainWin_Drag_Y = (gint) event->y_root;
+		}
 
 		return TRUE;
 	}
@@ -320,6 +438,7 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	{
 		ue.event=UI_EVENT_UP;
 		ue.which=UI_BUTTON_RIGHT;
+		ue.priv=event;
 		int ret=ui_button_event(MainWin,&ue,NULL);
 		if(ret) return 1;
 	}	
@@ -334,10 +453,17 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	
 	if(event->button==1 && click==0 && !MainWin_Drag)
 	{
-		cursor = gdk_cursor_new (GDK_FLEUR);   
-		gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
-				gtk_widget_get_window(window),GDK_OWNERSHIP_NONE,TRUE,
-				(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),cursor,event->time);
+		cursor = gdk_cursor_new (GDK_FLEUR);
+		if(!is_wayland)
+		{
+			gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
+					gtk_widget_get_window(window),GDK_OWNERSHIP_NONE,TRUE,
+					(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),cursor,event->time);
+		}
+		else
+		{
+			gdk_window_set_cursor(gtk_widget_get_window(window),cursor);
+		}
 		g_object_unref (cursor);
 		MainWin_Drag=TRUE;
 		MainWin_Drag_X=event->x_root;
@@ -350,6 +476,10 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 		int scr_w,scr_h;
 		gtk_window_get_position(GTK_WINDOW(window), &MainWin_X, &MainWin_Y);
 		MainWin_Drag=FALSE;
+		if(is_wayland)
+		{
+			gdk_window_set_cursor(gtk_widget_get_window(window),NULL);
+		}
 		gdk_device_ungrab(gdk_event_get_device((GdkEvent*)event),event->time);
 		if(MainWin_X<0) MainWin_X=0;
 		if(MainWin_Y<0) MainWin_Y=0;
@@ -366,14 +496,60 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 
 static void ui_win_tran(GtkWidget *w,int tran)
 {
-	double val=(255.0-tran)/255.0;
-	if(set_opacity2)
+	int show=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"show"));
+	if(show==0 || show==2)
 	{
-		set_opacity2(w,val);
+		double val=(255.0-tran)/255.0;
+		if(set_opacity2)
+		{
+			set_opacity2(w,val);
+		}
+		else if(set_opacity)
+		{
+			set_opacity(gtk_widget_get_window(w),val);
+		}
 	}
-	else if(set_opacity)
+	int temp=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"tran"));
+	uint8_t orig=temp>>8&0xff;
+	g_object_set_data(G_OBJECT(w),"tran",GINT_TO_POINTER(tran|(orig<<8)));
+}
+
+void ui_win_show(GtkWidget *w,int show)
+{
+	if(!is_wayland)
 	{
-		set_opacity(gtk_widget_get_window(w),val);
+		if(show)
+			gtk_widget_show(w);
+		else
+			gtk_widget_hide(w);
+	}
+	else
+	{
+		if(!wayland_show_hack && ybus_wayland_win_show(w,show)==0)
+			return;
+		g_object_set_data(G_OBJECT(w),"show",GINT_TO_POINTER(show+1));
+		if(show)
+		{
+			int tran=(uint8_t)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"tran"));
+			ui_win_tran(w,tran);
+			cairo_region_t *u=g_object_get_data(G_OBJECT(w),"input-shape");
+			gtk_widget_input_shape_combine_region(w,u);
+			gtk_widget_show(w);
+		}
+		else
+		{
+			if(set_opacity2)
+			{
+				set_opacity2(w,0);
+			}
+			else if(set_opacity)
+			{
+				set_opacity(gtk_widget_get_window(w),0);
+			}
+			cairo_region_t *u=cairo_region_create();
+			gtk_widget_input_shape_combine_region(w,u);
+			ui_region_destroy(u);
+		}
 	}
 }
 
@@ -390,19 +566,17 @@ static gboolean main_enter_leave_notify(GtkWidget *window,GdkEventCrossing *even
 {
 	int tran;
 	tran=MainWin_tran;
-	
-	if(!MainWin_auto_tran)
-		return TRUE;
 
-	if(event->type==GDK_ENTER_NOTIFY ||
+	if(!MainWin_auto_tran)
+		return FALSE;
+
+	if(event->type==GDK_ENTER_NOTIFY &&
 		(event->x>=0 && event->x<MainWin_W && event->y>=0 && event->y<MainWin_H))
 	{
-		//printf("enter\n");
 		MainWin_over=1;
 	}
 	else
 	{
-		//printf("leave\n");
 		MainWin_over=0;
 		
 		UI_EVENT ue;
@@ -413,10 +587,10 @@ static gboolean main_enter_leave_notify(GtkWidget *window,GdkEventCrossing *even
 		tran=255-(255-tran)*2/3;
 	ui_win_tran(MainWin,tran);
 
-	return TRUE;
+	return FALSE;
 }
 
-static void ui_set_css(GtkWidget *widget,const gchar *data)
+void ui_set_css(GtkWidget *widget,const gchar *data)
 {
 	GtkCssProvider *provider=gtk_css_provider_new();
 	GtkStyleContext *context=gtk_widget_get_style_context(widget);
@@ -425,13 +599,24 @@ static void ui_set_css(GtkWidget *widget,const gchar *data)
 	g_object_unref(provider);
 }
 
+static gboolean on_screen_size_changed_next(gpointer unused)
+{
+	YongReloadAll();
+	return FALSE;
+}
+
+static void on_screen_size_changed(GdkScreen *screen)
+{
+	g_timeout_add(100,on_screen_size_changed_next,NULL);
+}
+
 static UI_REGION create_rgn(GdkPixbuf *);
 int ui_main_update(UI_MAIN *param)
 {
 	int tran;
 	if(!MainWin)
 	{
-		MainWin = gtk_window_new(GTK_WINDOW_POPUP);
+		MainWin = gtk_window_new(is_wayland?GTK_WINDOW_TOPLEVEL:GTK_WINDOW_POPUP);
 		assert(MainWin);
 		GdkScreen *screen = gdk_screen_get_default();
 		GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
@@ -445,6 +630,8 @@ int ui_main_update(UI_MAIN *param)
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(MainWin),TRUE);
 		gtk_window_set_skip_pager_hint(GTK_WINDOW(MainWin),TRUE);
 		gtk_window_set_keep_above(GTK_WINDOW(MainWin),TRUE);
+		if(is_wayland)
+			ybus_wayland_set_window(MainWin,"main",2);
 		gtk_widget_realize(MainWin);
 		
 		gdk_window_set_events(gtk_widget_get_window(MainWin),
@@ -459,12 +646,15 @@ int ui_main_update(UI_MAIN *param)
 		g_signal_connect(G_OBJECT(MainWin),"leave-notify-event",
 			G_CALLBACK(main_enter_leave_notify),0);
 
-		g_signal_connect (G_OBJECT(MainWin), "button-press-event",
+		g_signal_connect (G_OBJECT(MainWin),"button-press-event",
 			G_CALLBACK(main_click_cb),GINT_TO_POINTER (0));
-		g_signal_connect (G_OBJECT(MainWin), "button-release-event",
-			G_CALLBACK (main_click_cb),GINT_TO_POINTER (1));
-		g_signal_connect (G_OBJECT(MainWin), "motion-notify-event",
+		g_signal_connect(G_OBJECT(MainWin),"button-release-event",
+			G_CALLBACK(main_click_cb),GINT_TO_POINTER (1));
+		g_signal_connect(G_OBJECT(MainWin),"motion-notify-event",
 			G_CALLBACK(main_motion_cb),NULL);
+		
+		g_signal_connect(G_OBJECT(screen),"size-changed",
+			G_CALLBACK(on_screen_size_changed),NULL);
 
 		ui_set_css(GTK_WIDGET(MainWin),"window{background-color:transparent}\n");
 	}
@@ -495,6 +685,8 @@ int ui_main_update(UI_MAIN *param)
 			MainTheme.radius=(int)round(param->radius*ui_scale);
 		}
 		gtk_widget_shape_combine_region(MainWin,NULL);
+		gtk_widget_input_shape_combine_region(MainWin,NULL); 
+		g_object_set_data(G_OBJECT(MainWin),"input-shape",NULL);
 	}
 	else
 	{
@@ -520,11 +712,15 @@ int ui_main_update(UI_MAIN *param)
 		{
 			UI_REGION r=create_rgn(MainWin_bg);
 			gtk_widget_shape_combine_region(MainWin,r);
+			gtk_widget_input_shape_combine_region(MainWin,r);
+			g_object_set_data_full(G_OBJECT(MainWin),"input-shape",r,(GDestroyNotify)ui_region_destroy);
 			ui_region_destroy(r);
 		}
 		else
 		{
 			gtk_widget_shape_combine_region(MainWin,NULL);
+			gtk_widget_input_shape_combine_region(MainWin,NULL);
+			g_object_set_data(G_OBJECT(MainWin),"input-shape",NULL);
 		}
 	}
 	gtk_window_resize(GTK_WINDOW(MainWin),MainWin_W,MainWin_H);
@@ -547,13 +743,21 @@ static gboolean input_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointe
 	if ((event->state & (GDK_BUTTON1_MASK | GDK_BUTTON2_MASK | GDK_BUTTON3_MASK)) != 0 &&
         	InputWin_Drag)
 	{
-		gtk_window_get_position (GTK_WINDOW (window), &pos_x, &pos_y);
-		gtk_window_move (GTK_WINDOW (InputWin), 
-			pos_x + ((gint) event->x_root - InputWin_Drag_X),
-			pos_y + ((gint) event->y_root - InputWin_Drag_Y));
-
-		InputWin_Drag_X = (gint) event->x_root;
-		InputWin_Drag_Y = (gint) event->y_root;
+		if(is_wayland)
+		{
+			ybus_wayland_win_move_relative(window,
+				(gint) event->x_root - InputWin_Drag_X,
+				(gint) event->y_root - InputWin_Drag_Y);
+		}
+		else
+		{
+			gtk_window_get_position (GTK_WINDOW (window), &pos_x, &pos_y);
+			gtk_window_move (GTK_WINDOW (InputWin), 
+				pos_x + ((gint) event->x_root - InputWin_Drag_X),
+				pos_y + ((gint) event->y_root - InputWin_Drag_Y));
+			InputWin_Drag_X = (gint) event->x_root;
+			InputWin_Drag_Y = (gint) event->y_root;
+		}
 
 		return TRUE;
 	}
@@ -587,9 +791,16 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 		motion_handler = g_signal_connect (G_OBJECT(window), "motion-notify-event",
 			G_CALLBACK(input_motion_cb),NULL);
 		cursor = gdk_cursor_new (GDK_FLEUR);
-		gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
+		if(!is_wayland)
+		{
+			gdk_device_grab(gdk_event_get_device((GdkEvent*)event),
 				gtk_widget_get_window(window),GDK_OWNERSHIP_NONE,TRUE,
 				(GdkEventMask)(GDK_BUTTON_RELEASE_MASK|GDK_POINTER_MOTION_MASK),cursor,event->time);
+		}
+		else
+		{
+			gdk_window_set_cursor(gtk_widget_get_window(window),cursor);
+		}
 		g_object_unref (cursor);
 		InputWin_Drag=TRUE;
 		InputWin_Drag_X=event->x_root;
@@ -641,6 +852,10 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 				}
 			}
 			return TRUE;
+		}
+		if(is_wayland)
+		{
+			gdk_window_set_cursor(gtk_widget_get_window(window),NULL);
 		}
 		g_signal_handler_disconnect (G_OBJECT (window), motion_handler);
 		gtk_window_get_position(GTK_WINDOW(window), &InputWin_X, &InputWin_Y);
@@ -750,7 +965,6 @@ static UI_REGION create_rgn(GdkPixbuf *p)
 
 static void set_rgn(void)
 {
-
 	UI_REGION u,t;
 	if(!InputTheme.rgn[0] && !InputTheme.rgn[2])
 		return;
@@ -768,7 +982,9 @@ static void set_rgn(void)
 		cairo_region_union(u,t);
 		ui_region_destroy(t);
 	}
-	gdk_window_shape_combine_region(gtk_widget_get_window(InputWin),u,0,0);
+	if(!is_composited(InputWin))
+		gtk_widget_shape_combine_region(InputWin,u);
+	gtk_widget_input_shape_combine_region(InputWin,u);
 	ui_region_destroy(u);
 }
 
@@ -779,8 +995,8 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 	int w,h,w0,h0;
 	double scale;
 	
-	if(InputTheme.line==0)
-		return bg;
+	//if(InputTheme.line==0)
+	//	return bg;
 	if(InputTheme.Top==InputTheme.Bottom && InputTheme.Top==0)
 		return bg;
 	if(!bottom) bottom=InputTheme.Bottom;
@@ -788,12 +1004,27 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 		cand=y_im_get_config_int("IM","cand");
 	else
 		cand=1;
-		
+	
 	ui_image_size(bg,&w0,&h0);
 
 	ui_text_size(NULL,InputTheme.layout," ",&w,&h);
 	w=w0;
-	h=cand*h+(cand-1)*InputTheme.space+bottom+InputTheme.CandY;
+	if(InputTheme.line==0)
+	{
+		int middle=(InputTheme.CodeY+h0-InputTheme.WorkBottom)/2;
+		int pad=InputTheme.CandY-middle;
+		double scale=(h+pad+pad+h)*1.0/(h0-InputTheme.CodeY-InputTheme.WorkBottom);
+		pad=(int)(scale*pad);
+		middle=InputTheme.CodeY+h+pad;
+		h=InputTheme.CodeY+h+pad+pad+h+InputTheme.WorkBottom;
+		if(h<InputTheme.Top+InputTheme.Bottom)
+			return bg;
+		InputTheme.CandY=middle+pad;
+	}
+	else
+	{
+		h=cand*h+(cand-1)*InputTheme.space+bottom+InputTheme.CandY;
+	}
 	if(h<InputTheme.Top+InputTheme.Bottom)
 		h=InputTheme.Top+InputTheme.Bottom;
 		
@@ -829,6 +1060,7 @@ int ui_input_update(UI_INPUT *param)
 
 	if(!InputWin)
 	{
+		// InputWin = gtk_window_new(is_wayland?GTK_WINDOW_TOPLEVEL:GTK_WINDOW_POPUP);
 		InputWin = gtk_window_new(GTK_WINDOW_POPUP);
 		assert(InputWin);
 		GdkScreen *screen = gdk_screen_get_default();
@@ -841,6 +1073,8 @@ int ui_input_update(UI_INPUT *param)
 		gtk_window_set_skip_taskbar_hint(GTK_WINDOW(InputWin),TRUE);
 		gtk_window_set_skip_pager_hint(GTK_WINDOW(InputWin),TRUE);
 		gtk_window_set_keep_above(GTK_WINDOW(InputWin),TRUE);
+		if(is_wayland && param->root)
+			ybus_wayland_set_window(InputWin,"input",2);
 		gtk_widget_realize(InputWin);
 
 		window=gtk_widget_get_window(InputWin);
@@ -857,6 +1091,9 @@ int ui_input_update(UI_INPUT *param)
 			G_CALLBACK(on_input_draw),0);
 		
 		ui_set_css(GTK_WIDGET(InputWin),"window{background-color:transparent}\n");
+
+		if(is_wayland && !param->root)
+			ybus_wayland_set_window(InputWin,"input",1);
 	}
 	else
 	{
@@ -1038,13 +1275,6 @@ int ui_input_update(UI_INPUT *param)
 		{
 			bg=ui_image_load(tmp,IMAGE_SKIN);
 		}
-		bg=ui_input_bg_adjust(bg,param->cand_max,param->work_bottom);
-
-		bg_w=gdk_pixbuf_get_width(bg);
-		bg_h=gdk_pixbuf_get_height(bg);
-
-		InputTheme.RealHeight=bg_h;
-
 		if(param->work_bottom>0)
 		{
 			InputTheme.WorkBottom=param->work_bottom;
@@ -1064,6 +1294,13 @@ int ui_input_update(UI_INPUT *param)
 			InputTheme.WorkRight=InputTheme.Right;
 		}
 
+		bg=ui_input_bg_adjust(bg,param->cand_max,param->work_bottom);
+
+		bg_w=gdk_pixbuf_get_width(bg);
+		bg_h=gdk_pixbuf_get_height(bg);
+
+		InputTheme.RealHeight=bg_h;
+	
 		InputTheme.Width=bg_w;
 		InputTheme.Height=bg_h;
 
@@ -1073,15 +1310,14 @@ int ui_input_update(UI_INPUT *param)
 		}
 		else
 		{
-			gboolean comp=is_composited && is_composited(InputWin);
 			if(InputTheme.Left)
 			{
 				InputTheme.bg[0]=gdk_pixbuf_new_subpixbuf(bg,0,0,InputTheme.Left,bg_h);
-				if(!comp) InputTheme.rgn[0]=create_rgn(InputTheme.bg[0]);
+				InputTheme.rgn[0]=create_rgn(InputTheme.bg[0]);
 			}
 			InputTheme.bg[1]=gdk_pixbuf_new_subpixbuf(bg,InputTheme.Left,0,
 				bg_w-InputTheme.Left-InputTheme.Right,bg_h);
-			if(!comp) InputTheme.rgn[1]=create_rgn(InputTheme.bg[1]);
+			InputTheme.rgn[1]=create_rgn(InputTheme.bg[1]);
 			if(InputTheme.rgn[1])
 			{
 				cairo_region_translate(InputTheme.rgn[1],InputTheme.Left,0);
@@ -1093,7 +1329,7 @@ int ui_input_update(UI_INPUT *param)
 			{
 				InputTheme.bg[2]=gdk_pixbuf_new_subpixbuf(bg,bg_w-InputTheme.Right,
 					0,InputTheme.Right,bg_h);
-				if(!comp) InputTheme.rgn[2]=create_rgn(InputTheme.bg[2]);
+				InputTheme.rgn[2]=create_rgn(InputTheme.bg[2]);
 			}
 			g_object_unref(bg);
 		}
@@ -1575,12 +1811,12 @@ int ui_main_show(int show)
 	if(show && MainWin_X==0 && MainWin_Y<=0)
 	{
 		gint w,h;
-		gint wa_x,wa_y,wa_w,wa_h;
+		int wa_x,wa_y,wa_w,wa_h;
 		w=MainWin_W;h=MainWin_H;
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
 		if(is_wayland)
 		{
-			// TODO:
+			ybus_wayland_win_move(MainWin,wa_x+wa_w-w,wa_y+wa_h-h);
 		}
 		else
 		{
@@ -1595,7 +1831,7 @@ int ui_main_show(int show)
 		MainWin_X=(gdk_screen_width()-w)/2;
 		if(is_wayland)
 		{
-			// TODO:
+			ybus_wayland_win_move(MainWin,MainWin_X,MainWin_Y);
 		}
 		else
 		{
@@ -1611,7 +1847,7 @@ int ui_main_show(int show)
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
 		if(is_wayland)
 		{
-			// TODO:
+			ybus_wayland_win_move(MainWin,wa_x,wa_y+wa_h-h);
 		}
 		else
 		{
@@ -1635,12 +1871,12 @@ int ui_main_show(int show)
 	if(show>0)
 	{
 		MainWin_visible=true;
-		gtk_widget_show(MainWin);
+		ui_win_show(MainWin,1);
 	}
 	else if(show==0)
 	{
 		MainWin_visible=false;
-		gtk_widget_hide(MainWin);
+		ui_win_show(MainWin,0);
 	}
 	return 0;
 }
@@ -1667,12 +1903,12 @@ int ui_input_show(int show)
 		{
 			gtk_window_move(GTK_WINDOW(InputWin),InputWin_X,InputWin_Y);
 		}
-		gtk_widget_show(InputWin);
+		ui_win_show(InputWin,1);
 	}
 	else
 	{
 		ybus_ibus_input_hide();	
-		gtk_widget_hide(InputWin);
+		ui_win_show(InputWin,0);
 	}
 	return 0;
 }
@@ -1683,7 +1919,8 @@ static void on_status_popup_menu(GtkStatusIcon *icon,
 	LKeyFile *kf=y_im_get_menu_config();
 	ui_menu_t *m;
 	m=ui_build_menu(kf);
-	gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,my_status_icon_position_menu,icon,button,time);
+	g_object_ref_sink(m->root);
+	gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,gtk_status_icon_position_menu,icon,button,time);
 }
 
 static void on_status_activate(void)
@@ -1713,14 +1950,57 @@ static int ui_image_get_path(const char *file,char *out,int size)
 	return -1;
 }
 
+static void ui_tray_update_with_indicator(UI_TRAY *param)
+{
+	if(!param->enable)
+	{
+		if(StatusIcon)
+		{			
+			g_object_unref(G_OBJECT(StatusIcon));
+			StatusIcon=NULL;
+		}
+		return;
+	}
+	char icon1[256],icon2[256];
+	int ret=ui_image_get_path(param->icon[0],icon1,sizeof(icon1));
+	ret|=ui_image_get_path(param->icon[1],icon2,sizeof(icon2));
+	if(ret==0)
+	{
+		if(strstr(icon1,".zip/"))
+		{
+			snprintf(icon1,sizeof(icon1),"%s/skin/%s",y_im_get_path("DATA"),"tray1.png");
+			snprintf(icon2,sizeof(icon2),"%s/skin/%s",y_im_get_path("DATA"),"tray2.png");
+		}
+	}
+	l_fullpath(icon1,icon1,sizeof(icon1));
+	l_fullpath(icon2,icon2,sizeof(icon2));
+	if(!StatusIcon)
+	{
+		StatusIcon=app_indicator_new("net.dgod.yong",icon2,0);
+		app_indicator_set_attention_icon_full(StatusIcon,icon1,NULL);
+	}
+	else
+	{
+		app_indicator_set_icon_full(StatusIcon,icon2,NULL);
+		app_indicator_set_attention_icon_full(StatusIcon,icon1,NULL);
+	}
+	LKeyFile *kf=y_im_get_menu_config();
+	ui_menu_t *m=ui_build_menu(kf);
+	app_indicator_set_menu(StatusIcon,GTK_MENU(m->root));
+}
+
 void ui_tray_update(UI_TRAY *param)
 {
-	int enable;
 	int i;
+
+	if(app_indicator_new)
+	{
+		ui_tray_update_with_indicator(param);
+		return;
+	}
 
 	if(is_wayland)
 	{
-		// TODO: use libappindicator here
 		return;
 	}
 
@@ -1740,24 +2020,13 @@ void ui_tray_update(UI_TRAY *param)
 		}
 	}
 	
-	if(!my_status_icon_new_from_pixbuf)
-	{
-		my_status_icon_new_from_pixbuf=dlsym(NULL,"gtk_status_icon_new_from_pixbuf");
-		if(!my_status_icon_new_from_pixbuf)
-			return;
-		my_status_icon_set_from_pixbuf=dlsym(NULL,"gtk_status_icon_set_from_pixbuf");
-		my_status_icon_set_tooltip=dlsym(NULL,"gtk_status_icon_set_tooltip_text");
-		my_status_icon_set_title=dlsym(NULL,"gtk_status_icon_set_title");
-		my_status_icon_position_menu=dlsym(NULL,"gtk_status_icon_position_menu");
-	}
 	for(i=0;i<2;i++)
 	{
 		if(!IconPixbuf[i]) continue;
 		g_object_unref(G_OBJECT(IconPixbuf[i]));
 		IconPixbuf[i]=0;
 	}
-	enable=param->enable;
-	if(!enable)
+	if(!param->enable)
 	{
 		if(StatusIcon)
 		{
@@ -1781,7 +2050,7 @@ void ui_tray_update(UI_TRAY *param)
 	}
 	else
 	{
-		StatusIcon=my_status_icon_new_from_pixbuf(IconPixbuf[IconSelected]);
+		StatusIcon=gtk_status_icon_new_from_pixbuf(IconPixbuf[IconSelected]);
 		g_signal_connect(G_OBJECT(StatusIcon),"popup-menu",
 			G_CALLBACK(on_status_popup_menu),NULL);
 		g_signal_connect(G_OBJECT(StatusIcon),"activate",
@@ -1794,9 +2063,15 @@ void ui_tray_tooltip(const char *tip)
 	char tip2[32];
 	if(!StatusIcon) return;
 	y_im_str_encode(tip,tip2,0);
-	my_status_icon_set_tooltip(StatusIcon,tip2);
-	if(my_status_icon_set_title)
-		my_status_icon_set_title(StatusIcon,tip2);
+	if(app_indicator_set_title)
+	{
+		app_indicator_set_title(StatusIcon,tip2);
+	}
+	else
+	{
+		gtk_status_icon_set_tooltip_text(StatusIcon,tip2);
+		gtk_status_icon_set_title(StatusIcon,tip2);
+	}
 }
 
 void ui_tray_status(int which)
@@ -1806,10 +2081,17 @@ void ui_tray_status(int which)
 	if(IconSelected==which)
 		return;
 	IconSelected=which;
-	if(!StatusIcon) return;
+	if(!StatusIcon)
+		return;
+	if(app_indicator_set_status)
+	{
+		app_indicator_set_status(StatusIcon,which?1:2);
+		return;
+	}
+
 	if(IconPixbuf[IconSelected])
 	{
-		my_status_icon_set_from_pixbuf(StatusIcon,IconPixbuf[IconSelected]);
+		gtk_status_icon_set_from_pixbuf(StatusIcon,IconPixbuf[IconSelected]);
 	}
 }
 
@@ -2033,11 +2315,11 @@ static gboolean on_tip_timeout(GtkWidget *tip)
 {
 	tip_timer_id=0;
 	g_object_set_data(G_OBJECT(tip),"tip",NULL);
-	gtk_widget_hide(tip);
+	ui_win_show(tip,0);
 	return FALSE;
 }
 
-void ui_show_tip(const char *fmt,...)
+static void ui_show_tip(const char *fmt,...)
 {
 	static GtkWidget *tip;
 	int x,y,w,h;
@@ -2055,11 +2337,22 @@ void ui_show_tip(const char *fmt,...)
 	
 	if(!tip)
 	{
+		// tip=(GtkWidget*)gtk_window_new(is_wayland?GTK_WINDOW_TOPLEVEL:GTK_WINDOW_POPUP);
 		tip=(GtkWidget*)gtk_window_new(GTK_WINDOW_POPUP);
 		gtk_window_set_type_hint (GTK_WINDOW (tip), GDK_WINDOW_TYPE_HINT_TOOLTIP);
 		gtk_widget_set_name (tip, "gtk-tooltip");
 		g_signal_connect(G_OBJECT(tip),"draw",
 			G_CALLBACK(on_tip_draw),0);
+
+		if(is_wayland)
+		{
+			if(wayland_tip_center)
+				ybus_wayland_set_window(tip,"tip",2);
+			gtk_widget_realize(tip);
+			if(!wayland_tip_center)
+				ybus_wayland_set_window(tip,"tip",1);
+			ui_set_css(GTK_WIDGET(tip),"window{background-color:transparent}\n");
+		}
 	}
 	g_object_set_data_full(G_OBJECT(tip),"tip",g_strdup(text),g_free);
 	ui_text_size(NULL,InputTheme.layout,text,&w,&h);
@@ -2087,7 +2380,7 @@ void ui_show_tip(const char *fmt,...)
 	gtk_window_resize(GTK_WINDOW(tip),w,h);
 	gtk_widget_set_size_request(tip,w,h);
 	gtk_widget_queue_draw(tip);
-	gtk_widget_show(tip);
+	ui_win_show(tip,1);
 	if(tip_timer_id>0)
 		g_source_remove(tip_timer_id);
 	tip_timer_id=g_timeout_add(1000,(GSourceFunc)on_tip_timeout,tip);
@@ -2277,7 +2570,12 @@ static void ui_menu_free(ui_menu_t *m);
 
 static void  ui_menu_on_done(GtkMenuShell *menushell,ui_menu_t *m)
 {
-	ui_menu_free(m);
+	if(!is_wayland)
+	{
+		if(gtk_menu_get_attach_widget(GTK_MENU(m->root)))
+			gtk_menu_detach(GTK_MENU(m->root));
+		g_object_unref(m->root);
+	}
 }
 
 static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
@@ -2328,7 +2626,7 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 		if(!parent)
 		{
 			m->root=me;
-			g_object_ref_sink(m->root);
+			g_object_set_data_full(G_OBJECT(me),"m",m,(GDestroyNotify)ui_menu_free);
 			g_signal_connect(G_OBJECT(me),"selection-done",
 						G_CALLBACK(ui_menu_on_done),m);
 		}
@@ -2455,20 +2753,20 @@ static void ui_menu_free(ui_menu_t *m)
 		return;
 	for(i=0;i<m->count;i++)
 		l_free(m->cmd[i]);
-	if(m->root)
-	{
-		gtk_widget_destroy(m->root);
-		g_object_unref(m->root);
-	}
 	l_free(m);
 }
 
-static void ui_popup_menu(void)
+static void ui_popup_menu(UI_EVENT *event)
 {
 	LKeyFile *kf=y_im_get_menu_config();
 	ui_menu_t *m;
 	m=ui_build_menu(kf);
-	gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,NULL,NULL,0,gtk_get_current_event_time());
+	g_object_ref_sink(m->root);
+	gtk_menu_attach_to_widget(GTK_MENU(m->root),MainWin,NULL);
+	if(my_menu_popup_at_pointer)
+		my_menu_popup_at_pointer(GTK_MENU(m->root),event->priv);
+	else
+		gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,NULL,NULL,0,gtk_get_current_event_time());
 }
 
 static int ui_calc_with_metrics(const char *s)
@@ -2565,9 +2863,22 @@ void ui_clean(void)
 			InputTheme.rgn[i]=NULL;
 		}
 	}
+
+	if(InputTheme.layout)
+	{
+		ui_font_free(InputTheme.layout);
+		InputTheme.layout=NULL;
+	}
+	if(InputTheme.page.layout)
+	{
+		ui_font_free(InputTheme.page.layout);
+		InputTheme.page.layout=NULL;
+	}
 	
 	gtk_widget_destroy(InputWin);
 	gtk_widget_destroy(MainWin);
+
+	pango_cairo_font_map_set_default (NULL);
 }
 
 static gboolean on_image_win_draw(GtkWidget *widget,cairo_t *cr)
@@ -2579,7 +2890,6 @@ static gboolean on_image_win_draw(GtkWidget *widget,cairo_t *cr)
 static gboolean on_image_win_scroll(GtkWidget* self,GdkEventScroll *event)
 {
 	int temp=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(self),"tran"));
-	uint8_t orig=temp>>8&0xff;
 	int tran=temp&0xff;
 	if(event->direction==GDK_SCROLL_DOWN)
 	{
@@ -2593,7 +2903,6 @@ static gboolean on_image_win_scroll(GtkWidget* self,GdkEventScroll *event)
 		if(tran<0)
 			tran=0;
 	}
-	g_object_set_data(G_OBJECT(self),"tran",GINT_TO_POINTER(tran|(orig<<8)));
 	ui_win_tran(self,tran);
 	return TRUE;
 }
@@ -2604,7 +2913,6 @@ static gboolean on_image_win_click(GtkWidget *self,GdkEventButton *event)
 	uint8_t tran=temp>>8&0xff;
 	if(event->button==2)
 	{
-		g_object_set_data(G_OBJECT(self),"tran",GINT_TO_POINTER(tran|(tran<<8)));
 		ui_win_tran(self,tran);
 	}
 	return TRUE;

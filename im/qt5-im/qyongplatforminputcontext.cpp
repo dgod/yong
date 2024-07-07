@@ -1,7 +1,9 @@
 #include <QGuiApplication>
 #include <QKeyEvent>
+#include <QTimer>
 #include <QInputMethod>
 #include <QTextCharFormat>
+#include <qwidget.h>
 #include <QtGui/qpa/qplatformscreen.h>
 #include <QtGui/qpa/qplatformcursor.h>
 #include <QtGui/qpa/qwindowsysteminterface.h>
@@ -15,6 +17,35 @@
 #include "qyongplatforminputcontext.h"
 #include "lcall.h"
 #include "yong.h"
+
+enum{
+	APP_NORMAL=0,
+	APP_HUNGRY,
+};
+
+static int check_app_type(void)
+{
+	int pid = getpid();
+	char tstr0[64];
+	char exec[256];
+	int i;
+	int type=APP_NORMAL;
+	sprintf(tstr0, "/proc/%d/exe", pid);
+	if ((i=readlink(tstr0, exec, sizeof(exec))) > 0)
+	{
+		exec[i]=0;
+		char *prog=strrchr(exec,'/');
+		if(prog!=NULL)
+		{
+			prog++;
+		}
+		if(!strcmp(prog,"qterminal") || !strcmp(prog,"promecefpluginhost"))
+		{
+			type=APP_HUNGRY;
+		}
+	}
+	return type;
+}
 
 static struct xkb_context *(*p_xkb_context_new)(enum xkb_context_flags flags);
 static struct xkb_state *(*p_xkb_state_new)(struct xkb_keymap *keymap);
@@ -176,6 +207,13 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 		e.setCommitString(s);
 		QGuiApplication::sendEvent(ctx->client_window, &e);
 		s.clear();
+
+		if(ctx->update_cursor)
+		{
+			QTimer::singleShot(1, ctx, [ctx]() {
+				ctx->cursorRectChanged();
+			});
+		}
 	}
 	else if(!strcmp(name,"preedit"))
 	{
@@ -362,6 +400,8 @@ QYongPlatformInputContext::QYongPlatformInputContext()
     //               QLatin1String("wayland");
 	//fprintf(stderr,"%s\n",qApp->platformName().toStdString().data() );
 	is_wayland=in_wayland();
+	app_type=check_app_type();
+	update_cursor=app_type==APP_HUNGRY;
 	preedit_string=NULL;
 	id=_ctx_id++;
 
@@ -384,11 +424,18 @@ bool QYongPlatformInputContext::isValid() const
 	return true;
 }
 
+#ifdef FIX_WPS_QT
+void QYongPlatformInputContext::reset(bool bCancel)
+{
+	QPlatformInputContext::reset(bCancel);
+}
+#else
 void QYongPlatformInputContext::reset()
 {
 	//printf("reset\n");
 	QPlatformInputContext::reset();
 }
+#endif
 
 void QYongPlatformInputContext::commit()
 {
@@ -398,9 +445,11 @@ void QYongPlatformInputContext::commit()
 
 void QYongPlatformInputContext::update(Qt::InputMethodQueries queries )
 {
-	//printf("update\n");
+	// fprintf(stderr,"update\n");
 	if (queries & Qt::ImCursorRectangle)
+	{
         cursorRectChanged();
+	}
 }
 
 void QYongPlatformInputContext::invokeAction(QInputMethod::Action action, int cursorPosition)
@@ -412,6 +461,7 @@ static int GetKey(int sym,int modifiers)
 {
 	char text[64];
 	int res=0;
+	int mask=0;
 	
 	switch(sym){
 	case XKB_KEY_BackSpace:
@@ -488,18 +538,18 @@ static int GetKey(int sym,int modifiers)
 	}
 
 	if((modifiers&0x04) && res!=YK_LCTRL && res!=YK_RCTRL)
-		res=KEYM_CTRL|toupper(res);
+		mask|=KEYM_CTRL;
 	if((modifiers&0x01) && res!=YK_LSHIFT && res!=YK_RSHIFT)
-		res=KEYM_SHIFT|toupper(res);
+		mask|=KEYM_SHIFT;
 	if((modifiers&0x08) && res!=YK_LALT && res!=YK_RALT)
-		res=KEYM_ALT|toupper(res);
+		mask|=KEYM_ALT;
 	if((modifiers&0x40))
-		res=KEYM_SUPER|toupper(res);
-	//if((modifiers&0x10))
-	//	res=KEYM_KEYPAD|toupper(res);
+		mask|=KEYM_SUPER;
 	if((modifiers&0x02))
-		res=KEYM_CAPS|toupper(res);
+		mask|=KEYM_CAPS;
 	
+	if(mask)
+		res=mask|toupper(res);
 	return res;
 }
 
@@ -522,6 +572,8 @@ bool QYongPlatformInputContext::filterEvent(const QEvent* event)
 		if(_debug)
 			printf("yong: key %x %d\n",key,release);
 		if(!key) break;
+		if(update_cursor)
+			this->cursorRectChanged();
 		if(release) key|=KEYM_UP;
 		if(!_enable)
 		{
@@ -555,6 +607,8 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 		_focus_ctx=this;
 		client_window=object;
 		client_focus_in(id);
+		if(this->update_cursor)
+			cursorRectChanged();
 	}
 	else
 	{
@@ -567,22 +621,45 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 
 void QYongPlatformInputContext::cursorRectChanged()
 {
-	//fprintf(stderr,"cursorRectChanged\n");
+	// fprintf(stderr,"cursorRectChanged\n");
 	QWindow *inputWindow = qApp->focusWindow();
 	if (!inputWindow)
+	{
+		// fprintf(stderr,"no input window\n");
 		return;
+	}
 	QRect r = qApp->inputMethod()->cursorRectangle().toRect();
 	if(!r.isValid())
+	{
+		// fprintf(stderr,"invalid cursor rectangle\n");
 		return;
+	}
 	if(is_wayland)
 	{
 		auto margins = inputWindow->frameMargins();
    		r.translate(margins.left(), margins.top());
 	}
 	auto screenGeometry = inputWindow->screen()->geometry();
-	r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
+
+#if FIX_WPS_QT
+	QObject *focusobj = qApp->focusObject();
+	if(!focusobj)
+	{
+		// printf("no focus obj\n");
+		return;
+	}
+	if(QWidget *widget = qobject_cast<QWidget*>(focusobj))
+	{
+        r = widget->inputMethodQuery(Qt::ImCursorRectangle).toRect();
+        r.moveTopLeft(widget->mapToGlobal(r.topLeft()));
+    }
+	else
+#endif
+	{
+		r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
+	}
 	qreal scale = inputWindow->devicePixelRatio();
-	//fprintf(stderr,"%d %d %lf\n",r.x(),r.y(),scale);
+	// fprintf(stderr,"%d %d %lf\n",r.x(),r.y(),scale);
 	cursor_area.setX(r.x()*scale+screenGeometry.left());
 	cursor_area.setY(r.y()*scale+screenGeometry.top());
 	cursor_area.setWidth(r.width()*scale);

@@ -16,6 +16,7 @@ typedef struct{
 	EXTRA_IM *eim;
 
 	int Index;
+	int IndexPrev;
 	int CandWord;
 	int Preedit;
 	int Biaodian;

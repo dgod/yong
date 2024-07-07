@@ -648,7 +648,8 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 			"GET %s HTTP/1.1\r\n"
 			"Host: %s\r\n"
 			"Accept-Encoding: gzip\r\n"
-			"Connection: keep-alive\r\n",
+			"Connection: keep-alive\r\n"
+			"Cache-Control: no-cache\r\n",
 			path,host);
 		if(ss->cookie)
 			ret+=sprintf(data+ret,"Cookie: %s\r\n",ss->cookie);
@@ -1187,6 +1188,7 @@ int http_session_download(HttpSession *ss,const char *remote,const char *local)
 	return 0;
 }
 
+#if 0
 int encodeURIComponent(const char *in,char *out,int size)
 {
 	int i,c,pos=0;
@@ -1207,6 +1209,7 @@ int encodeURIComponent(const char *in,char *out,int size)
 	out[pos]=0;
 	return pos;
 }
+#endif
 
 static int url_encode(const char *in,char *out,int size)
 {

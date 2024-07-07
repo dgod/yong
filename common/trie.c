@@ -10,41 +10,35 @@
 
 #ifdef _WIN32
 #include <windows.h>
-static void *alloc_page(void)
+static inline void *alloc_page(void)
 {
-	void *p;
-	p=VirtualAlloc(NULL,TRIE_PAGE,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
-	return p;
+	return VirtualAlloc(NULL,TRIE_PAGE,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 }
 
-static void free_page(void *p)
+static inline void free_page(void *p)
 {
 	VirtualFree(p,0,MEM_RELEASE);
 }
 #elif defined(EMSCRIPTEN)
-static void *alloc_page(void)
+static inline void *alloc_page(void)
 {
 	return malloc(TRIE_PAGE);
 }
 
-static void free_page(void *p)
+static inline void free_page(void *p)
 {
 	free(p);
 }
 #else
 #include <sys/mman.h>
-static void *alloc_page(void)
+static inline void *alloc_page(void)
 {
-	void *p;
-	p=mmap(NULL,TRIE_PAGE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
-	return p;
-	//return malloc(TRIE_PAGE);
+	return mmap(NULL,TRIE_PAGE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 }
 
-static void free_page(void *p)
+static inline void free_page(void *p)
 {
 	munmap(p,TRIE_PAGE);
-	//free(p);
 }
 #endif
 
@@ -71,7 +65,12 @@ void trie_tree_free(trie_tree_t *t)
 	free(t);
 }
 
-static inline trie_node_t * trie_nth(trie_tree_t *t,int n)
+static inline trie_node_t *trie_root(trie_tree_t *t)
+{
+	return t->page[0];
+}
+
+static inline trie_node_t *trie_nth(trie_tree_t *t,int n)
 {
 	int i,j;
 	i=n>>16,j=n&0xffff;
@@ -110,7 +109,7 @@ trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len)
 {
 	trie_node_t *n;
 	int i,val;
-	n=trie_nth(t,0);
+	n=trie_root(t);
 	if(!n->child)
 		return NULL;
 	n=trie_nth(t,n->child);
@@ -225,7 +224,7 @@ trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 {
 	trie_node_t *n=NULL,*p;
 	int i,val;
-	p=trie_nth(t,0);
+	p=trie_root(t);
 	for(i=0;i<len;i++)
 	{
 		val=s[i];
@@ -311,13 +310,13 @@ trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 
 trie_node_t *trie_tree_root(trie_tree_t *t)
 {
-	return trie_nth(t,0);
+	return trie_root(t);
 }
 
 trie_node_t *trie_iter_leaf_first(trie_iter_t *iter,trie_tree_t *t,trie_node_t *n,int depth)
 {
 	if(!n)
-		n=trie_nth(t,0);
+		n=trie_root(t);
 	
 	iter->tree=t;
 	iter->root=n;
@@ -411,7 +410,7 @@ next:
 trie_node_t *trie_iter_path_first(trie_iter_t *iter,trie_tree_t *t,trie_node_t *n,int depth)
 {
 	if(!n)
-		n=trie_nth(t,0);
+		n=trie_root(t);
 	
 	iter->tree=t;
 	iter->root=n;

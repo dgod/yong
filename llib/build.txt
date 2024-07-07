@@ -9,13 +9,13 @@ function run(target){
 		env('DLL=.dll');
 		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
 		env('LDFLAGS=-static-libgcc');
-		env('LDFLAGS+=-Wl,--out-implib=w32/libl.a');
+		// env('LDFLAGS+=-Wl,--out-implib=w32/libl.a');
 	}else if(target=='w64'){
 		env('CROSS_COMPILE=x86_64-w64-mingw32-');
 		env('DLL=.dll');
 		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
 		env('LDFLAGS=-static-libgcc');
-		env('LDFLAGS+=-Wl,--out-implib=w64/libl.a');
+		// env('LDFLAGS+=-Wl,--out-implib=w64/libl.a');
 	}else if(target=='l32'){
 		env('LDFLAGS=-Wl,--hash-style=sysv -m32');
 		env('DLL=.so');
@@ -41,7 +41,8 @@ function run(target){
 	} else {
 		return;
 	}
-	env("CFLAGS+=-Wall -pipe -g -O2");
+	env("CFLAGS+=-Wall -pipe -g -O2 -fno-plt -flto=auto -ffast-math");
+	//env("CFLAGS+=-fanalyzer -Wno-analyzer-possible-null-dereference -Wno-analyzer-possible-null-argument -Wanalyzer-malloc-leak");
 	if(target!='js'){
 		env('CC:=$(CROSS_COMPILE)gcc');
 		env('AR:=$(CROSS_COMPILE)ar');
@@ -59,8 +60,22 @@ function run(target){
 	});
 }
 
+function clean(targets){
+	if(!targets){
+		rmdir(DIRS,'*');
+		return;
+	}
+	targets.forEach(e=>{
+		if(!DIRS.includes(e)){
+			console.log("invalid clean target");
+			exit(-1);
+		}
+		rmdir(e,'*');
+	});
+}
+
 if(target=="clean"){
-	rmdir(DIRS,'*');
+	clean(target.targets);
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
 } else {

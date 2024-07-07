@@ -19,6 +19,7 @@ enum{
 	APP_GVIM,
 	APP_DOUBLECMD,
 	APP_ELECTRON,
+	APP_YONG,
 };
 
 struct _GtkIMContextYong{
@@ -211,6 +212,11 @@ static int check_app_type(void)
 		else if(strstr(exec,"doublecmd"))
 		{
 			type=APP_DOUBLECMD;
+			goto out;
+		}
+		else if(prog && !strcmp(prog,"yong-gtk3"))
+		{
+			type=APP_YONG;
 			goto out;
 		}
 	}
@@ -573,11 +579,15 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 				{
 					if(_electron_commit_text[0])
 					{
-						g_signal_emit(ctx,_signal_commit_id,NULL,_electron_commit_text);
+						g_signal_emit(ctx,_signal_commit_id,0,_electron_commit_text);
 						_electron_commit_text[0]=0;
 					}
 				}
 				return res;
+			}
+			if(ctx->app_type==APP_YONG)
+			{
+				res=client_input_key_async(ctx->id,key,event_time);
 			}
 	#endif
 			else
@@ -1219,25 +1229,52 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	guint keyval,state=0;
 	int code=YK_CODE(key);
 	GdkEventKey *event;
-	
-	if(key==CTRL_V && ctx->client_window)
+
+	if(ctx->client_window)
 	{
-		GtkWidget *widget;
+		GtkWidget *widget=NULL;
 		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
 		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
 		{
-			g_signal_emit_by_name(widget,"paste-clipboard",NULL);
-			return;
-		}
-	}
-	if(key==YK_LEFT && ctx->client_window)
-	{
-		GtkWidget *widget;
-		gdk_window_get_user_data(ctx->client_window,(void**)&widget);
-		if(widget && (GTK_IS_TEXT_VIEW(widget) || GTK_IS_ENTRY(widget)))
-		{
-			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
-			return;
+			switch(key){
+				case CTRL_V:
+					g_signal_emit_by_name(widget,"paste-clipboard",NULL);
+					return;
+				case YK_BACKSPACE:
+					g_signal_emit_by_name(widget,"backspace",NULL);
+					return;
+				case YK_DELETE:
+					g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,1,NULL);
+					return;
+				case YK_LEFT:
+					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
+					return;
+				case YK_RIGHT:
+					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,1,0,NULL);
+					return;
+				case YK_HOME:
+					if(GTK_IS_ENTRY(widget))
+					{
+						gtk_editable_set_position(GTK_EDITABLE(widget),0);
+						return;
+					}
+					break;
+				case YK_END:
+					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_DISPLAY_LINE_ENDS,1,0,NULL);
+					return;
+				case YK_ENTER:
+					if(GTK_IS_ENTRY(widget))
+					{
+						g_signal_emit_by_name(widget,"activate",NULL);
+					}
+					else
+					{
+						g_signal_emit_by_name(widget,"insert-at-cursor","\n",NULL);
+					}
+					return;
+				default:
+					break;
+			}
 		}
 	}
 	

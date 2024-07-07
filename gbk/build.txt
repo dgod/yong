@@ -8,6 +8,8 @@ env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
 env("LDFLAGS+=-shared $(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
+// env("CFLAGS+=-fanalyzer");
+
 function run(target){
 	if(target=="js")
 		env("LIBS-=$(LLIB_LDADD)");

@@ -44,7 +44,7 @@ int y_im_load_app_config(void)
 		l_key_file_free(key_file);
 		return 0;
 	}
-	app=L_HASH_TABLE_STRING(struct app_item,exe);
+	app=L_HASH_TABLE_STRING(struct app_item,exe,0);
 	int i;
 	for(i=0;i<count;i++)
 	{
@@ -85,6 +85,8 @@ int y_im_load_app_config(void)
 		if(!l_hash_table_insert(app,item))
 			app_item_free(item);
 	}
+	l_strfreev(groups);
+	l_key_file_free(key_file);
 	return 0;
 }
 
