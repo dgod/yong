@@ -3,20 +3,42 @@
 #include "ltypes.h"
 
 #define l_read_u8(p) *(uint8_t*)(p)
+#define l_write_u8(p,v) (*(uint8_t*)(p)=(v))
 
 #if L_ALIGNED_ACCESS
 static inline uint16_t l_read_u16(const void *p)
 {
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
 	return ((uint8_t*)p)[0]|(((uint8_t*)p)[1]<<8);
+#else
+	return ((uint8_t*)p)[1]|(((uint8_t*)p)[0]<<8);
+#endif
 }
 static inline uint32_t l_read_u32(const void *p)
 {
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
 	return ((uint8_t*)p)[0]|(((uint8_t*)p)[1]<<8)|
 			(((uint8_t*)p)[2]<<16)|(((uint8_t*)p)[3]<<24);
+#else
+	return ((uint8_t*)p)[4]|(((uint8_t*)p)[2]<<8)|
+			(((uint8_t*)p)[1]<<16)|(((uint8_t*)p)[0]<<24);
+#endif
+}
+static inline void l_write_u16(void *p,uint16_t v)
+{
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
+	((uint8_t*)p)[0]=v;
+	((uint8_t*)p)[1]=v>>8;
+#else
+	((uint8_t*)p)[0]=v>>8;
+	((uint8_t*)p)[1]=v;
+#endif
 }
 #else
 #define l_read_u16(p) *(uint16_t*)(p)
 #define l_read_u32(p) *(uint32_t*)(p)
+#define l_write_u16(p,v) (*(uint16_t*)(p)=(v))
+#define l_write_u32(p,v) (*(uint32_t*)(p)=(v))
 #endif
 
 #if L_BYTE_ORDER==L_LITTLE_ENDIAN
@@ -50,4 +72,7 @@ static inline uint32_t l_read_u32le(const void *p)
 }
 
 #endif
+
+#define l_flip_bits(v,mask)	((v)^(mask))
+#define l_flip_bit(v,n) ((v)^(1<<(n)))
 

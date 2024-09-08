@@ -28,4 +28,5 @@ void fuzzy_table_free(FUZZY_TABLE *ft);
 FUZZY_ITEM *fuzzy_table_lookup(FUZZY_TABLE *ft,const char *code);
 LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split);
 int fuzzy_correct(FUZZY_TABLE *ft,char *s,int len);
+void fuzzy_table_dump(FUZZY_TABLE *ft);
 

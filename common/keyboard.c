@@ -50,14 +50,14 @@ typedef struct{
 	double scale;
 	BTN_DESC desc[3];
 	KBD_BTN main;
-	KBD_BTN title;
-	KBD_BTN shift;
+	KBD_BTN *shift;
 	LPtrArray *line;
 	UI_WINDOW win;
 #if defined(GTK_CHECK_VERSION)
 	UI_WINDOW canvas;
 #endif
 	KBD_BTN *psel;
+	uint32_t key_mods;
 }Y_KBD_LAYOUT;
 
 typedef struct{
@@ -179,8 +179,6 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.psel=NULL;
 	l_free(kst.layout.main.data);
 	kst.layout.main.data=NULL;
-	l_free(kst.layout.shift.data);
-	kst.layout.shift.data=NULL;
 	l_ptr_array_free(kst.layout.line,(LFreeFunc)line_free);
 	kst.layout.line=l_ptr_array_new(5);
 	ui_font_free(kst.layout.font);
@@ -216,27 +214,10 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.main.type=KBT_MAIN;
 	kst.layout.font=ui_font_parse(kst.layout.win,l_xml_get_prop(layout,"font"),scale);
 
-	LXmlNode *button=l_xml_get_child(layout,"shift");
-	if(!button)
-		return 0;
-	kst.layout.shift.rc.x=(short)(scale*l_xml_get_prop_int(button,"x"));
-	kst.layout.shift.rc.y=(short)(scale*l_xml_get_prop_int(button,"y"));
-	kst.layout.shift.rc.w=(short)(scale*l_xml_get_prop_int(button,"w"));
-	kst.layout.shift.rc.h=(short)(scale*l_xml_get_prop_int(button,"h"));
-	kst.layout.shift.type=KBT_SHIFT;
-	LXmlNode *color=l_xml_get_child(button,"normal");
-	kst.layout.desc[KBT_SHIFT].bg[KBTN_NORMAL]=l_xml_get_prop_color(color,"bg");
-	kst.layout.desc[KBT_SHIFT].fg[KBTN_NORMAL]=l_xml_get_prop_color(color,"fg");
-	kst.layout.desc[KBT_SHIFT].border[KBTN_NORMAL]=l_xml_get_prop_color(color,"border");
-	color=l_xml_get_child(button,"select");
-	kst.layout.desc[KBT_SHIFT].bg[KBTN_SELECT]=l_xml_get_prop_color(color,"bg");
-	kst.layout.desc[KBT_SHIFT].fg[KBTN_SELECT]=l_xml_get_prop_color(color,"fg");
-	kst.layout.desc[KBT_SHIFT].border[KBTN_SELECT]=l_xml_get_prop_color(color,"border");
-
-	button=l_xml_get_child(layout,"key");
+	LXmlNode *button=l_xml_get_child(layout,"key");
 	if(!button)
 		return -1;
-	color=l_xml_get_child(button,"normal");
+	LXmlNode *color=l_xml_get_child(button,"normal");
 	kst.layout.desc[KBT_NORMAL].bg[KBTN_NORMAL]=l_xml_get_prop_color(color,"bg");
 	kst.layout.desc[KBT_NORMAL].fg[KBTN_NORMAL]=l_xml_get_prop_color(color,"fg");
 	kst.layout.desc[KBT_NORMAL].border[KBTN_NORMAL]=l_xml_get_prop_color(color,"border");
@@ -244,46 +225,48 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.desc[KBT_NORMAL].bg[KBTN_SELECT]=l_xml_get_prop_color(color,"bg");
 	kst.layout.desc[KBT_NORMAL].fg[KBTN_SELECT]=l_xml_get_prop_color(color,"fg");
 	kst.layout.desc[KBT_NORMAL].border[KBTN_SELECT]=l_xml_get_prop_color(color,"border");
+	
+	kst.xim=l_xml_get_prop_int(keyboard,"xim");
 
 	kst.layout.line=l_ptr_array_new(5);
 	LXmlNode *rows=l_xml_get_child(layout,"rows");
 	if(!rows)
 		return -1;
+	KBD_BTN *prev=NULL;
+	kst.layout.shift=NULL;
 	for(LXmlNode *row=rows->child;row!=NULL;row=row->next)
 	{
-		int y,h;
-		y=l_xml_get_prop_int(row,"y");
-		h=l_xml_get_prop_int(row,"h");
+		int y=l_xml_get_prop_int(row,"y")*scale;
+		int h=l_xml_get_prop_int(row,"h")*scale;
+		if(prev && prev->rc.y+prev->rc.h>y+1)
+		{
+			for(KBD_BTN *p=prev;p!=NULL;p=p->next)
+				p->rc.h=y-p->rc.y+1;
+		}
 		KBD_BTN *head=NULL;
+		prev=NULL;
 		for(LXmlNode *key=row->child;key!=NULL;key=key->next)
 		{
-			int x,w;
-			x=l_xml_get_prop_int(key,"x");
-			w=l_xml_get_prop_int(key,"w");
+			int x=l_xml_get_prop_int(key,"x")*scale;
+			int w=l_xml_get_prop_int(key,"w")*scale;
 			KBD_BTN *btn=l_alloc0(sizeof(KBD_BTN));
-			btn->rc.x=(short)(scale*x);btn->rc.y=(short)(scale*y);
-			btn->rc.w=(short)(scale*w);btn->rc.h=(short)(scale*h);
+			btn->rc.x=(short)x;btn->rc.y=(short)y;
+			btn->rc.w=(short)w;btn->rc.h=(short)h;
+			if(prev && prev->rc.x+prev->rc.w>x+1)
+			{
+				prev->rc.w=x-prev->rc.x+1;
+			}
 			btn->state=KBTN_NORMAL;
 			btn->type=KBT_NORMAL;
 			head=l_slist_append(head,btn);
+			prev=btn;
 		}
 		l_ptr_array_append(kst.layout.line,head);
+		prev=head;
 	}
 	LXmlNode *sub_keyboard=l_slist_nth(keyboard->child,sub);
 	if(!sub_keyboard)
 		return -1;
-	kst.layout.shift.state=l_xml_get_prop_int(sub_keyboard,"select");
-	const char *name=l_xml_get_prop(sub_keyboard,"name");
-	if(name)
-	{
-		char gb[64];
-		l_utf8_to_gb(name,gb,sizeof(gb));
-		kst.layout.shift.data=l_strdup(gb);
-	}
-	else
-	{
-		kst.layout.shift.data=l_strdup("Shift");
-	}
 	for(int i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
 		LXmlNode *row=l_slist_nth(sub_keyboard->child,i);
@@ -304,14 +287,46 @@ static int kbd_select(int8_t pos,int8_t sub)
 				btn->data=l_strdup(",");
 			else if(!strcmp(gb,"$NONE"))
 				btn->data=NULL;
+			else if(!strcmp(gb,"$LSHIFT"))
+			{
+				kst.layout.shift=btn;
+				btn->data=NULL;
+			}
 			else
 				btn->data=l_strdup(gb);
+
+			if(kst.xim && btn->data && btn->data[0]=='$' && kst.layout.key_mods)
+			{
+				const char *text=btn->data;
+				text+=y_im_str_desc(text,0);
+				int key=y_im_str_to_key(text+1,NULL);
+				if((kst.layout.key_mods&KEYM_CTRL) && key==YK_LCTRL)
+				{
+					btn->state=KBTN_SELECT;
+				}
+				else if((kst.layout.key_mods&KEYM_ALT) && key==YK_LALT)
+					btn->state=KBTN_SELECT;
+			}
 		}
 		l_strfreev(arr);
 	}
+	if(kst.layout.shift!=NULL)
+	{
+		kst.layout.shift->state=l_xml_get_prop_int(sub_keyboard,"select");
+		const char *name=l_xml_get_prop(sub_keyboard,"name");
+		if(name)
+		{
+			char gb[64];
+			l_utf8_to_gb(name,gb,sizeof(gb));
+			kst.layout.shift->data=l_strdup(gb);
+		}
+		else
+		{
+			kst.layout.shift->data=l_strdup("Shift");
+		}
+	}
 	kst.layout.name=l_xml_get_prop(keyboard,"name");
 	if(!kst.layout.name) kst.layout.name="";
-	kst.xim=l_xml_get_prop_int(keyboard,"xim");
 #ifdef _WIN32
 	{
 		WCHAR temp[64];
@@ -498,15 +513,6 @@ static int kbd_click(int x,int y,int up)
 				}
 			}			
 		}
-		if(!kst.layout.psel)
-		{
-			KBD_BTN *btn=&kst.layout.shift;
-			if(x>btn->rc.x && x<btn->rc.x+btn->rc.w &&
-				y>btn->rc.y && y<btn->rc.h+btn->rc.y)
-			{
-				kst.layout.psel=btn;
-			}
-		}
 	}
 	else
 	{
@@ -518,7 +524,7 @@ static int kbd_click(int x,int y,int up)
 		if(x>btn->rc.x && x<btn->rc.x+btn->rc.w &&
 				y>btn->rc.y && y<btn->rc.h+btn->rc.y)
 		{
-			if(btn->type==KBT_SHIFT)
+			if(btn==kst.layout.shift)
 			{
 				kbd_select_sub();
 			}
@@ -537,6 +543,31 @@ static int kbd_click(int x,int y,int up)
 						key=y_im_str_to_key(text+1,NULL);
 					else if(text[0] && !text[1])
 						key=text[0];
+					if(key==YK_LCTRL || key==YK_LALT)
+					{
+						if(key==YK_LCTRL)
+						{
+							kst.layout.key_mods=l_flip_bits(kst.layout.key_mods,KEYM_CTRL);
+							if((kst.layout.key_mods&KEYM_CTRL)!=0)
+								btn->state=KBTN_SELECT;
+						}
+						else if(key==YK_LALT)
+						{
+							kst.layout.key_mods=l_flip_bits(kst.layout.key_mods,KEYM_ALT);
+							if((kst.layout.key_mods&KEYM_ALT)!=0)
+								btn->state=KBTN_SELECT;
+						}
+						text=NULL;
+						key=0;
+					}
+					else if(key && kst.layout.key_mods)
+					{
+						if(key>='a' && key<='A')
+							key=toupper(key);
+						key|=kst.layout.key_mods;
+						if(kst.layout.shift && kst.layout.shift->rc.w && kst.layout.shift->state==KBTN_SELECT)
+							key|=KEYM_SHIFT;
+					}
 				}
 				if((key<=0 || !y_xim_input_key(key)) && text)
 					y_xim_send_string(text);
@@ -767,15 +798,10 @@ static void OnKeyboardPaint(DRAW_CONTEXT1 *ctx)
 {
 	int i;
 	KBD_BTN *main=&kst.layout.main;
-	KBD_BTN *sh=&kst.layout.shift;
-		
+
 	ui_fill_rect(ctx,0,0,main->rc.w,main->rc.h,kst.layout.desc[KBT_MAIN].bg[KBTN_NORMAL]);
 
 #ifdef _WIN32
-	if(sh->rc.w)
-	{
-		draw_button(ctx,sh,1);
-	}
 	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
 		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
@@ -800,10 +826,6 @@ static void OnKeyboardPaint(DRAW_CONTEXT1 *ctx)
 	HANDLE old=NULL;
 	if(!font->dw)
 		old=SelectObject(ctx->dc,font->gdi);
-	if(sh->rc.w)
-	{
-		draw_button(ctx,sh,2);
-	}
 	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{
 		KBD_BTN *btn=l_ptr_array_nth(kst.layout.line,i);
@@ -830,10 +852,6 @@ static void OnKeyboardPaint(DRAW_CONTEXT1 *ctx)
 	if(!kst.layout.font)
 	{
 		return;	
-	}
-	if(sh->rc.w)
-	{
-		draw_button(ctx,sh,0);
 	}
 	for(i=0;i<l_ptr_array_length(kst.layout.line);i++)
 	{

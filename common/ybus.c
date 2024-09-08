@@ -566,7 +566,13 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		y_ui_quit();
 		break;
 	}
-
+	case YBUS_TOOL_STATUS_POS:
+	{
+		int x=0,y=0;
+		y_ui_cfg_ctrl("status_pos",&x,&y);
+		res=(x<<16)|y;
+		break;
+	}
 	default:
 		break;
 	}
@@ -906,7 +912,7 @@ int y_xim_init_default(Y_XIM *x)
 	ybus_xim_init();
 	ybus_lcall_init();
 	ybus_ibus_init();
-
+	ybus_wayland_init();
 
 	x->init=xim_ybus_init;
 	x->destroy=xim_ybus_destroy;

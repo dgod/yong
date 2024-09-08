@@ -11,11 +11,11 @@
 #include "larray.h"
 #include "lhashtable.h"
 
-// 目前主流系统中物理页大小都没超过16k
-#define SLICE_PAGE_SIZE		(16*1024)
 #define SLICE_DEBUG			0
 
 #if SLICE_DEBUG || defined(EMSCRIPTEN)
+
+#define SLICE_PAGE_SIZE		(16*1024)
 static inline void *alloc_page(void)
 {
 	return malloc(SLICE_PAGE_SIZE);
@@ -26,6 +26,7 @@ static inline void free_page(void *p)
 }
 #elif defined(_WIN32)
 #include <windows.h>
+#define SLICE_PAGE_SIZE		(16*1024)
 static inline void *alloc_page(void)
 {
 	return VirtualAlloc(NULL,SLICE_PAGE_SIZE,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
@@ -36,6 +37,8 @@ static inline void free_page(void *p)
 }
 #else
 #include <sys/mman.h>
+#include <unistd.h>
+static int SLICE_PAGE_SIZE=0;
 static inline void *alloc_page(void)
 {
 	return mmap(NULL,SLICE_PAGE_SIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
@@ -73,6 +76,14 @@ LSlices *l_slices_new(int n,...)
 	int size[n];
 	int count=0;
 	va_list ap;
+#ifndef SLICE_PAGE_SIZE
+	if(!SLICE_PAGE_SIZE)
+	{
+		SLICE_PAGE_SIZE=(int)sysconf(_SC_PAGESIZE);
+		if(SLICE_PAGE_SIZE<16*1024)
+			SLICE_PAGE_SIZE=16*1024;
+	}
+#endif
 	va_start(ap,n);
 	for(int i=0;i<n;i++)
 	{

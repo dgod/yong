@@ -58,7 +58,7 @@
 		int __c=(int)(c);				\
 		typeof(v) __v=(v);				\
 		int __r=-1;						\
-		for(int __i=0;i<__c;__i++)		\
+		for(int __i=0;__i<__c;__i++)		\
 		{								\
 			if(__v==__a[__i])			\
 			{							\

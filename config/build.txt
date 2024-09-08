@@ -1,5 +1,5 @@
 var SRCS=['config_ui.c','config_main.c','translate.c',
-	'sync.c','gz.c','aes.c','update.c'];
+	'sync.c','aes.c','update.c'];
 var SRCS_WIN=['config_win.c','lpng.c','session_win.c'];
 var SRCS_LIN=['config_gtk.c','session_curl.c'];
 var DIRS=['l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',

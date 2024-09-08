@@ -5,6 +5,7 @@
 #include "ltypes.h"
 #include "lmem.h"
 #include "lzlib.h"
+#include "lbits.h"
 #include "ltricky.h"
 
 #define LOCAL_FILE_SIGNATURE	0x04034b50
@@ -115,7 +116,8 @@ static int l_zip_get_end_of_file(FILE *fp,LZipEndOfFile *e)
 		return -1;
 	for(i=0;i<=ret-22;i++)
 	{
-		uint32_t sig=temp[i]|(temp[i+1]<<8)|(temp[i+2]<<16)|(temp[i+3]<<24);
+		// uint32_t sig=temp[i]|(temp[i+1]<<8)|(temp[i+2]<<16)|(temp[i+3]<<24);
+		uint32_t sig=l_read_u32le(temp+i);
 		if(sig==END_OF_FILE_SIGNATURE)
 		{
 			memcpy(e,temp+i,22);

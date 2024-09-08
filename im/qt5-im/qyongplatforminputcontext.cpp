@@ -39,47 +39,12 @@ static int check_app_type(void)
 		{
 			prog++;
 		}
-		if(!strcmp(prog,"qterminal") || !strcmp(prog,"promecefpluginhost"))
+		if(!strcmp(prog,"qterminal") || strstr(exec,"wps-office"))
 		{
 			type=APP_HUNGRY;
 		}
 	}
 	return type;
-}
-
-static struct xkb_context *(*p_xkb_context_new)(enum xkb_context_flags flags);
-static struct xkb_state *(*p_xkb_state_new)(struct xkb_keymap *keymap);
-static int (*p_xkb_state_key_get_syms)(struct xkb_state *state, xkb_keycode_t key,const xkb_keysym_t **syms_out);
-static enum xkb_state_component
-(*p_xkb_state_update_mask)(struct xkb_state *state,
-                      xkb_mod_mask_t depressed_mods,
-                      xkb_mod_mask_t latched_mods,
-                      xkb_mod_mask_t locked_mods,
-                      xkb_layout_index_t depressed_layout,
-                      xkb_layout_index_t latched_layout,
-                      xkb_layout_index_t locked_layout);
-static xkb_mod_mask_t (*p_xkb_state_serialize_mods)(struct xkb_state *state,enum xkb_state_component components);
-static int (*p_xkb_keysym_to_utf8)(xkb_keysym_t keysym, char *buffer, size_t size);
-struct xkb_keymap *(*p_xkb_keymap_new_from_string)(struct xkb_context *context, const char *string,
-                           enum xkb_keymap_format format,
-                           enum xkb_keymap_compile_flags flags);
-static void (*p_xkb_keymap_unref)(struct xkb_keymap *keymap);
-
-static xkb_mod_index_t (*p_xkb_keymap_mod_get_index)(struct xkb_keymap *keymap, const char *name);
-
-static void load_xkbcommon(void)
-{
-	void *l_so=dlopen("libxkbcommon.so.0",RTLD_LAZY);
-	if(!l_so) return;
-	p_xkb_context_new=(xkb_context* (*)(xkb_context_flags))dlsym(l_so,"xkb_context_new");
-	p_xkb_state_new=(xkb_state* (*)(xkb_keymap*))dlsym(l_so,"xkb_state_new");
-	p_xkb_state_key_get_syms=(int (*)(xkb_state*, xkb_keycode_t, const xkb_keysym_t**) )dlsym(l_so,"xkb_state_key_get_syms");
-	p_xkb_state_update_mask=(xkb_state_component (*)(xkb_state*, xkb_mod_mask_t, xkb_mod_mask_t, xkb_mod_mask_t, xkb_layout_index_t, xkb_layout_index_t, xkb_layout_index_t) )dlsym(l_so,"xkb_state_update_mask");
-	p_xkb_state_serialize_mods=(xkb_mod_mask_t (*)(xkb_state*, xkb_state_component) )dlsym(l_so,"xkb_state_serialize_mods");
-	p_xkb_keysym_to_utf8=(int (*)(xkb_keysym_t, char*, size_t))dlsym(l_so,"xkb_keysym_to_utf8");
-	p_xkb_keymap_new_from_string=(xkb_keymap* (*)(xkb_context*, const char*, xkb_keymap_format, xkb_keymap_compile_flags))dlsym(l_so,"xkb_keymap_new_from_string");
-	p_xkb_keymap_mod_get_index=(xkb_mod_index_t (*)(xkb_keymap*, const char*))dlsym(l_so,"xkb_keymap_mod_get_index");
-	p_xkb_keymap_unref=(void (*)(xkb_keymap*))dlsym(l_so,"xkb_keymap_unref");
 }
 
 static gboolean _enable;
@@ -382,8 +347,6 @@ QYongPlatformInputContext::QYongPlatformInputContext()
 	
 	if(_ctx_id==0)
 	{
-		load_xkbcommon();
-
 		_enable=0;
 		_ctx_id=1;
 		_trigger=CTRL_SPACE;
@@ -529,7 +492,7 @@ static int GetKey(int sym,int modifiers)
 		res=KEYM_SHIFT|YK_TAB;
 		break;
 	default:
-		if (p_xkb_keysym_to_utf8(sym, text, sizeof(text)) <= 0)
+		if (xkb_keysym_to_utf8(sym, text, sizeof(text)) <= 0)
 			return res;
 		if(strlen(text)>1)
 			return res;
@@ -621,17 +584,17 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 
 void QYongPlatformInputContext::cursorRectChanged()
 {
-	// fprintf(stderr,"cursorRectChanged\n");
+	fprintf(stderr,"cursorRectChanged\n");
 	QWindow *inputWindow = qApp->focusWindow();
 	if (!inputWindow)
 	{
-		// fprintf(stderr,"no input window\n");
+		fprintf(stderr,"no input window\n");
 		return;
 	}
 	QRect r = qApp->inputMethod()->cursorRectangle().toRect();
 	if(!r.isValid())
 	{
-		// fprintf(stderr,"invalid cursor rectangle\n");
+		fprintf(stderr,"invalid cursor rectangle\n");
 		return;
 	}
 	if(is_wayland)
@@ -645,7 +608,7 @@ void QYongPlatformInputContext::cursorRectChanged()
 	QObject *focusobj = qApp->focusObject();
 	if(!focusobj)
 	{
-		// printf("no focus obj\n");
+		// fprintf(stderr,"no focus obj\n");
 		return;
 	}
 	if(QWidget *widget = qobject_cast<QWidget*>(focusobj))

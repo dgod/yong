@@ -917,7 +917,7 @@ void update_key_config(void)
 	key_pagedown=y_im_get_key("page",1,'=');
 
 	key_word_left=y_im_get_key("w2c",0,'[');
-	key_word_right=y_im_get_key("w2c",1,']');
+	key_word_right=y_im_get_key("w2c",1,YK_NONE);
 
 	key_input_show=y_im_get_key("ishow",-1,'`');
 	key_main_show=y_im_get_key("mshow",-1,CTRL_ALT_M);
@@ -1649,6 +1649,34 @@ void YongUpdateInputDesc(EXTRA_IM *eim)
 	}
 }
 
+static void word_to_ch_select(const char *s)
+{
+	if(strchr(s,'$'))
+		return;
+	int size=gb_strlen(s);
+	if(size<2)
+		return;
+	int count=0;
+	uint32_t temp[size];
+	while(1)
+	{
+		uint32_t hz;
+		s=gb_next(s,&hz);
+		if(!s)
+			break;
+		if(array_includes(temp,count,hz))
+			continue;
+		temp[count++]=hz;
+	}
+	LPtrArray *arr=l_ptr_array_new(count);
+	for(int i=0;i<count;i++)
+	{
+		l_ptr_array_append(arr,gb_to_string(temp[i],NULL));
+	}
+	y_select_set(arr,YT("以词定字："));
+	y_ui_input_draw();
+}
+
 int YongKeyInput(int key,int mod)
 {
 	CONNECT_ID *id;
@@ -2079,6 +2107,11 @@ IMR_TEST:
 			else if(key==key_word_left)
 			{
 				const char *t,*t2;
+				if(key_word_right==YK_NONE)
+				{
+					word_to_ch_select(&eim->CandTable[eim->SelectIndex][0]);
+					return 1;
+				}
 				t=s2t_conv(&eim->CandTable[eim->SelectIndex][0]);
 				t2=strstr(t,"，");
 				if(t2)
@@ -2090,9 +2123,8 @@ IMR_TEST:
 				}
 				else if(t[0]&0x80)
 				{
-					eim->StringGet[0]=t[0];
-					eim->StringGet[1]=t[1];
-					eim->StringGet[2]=0;
+					uint32_t hz=gb_first(t);
+					gb_to_string(hz,eim->StringGet);
 				}
 				else
 				{
@@ -2118,15 +2150,10 @@ IMR_TEST:
 					YongResetIM();
 					return 1;
 				}
-				t+=strlen(t)-2;
-				if(t[0]&0x80)
-				{
-					eim->StringGet[0]=t[0];
-					eim->StringGet[1]=t[1];
-					eim->StringGet[2]=0;
-					y_xim_send_string(eim->StringGet);
-					YongResetIM();
-				}
+				uint32_t hz=gb_last(t);
+				gb_to_string(hz,eim->StringGet);
+				y_xim_send_string(eim->StringGet);
+				YongResetIM();
 				return 1;
 			}
 			else if(key==YK_UP)
@@ -2415,6 +2442,11 @@ void YongReloadAll(void)
 	YongUpdateMain(0);
 	/* redo it for something new from config file */
 	YongResetIM();
+}
+
+void YongReloadAllTip(void)
+{
+	YongReloadAll();
 	if(tip_main)
 		y_ui_show_tip(YT("重载输入法配置完成"));
 }

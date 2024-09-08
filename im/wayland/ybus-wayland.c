@@ -157,6 +157,7 @@ enum{
 	IM_WIN_NONE,
 	IM_WIN_INPUT,
 	IM_WIN_LAYER,
+	IM_WIN_CUSTOM,
 };
 
 struct simple_im{
@@ -1222,7 +1223,17 @@ int ybus_wayland_ui_init(void)
 	input_method_unstable_v1_types[5]=p_wl_keyboard_interface;
 	input_method_unstable_v1_types[9]=p_wl_surface_interface;
 	input_method_unstable_v1_types[10]=p_wl_output_interface;
+/*
+	xdg_shell_types[6]=p_wl_surface_interface;
+	xdg_shell_types[12]=p_wl_seat_interface;
+	xdg_shell_types[16]=p_wl_seat_interface;
+	xdg_shell_types[18]=p_wl_seat_interface;
+	xdg_shell_types[21]=p_wl_output_interface;
+	xdg_shell_types[22]=p_wl_seat_interface;
 
+	wlr_layer_shell_unstable_v1_types[5]=p_wl_surface_interface;
+	wlr_layer_shell_unstable_v1_types[6]=p_wl_output_interface;
+*/
 	p_gdk_wayland_display_get_wl_display=dlsym(NULL,"gdk_wayland_display_get_wl_display");
 #if GTK_CHECK_VERSION(4,0,0)
 	p_gdk_wayland_surface_get_wl_surface=dlsym(NULL,"gdk_wayland_surface_get_wl_surface");
@@ -1437,7 +1448,7 @@ int ybus_wayland_win_show(GtkWidget *w,int show)
 	}
 	else
 	{
-		fprintf(stderr,"hide\n");
+		// fprintf(stderr,"hide\n");
 		g_object_set_data(G_OBJECT(w),"wayland-surface",NULL);
 	}
 	return 0;
@@ -1539,7 +1550,6 @@ static void wayland_init_tip_win(struct simple_im *keyboard)
 			if(s!=NULL && keyboard->input_method_v2)
 			{
 				struct zwp_input_popup_surface_v2 *surface=zwp_input_method_v2_get_input_popup_surface(keyboard->input_method_v2,s);
-				// zwp_input_popup_surface_v2_add_listener(surface,&input_popup_surface_listener,keyboard);
 				g_object_set_data_full(G_OBJECT(keyboard->wins.tip),"wayland-surface",surface,
 						(GDestroyNotify)zwp_input_popup_surface_v2_destroy);
 			}
@@ -1570,7 +1580,22 @@ static void wayland_init_tip_win(struct simple_im *keyboard)
 static void wayland_init_main_win(struct simple_im *keyboard)
 {
 	if(!p_gtk_layer_init_for_window || !keyboard->layer_shell_v1)
-			return;
+	{
+		if(keyboard->wins.main)
+		{
+			GdkWindow *w=gtk_widget_get_window(keyboard->wins.main);
+			if(g_object_get_data(G_OBJECT(keyboard->wins.main),"wayland-surface")!=NULL)
+				return;
+			if(p_gdk_wayland_window_set_use_custom_surface!=NULL)
+			{
+				p_gdk_wayland_window_set_use_custom_surface(w);
+				g_object_set_data(G_OBJECT(w),"wayland-custom",GINT_TO_POINTER(IM_WIN_CUSTOM));
+				g_object_set_data(G_OBJECT(keyboard->wins.main),"wayland-surface",GINT_TO_POINTER(1));
+				gtk_widget_show(keyboard->wins.main);
+			}
+		}
+		return;
+	}
 	if(!keyboard->wins.main)
 		return;
 	if(g_object_get_data(G_OBJECT(keyboard->wins.main),"wayland-surface")!=NULL)

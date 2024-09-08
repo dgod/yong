@@ -180,6 +180,7 @@ static UI_COLOR MainWin_bgc;
 static UI_COLOR MainWin_border;
 static UI_RECT MainWin_move;
 static int MainWin_X,MainWin_Y,MainWin_W,MainWin_H;
+static bool MainWin_pos_custom;
 static int MainWin_Drag;
 static int MainWin_Drag_X,MainWin_Drag_Y;
 static int MainWin_tran;

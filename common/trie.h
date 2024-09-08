@@ -11,9 +11,9 @@ struct trie_node{
 		struct{
 			uint64_t node:1;
 			uint64_t leaf:1;
-			uint64_t self:14;
-			uint64_t brother:24;
-			uint64_t child:24;
+			uint64_t self:8;
+			uint64_t brother:27;
+			uint64_t child:27;
 		};
 		void *data;
 	};

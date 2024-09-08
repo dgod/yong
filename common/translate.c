@@ -1,22 +1,12 @@
 #include "llib.h"
 
-extern char *y_im_get_path(char *type);
+extern char *y_im_get_path(const char *type);
 
 struct item{
 	struct item *next;
 	const char *key;
 	char *val;
 };
-
-static unsigned item_hash(struct item *p)
-{
-	return l_str_hash(p->key);
-}
-
-static int item_cmpr(const struct item *v1,const struct item *v2)
-{
-	return strcmp(v1->key,v2->key);
-}
 
 static void item_free(struct item *p)
 {
@@ -38,7 +28,7 @@ void y_translate_init(const char *config)
 	{
 		return;
 	}
-	l_strings=l_hash_table_new((LHashFunc)item_hash,(LCmpFunc)item_cmpr,251,0);
+	l_strings=L_HASH_TABLE_STRING(struct item,key,251);
 	while(1)
 	{
 		struct item *it;
@@ -60,11 +50,11 @@ void y_translate_init(const char *config)
 
 const char *y_translate_get(const char *s)
 {
-	struct item key={.key=s},*it;
-	if(!l_strings) return s;
-	
-	it=l_hash_table_find(l_strings,&key);
-	if(!it) return s;
+	if(!l_strings)
+		return s;
+	struct item *it=l_hash_table_lookup(l_strings,s);
+	if(!it)
+		return s;
 	return it->val;
 }
 

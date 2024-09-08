@@ -745,6 +745,33 @@ static int InitStatusPos(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+#ifdef _WIN32
+#include <windows.h>
+char *GetStatusPos(void)
+{
+	HWND hwnd=FindWindow(L"yong_main",L"main");
+	if(!hwnd)
+		return NULL;
+	DWORD temp=SendMessage(hwnd,WM_USER+116,10,0);
+	int x=(int16_t)(temp>>16),y=(int16_t)(temp&0xffff);
+	return l_sprintf("%d,%d",x,y);
+}
+#else
+#include <glib.h>
+char *GetStatusPos(void)
+{
+	gchar *out=NULL;
+	if(!g_spawn_command_line_sync("yong-vim -w -t 10",&out,NULL,NULL,NULL))
+		return NULL;
+	if(!out)
+		return NULL;
+	int temp=atoi(out);
+	g_free(out);
+	int x=temp>>16,y=(int16_t)(temp&0xffff);
+	return l_sprintf("%d,%d",x,y);
+}
+#endif
+
 static int SaveStatusPos(CUCtrl p,int arc,char **arg)
 {
 	char *data;
@@ -764,7 +791,12 @@ static int SaveStatusPos(CUCtrl p,int arc,char **arg)
 	if(!strcmp(data,"?"))
 	{
 		l_free(data);
-		return 0;
+		const char *old=l_key_file_get_data(config,"main","pos");
+		if(old && strchr(old,'S'))
+			return 0;
+		data=GetStatusPos();
+		if(!data)
+			return 0;
 	}
 	cu_config_set(p->cgroup,p->ckey,p->cpos,data);
 	l_free(data);

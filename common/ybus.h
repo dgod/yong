@@ -73,6 +73,7 @@ enum{
 	YBUS_TOOL_RELOAD_ALL,
 	YBUS_TOOL_KEYBOARD,
 	YBUS_TOOL_EXIT,
+	YBUS_TOOL_STATUS_POS,
 };
 
 int ybus_init(void);

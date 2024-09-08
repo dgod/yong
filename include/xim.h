@@ -62,6 +62,7 @@ void YongSetCorner(int corner);
 void YongSetTrad(int trad);
 void YongUpdateMain(CONNECT_ID *id);
 void YongReloadAll(void);
+void YongReloadAllTip(void);
 void YongDestroyIM(void);
 int YongSwitchIM(int id);
 void YongDoDebug(void);

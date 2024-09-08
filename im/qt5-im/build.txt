@@ -68,7 +68,17 @@ function run(target){
 
 function build_wps(){
 	// https://github-wiki-see.page/m/kingsoft-wps/qt5/wiki/Build-Qt-for-WPS
+	
 	var base=process.env.WPS_QT5 || '/home/dgod/git/qt5';
+	const read_version=function(){
+		var text=fs.readFileSync(`${base}/build/Makefile`,{encoding:'utf-8'});
+		var matches=text.match(/Generated\sby\sqmake\s\(.*\)\s\(Qt\s(.*)\)/);
+		return matches[1];
+	};
+	const is_libcxx=function(){
+		var text=fs.readFileSync(`${base}/build/Makefile`,{encoding:'utf-8'});
+		return text.includes('linux-clang-libc++');
+	};
 	cd('wps');
 	include("../../../rules.txt");
 	env('CXX=clang++');
@@ -77,15 +87,19 @@ function build_wps(){
 	var ARCH='l64';
 	var QT='qt5';
 	var VER=5;
-	var QT_VER='5.12.10';
+	var QT_VER=read_version();
+	var LIBCXX=is_libcxx();
 	env("CPPFLAGS+=-std=c++14 -DQT_NAMESPACE=kso_qt");
 	env("LDFLAGS+=-std=c++14");
 	env("CFLAGS+=-fPIC");
 	env("CFLAGS+=`pkg-config --cflags glib-2.0`");
 	var MOC=`${base}/build/qtbase/bin/moc`;
 	env("QT_VER+="+QT_VER);
-	env("CPPFLAGS+=-stdlib=libc++");
-	env("LIBS+= -lQt5GuiKso -lQt5CoreKso -lQt5WidgetsKso -ldl -lc++ -lglib-2.0");
+	env("LIBS+=-lQt5GuiKso -lQt5CoreKso -lQt5WidgetsKso -ldl -lglib-2.0 -lxkbcommon");
+	if(LIBCXX){
+		env("CPPFLAGS+=-stdlib=libc++");
+		env("LIBS+=-lc++");
+	}
 	var INCDIR=`${base}/build/qtbase/include`;
 	// var LIBDIR=`${base}/build/qtbase/lib`;
 	var LIBDIR='/opt/kingsoft/wps-office/office6';
@@ -96,7 +110,8 @@ function build_wps(){
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtGui/${QT_VER}/QtGui`);
 	env("CFLAGS","+=",`-I${INCDIR}/QtWidgets`);
-	env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${base}/qtbase/mkspecs/linux-clang-libc++ -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore -DQT_NAMESPACE=kso_qt`);
+	var mkspec=LIBCXX?'linux-clang-libc++':'linux-clang-libstdc++';
+	env(`MOCFLAGS=-DQT_NO_DEBUG -DQT_PLUGIN -DQT_GUI_LIB -DQT_CORE_LIB -I${base}/qtbase/mkspecs/${mkspec} -I${INCDIR}/QtGui/$(QT_VER) -I${INCDIR}/QtGui/$(QT_VER)/QtGui -I${INCDIR} -I${INCDIR}/QtGui -I${INCDIR}/QtDBus -I${INCDIR}/QtCore -DQT_NAMESPACE=kso_qt`);
 	env("LDFLAGS+=-Wl,--no-undefined -Wl,-O1 -Wl,-z,relro");
 	env(`LDFLAGS+=-L${LIBDIR}`);
 	env("CFLAGS+=-I$(TOPDIR)/im/qt5-im/"+target);

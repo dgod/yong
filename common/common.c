@@ -95,6 +95,21 @@ static void async_spawn_at_idle(char *s)
 		l_strfreev(argv);
 		return;
 	}
+#ifdef _WIN64
+	if(!l_file_exists(argv[0]))
+	{
+		char temp[256];
+		sprintf(temp,"%s/%s",y_im_get_path("DATA"),argv[0]);
+		if(l_file_exists(temp))
+		{
+			if(l_fullpath(temp,temp,sizeof(temp)))
+			{
+				l_free(argv[0]);
+				argv[0]=l_strdup(temp);
+			}
+		}
+	}
+#endif
 	y_im_async_spawn(argv,send_raw_string_async,NULL);
 	l_strfreev(argv);
 #endif
@@ -324,7 +339,7 @@ void y_xim_send_string2(const char *s,int flag)
 			}
 			else if(!strcmp(s,"$RELOAD()"))
 			{
-				y_ui_idle_add((void*)YongReloadAll,NULL);
+				y_ui_idle_add((void*)YongReloadAllTip,NULL);
 			}
 			else if(!strncmp(s,"$KEYBOARD(",10) && l_str_has_suffix(s,")"))
 			{
@@ -763,8 +778,18 @@ int y_im_config_path(void)
 	y_im_set_exec();
 #endif
 	y_im_copy_config();
+#ifdef _WIN32
+	char temp[256];
+	l_strcpy(temp,sizeof(temp),y_im_get_path("DATA"));
+	l_str_replace(temp,'/','\\');
+	l_setenv("_DATA",temp,1);
+	l_strcpy(temp,sizeof(temp),y_im_get_path("HOME"));
+	l_str_replace(temp,'/','\\');
+	l_setenv("_HOME",temp,1);
+#else
 	l_setenv("_DATA",y_im_get_path("DATA"),1);
 	l_setenv("_HOME",y_im_get_path("HOME"),1);
+#endif
 	return 0;
 }
 
@@ -1549,6 +1574,9 @@ static char **y_im_parse_argv(const char *s,int size)
 		char *first=l_ptr_array_nth(arr,0);
 		if(l_str_has_suffix(first,".js"))
 		{
+#ifdef _WIN32
+			bool cscript=false;
+#endif
 			if(!l_file_exists(first))
 			{
 				char temp[256];
@@ -1562,13 +1590,34 @@ static char **y_im_parse_argv(const char *s,int size)
 						return NULL;
 					}
 				}
+#ifdef _WIN32
+				char *script=l_file_get_contents(temp,NULL,NULL);
+				if(script)
+				{
+					if(strstr(script,"WScript."))
+						cscript=true;
+					l_free(script);
+				}
+#endif
 #ifdef _WIN64
 				if(l_str_has_prefix(temp,"../"))
 					memmove(temp,temp+3,strlen(temp+3)+1);
 #endif
 				l_ptr_array_nth(arr,0)=l_strdup(temp);
 			}
+#ifdef _WIN32
+			if(!cscript)
+			{
+				l_ptr_array_insert(arr,0,l_strdup("node"));
+			}
+			else
+			{
+				l_ptr_array_insert(arr,0,l_strdup("//Nologo"));
+				l_ptr_array_insert(arr,0,l_strdup("cscript.exe"));
+			}
+#else
 			l_ptr_array_insert(arr,0,l_strdup("node"));
+#endif
 		}
 	}
 	char **res=(char**)arr->data;
@@ -1781,16 +1830,6 @@ int y_im_go_url(const char *s)
 		if(s[len-1]==')')
 		{
 			char go[256];
-			/*strcpy(go,s+4);go[len-5]=0;
-			tmp=strchr(go,',');
-			if(tmp==NULL)
-			{
-				tmp=go;
-			}
-			else
-			{
-				tmp++;
-			}*/
 			static const L_ESCAPE_CONFIG c={
 				.lead='$',
 				.flags=L_ESCAPE_GB|L_ESCAPE_LAST,
@@ -1800,7 +1839,10 @@ int y_im_go_url(const char *s)
 				.surround={'(',')'},
 				.map={{' ','_'},{',',','},{'$','$'}}
 			};
-			l_unescape(s+3,go,sizeof(go),&c);
+			if(!l_unescape(s+3,go,sizeof(go),&c))
+			{
+				return -1;
+			}
 			tmp=go;
 			if(!strncmp(tmp,"$DECRYPT(",9) && l_str_has_suffix(tmp,")"))
 			{
@@ -1859,12 +1901,12 @@ int y_im_str_desc(const char *s,void *out)
 	while(1)
 	{
 		uint32_t hz;
-		end=GB_NEXT(end,&hz);
+		end=gb_next(end,&hz);
 		if(!end)
 			return 0;
 		if(hz=='$')
 		{
-			end=GB_NEXT(end,&hz);
+			end=gb_next(end,&hz);
 			if(!end)
 				return 0;
 			if(hz=='[' || hz==']')
@@ -2791,7 +2833,7 @@ void y_im_setup_config(void)
 		sprintf(prog+strlen(prog)," --active=%s",temp);
 	}
 
-	y_im_run_helper(prog,config,YongReloadAll,NULL);
+	y_im_run_helper(prog,config,YongReloadAllTip,NULL);
 #endif
 }
 
@@ -3303,7 +3345,7 @@ int y_im_handle_menu(const char *cmd)
 	}
 	else if(!strcmp(cmd,"$RELOAD"))
 	{
-		YongReloadAll();
+		YongReloadAllTip();
 	}
 	else if(!strcmp(cmd,"$ABOUT"))
 	{
@@ -3371,7 +3413,7 @@ int y_im_handle_menu(const char *cmd)
 		ret=y_im_run_tool("tool_merge_user",0,0);
 		if(ret!=0) return 0;
 		y_im_remove_file(out);
-		YongReloadAll();
+		YongReloadAllTip();
 		y_ui_show_message(YT("Íê³É"));
 	}
 #if !defined(CFG_NO_HELPER)
@@ -3391,7 +3433,7 @@ int y_im_handle_menu(const char *cmd)
 		}
 		out=y_im_auto_path(out);
 		sprintf(temp,"%s %s",ed,(char*)out);
-		y_im_run_helper(temp,out,YongReloadAll,NULL);
+		y_im_run_helper(temp,out,YongReloadAllTip,NULL);
 		l_free(ed);
 		l_free(out);
 	}

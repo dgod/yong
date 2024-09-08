@@ -418,7 +418,7 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 
 	if(click==1 && event->button==2)
 	{
-		YongReloadAll();
+		YongReloadAllTip();
 		return TRUE;
 	}
 	
@@ -474,11 +474,16 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 	{
 		int w,h;
 		int scr_w,scr_h;
-		gtk_window_get_position(GTK_WINDOW(window), &MainWin_X, &MainWin_Y);
 		MainWin_Drag=FALSE;
 		if(is_wayland)
 		{
 			gdk_window_set_cursor(gtk_widget_get_window(window),NULL);
+			MainWin_X=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"wayland-win-x"));
+			MainWin_Y=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"wayland-win-y"));
+		}
+		else
+		{
+			gtk_window_get_position(GTK_WINDOW(window), &MainWin_X, &MainWin_Y);
 		}
 		gdk_device_ungrab(gdk_event_get_device((GdkEvent*)event),event->time);
 		if(MainWin_X<0) MainWin_X=0;
@@ -488,7 +493,17 @@ static gboolean main_click_cb (GtkWidget *window,GdkEventButton *event,gpointer 
 		scr_h=gdk_screen_height();
 		if(MainWin_X+w>scr_w) MainWin_X=scr_w-w;
 		if(MainWin_Y+h>scr_h) MainWin_Y=scr_h-h;
-		gtk_window_move(GTK_WINDOW(window),MainWin_X,MainWin_Y);
+		if(!is_wayland)
+		{
+			gtk_window_move(GTK_WINDOW(window),MainWin_X,MainWin_Y);
+		}
+		if(MainWin_pos_custom)
+		{
+			char temp[64];
+			sprintf(temp,"%d,%d",MainWin_X,MainWin_Y);
+			y_im_set_config_string("main","pos",temp);
+			y_im_save_config();
+		}
 		return TRUE;
 	}
 	return FALSE;
@@ -727,6 +742,7 @@ int ui_main_update(UI_MAIN *param)
 	gtk_widget_set_size_request(GTK_WIDGET(MainWin),MainWin_W,MainWin_H);
 	MainWin_move=param->move;
 	MainWin_X=param->rc.x;MainWin_Y=param->rc.y;
+	MainWin_pos_custom=MainWin_Y!=-1;
 	MainWin_tran=param->tran;
 	MainWin_auto_tran=param->auto_tran;
 	tran=MainWin_tran;
@@ -1814,6 +1830,7 @@ int ui_main_show(int show)
 		int wa_x,wa_y,wa_w,wa_h;
 		w=MainWin_W;h=MainWin_H;
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
+		MainWin_X=wa_x+wa_w-w;MainWin_Y=wa_y+wa_h-h;
 		if(is_wayland)
 		{
 			ybus_wayland_win_move(MainWin,wa_x+wa_w-w,wa_y+wa_h-h);
@@ -1845,6 +1862,7 @@ int ui_main_show(int show)
 		gint wa_x,wa_y,wa_w,wa_h;
 		w=MainWin_W;h=MainWin_H;
 		get_workarea(&wa_x,&wa_y,&wa_w,&wa_h);
+		MainWin_X=wa_x;MainWin_Y=wa_y+wa_h-h;
 		if(is_wayland)
 		{
 			ybus_wayland_win_move(MainWin,wa_x,wa_y+wa_h-h);
@@ -2189,7 +2207,7 @@ static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)
 {
 	char phrase[1024];
 	int ret;
-	if(!text || text[0] || strlen(text)>512/* || strpbrk(text,"\r\n\t\v\b") || strlen(text)>50*/)
+	if(!text || !text[0] || strlen(text)>512)
 	{
 		ret=cb(NULL);
 	}
@@ -2840,6 +2858,13 @@ void ui_cfg_ctrl(char *name,...)
 	else if(!strcmp(name,"onspot"))
 	{
 		InputTheme.onspot=va_arg(ap,int);
+	}
+	else if(!strcmp(name,"status_pos"))
+	{
+		int *x=va_arg(ap,int *);
+		int *y=va_arg(ap,int *);
+		*x=MainWin_X;
+		*y=MainWin_Y;
 	}
 	va_end(ap);
 }

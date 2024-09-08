@@ -317,6 +317,8 @@ int y_mb_assist_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char sup
 int y_mb_assist_get2(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super[2],int end);
 int y_mb_before_assist(struct y_mb *mb);
 struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len,int count);
+int y_mb_code_cmp(const struct y_mb_code *c1,const struct y_mb_code *c2,int len);
+void y_mb_code_get_string(const struct y_mb *mb,const struct y_mb_code *c,char *out);
 struct y_mb_ci *y_mb_ci_exist(struct y_mb *mb,const char *data,int dic);
 int y_mb_is_good_code(struct y_mb *mb,const char *code,const char *s);
 char *y_mb_ci_string(struct y_mb_ci *ci);

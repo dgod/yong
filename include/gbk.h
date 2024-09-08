@@ -5,6 +5,8 @@
 #define _GBK_H_
 
 #include <stdint.h>
+#include "lbits.h"
+#include "lmem.h"
 
 #define GBK_BEGIN	0x8140
 #define GBK_END		0xFEFE
@@ -67,14 +69,10 @@ static inline int gb_is_biaodian(const uint8_t *s)
 	return s[0]>=0xA1 && s[0]<=0xA3 && s[1]<=0xFE && s[1]>=0xA1;
 }
 
-static inline int gb_is_gbk_ext(const uint8_t *s)
+static inline int gb_is_gbk(const void *p)
 {
+	const uint8_t *s=p;
 	return (s[0]<=0xFE && s[0]>=0x81 && s[1]<=0xFE && s[1]>=0x40 && s[1]!=0x7F);
-}
-
-static inline int gb_is_gbk(const void *s)
-{
-	return gb_is_gb2312(s) || gb_is_gbk_ext(s);
 }
 
 static inline int gb_is_gb18030_ext(const void *p)
@@ -172,8 +170,9 @@ static inline void *gb_offset(const void *p,int offset)
 	return (void*)s;
 }
 
-static inline uint32_t gb_first(const uint8_t *s)
+static inline uint32_t gb_first(const void *p)
 {
+	const uint8_t *s=p;
 	uint32_t r;
 	
 	if(!(s[0]&0x80))
@@ -182,19 +181,11 @@ static inline uint32_t gb_first(const uint8_t *s)
 	}
 	else if(gb_is_gbk(s))
 	{
-#if !defined(EMSCRIPTEN)
-		r=*(uint16_t*)(s);
-#else
-		r=s[0]|(s[1]<<8);
-#endif
+		r=l_read_u16(s);
 	}
 	else if(gb_is_gb18030_ext(s))
 	{
-#if !defined(EMSCRIPTEN)
-		r=*(uint32_t*)(s);
-#else
-		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
-#endif
+		r=l_read_u32(s);
 	}
 	else
 	{
@@ -203,8 +194,9 @@ static inline uint32_t gb_first(const uint8_t *s)
 	return r;
 }
 
-static inline const void *gb_next(const uint8_t *s,uint32_t *hz)
+static inline const void *gb_next(const void *p,uint32_t *hz)
 {
+	const uint8_t *s=p;
 	uint32_t r;
 
 	if(!s || !s[0])
@@ -217,20 +209,12 @@ static inline const void *gb_next(const uint8_t *s,uint32_t *hz)
 	}
 	else if(gb_is_gbk(s))
 	{
-#if !defined(EMSCRIPTEN)
-		r=*(uint16_t*)(s);
-#else
-		r=s[0]|(s[1]<<8);
-#endif
+		r=l_read_u16(s);
 		s+=2;
 	}
 	else if(gb_is_gb18030_ext(s))
 	{
-#if !defined(EMSCRIPTEN)
-		r=*(uint32_t*)(s);
-#else
-		r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
-#endif
+		r=l_read_u32(s);
 		s+=4;
 	}
 	else
@@ -241,10 +225,10 @@ static inline const void *gb_next(const uint8_t *s,uint32_t *hz)
 		*hz=r;
 	return s;
 }
-#define GB_NEXT(s,hz)	gb_next((const uint8_t*)(s),(hz))
 
-static inline uint32_t gb_first_be(const uint8_t *s)
+static inline uint32_t gb_first_be(const void *p)
 {
+	const uint8_t *s=p;
 	uint32_t r;
 	
 	if(!(s[0]&0x80))
@@ -253,11 +237,11 @@ static inline uint32_t gb_first_be(const uint8_t *s)
 	}
 	else if(gb_is_gbk(s))
 	{
-		r=s[1]|(s[0]<<8);
+		r=l_read_u16be(s);
 	}
 	else if(gb_is_gb18030_ext(s))
 	{
-		r=s[3]|(s[2]<<8)|(s[1]<<16)|(s[0]<<24);
+		r=l_read_u32be(s);
 	}
 	else
 	{
@@ -266,8 +250,9 @@ static inline uint32_t gb_first_be(const uint8_t *s)
 	return r;
 }
 
-static inline const void *gb_next_be(const uint8_t *s,uint32_t *hz)
+static inline const void *gb_next_be(const void *p,uint32_t *hz)
 {
+	const uint8_t *s=p;
 	uint32_t r;
 	
 	if(!s || !s[0])
@@ -297,8 +282,9 @@ static inline const void *gb_next_be(const uint8_t *s,uint32_t *hz)
 	return s;
 }
 
-static inline uint32_t gb_last(const uint8_t *s)
+static inline uint32_t gb_last(const void *p)
 {
+	const uint8_t *s=p;
 	uint32_t r=0;
 	
 	while(s[0])
@@ -310,20 +296,12 @@ static inline uint32_t gb_last(const uint8_t *s)
 		}
 		else if(gb_is_gbk(s))
 		{
-	#if defined(__arm__) || defined(EMSCRIPTEN)
-			r=*(uint16_t*)(s);
-	#else
-			r=s[0]|(s[1]<<8);
-	#endif
+			r=l_read_u16(s);
 			s+=2;
 		}
 		else if(gb_is_gb18030_ext(s))
 		{
-	#if defined(__arm__) || defined(EMSCRIPTEN)
-			r=*(uint32_t*)(s);
-	#else
-			r=s[0]|(s[1]<<8)|(s[2]<<16)|(s[3]<<24);
-	#endif
+			r=l_read_u32(s);
 			s+=4;
 		}
 		else
@@ -387,6 +365,35 @@ static inline char *gb_strchr(const uint8_t *s,int c)
 		}
 	}
 	return 0;
+}
+
+static inline void *gb_to_string(uint32_t hz,void *p)
+{
+	uint8_t *s=p;
+	if(hz<0x100)
+	{
+		if(!s)
+			s=l_alloc(2);
+		s[0]=(uint8_t)hz;
+		s[1]=0;
+		return p?s+1:s;
+	}
+	else if(hz<0x10000)
+	{
+		if(!s)
+			s=l_alloc(3);
+		l_write_u16(s,(uint16_t)hz);
+		s[2]=0;
+		return p?s+2:s;
+	}
+	else
+	{
+		if(!s)
+			s=l_alloc(5);
+		l_write_u32(s,hz);
+		s[4]=0;
+		return p?s+4:s;
+	}
 }
 
 #define GB_NORMAL_EXT_COUNT		64

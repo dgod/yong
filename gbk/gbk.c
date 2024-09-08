@@ -72,7 +72,8 @@ static int GbkGetCandWords(int mode)
 
 	if(CurCandPage<CandPageCount-1)
 		CandWordCount=CandWordMax;
-	else CandWordCount=PhraseListCount-CandWordMax*(CandPageCount-1);
+	else
+		CandWordCount=PhraseListCount-CandWordMax*(CandPageCount-1);
 	EIM.CandWordMaxReal=CandWordMax;
 
 	for(i=0;i<CandWordMax;i++)
@@ -162,10 +163,7 @@ static int GbkOnVirtQuery(const char *ph)
 			
 		CodeTips[0][0]=0;
 		strcpy(CodeInput,ph);
-		sprintf(&CandTable[0][0],"%02x",p[0]);
-		sprintf(&CandTable[0][2],"%02x",p[1]);
-		sprintf(&CandTable[0][4],"%02x",p[2]);
-		sprintf(&CandTable[0][6],"%02x",p[3]);
+		sprintf(CandTable[0],"%08x",l_read_u32be(p));
 		CandWordCount=1;
 	}			
 	if(len==2)
@@ -177,8 +175,7 @@ static int GbkOnVirtQuery(const char *ph)
 		{
 			CodeTips[0][0]=0;
 			strcpy(CodeInput,ph);
-			sprintf(&CandTable[0][0],"%02x",high);
-			sprintf(&CandTable[0][2],"%02x",low);
+			sprintf(CandTable[0],"%02x%02x",high,low);
 			CandWordCount=1;
 		}
 	}

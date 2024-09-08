@@ -43,7 +43,7 @@ int l_setenv(const char *name,const char *value,int overwrite)
 		if(l_getenv(name,temp,sizeof(temp)))
 			return 0;
 	}
-	sprintf(temp,"%s=%s",name,value);
+	snprintf(temp,sizeof(temp),"%s=%s",name,value);
 	wchar_t temp2[256];
 	l_utf8_to_utf16(temp,temp2,sizeof(temp2));
 	return _wputenv(temp2);
