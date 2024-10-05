@@ -1,0 +1,6 @@
+*.o
+*.so
+l64/
+l32-*/
+l64-*/
+install/yong/

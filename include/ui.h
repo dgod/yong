@@ -212,6 +212,7 @@ typedef struct{
 	int (*request)(int cmd);
 	
 	double (*get_scale)(void);
+	bool (*get_dark)(void);
 
 	int (*timer_add)(unsigned,void (*cb)(void *),void *arg);
 	void (*timer_del)(void (*cb)(void *),void *arg);
@@ -293,6 +294,9 @@ int y_ui_init(const char *name);
 	
 #define y_ui_get_scale() \
 	(y_ui.get_scale?y_ui.get_scale():1)
+
+#define y_ui_get_dark() \
+	(y_ui.get_dark?y_ui.get_dark():false)
 
 #define y_ui_timer_add(a,b,c) \
 	(y_ui.timer_add?y_ui.timer_add(a,b,c):-1)

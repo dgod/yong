@@ -27,6 +27,14 @@
 #define l_free free
 #define l_strdup(p) strdup(p)
 
+static inline void *l_memdup0(const void *p,size_t s)
+{
+	char *r=malloc(s+1);
+	memcpy(r,p,s);
+	r[s]=0;
+	return r;
+}
+
 #if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 #define l_strndup(p,n) strndup(p,n)
 #define l_alloca(s) alloca(s)

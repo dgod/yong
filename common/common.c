@@ -1167,6 +1167,14 @@ int y_im_str_to_key(const char *s,int *repeat)
 	return key;
 }
 
+static int key_from_config(const char *s)
+{
+	char key[64];
+	int which=-1;
+	sscanf(s,"%63s %d",key,&which);
+	return y_im_get_key(key,which,0);
+}
+
 int *y_im_str_to_keys(const char *s)
 {
 	int keys[64];
@@ -1180,6 +1188,11 @@ int *y_im_str_to_keys(const char *s)
 		if(!end)
 		{
 			key=y_im_str_to_key(begin,&repeat);
+			if(key<=0)
+			{
+				key=key_from_config(begin);
+				repeat=1;
+			}
 		}
 		else
 		{
@@ -1189,6 +1202,11 @@ int *y_im_str_to_keys(const char *s)
 			char temp[64];
 			l_strncpy(temp,begin,size);
 			key=y_im_str_to_key(temp,&repeat);
+			if(key<=0)
+			{
+				key=key_from_config(temp);
+				repeat=1;
+			}
 		}
 		if(!key)
 			break;
@@ -1640,11 +1658,10 @@ static char **y_im_parse_argv(const char *s,int size)
 				l_ptr_array_free(arr,l_free);
 				return NULL;
 			}
-			t=y_im_get_config_string(cfg[0],cfg[1]);
+			t=y_im_get_config_string_gb(cfg[0],cfg[1]);
 			l_strfreev(cfg);
 			if(!t)
 			{
-				l_strfreev(cfg);
 				l_ptr_array_free(arr,l_free);
 				return NULL;
 			}
@@ -1773,14 +1790,10 @@ int y_im_expand_with(const char *s,char *to,int size,int which)
 			
 			if(j<31 && j>0)
 			{
+				char temp[256];
 				const char *val;
 				name[j]=0;
-				if(!strcmp(name,"_HOME"))
-					val=y_im_get_path("HOME");
-				else if(!strcmp(name,"_DATA"))
-					val=y_im_get_path("DATA");
-				else
-					val=getenv(name);
+				val=l_getenv_gb(name,temp,sizeof(temp));
 				if(val!=NULL)
 				{
 					int len=strlen(val);
@@ -2015,13 +2028,8 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 	strcpy(line,s);
 	s=line;
 	ps=strchr(s,'$');
-#if defined(_WIN32) && !defined(_WIN64)
-	if(!t) t=_time64(NULL);
-	tm=_localtime64(&t);
-#else
-	if(!t) t=time(NULL);
-	tm=localtime((time_t*)&t);
-#endif
+	if(!t) t=l_time();
+	tm=l_localtime(&t);
 
 	/* escape the time and $ self */
 	do{
@@ -3284,6 +3292,17 @@ char *y_im_get_config_string(const char *group,const char *key)
 		if(s) return s;
 	}
 	char *res= l_key_file_get_string(MainConfig,group,key);
+	return res;
+}
+
+char *y_im_get_config_string_gb(const char *group,const char *key)
+{
+	if(SubConfig)
+	{
+		char *s=l_key_file_get_string_gb(SubConfig,group,key);
+		if(s) return s;
+	}
+	char *res= l_key_file_get_string_gb(MainConfig,group,key);
 	return res;
 }
 

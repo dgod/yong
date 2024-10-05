@@ -37,6 +37,12 @@ int l_sscanf(const char * buf, const char * fmt, ...);
 int l_strcpy(char *dest,int dest_size,const char *src);
 void *l_strncpy(char *restrict dest,const char *restrict src,size_t n);
 
+#if defined(_WIN32) || !defined(__GLIBC__)
+char *l_stpcpy(char *dest,const char *src);
+#else
+#define l_stpcpy(dest,src) stpcpy((dest),(src))
+#endif
+
 void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_mempos(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_strpos(const char *haystack,const char *needle);

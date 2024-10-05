@@ -29,7 +29,7 @@ function run(target){
 	}
 		
 	var QT_VER=shell(`pkg-config --modversion Qt${VER}Core`);
-	env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lQt${VER}Widgets -lglib-2.0`);
+	env(`LIBS+=-lQt${VER}Gui -lQt${VER}Core -lQt${VER}Widgets -lglib-2.0 -lxkbcommon`);
 
 	env("QT_VER+="+QT_VER);
 	env("LIBS+=-ldl -lstdc++");

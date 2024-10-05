@@ -36,4 +36,5 @@
 #include "lbits.h"
 #include "lenv.h"
 #include "lescape.h"
+#include "ltime.h"
 #include "ltricky.h"

@@ -119,9 +119,10 @@ static inline int gb_strlen(const void *p)
 	return len;
 }
 
-static inline int gb_strlen2(const uint8_t *s,int size)
+static inline int gb_strlen2(const void *p,int size)
 {
 	int len=0;
+	const uint8_t *s=p;
 	const uint8_t *end=s+size;
 	while(s<end)
 	{

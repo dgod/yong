@@ -580,11 +580,7 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 					tm.tm_year=year-1900;
 					tm.tm_mon=month-1;
 					tm.tm_mday=day;
-#if defined(_WIN32) && !defined(_WIN64)
-					y_im_nl_day(_mktime64(&tm),cand[i]+strlen(cand[i]));
-#else
-					y_im_nl_day(mktime(&tm),cand[i]+strlen(cand[i]));
-#endif
+					y_im_nl_day(l_mktime(&tm),cand[i]+strlen(cand[i]));
 				}
 			}
 		}

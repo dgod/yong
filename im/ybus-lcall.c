@@ -50,6 +50,7 @@ typedef struct{
 	int sync;
 	guint32 time;
 	uint16_t seq;
+	uint16_t ack;
 }SERV_KEY;
 
 static LCallServ *serv;
@@ -58,7 +59,7 @@ static int onspot=0;
 
 static void serv_init(LCallConn *conn)
 {
-	//printf("add %p\n",conn);
+	// printf("add %p\n",conn);
 	ybus_add_connect(&plugin,(uintptr_t)conn);
 	if(trigger!=CTRL_SPACE && trigger)
 	{
@@ -70,13 +71,19 @@ static void serv_free(LCallConn *conn)
 	YBUS_CONNECT *yconn;
 	yconn=ybus_find_connect(&plugin,(uintptr_t)conn);
 	if(!yconn) return;
+	// printf("del %p %d\n",conn,yconn->pid);
 	ybus_free_connect(yconn);
 	
-	//printf("del %p\n",conn);
 }
 
 static void forward_key(SERV_KEY *kev,int handled)
 {
+	if(kev->ack)
+	{
+		// fprintf(stderr,"forward key double acked %x\n",kev->key);
+		return;
+	}
+	kev->ack=kev->seq;
 	if(handled)
 	{
 		if(kev->sync!=0)
@@ -178,17 +185,13 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	if(YK_CODE(Key)>=YK_LSHIFT && YK_CODE(Key)<=YK_RWIN)
 	{
 		bing=0;
-		l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
+		forward_key(kev,0);
 		if(kev->status==0)
 		{
-			//l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
-			forward_key(kev,0);
 			return 0;
 		}
 		if(Key!=last_press || kev->time-last_press_time>300)
 		{
-			//l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
-			forward_key(kev,0);
 			return 0;
 		}
 	}
@@ -206,7 +209,6 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	{
 		if(kev->status==0 && ybus_on_key(&plugin,yconn->id,client->id,Key))
 		{
-			//l_call_conn_return((LCallConn*)yconn->id,kev->seq,1);
 			forward_key(kev,1);
 			return 0;
 		}
@@ -217,13 +219,8 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	case CTRL_LALT:
 	case CTRL_RALT:
 	{
-		if(ybus_on_key(&plugin,yconn->id,client->id,Key))
-		{
-			//l_call_conn_return((LCallConn*)yconn->id,kev->seq,1);
-			forward_key(kev,1);
-			return 0;
-		}
-		break;
+		ybus_on_key(&plugin,yconn->id,client->id,Key);
+		return 0;
 	}
 	case YK_LCTRL:
 	case YK_RCTRL:
@@ -233,8 +230,6 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	case KEYM_CTRL|YK_RWIN:
 	{
 		ybus_on_key(&plugin,yconn->id,client->id,Key);
-		//l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
-		forward_key(kev,0);
 		return 0;
 	}
 	default:
@@ -263,7 +258,6 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 				int i;
 				if(yconn->lang==LANG_CN)
 				{
-					//l_call_conn_return((LCallConn*)yconn->id,kev->seq,1);
 					forward_key(kev,1);
 					for(i=0;i<=3 && p[i];i++)
 					{
@@ -310,17 +304,6 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 		}
 	}
 	
-	/*
-	if(kev->status==0 || (KEYM_MASK & Key))
-	{
-		//l_call_conn_return((LCallConn*)yconn->id,kev->seq,0);
-		forward_key(kev,0);
-	}
-	else
-	{
-		//l_call_conn_return((LCallConn*)yconn->id,kev->seq,1);
-		forward_key(kev,1);
-	}*/
 	forward_key(kev,0);
 	
 	return 0;
@@ -362,7 +345,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 {
 	YBUS_CONNECT *yconn;
 	int ret;
-	
+
 	// printf("lcall %s\n",name);
 	if(!strcmp(name,"tool"))
 	{
@@ -434,8 +417,15 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		key.client=client_id;
 		key.seq=buf->seq;
 		key.sync=buf->flag&L_CALL_FLAG_SYNC;
-		// printf("\t%d %x\n",key.status,key.key);
+		key.ack=0;
+		// printf("\tstatus:%d key:%x seq:%d\n",key.status,key.key,buf->seq);
 		ret=serv_input(yconn,client,&key);
+#if 1
+		if(key.ack!=key.seq)
+		{
+			fprintf(stderr,"\t%d %x not dealed\n",key.status,key.key);
+		}
+#endif
 		return ret;
 	}
 	else if(!strcmp(name,"focus_in"))

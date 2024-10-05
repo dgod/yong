@@ -466,6 +466,8 @@ static void send_string(struct simple_im *keyboard,const char *s)
 
 static void send_key(struct simple_im *keyboard,int key)
 {
+	if(!keyboard->state)
+		return;
 	int sym;
 	if(keyboard->input_method_manager_v2)
 		sym=GetKey_r(keyboard,key);
@@ -692,6 +694,11 @@ static void input_method_keyboard_key(
 		uint32_t state)
 {
 	// printf("input_method_keyboard_key %u %u %u %u\n",serial,time,key,state);
+	if(!keyboard->state)
+	{
+		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,time,key,state);
+		return;
+	}
 	keyboard->time=time;
 	if(keyboard->repeat_tmr)
 	{
@@ -719,6 +726,9 @@ static void input_method_keyboard_modifiers(
 {
 	// printf("input_method_keyboard_modifiers %u %u %u %u\n",mods_depressed,mods_latched,mods_locked,group);
 	zwp_virtual_keyboard_v1_modifiers(keyboard->virtual_keyboard_v1,mods_depressed,mods_latched,mods_locked,group);
+
+	if(!keyboard->state)
+		return;
 
 	xkb_state_update_mask(keyboard->state, mods_depressed,
 			      mods_latched, mods_locked, 0, 0, group);

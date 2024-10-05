@@ -203,8 +203,8 @@ int y_dict_query_network(const char *s)
 	}
 	else
 	{
-		site=eng?"http://www.iciba.com/%s/":
-				"http://www.zdic.net/search/default.asp?q=%s";
+		site=eng?"https://www.iciba.com/word?w=%s":
+				"https://www.zdic.net/hans/%s";
 		sprintf(url,site,temp);
 	}
 	y_xim_explore_url(url);

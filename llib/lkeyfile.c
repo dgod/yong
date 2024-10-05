@@ -12,6 +12,7 @@
 #include "lmacros.h"
 #include "larray.h"
 #include "lstring.h"
+#include "lconv.h"
 #include "ltricky.h"
 
 typedef struct _keyvalue{
@@ -24,6 +25,7 @@ struct _lkeyfile{
 	char *file;
 	int utf8;
 	int dirty;
+	char inherit;
 	KeyValue *line;
 };
 
@@ -181,8 +183,8 @@ const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char 
 {
 	KeyValue *p;
 	KeyValue *g=NULL;
-	
 
+PARENT:
 	for(p=key_file->line;p!=NULL;p=p->next)
 	{
 		if(p->value) continue;
@@ -192,7 +194,10 @@ const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char 
 			break;
 		}
 	}
-	if(!g) return 0;
+	if(!g)
+	{
+		return NULL;
+	}
 
 	for(p=p->next;p!=NULL;p=p->next)
 	{
@@ -204,7 +209,17 @@ const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char 
 		}
 	}
 
-	return 0;
+	if(key_file->inherit)
+	{
+		const char *p=strrchr(group,key_file->inherit);
+		if(p!=NULL)
+		{
+			group=l_strndupa(group,(int)(size_t)(p-group));
+			goto PARENT;
+		}
+	}
+
+	return NULL;
 }
 
 char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key)
@@ -212,7 +227,8 @@ char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key
 	char temp[256];
 	int i,pos,c;
 	const char *data=l_key_file_get_data(key_file,group,key);
-	if(!data) return 0;
+	if(!data)
+		return NULL;
 	for(i=pos=0;pos<250 && (c=data[i])!=0;i++)
 	{
 		if(c=='\\')
@@ -255,10 +271,23 @@ char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key
 	return l_strdup(temp);
 }
 
+char *l_key_file_get_string_gb(LKeyFile *key_file,const char *group,const char *key)
+{
+	char *s=l_key_file_get_string(key_file,group,key);
+	if(!s)
+		return NULL;
+	if(!key_file->utf8)
+		return NULL;
+	char temp[256];
+	l_utf8_to_gb(s,temp,sizeof(temp));
+	return l_strdup(temp);
+}
+
 int l_key_file_get_int(LKeyFile *key_file,const char *group,const char *key)
 {
 	const char *data=l_key_file_get_data(key_file,group,key);
-	if(!data) return 0;
+	if(!data)
+		return 0;
 	return atoi(data);
 }
 
@@ -268,7 +297,8 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 	KeyValue *g=NULL;
 	KeyValue *prev;
 	
-	if(!group) return -1;
+	if(!group)
+		return -1;
 	for(p=key_file->line;p!=NULL;p=p->next)
 	{
 		if(p->value) continue;
@@ -453,4 +483,9 @@ char **l_key_file_get_keys(LKeyFile *key_file,const char *group)
 	}
 	l_ptr_array_append(&list,NULL);
 	return (char**)list.ptr;
+}
+
+void l_key_file_set_inherit(LKeyFile *key_file,char delimiter)
+{
+	key_file->inherit=delimiter;
 }

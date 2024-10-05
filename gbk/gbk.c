@@ -7,7 +7,6 @@
 #include "gbk.h"
 #include "llib.h"
 
-//static int PhraseListCount;
 #define PhraseListCount EIM.CandWordTotal
 static const char tip[16]="0123456789abcdef";
 
@@ -362,25 +361,8 @@ static int GbkDoInput(int key)
 			uint32_t c=strtoul(CodeInput+1,0,16);
 			if(c>=0x20 && c<0x10FFFF)
 			{
-				uint16_t ucs[3];
-				if(c>=0x10000)
-				{
-					uint16_t X,W;
-					uint32_t U;
-					X = (uint16_t) c;
-					U = (c >> 16) & ((1 << 5) - 1);
-					W = (uint16_t) U - 1;
-					ucs[0]= 0xd800 | (W << 6) | (X >> 10);
-					ucs[1]=(0xdc00 | (X & ((1 << 10) - 1)));
-					ucs[2]=0;
-				}
-				else
-				{
-					ucs[0]=(uint16_t)c;
-					ucs[1]=0;
-				}
-				CandTable[0][0]=0;
-				l_utf16_to_gb(ucs,CandTable[0],8);
+				int len=l_unichar_to_gb(c,(uint8_t*)CandTable[0]);
+				CandTable[0][len]=0;
 				if(CandTable[0][0])
 				{
 					PhraseListCount=1;

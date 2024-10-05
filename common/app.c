@@ -110,9 +110,83 @@ LKeyFile *y_im_get_app_config(const char *exe)
 #ifdef _WIN32
 extern DWORD OSMajorVersion;
 static BOOL (WINAPI * p_QueryFullProcessImageNameW)(HANDLE hProcess,DWORD  dwFlags,LPWSTR  lpExeName,PDWORD lpdwSize);
+static int xp=-1;
+char *y_im_get_app_exe_by_hwnd(HWND w,char out[256])
+{
+	HANDLE h;
+	DWORD pid=0;
+	GetWindowThreadProcessId(w,&pid);
+	if(!pid)
+		return NULL;
+	if(OSMajorVersion>=6 && !p_QueryFullProcessImageNameW)
+	{
+		HINSTANCE hInst;
+		hInst=GetModuleHandle(_T("kernel32.dll"));
+		if(hInst)
+		{
+			p_QueryFullProcessImageNameW=(void*)GetProcAddress(hInst,"QueryFullProcessImageNameW");
+		}
+	}
+
+	if(xp==0)
+	{
+		h=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);
+	}
+	else if(xp==1)
+	{
+		h=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,pid);
+	}
+	else
+	{
+		h=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);
+		if(h==NULL)
+		{
+			h=OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ,FALSE,pid);
+			if(h!=NULL)
+				xp=1;
+		}
+		else
+		{
+			xp=0;
+		}
+	}
+	if(h==NULL)
+		return NULL;
+	WCHAR wpath[256];
+	if(p_QueryFullProcessImageNameW)
+	{
+		DWORD size=255;
+		BOOL ret=p_QueryFullProcessImageNameW(h,0,wpath,&size);
+		if(ret!=TRUE)
+		{
+			printf("get name1 fail %ld\n",GetLastError());
+			return NULL;
+		}
+	}
+	else
+	{
+		DWORD ret=GetModuleFileNameEx(h,NULL,wpath,255);
+		if(ret==0)
+		{
+			printf("get name fail %ld\n",GetLastError());
+			return NULL;
+		}
+		wpath[ret]=0;
+	}
+	CloseHandle(h);
+	char path[256],*p;
+	l_utf16_to_gb(wpath,path,256);
+	p=strrchr(path,'\\');
+	if(!p)
+		return NULL;
+	p++;
+	l_strup(p);
+	strcpy(out,p);
+	return out;
+}
+
 LKeyFile *y_im_get_app_config_by_pid(int pid)
 {
-	static int xp=-1;
 	HANDLE h;
 	
 	if(!app)

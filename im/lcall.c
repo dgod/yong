@@ -7,11 +7,16 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <poll.h>
+#include <unistd.h>
+#include <fcntl.h>
 	
 #include "lcall.h"
 #include "ltricky.h"
 
-//#define memcpy(a,b,c) memmove(a,b,c)
+#ifndef L_CALL_TIMEOUT
+#define L_CALL_TIMEOUT	1000
+#endif
 
 int l_call_buf_put_data(LCallBuf *buf,const void *data,size_t size,int align)
 {
@@ -177,11 +182,15 @@ int l_call_conn_peer_pid(LCallConn *conn)
 	return 0;
 #endif
 }
-
 void l_call_conn_free(LCallConn *conn)
 {
 	if(!conn)
 		return;
+	if(conn->id)
+	{
+		g_source_remove(conn->id);
+		conn->id=0;
+	}
 	if(conn->user)
 	{
 		conn->user->free(conn);
@@ -190,11 +199,6 @@ void l_call_conn_free(LCallConn *conn)
 	{
 		conn->serv->conn=g_slist_remove(conn->serv->conn,conn);
 		conn->serv=NULL;
-	}
-	if(conn->id)
-	{
-		g_source_remove(conn->id);
-		conn->id=0;
 	}
 	if(conn->ch)
 	{
@@ -231,9 +235,26 @@ static int conn_read_data(LCallConn *conn)
 	gsize count=L_CALL_BUF_SIZE-conn->buf.size;
 	ssize_t bytes_read;
 	int fd=g_io_channel_unix_get_fd(conn->ch);
+	if(conn->res)
+	{
+		struct pollfd pfd={
+			.fd=fd,
+			.events=POLLIN
+		};
+		int ret=poll(&pfd,1,L_CALL_TIMEOUT);
+		if(ret<=0)
+		{
+			return -1;
+		}
+	}	
 	bytes_read=recv(fd,buf,count,0);
 	if(bytes_read<=0)
 	{
+		if(!conn->res && errno==EAGAIN)
+		{
+			// fprintf(stderr,"---------------------- recv catch EAGAIN\n");
+			return 0;
+		}
 		return -1;
 	}
 	conn->buf.size+=bytes_read;
@@ -293,6 +314,12 @@ static LCallBuf *conn_wait_result(LCallConn *conn,uint16_t seq)
 	const char *name;
 	int ret;
 	int (*dispatch)(LCallConn *,const char *,LCallBuf *);
+
+	if(conn->res)
+	{
+		fprintf(stderr,"conn_wait_result is not reenterable\n");
+		return NULL;	
+	}
 	
 	conn->rseq=seq;
 	conn->res=TRUE;
@@ -305,7 +332,9 @@ static LCallBuf *conn_wait_result(LCallConn *conn,uint16_t seq)
 			break;
 		}
 		if(conn->id==0)
+		{
 			break;
+		}
 		while(l_call_buf_ready(buf))
 		{
 			name=l_call_buf_name(buf);
@@ -327,13 +356,58 @@ static LCallBuf *conn_wait_result(LCallConn *conn,uint16_t seq)
 	return NULL;
 }
 
+static int sock_nonblock(int sock,int on)
+{
+	int flag;
+
+	flag=fcntl (sock, F_GETFL);
+	if(on)
+		flag|=O_NONBLOCK;
+	else
+		flag&=~O_NONBLOCK;
+	return fcntl (sock, F_SETFL,  flag );
+}
+
+static int conn_write(const LCallConn *conn,const LCallBuf *buf)
+{
+	int sock=g_io_channel_unix_get_fd(conn->ch);
+	const uint8_t *p=buf->data;
+	int size=buf->size;
+	while(size>0)
+	{
+		int ret=send(sock,p,size,MSG_NOSIGNAL);
+		if(ret<0)
+		{
+			if(errno==EAGAIN)
+			{
+				struct pollfd pfd={
+					.fd=sock,
+					.events=POLLOUT,
+				};
+				ret=poll(&pfd,1,L_CALL_TIMEOUT);
+				if(ret<=0)
+					return -1;
+				continue;
+			}
+			return -1;
+		}
+		p+=ret;
+		size-=ret;
+	}
+	return 0;
+}
+
 int l_call_conn_vcall(LCallConn *conn,const char *name,int *res,const char *param,va_list ap)
 {
 	LCallBuf buf;
 	int i;
-	//gsize bytes_written;
-	//GIOStatus status;
 	uint16_t seq;
+
+	if(!conn->id)
+	{
+		// avoid EPIPE
+		return -1;
+	}
 		
 	seq=++conn->seq;
 	l_call_buf_start(&buf,seq,name);
@@ -358,20 +432,13 @@ int l_call_conn_vcall(LCallConn *conn,const char *name,int *res,const char *para
 		}
 	}
 	l_call_buf_stop(&buf);
-	int fd=g_io_channel_unix_get_fd(conn->ch);
-	if(send(fd,buf.data,buf.size,MSG_NOSIGNAL)!=buf.size)
+	if(conn_write(conn,&buf)!=0)
 	{
 		return -1;
 	}
-	/*status=g_io_channel_write_chars(conn->ch,(gchar*)buf.data,buf.size,&bytes_written,NULL);
-	if(status!=G_IO_STATUS_NORMAL)
-	{
-		return -1;
-	}*/
 	if(res!=NULL)
 	{
-		LCallBuf *p;
-		p=conn_wait_result(conn,seq);
+		LCallBuf *p=conn_wait_result(conn,seq);
 		if(!p)
 		{
 			return -2;
@@ -400,37 +467,11 @@ int l_call_conn_call(LCallConn *conn,const char *name,int *res,const char *param
 int l_call_conn_return(LCallConn *conn,uint16_t seq,int res)
 {
 	LCallBuf buf;
-	//GIOStatus status;
-	//gsize bytes_written;
 	l_call_buf_start(&buf,seq,"return");
 	l_call_buf_put_val(&buf,int,res);
 	l_call_buf_stop(&buf);
-	/*status=g_io_channel_write_chars(conn->ch,(gchar*)buf.data,buf.size,&bytes_written,NULL);
-	if(status!=G_IO_STATUS_NORMAL)
-	{
-		return -1;
-	}*/
-	int fd=g_io_channel_unix_get_fd(conn->ch);
-	if(send(fd,buf.data,buf.size,MSG_NOSIGNAL)!=buf.size)
-	{
-		return -1;
-	}
-	return 0;
+	return conn_write(conn,&buf);
 }
-
-/*
-static gboolean conn_event(GIOChannel *channel,GIOCondition condition,LCallConn *conn);
-static gboolean conn_event_idle(LCallConn *conn)
-{
-	if(0!=conn_deal_data(conn))
-	{
-		l_call_conn_free(conn);
-	}
-	conn->id=g_io_add_watch(conn->ch,G_IO_ERR|G_IO_IN|G_IO_HUP,
-			(GIOFunc)conn_event,conn);
-	return FALSE;
-}
-*/
 
 static gboolean conn_event(GIOChannel *channel,GIOCondition condition,LCallConn *conn)
 {
@@ -450,7 +491,6 @@ static gboolean conn_event(GIOChannel *channel,GIOCondition condition,LCallConn 
 			l_call_conn_free(conn);
 		return FALSE;
 	}
-	/*g_idle_add((GSourceFunc)conn_event_idle,conn);*/
 	if(!conn->res && 0!=conn_deal_data(conn))
 	{
 		conn->id=0;
@@ -458,10 +498,6 @@ static gboolean conn_event(GIOChannel *channel,GIOCondition condition,LCallConn 
 		return FALSE;
 	}
 	return TRUE;
-	/*
-	conn->id=0;
-	return FALSE;
-	*/
 }
 
 LCallConn *l_call_conn_new(GIOChannel *channel,LCallUser *user)
@@ -520,10 +556,6 @@ static gboolean serv_accept(GIOChannel *channel,GIOCondition condition,LCallServ
 	int s,as;
 	GIOChannel *client;
 	LCallConn *conn;
-	struct timeval timeo;
-	
-	timeo.tv_sec=1;
-	timeo.tv_usec=0;
 	
 	if(condition!=G_IO_IN)
 		return TRUE;
@@ -532,8 +564,7 @@ static gboolean serv_accept(GIOChannel *channel,GIOCondition condition,LCallServ
 	as=accept(s,NULL,NULL);
 	if(as==-1)
 		return TRUE;
-	setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&timeo,sizeof(timeo));
-	setsockopt(s,SOL_SOCKET,SO_SNDTIMEO,&timeo,sizeof(timeo));
+	sock_nonblock(as,TRUE);
 	client=g_io_channel_unix_new(as);
 	g_io_channel_set_encoding(client,NULL,NULL);
 	g_io_channel_set_buffered(client,FALSE);
@@ -542,20 +573,6 @@ static gboolean serv_accept(GIOChannel *channel,GIOCondition condition,LCallServ
 	
 	return TRUE;
 }
-
-/*void show_watch(const char *s)
-{
-	int i;
-	fprintf(stderr,"%s\n",s);
-	for(i=1;i<100;i++)
-	{
-		GSource *s=g_main_context_find_source_by_id(NULL,i);
-		if(!s)
-			continue;
-		const char *p=g_source_get_name(s);
-		fprintf(stderr,"id:%d name:%s destroyed:%d\n",i,p?p:"",g_source_is_destroyed(s));
-	}
-}*/
 
 LCallServ *l_call_serv_new(void *arg,LCallUser *user)
 {
@@ -594,10 +611,6 @@ GIOChannel *l_call_client_new(void)
 	struct sockaddr_un sa;
 	int s;
 	GIOChannel *client;
-	struct timeval timeo;
-	
-	timeo.tv_sec=1;
-	timeo.tv_usec=0;
 
 	s=socket(AF_UNIX,SOCK_STREAM,0);
 	memset(&sa,0,sizeof(sa));
@@ -610,8 +623,7 @@ GIOChannel *l_call_client_new(void)
 		close(s);
 		return NULL;
 	}
-	setsockopt(s,SOL_SOCKET,SO_RCVTIMEO,&timeo,sizeof(timeo));
-	setsockopt(s,SOL_SOCKET,SO_SNDTIMEO,&timeo,sizeof(timeo));
+	sock_nonblock(s,TRUE);
 	client=g_io_channel_unix_new(s);
 	g_io_channel_set_encoding(client,NULL,NULL);
 	g_io_channel_set_buffered(client,FALSE);
@@ -671,7 +683,8 @@ int l_call_client_call(const char *name,int *res,const char *param,...)
 	
 	if(!_conn && (!strcmp(name,"enable") || !strcmp(name,"focus_in")))
 		l_call_client_connect();
-	if(!_conn) return -1;
+	if(!_conn)
+		return -1;
 
 	LCallConn *conn=_conn;
 	
@@ -690,88 +703,4 @@ int l_call_client_call(const char *name,int *res,const char *param,...)
 
 #endif/*L_CALL_GLIB_CLIENT*/
 
-#ifdef L_CALL_GLIB_CLIENT_TEST
 
-static int disp_func(const char *name,LCallBuf *buf)
-{
-	printf("callback %s\n",name);
-	return 0;
-}
-int main(int arc,char *arg[])
-{
-	int res;
-	l_call_client_dispatch(disp_func);
-	l_call_client_connect();
-	if(!l_call_client_call("test",&res,"is",1234,"hello world!"))
-		printf("res %d\n",res);
-	l_call_client_disconnect();
-	return 0;
-}
-
-#endif/*L_CALL_GLIB_CLIENT_TEST*/
-
-#ifdef L_CALL_GLIB_SERVER_TEST
-
-static GMainLoop *loop;
-
-static void serv_init(LCallConn *conn)
-{
-	printf("add %p\n",conn);
-}
-static void serv_free(LCallConn *conn)
-{
-	printf("del %p\n",conn);
-}
-static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
-{
-	printf("call %s\n",name);
-	if(!strcmp(name,"test"))
-	{
-		int i;
-		char s[64];
-		l_call_buf_get_val(buf,i);
-		l_call_buf_get_string(buf,s,sizeof(s));
-		printf("\t%d %s\n",i,s);
-		//l_call_conn_return(conn,buf->seq,4321);
-	}
-	else if(!strcmp(name,"cursor"))
-	{
-	}
-	else if(!strcmp(name,"input"))
-	{
-		l_call_conn_return(conn,buf->seq,0);
-	}
-	else if(!strcmp(name,"focus_in"))
-	{
-	}
-	else if(!strcmp(name,"focus_out"))
-	{
-	}
-	else if(!strcmp(name,"enable"))
-	{
-	}
-	else if(!strcmp(name,"add_ic"))
-	{
-	}
-	else if(!strcmp(name,"del_ic"))
-	{
-	}
-	return 0;
-}
-static LCallUser serv_user={
-	serv_init,serv_free,serv_dispatch
-};
-
-int main(int arc,char *arg[])
-{
-	LCallServ *serv;
-	loop=g_main_loop_new(NULL,0);
-	serv=l_call_serv_new(0,&serv_user);
-	g_main_loop_run(loop);
-	g_main_loop_unref(loop);
-	l_call_serv_free(serv);
-	g_main_context_unref(g_main_context_default());
-	return 0;
-}
-
-#endif/*L_CALL_GLIB_SERVER_TEST*/

@@ -3036,6 +3036,49 @@ static double ui_get_scale(void)
 	return ui_scale;
 }
 
+static GSettings *gsettings;
+static void on_gsetting_changed(GSettings *settings, const gchar *key, gpointer user_data)
+{
+	if(g_strcmp0(key, "color-scheme") == 0)
+	{
+		YongReloadAll();
+	}
+}
+
+static bool ui_get_dark(void)
+{
+	bool is_dark=false;
+	if(!gsettings)
+	{
+		gsettings = g_settings_new("org.gnome.desktop.interface");
+		if(gsettings)
+		{
+			g_signal_connect(gsettings, "changed", G_CALLBACK(on_gsetting_changed), NULL);
+		}
+	}
+	if(!gsettings)
+	{
+		goto fallback;
+	}
+	char *color=g_settings_get_string(gsettings,"color-scheme");
+	if(!color)
+	{
+		g_object_unref(gsettings);
+		goto fallback;
+	}
+	is_dark=!strcmp(color,"prefer-dark");
+	g_free(color);
+	return is_dark;
+fallback:
+	GtkSettings *settings = gtk_settings_get_default();
+	if(!settings)
+		return false;
+	gboolean dark=FALSE;
+	g_object_get(G_OBJECT(settings), "gtk-application-prefer-dark-theme",&dark,NULL);
+	is_dark=dark?true:false;
+	return is_dark;
+}
+
 void ui_setup_default(Y_UI *p)
 {
 	p->init=ui_init;
@@ -3076,7 +3119,7 @@ void ui_setup_default(Y_UI *p)
 	p->request=ui_request;
 	
 	p->get_scale=ui_get_scale;
-	
+	p->get_dark=ui_get_dark;
 	p->timer_add=ui_timer_add;
 	p->timer_del=ui_timer_del;
 	p->idle_add=ui_idle_add;

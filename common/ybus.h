@@ -74,6 +74,7 @@ enum{
 	YBUS_TOOL_KEYBOARD,
 	YBUS_TOOL_EXIT,
 	YBUS_TOOL_STATUS_POS,
+	YBUS_TOOL_IMKEY,
 };
 
 int ybus_init(void);

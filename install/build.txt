@@ -42,14 +42,13 @@ function copy_build(build){
 	cp('../im/gtk-im/$(BUILD)-gtk2/im-yong.so','yong/$(BUILD)/gtk-im/im-yong-gtk2.so');
 	cp('../im/gtk-im/$(BUILD)-gtk3/im-yong.so','yong/$(BUILD)/gtk-im/im-yong-gtk3.so');
 	cp('../im/gtk4-im/$(BUILD)-gtk4/libimyong.so','yong/$(BUILD)/gtk-im/libimyong-gtk4.so');
-
+	
 	exec("strip yong/$(BUILD)/gtk-im/*.so");
 	exec("strip yong/$(BUILD)/*.so");
 	exec("strip yong/$(BUILD)/yong-gtk3");
 	exec("strip yong/$(BUILD)/yong-config-gtk3");
 	exec("strip yong/$(BUILD)/yong-config-gtk4");
 	exec("strip yong/$(BUILD)/yong-vim");
-
 
 
 }
@@ -60,6 +59,37 @@ function set_ver(){
 	else
 		var VER=shell("date +%Y%m%d");
 	env("VER",":=",VER);
+}
+
+function deb(){
+	var VER=process.env.VER || shell("date +%Y%m%d");
+	mkdir(['deb','deb/opt','deb/DEBIAN']);
+	cp('yong','deb/opt/');
+
+	const control=
+`Package: yong
+Version: ${VER}
+Architecture: all
+Maintainer: dgod
+Description: yong
+`;
+	fs.writeFileSync('deb/DEBIAN/control',control);
+
+	const postinst=
+`#!/bin/bash
+cd /opt/yong
+./yong-tool.sh --install\n
+`;
+	fs.writeFileSync('deb/DEBIAN/postinst',postinst,{mode:0o755});
+
+		const prerm=
+`#!/bin/bash
+cd /opt/yong
+./yong-tool.sh --uninstall
+`;
+	fs.writeFileSync('deb/DEBIAN/prerm',prerm,{mode:0o755});
+
+	exec(`fakeroot dpkg -b deb yong-${VER}.deb`);
 }
 
 if(target=="copy"){
@@ -75,7 +105,9 @@ if(target=="copy"){
 }else if(target=="dist"){
 	set_ver();
 	exec("7za a yong-lin-$(VER).7z yong");	
-} else if(target=="rpm"){
+}else if(target=="rpm"){
 	exec('rpmbuild -bb yong.spec --target=i686 --define "_rpmdir `pwd`"');
+}else if(target=="deb"){
+	deb();
 }
-/// OS_COMMENT_END
+

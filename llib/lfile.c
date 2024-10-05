@@ -433,11 +433,13 @@ int l_file_copy(const char *dst,const char *src,...)
 	va_list ap;
 	va_start(ap,src);
 	fds=l_file_vopen(src,"rb",ap,NULL);
+	va_end(ap);
 	if(!fds)
 	{
 		va_end(ap);
 		return -1;
 	}
+	va_start(ap,src);
 	fdd=l_file_vopen(dst,"wb",ap,NULL);
 	va_end(ap);
 	if(!fdd)

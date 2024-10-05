@@ -24,6 +24,7 @@ static UI_CALLBACK l_timers[MAX_TIMER_CB];
 static UI_CALLBACK l_idles[MAX_IDLE_CB];
 
 #ifdef _WIN32
+
 static void CALLBACK _timer(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
 {
 	int i;

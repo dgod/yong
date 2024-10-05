@@ -125,7 +125,7 @@ void y_mb_learn_free(LEARN_DATA *data)
 
 static inline int cand_gblen(const LEARN_ITEM *it)
 {
-	return it->len+2;;
+	return it->len+2;
 }
 
 static inline int cand_unpack(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
@@ -412,11 +412,9 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 			ret=((struct y_mb_item*)n->data)->phrase;
 			for(;ret!=NULL;ret=ret->next)
 			{
-				char *s;
 				if(ret->del) continue;
 				if(gb_strlen2(ret->data,ret->len)!=count) continue;
-				s=y_mb_ci_string(ret);
-				if(!(s[0]&0x80))
+				if(!(ret->data[0]&0x80))
 					continue;
 				if(end && !y_mb_assist_test(mm->mb,ret,mm->assist_end,0,1))
 				{
@@ -892,7 +890,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 				continue;
 			}
 			key=&l_predict_data->key;
-			temp=(char*)l_predict_data->raw_data+key->pos;			
+			temp=(char*)l_predict_data->raw_data+key->pos;
 			for(int k=0;k<j;k++) tlen+=seq[i+k];
 			item=predict_search2(l_predict_data,mm,pos,tlen,PSEARCH_PHRASE,0,predict_pos(i,j,len));
 			//printf("%s %p\n",temp,item);
@@ -900,11 +898,12 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 			{
 				continue;
 			}
-			predict=mm->cand+strlen(mm->cand);
-			predict_copy(l_predict_data,predict,item,-1);
+			predict=out;
+			out+=predict_copy(l_predict_data,predict,item,-1);
 			memset(from+i,1,j);
 			if(item->last>0)
 			{
+
 				int changed=0;
 				if(item->last<seq[i+j-1])
 				{
@@ -952,6 +951,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 					{
 						memset(from+i,0,j);
 						predict[0]=0;
+						out=predict;
 						break;
 					}
 				}
@@ -967,6 +967,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 						{
 							memset(from+i,0,j);
 							predict[0]=0;
+							out=predict;
 							break;
 						}
 					}
@@ -1018,7 +1019,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 					}
 					if(!item) continue;
 					predict_copy(l_predict_data,temp,item,-1);
-					strcpy(mm->cand+strlen(mm->cand),temp+2*base);
+					out=l_stpcpy(out,temp+2*base);
 					pos+=extlen;
 					i+=ext;
 					j=k+ext;
@@ -1032,7 +1033,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 #endif
 		c=unigram_codec[pos<<3|seq[i]];
 		//fprintf(stderr,"%d %d %d %p %d\n",i,pos,seq[i],c,pos<<3|seq[i]);
-		strcat(out,y_mb_ci_string(c));
+		out+=y_mb_ci_string2(c,out);
 		pos+=seq[i];
 		i++;
 next:;

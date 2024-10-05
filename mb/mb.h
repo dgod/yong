@@ -164,6 +164,7 @@ struct y_mb{
 
 	/* user mb */
 	char *user;
+	int user_words;
 	int dirty;
 	int dirty_max;
 
@@ -197,6 +198,7 @@ struct y_mb{
 	char skip[10];
 	char bihua[10];
 	char nomove[4];
+	char suffix[4];
 
 	uint8_t match:1;
 	uint8_t simple:2;
@@ -322,7 +324,7 @@ void y_mb_code_get_string(const struct y_mb *mb,const struct y_mb_code *c,char *
 struct y_mb_ci *y_mb_ci_exist(struct y_mb *mb,const char *data,int dic);
 int y_mb_is_good_code(struct y_mb *mb,const char *code,const char *s);
 char *y_mb_ci_string(struct y_mb_ci *ci);
-char *y_mb_ci_string2(struct y_mb_ci *ci,char *out);
+int y_mb_ci_string2(struct y_mb_ci *ci,char *out);
 int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*freq)(const char *));
 struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
 struct y_mb_ci *y_mb_get_first_zi(struct y_mb *mb,const char *s,int len,int filter);

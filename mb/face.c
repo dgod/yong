@@ -1431,10 +1431,68 @@ static int TableDoInput(int key)
 		if(ret<0) return IMR_CLEAN;
 		return IMR_COMMIT;
 	}
-	else if(mb->yong && key==YK_TAB && mb->commit_which && mb->commit_which<EIM.CodeLen)
+	else if(mb->yong && key==YK_TAB && EIM.CodeLen>0 && !InsertMode)
 	{
-		active_mb=Y_MB_ACTIVE(mb);
-		goto commit_simple;
+		if(mb->commit_which && mb->commit_which<EIM.CodeLen && EIM.CodeLen==mb->len)
+		{
+			active_mb=Y_MB_ACTIVE(mb);
+			goto commit_simple;
+		}
+		if(mb->suffix[0] && mb->suffix[0]!=YK_TAB)
+			return IMR_NEXT;
+		goto commit_suffix;
+	}
+	else if(key==mb->suffix[0] && EIM.CurCandPage==0 && EIM.CodeLen>=1 && EIM.CodeLen<8 && !InsertMode)
+	{
+		char code[8];
+		struct y_mb_context ctx;
+		char temp[2][MAX_CAND_LEN+1];
+		int ret;
+commit_suffix:
+		temp[0][0]=temp[1][0]=0;
+		y_mb_push_context(mb,&ctx);	
+		EIM.StringGet[0]=0;	
+		if(EIM.CodeLen>1)
+		{
+			int clen=EIM.CodeLen-1;
+			l_strncpy(code,EIM.CodeInput,clen);
+			ret=y_mb_set(mb,code,clen,hz_filter_temp);
+			if(ret==0)
+			{
+				y_mb_pop_context(mb,&ctx);
+				return IMR_BLOCK;
+			}
+			y_mb_get(mb,0,1,&temp[0],NULL);
+		}
+		code[0]=EIM.CodeInput[EIM.CodeLen-1];
+		if(key!=mb->wildcard && key>=YK_SPACE)
+		{
+			code[1]=key;
+			code[2]=0;
+			ret=y_mb_set(mb,code,2,hz_filter_temp);
+		}
+		else
+		{
+			ret=0;
+		}
+		if(ret>0)
+		{
+			y_mb_get(mb,0,1,&temp[1],NULL);
+		}
+		else
+		{
+			code[1]='\0';
+			ret=y_mb_set(mb,code,1,hz_filter_temp);
+			if(ret==0)
+			{
+				y_mb_pop_context(mb,&ctx);
+				return IMR_BLOCK;
+			}
+			y_mb_get(mb,0,1,&temp[1],NULL);
+		}
+		y_mb_pop_context(mb,&ctx);
+		snprintf(EIM.StringGet,MAX_CAND_LEN,"%s%s",temp[0],temp[1]);
+		return IMR_COMMIT;
 	}
 	else if(y_mb_is_key(mb,key) || (key==mb->ass_lead && EIM.CodeLen==0) ||
 			(key==mb->quick_lead && EIM.CodeLen==0))
@@ -1445,6 +1503,14 @@ static int TableDoInput(int key)
 			return IMR_BLOCK;
 		if(!EIM.CodeLen && !InsertMode)
 		{
+			if(assoc_mode && key_select_conflict)
+			{
+				int select=EIM.Callback(EIM_CALLBACK_SELECT_KEY,key);
+				if((select>0 && EIM.CandWordCount>=select))
+				{
+					return IMR_NEXT;
+				}
+			}
 			cset_clear(&cs,CSET_TYPE_CALC);
 			EIM.StringGet[0]=0;
 			EIM.SelectIndex=0;
@@ -2553,7 +2619,6 @@ static int SPDoSearch(int adjust)
 		
 		mb->pinyin=1;
 		mb->fuzzy=old_fuzzy;
-		//printf("here\n");
 	}
 
 	// 处理单字和词组辅助码，即使CodeLen!=0时也要处理，生成句子时无法很好处理单字辅助码的情况
@@ -2623,7 +2688,8 @@ static int SPDoSearch(int adjust)
 			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
 			for(g->count=0;c!=NULL && g->count<=Y_MB_DATA_CALC;c=c->next)
 			{
-				char *s=y_mb_ci_string2(c,g->phrase[g->count]);
+				char *s=g->phrase[g->count];
+				y_mb_ci_string2(c,s);
 				if(strchr(s,'$'))
 				{
 					g->count++;

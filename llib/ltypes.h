@@ -77,7 +77,7 @@ typedef struct{
 #endif
 
 #ifndef L_ALIGNED_ACCESS
-	#define L_ALIGNED_ACCESS		0
+	#define L_ALIGNED_ACCESS	0
 #endif
 
 #endif/*_LTYPES_H_*/

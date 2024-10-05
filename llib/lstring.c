@@ -95,9 +95,11 @@ void l_strfreev(char **list)
 
 #ifndef EMSCRIPTEN
 #if defined(_WIN32) || (!defined(__GLIBC__)/* && !defined(__BIONIC__)*/)
-/*static */char *stpcpy(char *dest,const char *src)
+char *l_stpcpy(char *dest,const char *src)
 {
-	do *dest++=*src;while(*src++!='\0');
+	do{
+		*dest++=*src;
+	}while(*src++!='\0');
 	return dest-1;
 }
 #endif
@@ -115,11 +117,11 @@ char *l_strjoinv(const char *sep,char **list)
 	if(i>0) len+=(i-1)*strlen(sep);
 	len++;
 	string=l_alloc(len);
-	ptr=stpcpy(string,*list);
+	ptr=l_stpcpy(string,*list);
 	for(i=1;list[i]!=NULL;i++)
 	{
-		ptr=stpcpy(ptr,sep);
-		ptr=stpcpy(ptr,list[i]);
+		ptr=l_stpcpy(ptr,sep);
+		ptr=l_stpcpy(ptr,list[i]);
 	}
 	return string;
 }

@@ -304,6 +304,8 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 		}
 		if(mb->pull[0])
 			fprintf(fp,"pull=%s\n",mb->pull);
+		if(mb->suffix[0])
+			fprintf(fp,"suffix=%s\n",mb->suffix);
 		if(mb->match)
 			fprintf(fp,"match=1\n");
 		if(mb->wildcard_orig)

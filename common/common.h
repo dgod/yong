@@ -167,11 +167,7 @@ int y_im_history_query(const char *src,char out[][MAX_CAND_LEN+1],int max);
 const char *y_im_history_get_last(int len);
 void y_im_history_flush(void);
 
-#if defined(_WIN32) && !defined(_WIN64)
-void y_im_nl_day(__time64_t t,char *s);
-#else
-void y_im_nl_day(time_t t,char *s);
-#endif
+void y_im_nl_day(int64_t t,char *s);
 
 void *y_dict_open(const char *file);
 void y_dict_close(void *p);
@@ -207,6 +203,7 @@ void y_im_update_main_config(void);
 void y_im_update_sub_config(const char *name);
 void y_im_free_config(void);
 char *y_im_get_config_string(const char *group,const char *key);
+char *y_im_get_config_string_gb(const char *group,const char *key);
 int y_im_get_config_int(const char *group,const char *key);
 int y_im_has_config(const char *group,const char *key);
 const char *y_im_get_config_data(const char *group,const char *key);
@@ -219,6 +216,7 @@ LKeyFile *y_im_get_app_config(const char *exe);
 LKeyFile *y_im_get_app_config_by_pid(int pid);
 #ifdef _WIN32
 LKeyFile *y_im_get_app_config_by_hwnd(HWND w);
+char *y_im_get_app_exe_by_hwnd(HWND w,char out[256]);
 #endif
 
 typedef struct{

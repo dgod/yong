@@ -398,6 +398,7 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 	return 0;
 }
 
+// windows下针对\，空格，双引号的转义规则未知
 static LString *cmdline_from_argv(char **argv)
 {
 	LString *s=l_string_new(8192);
@@ -415,7 +416,7 @@ static LString *cmdline_from_argv(char **argv)
 				c='\\';
 			if(c=='"')
 				l_string_append(s,"\\\"",2);
-			else if(i!=0 && c=='\\' && !l_str_has_prefix(argv[0],"cmd"))
+			else if(i!=0 && space && c=='\\' && !l_str_has_prefix(argv[0],"cmd"))
 				l_string_append(s,"\\\\",2);
 			else
 				l_string_append_c(s,c);

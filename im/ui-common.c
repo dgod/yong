@@ -606,7 +606,7 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 					im.CodePos[2],InputTheme.CodeY+im.cursor_h,
 					InputTheme.text[3],InputTheme.line_width);
 	}
-	if(eim->SelectIndex>=0 && eim->SelectIndex<count && InputTheme.bg_first.a!=0)
+	if(eim && eim->SelectIndex>=0 && eim->SelectIndex<count && InputTheme.bg_first.a!=0)
 	{
 		i=eim->SelectIndex;
 		double *posx=im.CandPosX+3*i;

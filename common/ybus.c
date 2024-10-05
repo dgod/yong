@@ -151,7 +151,20 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	conn->alive=now;
 	conn_list=l_slist_prepend(conn_list,conn);
 	if(plugin->getpid)
+	{
 		conn->pid=plugin->getpid(conn_id);
+#if 0
+		if(conn->pid>0)
+		{
+			char temp[256];
+			sprintf(temp,"/proc/%d/cmdline",conn->pid);
+			FILE *fp=fopen(temp,"rb");
+			fread(temp,1,sizeof(temp),fp);
+			fclose(fp);
+			fprintf(stderr,"%s(%d) connected\n",temp,conn->pid);
+		}
+#endif
+	}
 	
 	ybus_recycle_connect(now);
 	return conn;
@@ -359,7 +372,7 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	time_t now;
 	
 	conn=ybus_find_connect(plugin,conn_id);
-	//printf("focus in %s:%p:%p\n",plugin->name,conn,(void*)client_id);
+	// fprintf(stderr,"focus in %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 	{
 		return 0;
@@ -571,6 +584,11 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		int x=0,y=0;
 		y_ui_cfg_ctrl("status_pos",&x,&y);
 		res=(x<<16)|y;
+		break;
+	}
+	case YBUS_TOOL_IMKEY:
+	{
+		res=y_im_input_key(param);
 		break;
 	}
 	default:

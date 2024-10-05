@@ -584,7 +584,7 @@ void QYongPlatformInputContext::setFocusObject(QObject* object)
 
 void QYongPlatformInputContext::cursorRectChanged()
 {
-	fprintf(stderr,"cursorRectChanged\n");
+	// fprintf(stderr,"cursorRectChanged\n");
 	QWindow *inputWindow = qApp->focusWindow();
 	if (!inputWindow)
 	{
@@ -622,7 +622,7 @@ void QYongPlatformInputContext::cursorRectChanged()
 		r.moveTopLeft(inputWindow->mapToGlobal(r.topLeft()));
 	}
 	qreal scale = inputWindow->devicePixelRatio();
-	// fprintf(stderr,"%d %d %lf\n",r.x(),r.y(),scale);
+	// fprintf(stderr,"%d %d %d %d %lf\n",r.x(),r.y(),r.width(),r.height(),scale);
 	cursor_area.setX(r.x()*scale+screenGeometry.left());
 	cursor_area.setY(r.y()*scale+screenGeometry.top());
 	cursor_area.setWidth(r.width()*scale);

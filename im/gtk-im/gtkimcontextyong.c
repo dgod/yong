@@ -5,6 +5,7 @@
 #include "gtkimcontextyong.h"
 #include "lcall.h"
 #include "yong.h"
+#include "ltime.h"
 #include "ltricky.h"
 
 #define YONG_IGNORED_MASK		(1<<25)
@@ -42,27 +43,27 @@ struct _GtkIMContextYong{
 	gchar *preedit_string;
 };
 
-static void     gtk_im_context_yong_class_init         (GtkIMContextYongClass  *class);
-static void     gtk_im_context_yong_class_fini         (GtkIMContextYongClass  *class);
-static void     gtk_im_context_yong_init               (GtkIMContextYong       *ctx);
-static void     gtk_im_context_yong_finalize           (GObject               *obj);
+static void gtk_im_context_yong_class_init         (GtkIMContextYongClass  *class);
+static void gtk_im_context_yong_class_fini         (GtkIMContextYongClass  *class);
+static void gtk_im_context_yong_init               (GtkIMContextYong       *ctx);
+static void gtk_im_context_yong_finalize           (GObject               *obj);
 #if GTK_CHECK_VERSION(3,92,0)
-static void     gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
+static void gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
 						       GtkWidget             *client_window);
 #else
-static void     gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
+static void gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
 						       GdkWindow             *client_window);
 #endif
 static gboolean gtk_im_context_yong_filter_keypress    (GtkIMContext          *context,
 						       GdkEventKey           *key);
-static void     gtk_im_context_yong_reset              (GtkIMContext          *context);
-static void     gtk_im_context_yong_focus_in           (GtkIMContext          *context);
-static void     gtk_im_context_yong_focus_out          (GtkIMContext          *context);
-static void     gtk_im_context_yong_set_cursor_location (GtkIMContext          *context,
+static void gtk_im_context_yong_reset              (GtkIMContext          *context);
+static void gtk_im_context_yong_focus_in           (GtkIMContext          *context);
+static void gtk_im_context_yong_focus_out          (GtkIMContext          *context);
+static void gtk_im_context_yong_set_cursor_location (GtkIMContext          *context,
                                                        GdkRectangle             *area);
-static void     gtk_im_context_yong_set_use_preedit    (GtkIMContext          *context,
+static void gtk_im_context_yong_set_use_preedit    (GtkIMContext          *context,
                                                        gboolean               use_preedit);
-static void     gtk_im_context_yong_get_preedit_string (GtkIMContext          *context,
+static void gtk_im_context_yong_get_preedit_string (GtkIMContext          *context,
                                                        gchar                **str,
                                                        PangoAttrList        **attrs,
                                                        gint                  *cursor_pos);
@@ -143,8 +144,8 @@ static void gtk_im_context_yong_class_fini(GtkIMContextYongClass *class)
 
 GtkIMContext *gtk_im_context_yong_new (void)
 {
-    GObject *obj = g_object_new (GTK_TYPE_IM_CONTEXT_YONG, NULL);
-    return GTK_IM_CONTEXT (obj);
+	GObject *obj = g_object_new (GTK_TYPE_IM_CONTEXT_YONG, NULL);
+	return GTK_IM_CONTEXT (obj);
 }
 
 static int check_app_type(void)
@@ -372,7 +373,7 @@ static gboolean _set_cursor_location_internal(GtkIMContextYong *ctx)
 		client_set_cursor_location_relative(ctx->id,&area);
 	else
 		client_set_cursor_location(ctx->id,&area);
-    return FALSE;
+	return FALSE;
 }
 
 #if GTK_CHECK_VERSION(3,92,0)
@@ -391,8 +392,7 @@ static void gtk_im_context_yong_set_client_window  (GtkIMContext          *conte
 	}
 }
 #else
-static void gtk_im_context_yong_set_client_window  (GtkIMContext          *context,
-						       GdkWindow             *client_window)
+static void gtk_im_context_yong_set_client_window(GtkIMContext *context,GdkWindow *client_window)
 {
 	GtkIMContextYong *ctx=GTK_IM_CONTEXT_YONG(context);
 	if(ctx->client_window)
@@ -516,6 +516,7 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 	state=event->state;
 	keyval=event->keyval;
 	event_time=event->time;
+	key=GetKey(keyval,state);
 	if(_app_type==APP_DOUBLECMD && !ctx->has_focus)
 	{
 		goto END;
@@ -524,8 +525,10 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 	{
 		gtk_im_context_yong_focus_in(context);
 	}
-
-	key=GetKey(keyval,state);
+	if(_key_snooper_id!=0)
+	{
+		goto END;
+	}
 	if(ctx->has_focus && !(state&YONG_IGNORED_MASK))
 	{
 		if(!key)
@@ -562,10 +565,10 @@ static gboolean gtk_im_context_yong_filter_keypress(GtkIMContext *context,GdkEve
 		else
 		{
 			if(key==_trigger) l_call_client_connect();
-			if(_app_type==APP_MOZILLA && (key=='\r' || key==(YK_ENTER|KEYM_UP)))
-			{
-				res=client_input_key_async(ctx->id,key,event_time);
-			}
+			// if(_app_type==APP_MOZILLA && (key=='\r' || key==(YK_ENTER|KEYM_UP)))
+			// {
+				// res=client_input_key_async(ctx->id,key,event_time);
+			// }
 #if GTK_CHECK_VERSION(3,0,0)
 			if(ctx->app_type==APP_ELECTRON && (key=='\r' || key==(YK_ENTER|KEYM_UP)))
 			{
@@ -614,18 +617,18 @@ END:
 			len = g_unichar_to_utf8(ch,buf);
 			if(len>0 && buf[0]>=0x20 && buf[0]<0x7f)
 			{
-            	buf[len] = '\0';
-            	g_signal_emit(ctx,_signal_commit_id,0,buf);
-            	res=TRUE;
-            }
+				buf[len] = '\0';
+				g_signal_emit(ctx,_signal_commit_id,0,buf);
+				res=TRUE;
+			}
 		}
 	}
 	if(res==FALSE)
 	{
 		GtkIMContextClass *parent;
-	    parent=(GtkIMContextClass*)parent_class;
-    	if (parent->filter_keypress)
-    		return (*parent->filter_keypress) (context, event);
+		parent=(GtkIMContextClass*)parent_class;
+		if (parent->filter_keypress)
+			return (*parent->filter_keypress) (context, event);
 	}
 	return res;
 }
@@ -670,7 +673,7 @@ static void gtk_im_context_yong_focus_in(GtkIMContext *context)
 	{
 		_focus_in_internal(ctx);
 	}
-	                     
+
 	if(_app_type==APP_MOZILLA && !ctx->preedit_string)
 	{
 		g_signal_emit(ctx,_signal_preedit_start_id,0);
@@ -779,7 +782,8 @@ static gboolean client_input_key(guint id,int key,guint32 time)
 {
 	int ret,res;
 	ret=l_call_client_call("input",&res,"iii",id,key,time);
-	if(ret!=0) return 0;
+	if(ret!=0)
+		return FALSE;
 	return res?TRUE:FALSE;
 }
 
@@ -951,7 +955,7 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 			
 			g_signal_emit(ctx,_signal_preedit_changed_id,0);
 			g_signal_emit(ctx,_signal_preedit_end_id,0);
-			//printf("preedit end\n");
+			printf("preedit end\n");
 		}
 	}
 	else if(!strcmp(name,"forward"))

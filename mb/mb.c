@@ -488,12 +488,12 @@ char *y_mb_ci_string(struct y_mb_ci *ci)
 	return out;
 }
 
-char *y_mb_ci_string2(struct y_mb_ci *ci,char *out)
+int y_mb_ci_string2(struct y_mb_ci *ci,char *out)
 {
 	int len=ci->len;
-	memcpy(out,ci->data,ci->len);
+	memcpy(out,ci->data,len);
 	out[len]=0;
-	return out;
+	return len;
 }
 
 static int mb_ci_equal(const struct y_mb_ci *ci,const char *data,int dlen)
@@ -817,21 +817,21 @@ int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *outs[],char hi
 		return -1;
 	}
 	/* calc hz count */
-	len>>=1;
+	// len>>=1;
+	len=gb_strlen2(s,len);
 	/* find hz info */
 	for(i=0;i<len;i++)
 	{
 		s=gb_next(s,&kz.data);
 		if(!s)
 		{
-			//printf("not pure gb18030 string %d/%d:%02x%02x%02x%02x\n",
-			//	i,len,(uint8_t)s[0],(uint8_t)s[1],(uint8_t)s[2],(uint8_t)s[3]);
+			// printf("not pure gb18030 string %d/%d\n",i,len);
 			return -1;
 		}
 		z[i]=mb_hash_find(mb->zi,&kz);
 		if(!z[i])
 		{
-			//printf("not found zi %04x\n",kz.data);
+			// printf("not found zi %04x\n",l_read_u32be(&kz.data));
 			return -1;
 		}
 	}
@@ -2356,6 +2356,9 @@ int y_mb_add_phrase(struct y_mb *mb,const char *code,const char *phrase,int pos,
 	char temp[Y_MB_DATA_SIZE+1];
 	if(clen<=0 || clen>Y_MB_KEY_SIZE)
 		return -1;
+	if(mb->user_words>1 && (dic==Y_MB_DIC_USER || dic==Y_MB_DIC_TEMP) &&
+			gb_strlen(phrase)>mb->user_words)
+		return -1;
 	dlen=mb_escape_data(phrase,temp);
 	if(mb->split=='\'')
 		return mb_add_phrase_qp(mb,code,temp,pos);
@@ -3464,6 +3467,10 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 		{
 			strcpy(mb->pull,line+5);
 		}
+		else if(!strncmp(line,"suffix=",7))
+		{
+			l_strcpy(mb->suffix,sizeof(mb->suffix),line+7);
+		}
 		else if(!strncmp(line,"match=",6))
 		{
 			if(line[6]=='1')
@@ -3562,7 +3569,11 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 		{
 			if(mb->user)
 				free(mb->user);
-			mb->user=strdup(line+5);
+			char file[256];
+			int words=0;
+			l_sscanf(line+5,"%255s %d",file,&words);
+			mb->user=l_strdup(file);
+			mb->user_words=words;
 		}
 		else if(!strncmp(line,"normal=",7) && !(flag&MB_FLAG_ASSIST))
 		{
@@ -4158,7 +4169,7 @@ int y_mb_get_simple(struct y_mb *mb,char *code,char *data,int p)
 		{
 			if(c->del)
 				continue;
-			strcpy(data,y_mb_ci_string(c));
+			y_mb_ci_string2(c,data);
 			return 0;
 		}
 	}
@@ -5289,7 +5300,7 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 						skip++;
 						continue;
 					}
-					strcpy(cand[got],y_mb_ci_string(c));
+					y_mb_ci_string2(c,cand[got]);
 					if(!mb->english && tip!=NULL)
 					{
 						if(c->dic==Y_MB_DIC_ASSIST)

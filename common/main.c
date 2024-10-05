@@ -29,7 +29,7 @@
 static LKeyFile *ConfigSkin;
 
 bool MainShow;
-bool InputShow;
+int InputShow;
 bool RootMode;
 int InputNoShow;
 bool MainNoShow;
@@ -348,18 +348,31 @@ static struct{
 	{"menu",{"menu_img",0},UI_BTN_MENU,NULL},
 };
 
+static bool get_dark_mode(void)
+{
+	const char *dark=y_im_get_config_data("main","dark");
+	if(dark && dark[0])
+		return atoi(dark)?true:false;
+	return y_ui_get_dark();
+}
+
 void update_main_window(void)
 {
 	UI_MAIN param;
 	UI_BUTTON btn;
 	char *tmp;
 	int i,j;
+	const char *main_group="main";
+	const bool is_dark=(bool)l_key_file_get_int(ConfigSkin,"about","dark");
+
+	if(is_dark && l_key_file_has_group(ConfigSkin,"main-dark"))
+		main_group="main-dark";
 	
 	memset(&param,0,sizeof(param));
 
-	param.scale=l_key_file_get_int(ConfigSkin,"main","scale");
-	param.force_scale=l_key_file_get_data(ConfigSkin,"main","scale")?1:0;
-	tmp=(char *)l_key_file_get_data(ConfigSkin,"main","line_width");
+	param.scale=l_key_file_get_int(ConfigSkin,main_group,"scale");
+	param.force_scale=l_key_file_get_data(ConfigSkin,main_group,"scale")?1:0;
+	tmp=(char *)l_key_file_get_data(ConfigSkin,main_group,"line_width");
 	if(!tmp)
 	{
 		param.line_width=1;
@@ -369,21 +382,21 @@ void update_main_window(void)
 		param.line_width=strtod(tmp,NULL);
 		param.move_style=1;
 	}
-	param.bg=l_key_file_get_string(ConfigSkin,"main","bg");
+	param.bg=l_key_file_get_string(ConfigSkin,main_group,"bg");
 	if(!param.bg) param.bg=l_strdup("#ffffff");
 	if(param.bg[0]=='#')
 	{
-		param.border=l_key_file_get_string(ConfigSkin,"main","border");
+		param.border=l_key_file_get_string(ConfigSkin,main_group,"border");
 		if(!param.border) param.border=l_strdup("#CBCAE6");
-		param.radius=l_key_file_get_int(ConfigSkin,"main","radius");
+		param.radius=l_key_file_get_int(ConfigSkin,main_group,"radius");
 		if(param.radius<0 || param.radius>7)
 			param.radius=0;
 		// param.radius=7;
 	}
-	param.tran=l_key_file_get_int(ConfigSkin,"main","tran");
+	param.tran=l_key_file_get_int(ConfigSkin,main_group,"tran");
 	if(param.tran<0 || param.tran>255) param.tran=0;
 
-	tmp=l_key_file_get_string(ConfigSkin,"main","size");
+	tmp=l_key_file_get_string(ConfigSkin,main_group,"size");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d",&param.rc.w,&param.rc.h);
@@ -395,7 +408,7 @@ void update_main_window(void)
 		param.force_scale=0;
 	}
 
-	tmp=(char*)y_im_get_config_data("main","pos");
+	tmp=(char*)y_im_get_config_data(main_group,"pos");
 	if(tmp)
 	{
 		param.rc.y=-1;
@@ -406,13 +419,13 @@ void update_main_window(void)
 			y_ui_cfg_ctrl("calc",pos[1],&param.rc.y);
 		l_strfreev(pos);
 	}
-	tmp=(char*)l_key_file_get_data(ConfigSkin,"main","move");
+	tmp=(char*)l_key_file_get_data(ConfigSkin,main_group,"move");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d,%d,%d",&param.move.x,&param.move.y,
 			&param.move.w,&param.move.h);
 	}
-	param.auto_tran=y_im_get_config_int("main","tran");
+	param.auto_tran=y_im_get_config_int(main_group,"tran");
 
 	y_ui_main_update(&param);
 	l_free(param.bg);
@@ -421,7 +434,7 @@ void update_main_window(void)
 	for(i=0;i<MAIN_BTN_COUNT;i++)
 	{
 		char key[64];
-		tmp=l_key_file_get_string(ConfigSkin,"main",main_btns[i].name);
+		tmp=l_key_file_get_string(ConfigSkin,main_group,main_btns[i].name);
 		if(!tmp)
 		{
 			for(j=0;j<2;j++)
@@ -437,15 +450,15 @@ void update_main_window(void)
 		}
 		l_free(tmp);
 		sprintf(key,"%s_font",main_btns[i].name);
-		btn.font=l_key_file_get_string(ConfigSkin,"main",key);
+		btn.font=l_key_file_get_string(ConfigSkin,main_group,key);
 		sprintf(key,"%s_color",main_btns[i].name);
-		btn.color=l_key_file_get_string(ConfigSkin,"main",key);
+		btn.color=l_key_file_get_string(ConfigSkin,main_group,key);
 		for(j=0;j<2;j++)
 		{
 			char *p;
 			char *normal,*over,*down;			
 			if(!main_btns[i].sub[j]) break;
-			tmp=l_key_file_get_string(ConfigSkin,"main",main_btns[i].sub[j]);
+			tmp=l_key_file_get_string(ConfigSkin,main_group,main_btns[i].sub[j]);
 			assert(tmp);
 			p=tmp;
 			normal=strtok(p,",");
@@ -461,7 +474,7 @@ void update_main_window(void)
 		l_free(btn.color);
 	}
 
-	MainNoShow=y_im_get_config_int("main","noshow");
+	MainNoShow=y_im_get_config_int(main_group,"noshow");
 	if(MainNoShow)
 	{
 		y_ui_main_show(0);
@@ -471,7 +484,7 @@ void update_main_window(void)
 		MainShow=0;
 		YongShowMain(1);
 	}
-	tip_main=y_im_get_config_int("main","tip");
+	tip_main=y_im_get_config_int(main_group,"tip");
 }
 
 void update_tray_icon(void)
@@ -532,18 +545,23 @@ void update_input_window(void)
 	UI_INPUT param;
 	char *tmp,*p,*t;
 	int i;
+	const char *input_group="input";
+	const bool is_dark=(bool)l_key_file_get_int(ConfigSkin,"about","dark");
+
+	if(is_dark && l_key_file_has_group(ConfigSkin,"input-dark"))
+		input_group="input-dark";
 
 	memset(&param,0,sizeof(param));
-	param.scale=l_key_file_get_int(ConfigSkin,"input","scale");
+	param.scale=l_key_file_get_int(ConfigSkin,input_group,"scale");
 	param.force_scale=l_key_file_get_data(ConfigSkin,"main","scale")?1:0;
-	tmp=(char *)l_key_file_get_data(ConfigSkin,"input","line_width");
+	tmp=(char *)l_key_file_get_data(ConfigSkin,input_group,"line_width");
 	if(!tmp)
 		param.line_width=1;
 	else
 		param.line_width=strtod(tmp,NULL);
-	param.line=l_key_file_get_int(ConfigSkin,"input","line");
-	param.caret=l_key_file_get_int(ConfigSkin,"input","caret");
-	tmp=l_key_file_get_string(ConfigSkin,"input","page");
+	param.line=l_key_file_get_int(ConfigSkin,input_group,"line");
+	param.caret=l_key_file_get_int(ConfigSkin,input_group,"caret");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"page");
 	if(tmp)
 	{
 		char temp[16],color[16];
@@ -565,7 +583,7 @@ void update_input_window(void)
 		l_free(tmp);
 		// printf("%d %d %x %x %x\n",ret,param.page.show,param.page.text[0],param.page.text[1],param.page.color.color);
 	}
-	tmp=l_key_file_get_string(ConfigSkin,"input","bg");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"bg");
 	if(!tmp)
 	{
 		param.bg[0]=l_strdup("#ffffff");
@@ -581,7 +599,7 @@ void update_input_window(void)
 		l_free(tmp);
 		// param.bg[1]=l_strdup("#ff0000");
 
-		tmp=l_key_file_get_string(ConfigSkin,"input","pad");
+		tmp=l_key_file_get_string(ConfigSkin,input_group,"pad");
 		if(tmp)
 		{
 			int top,right,bottom,left;
@@ -602,12 +620,12 @@ void update_input_window(void)
 			l_free(tmp);
 		}
 	}
-	param.tran=l_key_file_get_int(ConfigSkin,"input","tran");
+	param.tran=l_key_file_get_int(ConfigSkin,input_group,"tran");
 	if(param.tran<0 || param.tran>255) param.tran=0;	
 
 	if(param.bg[0][0]=='#')
 	{
-		tmp=l_key_file_get_string(ConfigSkin,"input","size");
+		tmp=l_key_file_get_string(ConfigSkin,input_group,"size");
 		if(tmp)
 		{
 			l_sscanf(tmp,"%d,%d",&param.w,&param.h);
@@ -617,17 +635,17 @@ void update_input_window(void)
 		{
 			param.w=192;param.h=50;
 		}
-		param.border=l_key_file_get_string(ConfigSkin,"input","border");
+		param.border=l_key_file_get_string(ConfigSkin,input_group,"border");
 		if(!param.border)
 			param.border=l_strdup("#CBCAE6");
-		param.radius=l_key_file_get_int(ConfigSkin,"input","radius");
+		param.radius=l_key_file_get_int(ConfigSkin,input_group,"radius");
 		if(param.radius<0 || param.radius>7)
 			param.radius=0;
 		// param.radius=7;
 	}
 	else
 	{
-		tmp=l_key_file_get_string(ConfigSkin,"input","size");
+		tmp=l_key_file_get_string(ConfigSkin,input_group,"size");
 		if(tmp)
 		{
 			l_sscanf(tmp,"%d,%d",&param.w,&param.h);
@@ -639,20 +657,20 @@ void update_input_window(void)
 			param.force_scale=0;
 		}
 	}
-	tmp=l_key_file_get_string(ConfigSkin,"input","msize");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"msize");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d",&param.mw,&param.mh);
 		l_free(tmp);
 	}
-	tmp=l_key_file_get_string(ConfigSkin,"input","height");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"height");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d",&param.h);
 		l_free(tmp);
 	}
 	
-	tmp=l_key_file_get_string(ConfigSkin,"input","stretch");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"stretch");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%hd,%hd %hd,%hd",
@@ -663,7 +681,7 @@ void update_input_window(void)
 			param.mw=param.left+param.right+1;
 	}
 	
-	tmp=l_key_file_get_string(ConfigSkin,"input","work");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"work");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%hd,%hd %hd",&param.work_left,&param.work_right,
@@ -672,7 +690,7 @@ void update_input_window(void)
 	}
 
 	t=tmp=y_im_get_config_string("input","color");
-	if(!t) t=tmp=l_key_file_get_string(ConfigSkin,"input","color");
+	if(!t) t=tmp=l_key_file_get_string(ConfigSkin,input_group,"color");
 	if(!t) t=tmp=l_strdup("");
 	p=strtok(t,",");param.text[0]=l_strdup(p?p:"#0042C8");
 	p=strtok(NULL,",");param.text[1]=l_strdup(p?p:"#161343");
@@ -691,11 +709,11 @@ void update_input_window(void)
 		l_free(tmp);
 		tmp=0;
 	}
-	if(!tmp) tmp=l_key_file_get_string(ConfigSkin,"input","font");
+	if(!tmp) tmp=l_key_file_get_string(ConfigSkin,input_group,"font");
 	if(!tmp) tmp=l_strdup("Monospace 12");
 	param.font=tmp;
 
-	tmp=l_key_file_get_string(ConfigSkin,"input","code");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"code");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d",&param.code.x,&param.code.y);
@@ -705,7 +723,7 @@ void update_input_window(void)
 	{
 		param.code.x=10;param.code.y=3;
 	}
-	tmp=l_key_file_get_string(ConfigSkin,"input","cand");
+	tmp=l_key_file_get_string(ConfigSkin,input_group,"cand");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d",&param.cand.x,&param.cand.y);
@@ -717,16 +735,16 @@ void update_input_window(void)
 	}
 
 	param.hint=y_im_get_config_int("input","hint");
-	param.no=l_key_file_get_int(ConfigSkin,"input","no");
-	param.sep=l_key_file_get_string(ConfigSkin,"input","sep");
-	param.space=l_key_file_get_int(ConfigSkin,"input","space");
+	param.no=l_key_file_get_int(ConfigSkin,input_group,"no");
+	param.sep=l_key_file_get_string(ConfigSkin,input_group,"sep");
+	param.space=l_key_file_get_int(ConfigSkin,input_group,"space");
 	if(!param.space) param.space=10;
 	param.root=y_im_get_config_int("input","root");
 	param.noshow=y_im_get_config_int("input","noshow");
 	param.strip=get_input_strip();
 	tmp=y_im_get_config_string("input","offset");
 	if(!tmp)
-		tmp=l_key_file_get_string(ConfigSkin,"input","offset");
+		tmp=l_key_file_get_string(ConfigSkin,input_group,"offset");
 	if(tmp)
 	{
 		l_sscanf(tmp,"%d,%d",&param.off.x,&param.off.y);
@@ -734,14 +752,18 @@ void update_input_window(void)
 	}
 	RootMode=param.root?TRUE:FALSE;
 	InputNoShow=param.noshow;
-	tmp=y_im_get_config_string("input","pos");
+	tmp=(char*)y_im_get_config_data("input","pos");
 	if(tmp)
 	{
-		int ret=l_sscanf(tmp,"%d,%d",&param.x,&param.y);
-		if(ret!=2) param.y=-1;
-		l_free(tmp);
+		param.y=-1;
+		char **pos=l_strsplit(tmp,',');
+		if(pos[0])
+			y_ui_cfg_ctrl("calc",pos[0],&param.x);
+		if(pos[1])
+			y_ui_cfg_ctrl("calc",pos[1],&param.y);
+		l_strfreev(pos);
 	}
-	param.cand_max=l_key_file_get_int(ConfigSkin,"input","cand_max");
+	param.cand_max=l_key_file_get_int(ConfigSkin,input_group,"cand_max");
 
 	y_ui_input_update(&param);
 	for(i=0;i<L_ARRAY_SIZE(param.bg);i++)
@@ -826,6 +848,11 @@ static void update_config_skin(void)
 	}
 	y_ui_skin_path(tmp);
 	l_free(tmp);
+	if(ConfigSkin!=NULL)
+	{
+		l_key_file_set_inherit(ConfigSkin,'-');
+		l_key_file_set_int(ConfigSkin,"about","dark",(int)get_dark_mode());
+	}
 }
 
 const void *YongGetSelectNumber(int n)
@@ -1181,26 +1208,42 @@ void YongShowInput(int show)
 	if(!InputShow && show && id && !id->state)
 		return;
 
-	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])/* ||
-		(InputNoShow==2 && MainShow && 
-		id && id->lang!=LANG_EN && id->corner!=CORNER_FULL)*/))
+	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])))
 	{
 		YongMoveInput(POSITION_ORIG,POSITION_ORIG);
 		if(InputNoShow!=1 || im.CodeInputEngine[0]=='`' || im.EnglishMode)
 		{
 			y_ui_input_show(1);
-			InputShow=TRUE;
+			InputShow=1;
 		}
 	}
 	else if(!show && InputShow && (InputNoShow!=2 || !MainShow ||
 		!id || id->lang==LANG_EN || id->corner==CORNER_FULL))
 	{
+		if(InputShow==2)
+			y_ui_timer_del(HideInputLater,NULL);
 		y_ui_input_show(0);
-		InputShow=FALSE;
+		InputShow=0;
 	}
 	else if(!show && InputShow && InputNoShow==2)
 	{
-		y_ui_timer_add(3000,HideInputLater,NULL);
+		if(id->state)
+		{
+			y_ui_timer_add(3000,HideInputLater,NULL);
+			InputShow=2;
+		}
+		else
+		{
+			if(InputShow==2)
+				y_ui_timer_del(HideInputLater,NULL);
+			y_ui_input_show(0);
+			InputShow=0;
+		}
+	}
+	else if(show && InputShow==2 && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])))
+	{	
+		y_ui_timer_del(HideInputLater,NULL);
+		InputShow=1;
 	}
 	if(InputNoShow==1 && auto_show && eim)
 	{
@@ -1208,18 +1251,22 @@ void YongShowInput(int show)
 			eim->CodeLen>=auto_show && eim->CandWordCount>1)
 		{
 			y_ui_input_show(1);
-			InputShow=TRUE;
+			InputShow=1;
 		}
 		else if(InputShow && eim->CodeLen<auto_show)
 		{
 			y_ui_input_show(0);
-			InputShow=FALSE;
+			InputShow=0;
 		}
 	}
 	if(show && !InputShow && im.EnglishMode)
 	{
+		if(InputShow==2)
+		{
+			y_ui_timer_del(HideInputLater,NULL);
+		}
 		y_ui_input_show(1);
-		InputShow=TRUE;
+		InputShow=1;
 	}
 	if(!show && InputShow)
 	{
@@ -1384,7 +1431,6 @@ int YongHotKey(int key)
 		return 0;
 	if(!key)
 		return 0;
-
 	if(y_im_key_eq(key,key_trigger) || key==YK_VIRT_TRIGGER_ON || key==YK_VIRT_TRIGGER_OFF)
 	{
 		if(key==YK_VIRT_TRIGGER_ON && id->state)
@@ -1929,7 +1975,11 @@ IMR_TEST:
 				{
 					y_xim_send_string2(eim->StringGet,0);
 					eim->StringGet[0]=0;
-					YongAppendPunc(id,eim->StringGet,key);
+					if(0==YongAppendPunc(id,eim->StringGet,key))
+					{
+						char temp[2]={key,0};
+						y_xim_send_string2(temp,0);
+					}
 				}
 				y_xim_send_string(eim->StringGet);
 				YongResetIM();
@@ -2199,7 +2249,7 @@ IMR_TEST:
 				y_xim_send_string2("",true);
 				return ret;
 			}
-			else if((key&KEYM_MASK)==KEYM_ALT/* && !alt_bd_disable*/)
+			else if((key&KEYM_MASK)==KEYM_ALT)
 			{
 				const char *s;
 				key=YK_CODE(key);
@@ -2381,7 +2431,7 @@ void YongResetIM(void)
 	YongResetIM_();
 	YongShowInput(0);
 	y_xim_preedit_clear();
-	y_ui_timer_del(HideInputLater,NULL);
+	// y_ui_timer_del(HideInputLater,NULL);
 	y_ui_timer_del((void*)YongResetIM,NULL);
 }
 
