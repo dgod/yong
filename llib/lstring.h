@@ -23,10 +23,13 @@ typedef struct{
 #define L_STRING_INIT (LString){.size=0}
 
 LString *l_string_new(int size);
+void l_string_init(LString *string,int size);
 void l_string_free(LString *string);
 void l_string_expand(LString *string,int len);
 void l_string_append(LString *string,const char *val,int len);
 void l_string_append_c(LString *string,int c);
+char *l_string_steal(LString *string);
+void l_string_clear(LString *string);
 
 void l_strup(char *s);
 void l_strdown(char *s);
@@ -46,6 +49,7 @@ char *l_stpcpy(char *dest,const char *src);
 void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_mempos(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_strpos(const char *haystack,const char *needle);
+int l_chrpos(const char *s,int c);
 
 #define L_INT2STR_HZ			0x01
 #define L_INT2STR_UTF8			0x03
@@ -57,6 +61,9 @@ int l_strpos(const char *haystack,const char *needle);
 #define L_INT2STR_MINSEC		0x80
 #define L_INT2STR_NEST			0x100
 int l_int_to_str(int64_t n,const char *format,int flags,char *out);
+
+int l_strtok(const char *str,int delim,const char *res[],int limit);
+int l_strtok0(char *str,int delim,char *res[],int limit);
 
 #endif/*_LSTRING_H_*/
 

@@ -299,6 +299,37 @@ char *mb_key_conv_r(struct y_mb *mb,uint16_t index,uintptr_t in)
 	return out;
 }
 
+int y_mb_key_to_code(struct y_mb *mb,struct y_mb_index *index,struct y_mb_item *item,char out[Y_MB_KEY_SIZE+1])
+{
+	int i,c,pos=0;
+	uint16_t index_val=index->index;
+	uintptr_t in=item->code;
+	
+	out[0]=mb->key[index_val>>8];
+	out[1]=mb->key[index_val&0xff];
+	if(!out[1])
+		pos=1;
+	else
+		pos=2;
+
+	if(!(in&Y_MB_KEY_MARK))
+	{
+		for(i=0;(c=((char*)in)[i])!=0;i++)
+		{
+			out[i+pos]=mb->key[c];
+		}
+	}
+	else
+	{
+		for(i=0;i<Y_MB_KEY_CP && (c=(in&mb_key_mask[i])>>mb_key_shift[i])!=0;i++)
+		{
+			out[i+pos]=mb->key[c];
+		}
+	}
+	out[i+pos]=0;
+	return i+pos;
+}
+
 static inline int mb_key_len(uintptr_t s)
 {
 	int i;
@@ -337,6 +368,7 @@ static int mb_key_is_part(uintptr_t full,uintptr_t part)
 		{
 			c1=((char*)full)[i];
 			c2=(part&mb_key_mask[i])>>mb_key_shift[i];
+			if(!c2) break;
 			if(c1!=c2)
 				return 0;
 		}
@@ -788,7 +820,7 @@ int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *outs[],char hi
 	int outp;
 	char *out;
 
-	if(L_UNLIKELY(mb->english))
+	if(unlikely(mb->english))
 	{
 		outp=0;
 		out=outs[outp];
@@ -818,11 +850,11 @@ int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *outs[],char hi
 	}
 	/* calc hz count */
 	// len>>=1;
-	len=gb_strlen2(s,len);
+	len=l_gb_strlen(s,len);
 	/* find hz info */
 	for(i=0;i<len;i++)
 	{
-		s=gb_next(s,&kz.data);
+		s=gb_next_be(s,&kz.data);
 		if(!s)
 		{
 			// printf("not pure gb18030 string %d/%d\n",i,len);
@@ -1131,7 +1163,7 @@ int y_mb_find_code(struct y_mb *mb,const char *hz,char (*tab)[MAX_CAND_LEN+1],in
 	len=strlen(hz);
 	if(len!=2 && len!=4)
 		return 0;
-	kz.data=gb_first(hz);
+	kz.data=l_gb_to_char(hz);
 	z=mb_hash_find(mb->zi,&kz);
 	if(!z)
 		return 0;
@@ -1200,7 +1232,7 @@ int y_mb_find_simple_code(struct y_mb *mb,const char *hz,const char *code,char *
 	len=strlen(hz);
 	if(len!=2 && len!=4)
 		return 0;
-	kz.data=gb_first(hz);
+	kz.data=l_gb_to_char(hz);
 	z=mb_hash_find(mb->zi,&kz);
 	if(!z)
 		return 0;
@@ -1257,12 +1289,12 @@ const char *y_mb_skip_display(const char *s,int len)
 	while(1)
 	{
 		uint32_t hz;
-		end=gb_next(end,&hz);
+		end=gb_next_be(end,&hz);
 		if(!end || hz==' ')
 			return s;
 		if(hz=='$')
 		{
-			end=gb_next(end,&hz);
+			end=gb_next_be(end,&hz);
 			if(!end)
 				return s;
 			if(hz=='[' || hz==']')
@@ -1286,14 +1318,14 @@ struct y_mb_zi *mb_find_zi(struct y_mb *mb,const char *s)
 {
 	if(s[0]=='$')
 		s=y_mb_skip_display(s,-1);
-	uint32_t data=gb_first(s);
+	uint32_t data=l_gb_to_char(s);
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,data);
 	return z;
 }
 
 int y_mb_zi_has_code(struct y_mb *mb,const char *zi,const char *code)
 {
-	uint32_t hz=gb_first((const uint8_t*)zi);
+	uint32_t hz=l_gb_to_char((const uint8_t*)zi);
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
 	if(!z)
 	{
@@ -1444,7 +1476,7 @@ static struct y_mb_zi *mb_add_zi(struct y_mb *mb,const char *code,int clen,const
 		if(mv==-1)
 			return 0;
 		data=y_mb_skip_display(data,dlen);			
-		key=gb_first((const uint8_t *)data);
+		key=l_gb_to_char(data);
 		z=mb_slice_new(struct y_mb_zi);
 		z->code=0;
 		z->data=key;
@@ -1526,7 +1558,7 @@ static struct y_mb_item *mb_get_item(struct y_mb_index *index,uintptr_t key)
 
 static void mb_index_free1(struct y_mb_index *index)
 {
-	mb_slist_foreach(index->item,(LFunc)mb_item_free2,NULL);
+	mb_slist_foreach(index->item,(LEnumFunc)mb_item_free2,NULL);
 	mb_slist_free(struct y_mb_item,index->item);
 }
 
@@ -2043,7 +2075,7 @@ static inline struct y_mb_ci *mb_add_one_ci(
 	return 0;
 }
 
-static int py_first_code(uint32_t hz,char* code,struct y_mb *mb)
+int py_first_code(uint32_t hz,char* code,struct y_mb *mb)
 {
 	struct y_mb_zi *z,kz={.data=hz};
 	z=mb_hash_find(mb->zi,&kz);
@@ -2109,6 +2141,10 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 				code+=temp;
 				clen-=temp;
 			}
+			if(clen==0)
+			{
+				return NULL;
+			}
 		}
 	}
 	if(mb->pinyin==1 && mb->split=='\'')
@@ -2138,7 +2174,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 
 	index_val=mb_ci_index(mb,code,clen,0);
 	
-	if(L_UNLIKELY(data[0]=='~'))
+	if(unlikely(data[0]=='~'))
 	{
 		if(dlen==3 && gb_is_gbk((uint8_t*)data+1))
 			revert=1;
@@ -2151,7 +2187,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 		}
 	}
 	
-	if(L_UNLIKELY(dlen<=0))
+	if(unlikely(dlen<=0))
 		return NULL;
 	if(pos==Y_MB_DELETE)
 	{
@@ -2162,7 +2198,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 		if(!dlen) return NULL;
 		if(mb->error)
 		{
-			char *temp=l_strndupa(data,dlen);
+			char *temp=l_memdupa0(data,dlen);
 			y_mb_error_add(mb,temp);
 		}
 		index=mb_get_index(mb,index_val);
@@ -2210,7 +2246,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 	{
 		it=mb_add_one_code(mb,index,code,clen);
 	}
-	if(L_UNLIKELY(!it))
+	if(unlikely(!it))
 	{
 		//printf("add code %s fail\n",code);
 		return NULL;
@@ -2245,24 +2281,11 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 	return ci;
 }
 
-typedef struct _error_phrase{
-	struct _error_phrase *next;
-	char *phrase;
-}ERROR_PHRASE;
-
-static void error_phrase_free(ERROR_PHRASE *ep)
-{
-	if(!ep)
-		return;
-	l_free(ep->phrase);
-	l_free(ep);
-}
-
 int y_mb_error_init(struct y_mb *mb)
 {
 	if(mb->error)
 		return 0;
-	mb->error=L_HASH_TABLE_STRING(ERROR_PHRASE,phrase,0);
+	mb->error=l_string_set_new(0);
 	return 0;
 }
 
@@ -2270,7 +2293,7 @@ static int y_mb_error_free(struct y_mb *mb)
 {
 	if(!mb->error)
 		return 0;
-	l_hash_table_free(mb->error,(LFreeFunc)error_phrase_free);
+	l_string_set_free(mb->error);
 	mb->error=NULL;
 	return 0;
 }
@@ -2279,19 +2302,14 @@ bool y_mb_error_has(struct y_mb *mb,const char *phrase)
 {
 	if(!mb->error)
 		return false;
-	return l_hash_table_lookup(mb->error,phrase)?true:false;
+	return l_string_set_has(mb->error,phrase);
 }
 
 int y_mb_error_add(struct y_mb *mb,const char *phrase)
 {
 	if(!mb->error)
 		return 0;
-	ERROR_PHRASE *ep=l_new(ERROR_PHRASE);
-	ep->phrase=l_strdup(phrase);
-	if(!l_hash_table_insert(mb->error,ep))
-	{
-		error_phrase_free(ep);
-	}
+	l_string_set_add(mb->error,phrase);
 	return 0;
 }
 
@@ -2299,9 +2317,7 @@ int y_mb_error_del(struct y_mb *mb,const char *phrase)
 {
 	if(!mb->error)
 		return 0;
-	ERROR_PHRASE *ep,key={.phrase=(char*)phrase};
-	ep=l_hash_table_remove(mb->error,&key);
-	error_phrase_free(ep);
+	l_string_set_del(mb->error,phrase);
 	return 0;
 }
 
@@ -2357,7 +2373,7 @@ int y_mb_add_phrase(struct y_mb *mb,const char *code,const char *phrase,int pos,
 	if(clen<=0 || clen>Y_MB_KEY_SIZE)
 		return -1;
 	if(mb->user_words>1 && (dic==Y_MB_DIC_USER || dic==Y_MB_DIC_TEMP) &&
-			gb_strlen(phrase)>mb->user_words)
+			l_gb_strlen(phrase,-1)>mb->user_words)
 		return -1;
 	dlen=mb_escape_data(phrase,temp);
 	if(mb->split=='\'')
@@ -2374,11 +2390,6 @@ int y_mb_add_phrase(struct y_mb *mb,const char *code,const char *phrase,int pos,
 			y_mb_save_user(mb);
 	}
 	return c?0:-1;
-}
-
-static inline int mb_data0_is_english(const uint8_t *in,int len)
-{
-	return (in[0]&0x80)==0;
 }
 
 struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len,int count)
@@ -2400,7 +2411,7 @@ struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len,int cou
 		return 0;
 	for(c=p->phrase;c;c=c->next)
 	{
-		if(mb_data0_is_english(c->data,c->len))
+		if(c->data[0]<0x80)
 			continue;
 		if(count>0 && c->len!=count)
 			continue;
@@ -2827,11 +2838,11 @@ static int mb_load_zi(struct y_mb *mb,FILE *fp)
 		else
 			len=get_line_iconv(line,sizeof(line),fp);
 
-		if(L_UNLIKELY(len<0))
+		if(unlikely(len<0))
 			break;
-		else if(L_UNLIKELY((len==0 || line[0]=='#') && !mb->jing_used))
+		else if(unlikely((len==0 || line[0]=='#') && !mb->jing_used))
 			continue;
-		if(L_UNLIKELY(line[0] & 0x80))
+		if(unlikely(line[0] & 0x80))
 			continue;
 
 		for(clen=0;clen<=Y_MB_KEY_SIZE && line[clen] && line[clen]!=' ';clen++);
@@ -2899,12 +2910,16 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 		else
 			len=get_line_iconv(line,sizeof(line),fp);
 
-		if(L_UNLIKELY(len<0))
+		if(unlikely(len<0))
 			break;
-		else if(L_UNLIKELY((len==0 || line[0]=='#') && !mb->jing_used))
+		else if(unlikely((len==0 || line[0]=='#') && !mb->jing_used))
+		{
+			if(!strcmp(line,"# exit"))
+				break;
 			continue;
+		}
 		
-		if(L_UNLIKELY(line[0] & 0x80))
+		if(unlikely(line[0] & 0x80))
 		{
 			/* no code phrase */			
 			int ret;
@@ -2935,7 +2950,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 			}
 			continue;
 		}
-		if(L_UNLIKELY(!in_data && line[0]=='[' && !strcasecmp(line,"[DATA]")))
+		if(unlikely(!in_data && line[0]=='[' && !strcasecmp(line,"[DATA]")))
 		{
 			in_data=1;
 			continue;
@@ -2952,7 +2967,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 			if(dlen<=0) break;
 			if(!c || (mb->flag&MB_FLAG_SLOW))
 			{
-				if(L_UNLIKELY(has_space))
+				if(unlikely(has_space))
 				{
 					for(int j=0;j<clen;j++)
 					{
@@ -2961,7 +2976,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 					}
 				}
 				c=mb_add_one(mb,line,clen,data,dlen,Y_MB_APPEND,dic);
-				if(L_UNLIKELY(!c))
+				if(unlikely(!c))
 					break;
 				// move to end, let next phrase append at end
 				while(c->next) c=c->next;
@@ -3106,19 +3121,27 @@ out:
 
 }
 
+static int mb_load_sub_dict(struct y_mb *mb,const char *dict);
 int y_mb_load_quick(struct y_mb *mb,const char *quick)
 {
 	if(!quick || !quick[0])
 		return -1;
 	char quick_lead;
 	int quick_lead0=0;
-	char file[256];
+	char file[256],*files[10];
 	int ret=l_sscanf(quick,"%c %s %d",&quick_lead,file,&quick_lead0);
 	if(ret<2)
 		return -1;
-	mb->quick_mb=y_mb_load(file,MB_FLAG_ASSIST|MB_FLAG_NOUSER,NULL);
-	if(!mb->quick_mb)
-		return -1;
+	l_strtok0(file,',',files,lengthof(files));
+	mb->quick_mb=y_mb_new();
+	strcpy(mb->quick_mb->key+1,"abcdefghijklmnopqrstuvwxyz");
+	y_mb_key_map_init(mb->quick_mb->key,0,mb->quick_mb->map);
+	for(int i=0;i<lengthof(files);i++)
+	{
+		if(!files[i])
+			break;
+		mb_load_sub_dict(mb->quick_mb,files[i]);
+	}
 	mb->quick_lead=quick_lead;
 	mb->quick_lead0=quick_lead0;
 	return 0;
@@ -3134,12 +3157,10 @@ static void pin_free(struct y_mb_pin_item *item)
 
 int y_mb_load_pin(struct y_mb *mb,const char *pin)
 {
-	FILE *fp;
-	struct y_mb_index *index;
+	if(!pin)
+		return -1;
 	
-	if(!pin) return -1;
-	
-	fp=y_mb_open_file(pin,"rb");
+	FILE *fp=y_mb_open_file(pin,"rb");
 	if(!fp)
 		return -1;
 	//assert(mb->pin==NULL);
@@ -3148,11 +3169,10 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin)
 		l_hash_table_free(mb->pin,(LFreeFunc)pin_free);
 		mb->pin=NULL;
 	}
-	mb->pin=L_HASH_TABLE_STRING(struct y_mb_pin_item,data,0);
+	mb->pin=L_HASH_TABLE_STRING(struct y_mb_pin_item,data,0);	
 	mb_load_data(mb,fp,Y_MB_DIC_PIN);
-	fclose(fp);	
-	
-	for(index=mb->index;index;index=index->next)
+	fclose(fp);
+	for(struct y_mb_index *index=mb->index;index;index=index->next)
 	{
 		struct y_mb_item *it=index->item;
 		while(it)
@@ -3172,7 +3192,6 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin)
 				if(cp->dic==Y_MB_DIC_PIN && pos<128)
 				{
 					struct y_mb_pin_ci *pc;
-	
 					if(!item)
 					{
 						item=l_hash_table_lookup(mb->pin,code);
@@ -3305,9 +3324,7 @@ static int mb_load_sub_dict(struct y_mb *mb,const char *dict)
 
 struct y_mb *y_mb_new(void)
 {
-	struct y_mb *mb;
-	mb=calloc(1,sizeof(*mb));
-	return mb;
+	return l_new0(struct y_mb);
 }
 
 static void mb_load_assist_config(struct y_mb *mb,int flag,const char *line)
@@ -3511,6 +3528,8 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 		{
 			mb->pinyin=atoi(line+7);
 			mb->dirty_max=20;
+			if(mb->split==0)
+				mb->split=1;
 		}
 		else if(!strcmp(line,"hint=0"))
 		{
@@ -3956,7 +3975,7 @@ void y_mb_free(struct y_mb *mb)
 	}
 	if(mb->index)
 	{
-		mb_slist_foreach(mb->index,(LFunc)mb_index_free2,0);
+		mb_slist_foreach(mb->index,(LEnumFunc)mb_index_free2,0);
 		mb_slist_free(struct y_mb_index,mb->index);
 	}
 	trie_tree_free(mb->trie);
@@ -4140,6 +4159,8 @@ int y_mb_has_next(struct y_mb *mb,int dext)
 				c=c->next;
 			}
 		}
+		if(!mb->nsort)
+			break;
 		p=p->next;
 	}
 	return 0;
@@ -4177,7 +4198,7 @@ int y_mb_get_simple(struct y_mb *mb,char *code,char *data,int p)
 	return -1;
 }
 
-static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
+static int y_mb_max_match_qp(struct y_mb *mb,const char *s,int len,int dlen,
 		int filter,int *good,int *less)
 {
 	trie_iter_t iter;
@@ -4187,7 +4208,6 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 	py_item_t token[128+1];
 	int count;
 	int i;
-	int tail;
 	char *p;
 	int match=1,exact=0,exact_l=0;
 
@@ -4196,38 +4216,44 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 	{
 		return -1;
 	}
-	
-	tail=s[len];
-	count=py_parse_string(s,token,0,NULL,NULL);
-	token[count]=NULL;
-	s[len]=tail;
+
+	if(s[len]!=0)
+	{
+		char temp[MAX_CODE_LEN+1];
+		l_memcpy0(temp,s,len);
+		count=py_parse_string(temp,token,0,NULL,NULL);
+		token[count]=NULL;
+	}
+	else
+	{
+		count=py_parse_string(s,token,0,NULL,NULL);
+		token[count]=NULL;
+	}
 	
 	if(count<=0)
 	{
 		return -1;
 	}
-	py_build_sp_string(temp,token,count);
-
-	/*if((p=strchr(temp,mb->split))!=NULL && p[1]!=0)
-	{			
-		//return -1;
-	}*/
+	int sp_len=py_build_sp_string(temp,token,count);
 	p=strchr(temp,mb->split);
-	if(p) *p=0;
+	if(p)
+	{
+		*p=0;
+		sp_len--;
+	}
 	trie=mb->trie;
 	n=trie_iter_path_first(&iter,trie,NULL,64);
 	while(n!=NULL)
 	{
 		int cur=iter.depth;
-		if(cur<len && n->self!=temp[cur])
+		if(cur<sp_len && n->self!=temp[cur])
 		{
 			trie_iter_path_skip(&iter);
 			n=trie_iter_path_next(&iter);
 			continue;
 		}
-		//char out[65];
-		//trie_iter_get_path(&iter,out);
-		//printf("%s\n",out);
+		char out[65];
+		trie_iter_get_path(&iter,out);
 		if(n->leaf)
 		{
 			struct y_mb_item *item;
@@ -4236,11 +4262,10 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 			c=item->phrase;
 			for(;c!=NULL;c=c->next)
 			{
-				//printf("%s\n",y_mb_ci_string(c));
 				if(c->del) continue;
 				if(dlen>0 && c->len!=dlen*2) continue;
 				if(filter && c->zi && c->ext) continue;
-				if(cur<len && cur>=exact)
+				if(cur<sp_len && cur>=exact)
 				{
 					exact_l=exact;
 					exact=cur+1;
@@ -4249,7 +4274,8 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 					match=cur+1;
 				break;
 			}
-			if(match>=len) break;
+			if(match>=sp_len)
+				break;
 		}
 		n=trie_iter_path_next(&iter);
 	}
@@ -4259,12 +4285,19 @@ static int y_mb_max_match_qp(struct y_mb *mb,char *s,int len,int dlen,
 			py_pos_of_qp(token,match),
 			py_pos_of_qp(token,exact),
 			py_pos_of_qp(token,exact_l));*/
-	match=py_pos_of_qp(token,match);
-	if(match>=len) match=len;
+	if(match>sp_len)
+	{
+		match=len;
+	}
+	else
+	{
+		match=py_pos_of_qp(token,match);
+		if(match>=len) match=len;
+	}
 	return match;
 }
 
-int y_mb_max_match_fuzzy(struct y_mb *mb,char *s,int len,int dlen,
+int y_mb_max_match_fuzzy(struct y_mb *mb,const char *s,int len,int dlen,
 		int filter,int *good,int *less)
 {
 	LArray *list;
@@ -4330,8 +4363,8 @@ int y_mb_max_match_fuzzy(struct y_mb *mb,char *s,int len,int dlen,
 	if(less && *less>len) *less=len;
 	return ret;
 }
-//#include <time.h>
-int y_mb_max_match(struct y_mb *mb,char *s,int len,int dlen,
+
+int y_mb_max_match(struct y_mb *mb,const char *s,int len,int dlen,
 		int filter,int *good,int *less)
 {
 	uint16_t index_val;
@@ -4344,9 +4377,7 @@ int y_mb_max_match(struct y_mb *mb,char *s,int len,int dlen,
 	
 	if(mb->fuzzy)
 	{
-		//clock_t start=clock();
 		ret=y_mb_max_match_fuzzy(mb,s,len,dlen,filter,good,less);
-		//printf("match %.3f\n",(clock()-start)*1.0/CLOCKS_PER_SEC);
 		return ret;
 	}
 	
@@ -4384,7 +4415,7 @@ int y_mb_max_match(struct y_mb *mb,char *s,int len,int dlen,
 				for(c=item->phrase;c;c=c->next)
 				{
 					if(c->del) continue;
-					/* FIXME: 这里现在只是简单的把汉字处理成两个编码，需要严格按照汉自定义来进行 */
+					/* FIXME: 这里现在只是简单的把汉字处理成两个编码，需要严格按照汉字定义来进行 */
 					if(dlen>0 && c->len!=dlen*2) continue;
 					if(filter && c->zi && c->ext) continue;
 					if(key[i]==0 && i+base>exact)
@@ -4413,15 +4444,10 @@ int y_mb_max_match(struct y_mb *mb,char *s,int len,int dlen,
 /* detect if the simple key exist, in case of the simple key len >= clen*/
 int mb_simple_exist(struct y_mb *mb,const char *s,int clen,struct y_mb_ci *c)
 {
-	uint32_t key;
-	struct y_mb_zi *z,kz;
+	struct y_mb_zi *z;
 
-	if(c->len==2)
-		key=*(uint16_t*)&c->data;
-	else
-		key=*(uint32_t*)&c->data;
-	kz.data=key;
-	z=mb_hash_find(mb->zi,&kz);
+	uint32_t key=l_gb_to_char(c->data);;
+	z=l_hash_table_lookup(mb->zi,&key);
 	if(z)
 	{
 		struct y_mb_code *p;
@@ -4567,18 +4593,17 @@ int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*fre
 			}
 		}
 	}
-//out:
+	struct y_mb_ci *prev=NULL;
 	for(ret=len=0;ret<array->len;ret++)
 	{
 		struct _s_item *it=l_array_nth(array,ret);
 		struct y_mb_ci *ci=it->c;
-		char *c;
 		if(len+ci->len+1+1>MAX_CAND_LEN)
 			break;
-		c=y_mb_ci_string(ci);
-		memcpy(out+len,c,ci->len);
-		len+=ci->len;
-		out[len++]=0;
+		if(prev!=NULL && ci->len==prev->len && !memcmp(ci->data,prev->data,ci->len))
+			continue;
+		len+=y_mb_ci_string2(ci,out+len)+1;
+		prev=ci;
 	}
 	out[len]=0;
 	l_array_free(array,NULL);
@@ -4594,7 +4619,7 @@ bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s)
 	for(int i=0;i<count;i++)
 	{
 		uint32_t hz;
-		s=gb_next(s,&hz);
+		s=gb_next_be(s,&hz);
 		if(!s)
 			return false;
 		struct y_mb_zi *zi=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
@@ -4628,6 +4653,19 @@ bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s)
 	return true;
 }
 
+bool y_mb_zi_is_code0(struct y_mb *mb,const void *s,char c)
+{
+    struct y_mb_zi *z=mb_find_zi(mb,s);
+    if(!z)
+        return false;
+    for(struct y_mb_code *code=z->code;code!=NULL;code=code->next)
+    {
+        if(c==y_mb_code_n_key(mb,code,0))
+            return true;
+    }
+    return false;
+}
+
 // 在分词可能有问题的情况下，判断某个词是否和全拼是否匹配，存在问题，需要改进
 static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const char *sep)
 {
@@ -4653,7 +4691,7 @@ static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const cha
 	}
 	if(c->zi)
 	{
-		uint32_t hz=gb_first_be(c->data);
+		uint32_t hz=l_gb_to_char(c->data);
 		if(hz==0x83bf || hz==0xad99) // 兛瓩
 			return 1;
 		return 0;
@@ -5535,7 +5573,7 @@ struct y_mb_ci *y_mb_get_first_zi(struct y_mb *mb,const char *s,int len,int filt
 	return ci;
 }
 
-struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand)
+struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand,char *tip)
 {
 	char *s;
 	int filter;
@@ -5547,12 +5585,14 @@ struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand)
 	struct y_mb_index *index;
 	struct y_mb_item *item;
 	struct y_mb_context *ctx=&mb->ctx;
+	int left;
 
 	s=ctx->input;
 	len=strlen(s);
 
 	assert(ctx->result_count>=1);
 	index_val=mb_ci_index_wildcard(mb,s,len,mb->wildcard,&key);
+	left=mb_key_len(key);
 	filter=ctx->result_filter;
 	filter_zi=ctx->result_filter_zi;
 	index=ctx->result_index;
@@ -5574,25 +5614,31 @@ struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand)
 			for(p=(index==ctx->result_index)?item:index->item;p;p=p->next)
 			{
 				struct y_mb_ci *c;
-				ret=mb_key_cmp_direct(key,p->code,Y_MB_KEY_SIZE);
+				ret=mb_key_cmp_direct(key,p->code,left);
 				if(ret>0) continue;
 				if(mb->nsort && ret<0) continue;
 				if(ret<0) break;
 				for(c=p->phrase;c;c=c->next)
 				{
-					char *temp;
 					if(c->del) continue;
 					if(filter && c->zi && c->ext) continue;
 					if(filter_zi && !c->zi) continue;
-					temp=y_mb_ci_string(c);
-					if(gb_is_ascii((uint8_t*)temp)) continue;
-					if(cand) strcpy(cand,temp);
+					if(gb_is_ascii(c->data)) continue;
+					if(cand)
+					{
+						memcpy(cand,c->data,c->len);
+						cand[c->len]=0;
+					}
+					if(tip)
+					{
+						strcpy(tip,mb_key_conv_r(mb,index->index,p->code)+len);
+					}
 					return c;
 				}
 			}
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 struct _l_item{struct y_mb_ci *c;int f;};
@@ -5979,9 +6025,9 @@ static int mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int
 	const char *s=y_mb_ci_string(c);
 	uint32_t hz;
 	if(end!=0)
-		hz=gb_last((const uint8_t*)s);
+		hz=l_gb_last_char(s);
 	else
-		hz=gb_first((const uint8_t*)y_mb_skip_display(s,-1));
+		hz=l_gb_to_char(y_mb_skip_display(s,-1));
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
 	if(!z)
 	{
@@ -6042,7 +6088,7 @@ int y_mb_assist_test_hz(struct y_mb *mb,const char *s,char super)
 		n=0;
 	}
 
-	uint32_t hz=gb_first(s);
+	uint32_t hz=l_gb_to_char(s);
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
 	if(!z)
 	{
@@ -6145,6 +6191,7 @@ int y_mb_assist_get2(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char su
 		{
 			if(c->del) continue;
 			if(end && c->zi) continue;
+			if(ctx->result_filter_zi && !c->zi) continue;
 			pos++;
 			if(y_mb_assist_test(mb,c,super[0],0,end))
 			{

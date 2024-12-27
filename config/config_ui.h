@@ -20,7 +20,8 @@ enum{
 	CU_PAGE,
 	CU_FONT,
 	CU_IMAGE,
-	CU_SEPARATOR
+	CU_SEPARATOR,
+	CU_LINK,
 };
 
 typedef struct{
@@ -88,6 +89,7 @@ struct _CUMenu{
 
 struct _CULoopArg{
 	LXml *custom;
+	const char *app_id;
 	CUCtrl win;
 	void *priv;
 };
@@ -143,6 +145,7 @@ int cu_init(void);
 int cu_loop(void (*activate)(CULoopArg *),CULoopArg*);
 int cu_quit(void);
 int cu_step(void);
+int cu_call(void (*cb)(void*),void *arg);
 
 void cu_show_page(const char *name);
 

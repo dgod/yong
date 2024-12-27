@@ -23,11 +23,13 @@
   #define container_of(ptr,type,field) ((type*)((char*)ptr-offsetof(type,field)))
 #endif
 
-#ifndef L_ARRAY_SIZE
-  #define L_ARRAY_SIZE(arr) (sizeof (arr) / sizeof ((arr)[0]))
+#ifndef lengthof
+	#define lengthof(arr) (sizeof (arr) / sizeof ((arr)[0]))
 #endif
 
-typedef void (*LFunc)(void *data,void *user);
+#define L_ARRAY_SIZE(arr) lengthof(arr)
+
+typedef void (*LEnumFunc)(void *data,void *user);
 typedef void (*LFreeFunc)(void *data);
 typedef int (*LCmpFunc)(const void *p1,const void *p2);
 typedef int (*LCmpDataFunc)(const void *p1,const void *p2,void *user);

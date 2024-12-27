@@ -68,7 +68,7 @@ static void client_add_ic(guint id);
 static void client_del_ic(guint id);
 
 static int GetKey(guint KeyCode,guint KeyState,int release);
-static void ForwardKey(YongIMContext *ctx,int key);
+static void ForwardKey(YongIMContext *ctx,int key,int repeat);
 
 static guint _signal_commit_id = 0;
 static guint _signal_preedit_changed_id = 0;
@@ -609,14 +609,15 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 		guint id;
 		int ret;
 		YongIMContext *ctx;
-		int key;
+		int key,repeat=1;
 		ret=l_call_buf_get_val(buf,id);
 		if(ret!=0) return -1;
 		ctx=find_context(id);
 		if(ctx==NULL) return -1;
 		ret=l_call_buf_get_val(buf,key);
 		if(ret!=0) return -1;
-		ForwardKey(ctx,key);
+		l_call_buf_get_val(buf,repeat);
+		ForwardKey(ctx,key,repeat);
 	}
 	else if(!strcmp(name,"enable"))
 	{
@@ -709,12 +710,11 @@ static void paste_cb(GObject* source,GAsyncResult* res,YongIMContext *ctx)
 	gchar *text=gdk_clipboard_read_text_finish(GDK_CLIPBOARD(source),res,NULL);
 	if(!text)
 		return;
-	printf("%s\n",text);
 	g_signal_emit(ctx,_signal_commit_id,0,text);
 	g_free(text);
 }
 
-static void ForwardKey(YongIMContext *ctx,int key)
+static void ForwardKey(YongIMContext *ctx,int key,int repeat)
 {
 	GtkWidget *widget=ctx->client_widget;
 	if(!widget)
@@ -726,16 +726,17 @@ static void ForwardKey(YongIMContext *ctx,int key)
 			g_signal_emit_by_name(widget,"paste-clipboard",NULL);
 			return;
 		case YK_BACKSPACE:
-			g_signal_emit_by_name(widget,"backspace",NULL);
+			for(int i=0;i<repeat;i++)
+				g_signal_emit_by_name(widget,"backspace",NULL);
 			return;
 		case YK_DELETE:
-			g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,1,NULL);
+			g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,repeat,NULL);
 			return;
 		case YK_LEFT:
-			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
+			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-repeat,0,NULL);
 			return;
 		case YK_RIGHT:
-			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,1,0,NULL);
+			g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,repeat,0,NULL);
 			return;
 		case YK_HOME:
 			if(GTK_IS_ENTRY(widget) || GTK_IS_TEXT(widget))
@@ -755,7 +756,10 @@ static void ForwardKey(YongIMContext *ctx,int key)
 			}
 			else if(GTK_IS_TEXT_VIEW(widget))
 			{
-				g_signal_emit_by_name(widget,"insert-at-cursor","\n",NULL);
+				char temp[repeat+1];
+				memset(temp,'\n',repeat);
+				temp[repeat]=0;
+				g_signal_emit_by_name(widget,"insert-at-cursor",temp,NULL);
 				return;
 			}
 			break;
@@ -763,9 +767,12 @@ static void ForwardKey(YongIMContext *ctx,int key)
 			break;
 		}
 	}
-	if(key==YK_ENTER)
+	if(key<0x7f)
 	{
-		g_signal_emit(ctx,_signal_commit_id,0,"\n");
+		char temp[repeat+1];
+		memset(temp,key,repeat);
+		temp[repeat]=0;
+		g_signal_emit(ctx,_signal_commit_id,0,temp);
 		return;
 	}
 	if(key==CTRL_V)
@@ -776,7 +783,6 @@ static void ForwardKey(YongIMContext *ctx,int key)
 		GdkClipboard *clipboard=gdk_display_get_clipboard(dpy);
 		if(!clipboard)
 			return;
-		printf("read\n");
 		gdk_clipboard_read_text_async(clipboard,NULL,(GAsyncReadyCallback)paste_cb,ctx);
 		return;
 	}
@@ -791,14 +797,14 @@ static void ForwardKey(YongIMContext *ctx,int key)
 	{
 		if(cursor_index<=0)
 			break;
-		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),-1,1);
+		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),-repeat,repeat);
 		break;
 	}
 	case YK_DELETE:
 	{
 		if(text[cursor_index]==0)
 			break;
-		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),0,1);
+		gtk_im_context_delete_surrounding(GTK_IM_CONTEXT(ctx),0,repeat);
 		break;
 	}
 	}

@@ -219,6 +219,8 @@ typedef struct{
 	
 	int (*idle_add)(void (*cb)(void *),void *arg);
 	void (*idle_del)(void (*cb)(void *),void *arg);
+
+	int (*call)(void (*cb)(void *),void *arg);
 }Y_UI;
 
 extern Y_UI y_ui;
@@ -309,5 +311,7 @@ int y_ui_init(const char *name);
 
 #define y_ui_idle_del(a,b) \
 	do{if(y_ui.idle_del) y_ui.idle_del(a,b);}while(0)
+
+#define y_ui_call(a,b)	(y_ui.call?y_ui.call(a,b):-1)
 
 #endif/*_UI_H_*/

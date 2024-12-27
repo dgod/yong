@@ -18,6 +18,7 @@ void *l_hash_table_lookup(LHashTable *h,const void *key);
 bool l_hash_table_insert(LHashTable *h,void *item);
 void *l_hash_table_replace(LHashTable *h,void *item);
 void *l_hash_table_remove(LHashTable *h,void *item);
+void *l_hash_table_del(LHashTable *h,const void *key);
 int l_hash_table_size(LHashTable *h);
 
 void l_hash_iter_init(LHashIter *iter,LHashTable *h);
@@ -25,17 +26,6 @@ void *l_hash_iter_next(LHashIter *iter);
 
 unsigned l_str_hash (const void *v);
 unsigned l_int_hash(const void *v);
-int l_int_equal(const void *v1,const void *v2);
-
-#define L_HASH_STRING(n,t,k) 				\
-static unsigned n##_hash(const t *p)		\
-{											\
-	return l_str_hash(p->k);				\
-}											\
-static int n##_cmp(const t*v1,const t*v2) 	\
-{											\
-	return strcmp(v1->k,v2->k);				\
-}
 
 #define _L_HASH_DEREF_STRING(t,k) (			\
 			_Generic(&(((t*)NULL)->k),		\
@@ -61,6 +51,38 @@ static int n##_cmp(const t*v1,const t*v2) 	\
 	})										\
 )
 #endif
+
+static inline LHashTable *l_string_set_new(int size)
+{
+	return l_hash_table_new(l_str_hash,(LEqualFunc)strcmp,size,sizeof(void*));
+}
+
+static inline int l_string_set_add(LHashTable *h,const char *s)
+{
+	if(l_hash_table_lookup(h,s))
+		return 1;
+	size_t len=strlen(s)+1;
+	char *item=l_alloc(sizeof(void*)+len);
+	memcpy(item+sizeof(void*),s,len);
+	l_hash_table_insert(h,item);
+	return 0;
+}
+
+static inline bool l_string_set_has(LHashTable *h,const char *s)
+{
+	return l_hash_table_lookup(h,s)?true:false;
+}
+
+static inline void l_string_set_del(LHashTable *h,const char *s)
+{
+	void *item=l_hash_table_del(h,s);
+	l_free(item);
+}
+
+static inline void l_string_set_free(LHashTable *h)
+{
+	l_hash_table_free(h,l_free);
+}
 
 #endif/*_LHASHTABLE_H_*/
 

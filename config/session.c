@@ -926,7 +926,7 @@ int http_session_abort(HttpSession *ss)
 {
 	if(!ss)
 		return -1;
-	ss->abort=1;
+	*ss->p_abort=1;
 	return 0;
 }
 

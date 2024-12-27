@@ -98,10 +98,6 @@ p_wl_keyboard_add_listener(struct wl_keyboard *wl_keyboard,
 				     (void (**)(void)) listener, data);
 }
 
-static void noop(void)
-{
-}
-
 #include "input-method-client-protocol-v1.h"
 #include "input-method-protocol-v1.c"
 #include "input-method-client-protocol-v2.h"
@@ -129,19 +125,21 @@ static void client_enable(guint id);
 #else
 #include "common.h"
 
-static int xim_getpid(CONN_ID conn_id);
+static const char *xim_get_appid(CONN_ID conn_id);
 static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...);
 static void xim_open_im(CONN_ID conn_id,CLIENT_ID client_id);
 static void xim_close_im(CONN_ID conn_id,CLIENT_ID client_id);
 static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id);
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s);
 static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,int flags);
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat);
+static void xim_send_keys(CONN_ID conn_id,CLIENT_ID client_id,const int *key,int count);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
+	.name="wayland",
 	.init=xim_init,
-	.getpid=xim_getpid,
+	.get_appid=xim_get_appid,
 	.config=xim_config,
 	.open_im=xim_open_im,
 	.close_im=xim_close_im,
@@ -149,6 +147,7 @@ static YBUS_PLUGIN plugin={
 	.preedit_draw=xim_preedit_draw,
 	.send_string=xim_send_string,
 	.send_key=xim_send_key,
+	.send_keys=xim_send_keys,
 };
 
 #endif
@@ -158,6 +157,11 @@ enum{
 	IM_WIN_INPUT,
 	IM_WIN_LAYER,
 	IM_WIN_CUSTOM,
+};
+
+struct conn_app{
+	void *next;
+	char *id;
 };
 
 struct simple_im{
@@ -204,6 +208,13 @@ struct simple_im{
 	xkb_mod_mask_t shift_mask;
 	xkb_mod_mask_t super_mask;
 	xkb_mod_mask_t lock_mask;
+
+	struct{
+		int depressed;
+		int latched;
+		int locked;
+		int group;
+	}modifiers_os;
 	
 	uint32_t serial;
 	uint32_t time;
@@ -225,7 +236,40 @@ struct simple_im{
 		GtkWidget *keyboard;
 	}wins;
 #endif
+
+	LHashTable *app_list;
+	struct conn_app *app_active;
 }simple_im;
+
+#if 0
+static void conn_app_free(struct conn_app *app)
+{
+	if(!app)
+		return;
+	YBUS_CONNECT *yconn=ybus_find_connect(&plugin,(CONN_ID)app);
+	if(yconn)
+	{
+		ybus_free_connect(yconn);
+	}
+	l_free(app->id);
+	l_free(app);
+}
+#endif
+
+static struct conn_app *conn_app_set_active(const char *id)
+{
+	struct conn_app *r=l_hash_table_lookup(simple_im.app_list,id);
+	if(!r)
+	{
+		r=l_new(struct conn_app);
+		r->id=l_strdup(id);
+		l_hash_table_insert(simple_im.app_list,r);
+		YBUS_CONNECT *yconn=ybus_add_connect(&plugin,(CONN_ID)r);
+		ybus_add_client(yconn,CLIENT_ID_VAL,0);
+	}
+	simple_im.app_active=r;
+	return r;
+}
 
 static void input_method_keyboard_keymap(
 		struct simple_im *keyboard,
@@ -285,6 +329,15 @@ static void input_method_keyboard_keymap(
 		1 << xkb_keymap_mod_get_index(keyboard->keymap, "Mod4");
 	keyboard->lock_mask = 
 		1 << xkb_keymap_mod_get_index(keyboard->keymap, "Lock");
+
+#if 0
+	fprintf(stderr,"mask %x %x %x %x %x\n",
+			keyboard->control_mask,
+			keyboard->shift_mask,
+			keyboard->alt_mask,
+			keyboard->super_mask,
+			keyboard->lock_mask);
+#endif
 }
 
 static int GetKey(struct simple_im *keyboard,int key,int state)
@@ -411,16 +464,30 @@ static int GetKey_r(struct simple_im *keyboard,int yk)
 	case YK_UP:vk=XKB_KEY_Up;break;
 	case YK_RIGHT:vk=XKB_KEY_Right;break;
 	case YK_TAB:vk=XKB_KEY_Tab;break;
+	case YK_LCTRL:vk=XKB_KEY_Control_L;break;
+	case YK_LSHIFT:vk=XKB_KEY_Shift_L;break;
+	case YK_LALT:vk=XKB_KEY_Alt_L;break;
+	case YK_LWIN:vk=XKB_KEY_Super_L;break;
 	default:vk=yk;
+	}
+
+	if(vk>='A' && vk<='Z')
+	{
+		// xkb_state_key_get_one_sym only translate a-z
+		vk+='a'-'A';
 	}
 
 	xkb_keycode_t min = xkb_keymap_min_keycode(keyboard->keymap);
     xkb_keycode_t max = xkb_keymap_max_keycode(keyboard->keymap);
 	xkb_keycode_t code;
+
 	for(code=min;code<max;code++)
 	{
-		if (xkb_state_key_get_one_sym(keyboard->state, code) ==vk)
+		int sym=xkb_state_key_get_one_sym(keyboard->state, code);
+		if (sym==vk)
+		{
 			return code-8;
+		}
 	}
 	return 0;
 }
@@ -445,6 +512,10 @@ static int GetKey_r_v1(struct simple_im *keyboard,int yk)
 	case YK_UP:vk=XKB_KEY_Up;break;
 	case YK_RIGHT:vk=XKB_KEY_Right;break;
 	case YK_TAB:vk=XKB_KEY_Tab;break;
+	case YK_LCTRL:vk=XKB_KEY_Control_L;break;
+	case YK_LSHIFT:vk=XKB_KEY_Shift_L;break;
+	case YK_LALT:vk=XKB_KEY_Alt_L;break;
+	case YK_LWIN:vk=XKB_KEY_Super_L;break;
 	default:vk=yk;
 	}
 
@@ -464,7 +535,46 @@ static void send_string(struct simple_im *keyboard,const char *s)
 	}
 }
 
-static void send_key(struct simple_im *keyboard,int key)
+static void send_mods(struct simple_im *keyboard,int key)
+{
+	if(key&KEYM_CTRL)
+		keyboard->modifiers_os.depressed|=keyboard->control_mask;
+	else
+		keyboard->modifiers_os.depressed&=~keyboard->control_mask;
+	if(key&KEYM_SHIFT)
+		keyboard->modifiers_os.depressed|=keyboard->shift_mask;
+	else
+		keyboard->modifiers_os.depressed&=~keyboard->shift_mask;
+	if(key&KEYM_ALT)
+		keyboard->modifiers_os.depressed|=keyboard->alt_mask;
+	else
+		keyboard->modifiers_os.depressed&=~keyboard->alt_mask;
+	if(key&KEYM_WIN)
+		keyboard->modifiers_os.depressed|=keyboard->super_mask;
+	else
+		keyboard->modifiers_os.depressed&=~keyboard->super_mask;
+	if(keyboard->input_method_manager_v2 && keyboard->virtual_keyboard_v1)
+	{
+		zwp_virtual_keyboard_v1_modifiers(
+						keyboard->virtual_keyboard_v1,
+						keyboard->modifiers_os.depressed,
+						keyboard->modifiers_os.latched,
+						keyboard->modifiers_os.locked,
+						keyboard->modifiers_os.group);
+	}
+	else
+	{
+		zwp_input_method_context_v1_modifiers(
+						keyboard->context,
+						keyboard->serial,
+						keyboard->modifiers_os.depressed,
+						keyboard->modifiers_os.latched,
+						keyboard->modifiers_os.locked,
+						keyboard->modifiers_os.group);
+	}
+}
+
+static void send_key(struct simple_im *keyboard,int key,int type,int repeat)
 {
 	if(!keyboard->state)
 		return;
@@ -475,23 +585,22 @@ static void send_key(struct simple_im *keyboard,int key)
 		sym=GetKey_r_v1(keyboard,key);
 	if(!sym)
 		return;
-	// fprintf(stderr,"send key %x %x\n",key,sym);
+	// fprintf(stderr,"send key key:%x sym:%x type:%d\n",key,sym,type);
 	if(keyboard->input_method_manager_v2 && keyboard->virtual_keyboard_v1)
 	{
-		if(key&KEYM_CTRL)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Control_L,WL_KEYBOARD_KEY_STATE_PRESSED);
-		if(key&KEYM_SHIFT)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Shift_L,WL_KEYBOARD_KEY_STATE_PRESSED);
-		if(key&KEYM_ALT)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Alt_L,WL_KEYBOARD_KEY_STATE_PRESSED);
-		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,sym,WL_KEYBOARD_KEY_STATE_PRESSED);
-		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,sym,WL_KEYBOARD_KEY_STATE_RELEASED);
-		if(key&KEYM_CTRL)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Control_L,WL_KEYBOARD_KEY_STATE_RELEASED);
-		if(key&KEYM_SHIFT)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Shift_L,WL_KEYBOARD_KEY_STATE_RELEASED);
-		if(key&KEYM_ALT)
-			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,XKB_KEY_Alt_L,WL_KEYBOARD_KEY_STATE_RELEASED);
+		if(type==0 || type==1)
+		{
+			if((KEYM_MASK&key)!=0)
+				send_mods(keyboard,key);
+			for(int i=0;i<repeat;i++)
+				zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,sym,WL_KEYBOARD_KEY_STATE_PRESSED);
+		}
+		if(type==0 || type==2)
+		{
+			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,0,sym,WL_KEYBOARD_KEY_STATE_RELEASED);
+			if((KEYM_MASK&key)!=0 && keyboard->modifiers_os.depressed)
+				send_mods(keyboard,0);
+		}
 	}
 	else if(keyboard->input_method_v1)
 	{
@@ -502,8 +611,15 @@ static void send_key(struct simple_im *keyboard,int key)
 			mask|=keyboard->shift_mask;
 		if(key&KEYM_ALT)
 			mask|=keyboard->alt_mask;
-		zwp_input_method_context_v1_keysym(keyboard->context,keyboard->serial,0,sym,WL_KEYBOARD_KEY_STATE_PRESSED,mask);
-		zwp_input_method_context_v1_keysym(keyboard->context,keyboard->serial,0,sym,WL_KEYBOARD_KEY_STATE_RELEASED,mask);
+		if(type==0 || type==1)
+		{
+			for(int i=0;i<repeat;i++)
+				zwp_input_method_context_v1_keysym(keyboard->context,keyboard->serial,0,sym,WL_KEYBOARD_KEY_STATE_PRESSED,mask);
+		}
+		if(type==0 || type==2)
+		{
+			zwp_input_method_context_v1_keysym(keyboard->context,keyboard->serial,0,sym,WL_KEYBOARD_KEY_STATE_RELEASED,mask);
+		}
 	}
 }
 
@@ -512,7 +628,7 @@ static int preedit_draw(struct simple_im *keyboard,const char *s)
 	char out[512];
 	char *p;
 	int cursor;
-	snprintf(out,sizeof(out),s);
+	l_strcpy(out,sizeof(out),s);
 	if((p=strchr(out,'|'))!=NULL)
 	{
 		cursor=g_utf8_pointer_to_offset(out,p);
@@ -552,8 +668,6 @@ static void input_method_keyboard_key_real(
 	int yk=GetKey(keyboard,key,state);
 	if(state==WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
-		if(YK_CODE(yk)>=YK_LSHIFT && YK_CODE(yk)<=YK_RWIN && keyboard->last_press==yk)
-			return;
 #ifndef WAYLAND_STANDALONE
 		if(im.Bing && ((yk>='a' && yk<='z') || yk==' '))
 		{
@@ -584,9 +698,9 @@ static void input_method_keyboard_key_real(
 		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,keyboard->time,key,state);
 		if(state==WL_KEYBOARD_KEY_STATE_PRESSED)
 			return;
-		if(YK_CODE(yk)!=keyboard->last_press || keyboard->time-keyboard->last_press_time>300)
-			return;
 		yk&=~KEYM_UP;
+		if(yk!=keyboard->last_press || keyboard->time-keyboard->last_press_time>300)
+			return;
 	}
 	if(state==WL_KEYBOARD_KEY_STATE_RELEASED && ((yk&~KEYM_UP)==keyboard->last_press))
 	{
@@ -599,7 +713,7 @@ static void input_method_keyboard_key_real(
 #ifdef WAYLAND_STANDALONE
 			client_enable(CLIENT_ID_VAL);
 #else
-			ybus_on_open(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+			ybus_on_open(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
 #endif
 			keyboard->enable=TRUE;
 			res=TRUE;
@@ -642,7 +756,7 @@ static void input_method_keyboard_key_real(
 							}
 							else
 							{
-								xim_send_key(yconn->id,client->id,p[i]);
+								xim_send_key(yconn->id,client->id,p[i],1);
 							}
 						}
 					}
@@ -650,7 +764,7 @@ static void input_method_keyboard_key_real(
 					{
 						for(int i=0;i<4 && p[i];i++)
 						{
-							xim_send_key(yconn->id,client->id,p[i]);
+							xim_send_key(yconn->id,client->id,p[i],1);
 						}
 					}
 					return;
@@ -661,7 +775,7 @@ static void input_method_keyboard_key_real(
 				}
 			}
 		}
-		res=ybus_on_key(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL,yk);
+		res=ybus_on_key(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,yk);
 #endif
 	}
 	if(!res)
@@ -724,8 +838,12 @@ static void input_method_keyboard_modifiers(
 		uint32_t mods_locked,
 		uint32_t group)
 {
-	// printf("input_method_keyboard_modifiers %u %u %u %u\n",mods_depressed,mods_latched,mods_locked,group);
+	// fprintf(stderr,"input_method_keyboard_modifiers %x %x %x %x\n",mods_depressed,mods_latched,mods_locked,group);
 	zwp_virtual_keyboard_v1_modifiers(keyboard->virtual_keyboard_v1,mods_depressed,mods_latched,mods_locked,group);
+	keyboard->modifiers_os.depressed=mods_depressed;
+	keyboard->modifiers_os.latched=mods_latched;
+	keyboard->modifiers_os.locked=mods_locked;
+	keyboard->modifiers_os.group=group;
 
 	if(!keyboard->state)
 		return;
@@ -769,7 +887,8 @@ static void input_method_activate(
 		struct simple_im *keyboard,
 		struct zwp_input_method_v2 *zwp_input_method_v2)
 {
-	// printf("input_method_activate\n");
+	conn_app_set_active("");
+	// printf("input_method_activate %p\n",keyboard->app_active);
 	if(!simple_im.keyboard_grab_v2)
 	{
 		simple_im.keyboard_grab_v2=zwp_input_method_v2_grab_keyboard(zwp_input_method_v2);
@@ -778,7 +897,7 @@ static void input_method_activate(
 #ifdef WAYLAND_STANDALONE
 	client_focus_in(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
 #endif
 }
 
@@ -786,11 +905,13 @@ static void input_method_deactivate(
 		struct simple_im *keyboard,
 		struct zwp_input_method_v2 *zwp_input_method_v2)
 {
-	// printf("input_method_deactivate\n");
+	// printf("input_method_deactivate %p\n",keyboard->app_active);
+	CONN_ID id=(CONN_ID)keyboard->app_active;
+	keyboard->app_active=NULL;
 #ifdef WAYLAND_STANDALONE
 	client_focus_out(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_out(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+	ybus_on_focus_out(&plugin,id,CLIENT_ID_VAL);
 #endif
 }
 
@@ -812,9 +933,9 @@ static void input_method_unavailable(void *data,
 static const struct zwp_input_method_v2_listener input_method_listener_v2 = {
 	(void*)input_method_activate,
 	(void*)input_method_deactivate,
-	(void*)noop,
-	(void*)noop,
-	(void*)noop,
+	(void*)l_noop,
+	(void*)l_noop,
+	(void*)l_noop,
 	(void*)input_method_done,
 	(void*)input_method_unavailable
 };
@@ -828,12 +949,12 @@ static void input_method_context_commit_state_v1(void *data,
 }
 
 static const struct zwp_input_method_context_v1_listener input_method_context_listener_v1={
-	(void*)noop,
-	(void*)noop,
-	(void*)noop,
-	(void*)noop,
+	(void*)l_noop,
+	(void*)l_noop,
+	(void*)l_noop,
+	(void*)l_noop,
 	(void*)input_method_context_commit_state_v1,
-	(void*)noop
+	(void*)l_noop
 };
 
 static void input_method_keyboard_keymap_v1(struct simple_im *keyboard,
@@ -953,7 +1074,7 @@ static void input_method_keyboard_key_v1(struct simple_im *keyboard,
 #ifdef WAYLAND_STANDALONE
 			client_enable(CLIENT_ID_VAL);
 #else
-			ybus_on_open(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+			ybus_on_open(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
 #endif
 			keyboard->enable=TRUE;
 			res=TRUE;
@@ -996,7 +1117,7 @@ static void input_method_keyboard_key_v1(struct simple_im *keyboard,
 							}
 							else
 							{
-								xim_send_key(yconn->id,client->id,p[i]);
+								xim_send_key(yconn->id,client->id,p[i],1);
 							}
 						}
 					}
@@ -1004,7 +1125,7 @@ static void input_method_keyboard_key_v1(struct simple_im *keyboard,
 					{
 						for(int i=0;i<4 && p[i];i++)
 						{
-							xim_send_key(yconn->id,client->id,p[i]);
+							xim_send_key(yconn->id,client->id,p[i],1);
 						}
 					}
 					return;
@@ -1015,7 +1136,7 @@ static void input_method_keyboard_key_v1(struct simple_im *keyboard,
 				}
 			}
 		}
-		res=ybus_on_key(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL,yk);
+		res=ybus_on_key(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,yk);
 		// fprintf(stderr,"%x %d\n",yk,res);
 #endif
 	}
@@ -1057,8 +1178,8 @@ static void input_method_keyboard_modifiers_v1(struct simple_im *keyboard,
 
 static const struct wl_keyboard_listener input_method_keyboard_listener_v1 = {
 	(void*)input_method_keyboard_keymap_v1,
-	(void*)noop,
-	(void*)noop,
+	(void*)l_noop,
+	(void*)l_noop,
 	(void*)input_method_keyboard_key_v1,
 	(void*)input_method_keyboard_modifiers_v1
 };
@@ -1068,6 +1189,7 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 			 struct zwp_input_method_context_v1 *context)
 {
 	// fprintf(stderr,"input_method_activate_v1\n");
+	conn_app_set_active("");
 	if (keyboard->context)
 		zwp_input_method_context_v1_destroy(keyboard->context);
 	keyboard->serial=0;
@@ -1082,7 +1204,7 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 #ifdef WAYLAND_STANDALONE
 	client_focus_in(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
 #endif
 
 }
@@ -1092,10 +1214,12 @@ static void input_method_deactivate_v1(struct simple_im *keyboard,
 			   struct zwp_input_method_context_v1 *context)
 {
 	// fprintf(stderr,"input_method_deactivate_v1\n");
+	CONN_ID id=(CONN_ID)keyboard->app_active;
+	keyboard->app_active=NULL;
 #ifdef WAYLAND_STANDALONE
 	client_focus_out(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_out(&plugin,(CONN_ID)keyboard,CLIENT_ID_VAL);
+	ybus_on_focus_out(&plugin,id,CLIENT_ID_VAL);
 #endif
 }
 
@@ -1389,6 +1513,8 @@ int main(void)
 {
 	GMainLoop *loop;
 	struct simple_im *keyboard=&simple_im;
+
+	keyboard->app_list=L_HASH_TABLE_STRING(struct conn_app,id,0);
 
 	ybus_wayland_init();
 
@@ -1711,9 +1837,12 @@ void ybus_wayland_set_window(GtkWidget *w,const char *role,int type)
 	}
 }
 
-static int xim_getpid(CONN_ID conn_id)
+static const char *xim_get_appid(CONN_ID conn_id)
 {
-	return 0;
+	struct conn_app *app=(struct conn_app*)conn_id;
+	if(!app)
+		return NULL;
+	return app->id;
 }
 
 static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...)
@@ -1767,14 +1896,108 @@ static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,in
 	return send_string(&simple_im,out);
 }
 
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat)
 {
-	send_key(&simple_im,key);
+	send_key(&simple_im,key,0,repeat);
+}
+
+static void send_keys_coroutine(LArray *arr)
+{
+	struct simple_im *keyboard=&simple_im;
+	int *keys=(int*)arr->data;
+	int count=arr->len;
+	struct{
+		bool iskey;
+		union{
+			int key;
+			char str[8];
+		};
+	}prev;
+	for(int i=0;i<count;i++)
+	{
+		int key=keys[i];
+		int mask=KEYM_MASK&key;
+		if(mask==KEYM_UP)
+		{
+			l_co_sleep(YK_CODE(key));
+			continue;
+		}
+		if(mask==KEYM_BING)
+		{
+			int repeat=YK_CODE(key);
+			for(int j=0;j<repeat;j++)
+			{
+				if(prev.iskey)
+					send_key(keyboard,prev.key,0,1);
+				else
+					send_string(keyboard,prev.str);
+			}
+		}
+		if((mask&KEYM_CAPS)!=0)
+		{
+			// don't support mouse event
+			break;
+		}
+		if((mask&KEYM_VIRT)!=0)
+		{
+			int code=key&~KEYM_VIRT;
+			l_unichar_to_utf8(code,(uint8_t*)prev.str);
+			prev.iskey=false;
+			send_string(keyboard,prev.str);
+		}
+		else
+		{
+			int up=mask&KEYM_UP;
+			mask&=~KEYM_UP;
+			if(mask==KEYM_CTRL)
+				key=YK_LCTRL;
+			else if(mask==KEYM_SHIFT)
+				key=YK_LSHIFT;
+			else if(mask==KEYM_ALT)
+				key=YK_LALT;
+			else if(mask==KEYM_WIN)
+				key=YK_LWIN;
+			else
+				key=YK_CODE(key);
+			prev.iskey=true;
+			prev.key=key;
+			if(!mask)
+			{
+				send_key(keyboard,prev.key,0,1);
+			}
+			else
+			{
+				if(!up)
+				{
+					send_mods(keyboard,mask);
+					send_key(keyboard,key,1,1);
+				}
+				else
+				{
+					send_key(keyboard,key,2,1);
+					send_mods(keyboard,0);				
+				}
+			}
+		}
+	}
+	l_array_free(arr,NULL);
+}
+
+static void xim_send_keys(CONN_ID conn_id,CLIENT_ID client_id,const int *keys,int count)
+{
+	LArray *arr=l_array_new(count,sizeof(int));
+	memcpy(arr->data,keys,count*sizeof(int));
+	arr->len=count;
+	l_co_create((void*)send_keys_coroutine,arr);
+	l_co_sched();
+	// send_key(&simple_im,KEYM_CTRL|'A',0);
 }
 
 static int xim_init(void)
 {
 	struct simple_im *keyboard=&simple_im;
+
+	keyboard->app_list=L_HASH_TABLE_STRING(struct conn_app,id,0);
 
 	if(!keyboard->virtual_keyboard_v1 && keyboard->seat && keyboard->virtual_keyboard_manager_v1)
 	{
@@ -1794,8 +2017,6 @@ static int xim_init(void)
 	
 	simple_im.xkb_context = xkb_context_new(0);
 
-	YBUS_CONNECT *yconn=ybus_add_connect(&plugin,(CONN_ID)&simple_im);
-	ybus_add_client(yconn,CLIENT_ID_VAL,0);
 	return 0;	
 }
 

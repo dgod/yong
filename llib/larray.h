@@ -18,7 +18,7 @@ void l_array_append(LArray *array,const void *val);
 void l_array_insert(LArray *array,int n,const void *val);
 int l_array_insert_sorted(LArray *array,const void *val,LCmpFunc cmpar);
 int l_array_remove(LArray *array,int n);
-#define l_array_length(array) (array->len)
+#define l_array_length(array) ((array)->len)
 void l_array_clear(LArray *array,LFreeFunc func);
 void l_array_sort(LArray *array,LCmpFunc cmp);
 void l_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg);

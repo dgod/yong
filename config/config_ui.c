@@ -23,6 +23,7 @@ struct{
 	{"font"},
 	{"image"},
 	{"sep"},
+	{"link"},
 	{NULL}
 };
 

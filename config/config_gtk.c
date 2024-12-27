@@ -409,6 +409,16 @@ int cu_ctrl_init_separator(CUCtrl p)
 	return 0;
 }
 
+int cu_ctrl_init_link(CUCtrl p)
+{
+	const char *href=l_xml_get_prop(p->node,"href");
+	if(!href)
+		href="";
+	p->self=gtk_link_button_new_with_label(href,p->text);
+	cu_ctrl_add_to_parent(p);
+	return 0;
+}
+
 static InitSelfFunc init_funcs[]={
 	cu_ctrl_init_window,
 	cu_ctrl_init_label,
@@ -423,7 +433,8 @@ static InitSelfFunc init_funcs[]={
 	cu_ctrl_init_page,
 	cu_ctrl_init_font,
 	cu_ctrl_init_image,
-	cu_ctrl_init_separator
+	cu_ctrl_init_separator,
+	cu_ctrl_init_link,
 };
 
 int cu_ctrl_init_self(CUCtrl p)
@@ -756,7 +767,7 @@ static void gtk_activate(GtkApplication *app,CULoopArg *arg)
 
 int cu_loop(void (*activate)(CULoopArg *),CULoopArg*arg)
 {
-	app=gtk_application_new("net.dgod.yong.config",G_APPLICATION_DEFAULT_FLAGS);
+	app=gtk_application_new(arg->app_id,G_APPLICATION_DEFAULT_FLAGS);
 	arg->priv=activate;
 	g_signal_connect (app, "activate", G_CALLBACK(gtk_activate), arg);
 	g_application_run (G_APPLICATION (app), 0,NULL);
@@ -828,6 +839,7 @@ int cu_confirm(CUCtrl p,const char *message)
 		GTK_DIALOG_MODAL,
 		GTK_MESSAGE_INFO,
 		GTK_BUTTONS_OK_CANCEL,
+		"%s",
 		message);
 	gtk_window_set_title(GTK_WINDOW(dlg),p->text);
 	gtk_window_set_position(GTK_WINDOW(dlg),GTK_WIN_POS_CENTER);
@@ -952,3 +964,22 @@ int cu_step(void)
 #endif
 	return 0;
 }
+
+static gboolean ui_call_wraper(void **p)
+{
+	void (*cb)(void*)=p[0];
+	void *arg=p[1];
+	l_free(p);
+	cb(arg);
+	return FALSE;
+}
+
+int cu_call(void (*cb)(void*),void *arg)
+{
+	void **p=l_cnew(2,void*);
+	p[0]=cb;
+	p[1]=arg;
+	g_idle_add((GSourceFunc)ui_call_wraper,p);
+	return 0;
+}
+

@@ -7,7 +7,11 @@
 #include <windows.h>
 static inline uint64_t l_ticks(void)
 {
+#ifdef _WIN64
+	return GetTickCount64();
+#else
 	return GetTickCount();
+#endif
 }
 #else
 static inline uint64_t l_ticks(void)

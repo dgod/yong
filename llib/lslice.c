@@ -1,15 +1,4 @@
-#include <stdint.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <stdbool.h>
-
-#include "ltypes.h"
-#include "lmacros.h"
-#include "lmem.h"
-#include "lslist.h"
-#include "larray.h"
-#include "lhashtable.h"
+#include "llib.h"
 
 #define SLICE_DEBUG			0
 

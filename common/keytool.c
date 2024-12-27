@@ -4,40 +4,27 @@
 
 #ifndef CFG_NO_KEYTOOL
 
-static void kt_free(Y_KEY_TOOL *kt)
-{
-	if(!kt)
-		return;
-	l_free(kt->exec);
-	l_free(kt);
-}
 Y_KEY_TOOL *y_key_tools_load(void)
 {
-	Y_KEY_TOOL *h=NULL,*kt;
-	int i,len,keyval;
-	char key[32],*p;
-	const char *item;
-	for(i=0;i<64;i++)
+	Y_KEY_TOOL *h=NULL;
+	for(int i=0;i<64;i++)
 	{
+		char key[32];
 		sprintf(key,"tools[%d]",i);
-		item=y_im_get_config_data("key",key);
+		const char *item=y_im_get_config_data("key",key);
 		if(!item)
 			break;
-		p=strchr(item,' ');
+		const char *p=strchr(item,' ');
 		if(!p)
 			continue;
-		len=(int)(size_t)(p-item);
-		if(len<1 || len>30)
-			continue;
-		memcpy(key,item,len+1);
-		key[len]=0;
-		keyval=y_im_str_to_key(key,NULL);
+		int keyval=y_im_str_to_key(item,NULL);
 		if(keyval==0)
 			continue;
-		kt=l_new(Y_KEY_TOOL);
+		int len=strlen(p);
+		Y_KEY_TOOL *kt=l_alloc(sizeof(Y_KEY_TOOL)+len);
 		kt->key=keyval;
-		kt->exec=l_strdup(p+1);
-		h=l_slist_append(h,kt);
+		strcpy(kt->exec,p+1);
+		h=l_slist_prepend(h,kt);
 	}
 	
 	return h;
@@ -45,7 +32,7 @@ Y_KEY_TOOL *y_key_tools_load(void)
 
 void y_key_tools_free(Y_KEY_TOOL *kt)
 {
-	l_slist_free(kt,(LFreeFunc)kt_free);
+	l_slist_free(kt,l_free);
 }
 
 int y_key_tools_run(Y_KEY_TOOL *kt,int key)
@@ -55,7 +42,10 @@ int y_key_tools_run(Y_KEY_TOOL *kt,int key)
 	{
 		if(p->key==key)
 		{
-			y_xim_explore_url(p->exec);
+			if(p->exec[0]=='$')
+				y_xim_send_string(p->exec);
+			else
+				y_xim_explore_url(p->exec);
 			return 1;
 		}
 	}

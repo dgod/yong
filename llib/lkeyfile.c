@@ -27,6 +27,7 @@ struct _lkeyfile{
 	int dirty;
 	char inherit;
 	KeyValue *line;
+	struct _lkeyfile *overlay;
 };
 
 LKeyFile *l_key_file_open(const char *file,int create,...)
@@ -125,9 +126,8 @@ LKeyFile *l_key_file_load(const char *data,ssize_t length)
 	return key_file;
 }
 
-static void l_keyvalue_free(void *data)
+static void l_keyvalue_free(KeyValue *k)
 {
-	KeyValue *k=data;
 	l_free(k->key);
 	l_free(k->value);
 	l_free(k);
@@ -137,7 +137,7 @@ void l_key_file_free(LKeyFile *key_file)
 {
 	if(!key_file) return;
 	l_free(key_file->file);
-	l_slist_free(key_file->line,l_keyvalue_free);
+	l_slist_free(key_file->line,(LFreeFunc)l_keyvalue_free);
 	l_free(key_file);
 }
 
@@ -183,6 +183,13 @@ const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char 
 {
 	KeyValue *p;
 	KeyValue *g=NULL;
+
+	if(key_file->overlay)
+	{
+		const char *res=l_key_file_get_data(key_file->overlay,group,key);
+		if(res!=NULL)
+			return res;
+	}
 
 PARENT:
 	for(p=key_file->line;p!=NULL;p=p->next)
@@ -277,9 +284,10 @@ char *l_key_file_get_string_gb(LKeyFile *key_file,const char *group,const char *
 	if(!s)
 		return NULL;
 	if(!key_file->utf8)
-		return NULL;
+		return s;
 	char temp[256];
 	l_utf8_to_gb(s,temp,sizeof(temp));
+	l_free(s);
 	return l_strdup(temp);
 }
 
@@ -308,7 +316,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 			break;
 		}
 	}
-	if(L_UNLIKELY(!key))
+	if(unlikely(!key))
 	{
 		if(!g) return 0;
 		for(p=g->next;p!=NULL;p=g->next)
@@ -326,7 +334,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 	{
 		if(!key) return 0;
 		g=l_new(KeyValue);
-		g->value=0;
+		g->value=NULL;
 		g->key=l_strdup(group);
 		key_file->line=l_slist_append(key_file->line,g);
 		key_file->dirty++;
@@ -488,4 +496,9 @@ char **l_key_file_get_keys(LKeyFile *key_file,const char *group)
 void l_key_file_set_inherit(LKeyFile *key_file,char delimiter)
 {
 	key_file->inherit=delimiter;
+}
+
+void l_key_file_set_overlay(LKeyFile *key_file,LKeyFile *overlay)
+{
+	key_file->overlay=overlay;
 }

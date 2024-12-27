@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <assert.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 #include <llib.h>
 #include "ltricky.h"
 #include "md5.h"
@@ -11,10 +15,6 @@
 #include "session.h"
 
 #include "config_ui.h"
-
-#ifdef _WIN32
-#include <winsock2.h>
-#endif
 
 #ifdef CFG_XIM_ANDROID
 #include <android/log.h>
@@ -44,11 +44,11 @@ static void pw_to_ckey(const char *pass,uint8_t ckey[16],const char *name,int si
 	
 	size=(size+15)&~0x0f;
 	
-	MD5Init(&ctx);
-	MD5Update(&ctx,(uint8_t*)pass,strlen(pass));
-	MD5Update(&ctx,(uint8_t*)name,strlen(name));
-	MD5Update(&ctx,(uint8_t*)&size,sizeof(int));
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,(uint8_t*)pass,strlen(pass));
+	l_md5_update(&ctx,(uint8_t*)name,strlen(name));
+	l_md5_update(&ctx,(uint8_t*)&size,sizeof(int));
+	l_md5_final(&ctx);
 	
 	memcpy(ckey,ctx.digest,16);
 }
@@ -57,9 +57,9 @@ static void rand16b(const void *in,int inlen,uint8_t data[])
 {
 	MD5_CTX ctx;
 	
-	MD5Init(&ctx);
-	MD5Update(&ctx,(uint8_t*)in,inlen);
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,(uint8_t*)in,inlen);
+	l_md5_final(&ctx);
 	
 	memcpy(data,ctx.digest,16);
 }
@@ -197,7 +197,6 @@ typedef struct{
 	uint64_t size;
 }FITEM_LIST;
 
-L_HASH_STRING(fitem,FITEM,file);
 static void fitem_free(FITEM *p)
 {
 	if(!p) return;
@@ -205,6 +204,7 @@ static void fitem_free(FITEM *p)
 	l_free(p->md5);
 	l_free(p);
 }
+
 static void file_list_free(FITEM_LIST *l)
 {
 	if(!l)
@@ -224,9 +224,9 @@ static char *md5_file(const char *path,const char *rel,const char *pass,uint32_t
 	data=encrypt_file(path,rel,&length,pass);
 	if(data==NULL)
 		return NULL;
-	MD5Init(&ctx);
-	MD5Update(&ctx,data,length);
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,data,length);
+	l_md5_final(&ctx);
 	l_free(data);
 	for(i=0;i<16;i++)
 	{
@@ -250,7 +250,24 @@ static FITEM *build_local_file(const char *path,const char *rel,const char *pass
 	return it;
 }
 
-static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *path,const char *pass)
+static bool in_includes_list(LPtrArray *includes,const char *s)
+{
+	if(includes==NULL)
+		return true;
+	if(s[0]=='/')
+		s++;
+	for(int i=0;i<l_ptr_array_length(includes);i++)
+	{
+		const char *p=l_ptr_array_nth(includes,i);
+		if(p[0]=='/')
+			p++;
+		if(l_str_has_prefix(s,p))
+			return true;
+	}
+	return false;
+}
+
+static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *path,const char *pass,LPtrArray *includes)
 {
 	LDir *d;
 	char *temp;
@@ -290,11 +307,16 @@ static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *pat
 		if(l_file_is_dir(full))
 		{
 			l_free(full);
-			res=build_local_file_list2(l,base,temp,pass);
+			res=build_local_file_list2(l,base,temp,pass,includes);
 			if(res!=0) break;
 		}
 		else
 		{
+			if(!in_includes_list(includes,temp))
+			{
+				l_free(full);
+				continue;
+			}
 			FITEM *it;
 			it=build_local_file(full,temp,pass);
 			l_free(full);
@@ -311,11 +333,36 @@ static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *pat
 	return res;
 }
 
+static LPtrArray *build_includes_list(void)
+{
+	const char *s=l_key_file_get_data(config,"sync","includes");
+	if(!s)
+		return NULL;
+	LPtrArray *includes=l_ptr_array_new(8);
+	l_ptr_array_append(includes,l_strdup("yong.ini"));
+	char **arr=l_strsplit(s,' ');
+	for(int i=0;arr[i]!=NULL;i++)
+	{
+		char *p=arr[i];
+		if(!p[0])
+		{
+			l_free(p);
+			continue;
+		}
+		l_ptr_array_append(includes,p);
+	}
+	l_free(arr);
+	return includes;
+}
+
 static FITEM_LIST *build_local_file_list(const char *base,const char *pass)
 {
 	FITEM_LIST *l=l_new0(FITEM_LIST);
-	l->list=l_hash_table_new((LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp,64,0);
-	if(0!=build_local_file_list2(l,base,"",pass))
+	l->list=L_HASH_TABLE_STRING(FITEM,file,64);
+	LPtrArray *includes=build_includes_list();
+	int ret=build_local_file_list2(l,base,"",pass,includes);
+	l_ptr_array_free(includes,l_free);
+	if(0!=ret)
 	{
 		file_list_free(l);
 		return NULL;
@@ -424,7 +471,7 @@ static FITEM_LIST *build_remote_file_list(const char *user,const char *sid)
 	}
 	l_free(res);
 	l=l_new0(FITEM_LIST);
-	l->list=l_hash_table_new((LHashFunc)fitem_hash,(LCmpFunc)fitem_cmp,64,0);
+	l->list=L_HASH_TABLE_STRING(FITEM,file,64);
 	n=l_xml_get_child(&xml->root,"list");
 	if(n) n=l_xml_get_child(n,"file");
 	for(;n!=NULL;n=n->next)
@@ -1046,8 +1093,52 @@ static int download_clipboard(void)
 	return 0;
 }
 
+static void status_free(char *s)
+{
+	status("%s",s);
+	l_free(s);
+}
+
+static int get_latest_func(void *unused)
+{
+	char *res;
+	int len;
+	char temp[256];
+
+	const char *user=l_key_file_get_data(config,"sync","user");
+	const char *sid=l_key_file_get_data(config,"sync","sid");
+
+	if(!user || !sid || !user[0] || !sid[0])
+	{
+		cu_call((void*)status,"同步未设置");
+		return -1;
+	}
+
+
+	snprintf(temp,sizeof(temp),"/sync/sync.php?latest=1&user=%s&sid=%s",user,sid);
+	HttpSession *ss=http_session_new();
+	http_session_set_host(ss,server_host,server_port);
+	res=http_session_get(ss,temp,&len,NULL,0);
+	http_session_free(ss);
+	if(!res)
+		return 0;
+	int64_t t=strtoll(res,NULL,10);
+	l_free(res);
+	struct tm *tm=l_localtime(&t);
+	sprintf(temp,"最后同步时间：%04d-%02d-%02d %02d:%02d:%02d",
+			tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday,
+			tm->tm_hour,tm->tm_min,tm->tm_sec);
+	cu_call((void*)status_free,l_strdup(temp));
+
+	return 0;
+}
+
 static void activate(CULoopArg *arg)
 {
+	l_thrd_t thr;
+	l_thrd_create(&thr,get_latest_func,NULL);
+	l_thrd_detach(thr);
+
 	CUCtrl win=cu_ctrl_new(NULL,arg->custom->root.child);
 	assert(win!=NULL);
 	cu_ctrl_show_self(win,1);
@@ -1077,7 +1168,7 @@ int SyncMain(int argc,char **argv)
 	}
 	cu_init();
 	LXml *custom=l_xml_load((const char*)config_sync);
-	CULoopArg loop_arg={custom};
+	CULoopArg loop_arg={custom,"net.dgod.yong.sync"};
 	cu_loop(activate,&loop_arg);
 	l_xml_free(custom);
 	return 0;

@@ -24,8 +24,16 @@
 #define l_cnew0(n,t) ((t*)calloc(n,sizeof(t)))
 #define l_renew(p,n,t) ((t*)realloc((p),(n)*sizeof(t)))
 #define l_memdup(p,s) memcpy(malloc(s),p,s)
-#define l_free free
 #define l_strdup(p) strdup(p)
+#define l_free free
+#define l_zfree(p) do{l_free(p);p=NULL;}while(0)
+
+static inline void *l_memcpy0(void *dest,const void *src,size_t n)
+{
+	memcpy(dest,src,n);
+	((char*)dest)[n]=0;
+	return dest;
+}
 
 static inline void *l_memdup0(const void *p,size_t s)
 {
@@ -61,12 +69,30 @@ static inline void *l_memdup0(const void *p,size_t s)
 #define l_newa0(t) ((t*)l_alloca0(sizeof(t)))
 #define l_memdupa(p,s) memcpy(l_alloca(s),p,s)
 
+#ifdef __GNUC__
+#define l_memdupa0(p,s)					\
+(__extension__							\
+ 	({									\
+	 	int __s=(int)(s);				\
+		char *__r=l_alloca(__s+1);		\
+		memcpy(__r,(p),__s);			\
+		__r[__s]=0;						\
+		__r;							\
+	})									\
+)
+#endif
+
 typedef struct _lslices LSlices;
 LSlices *l_slices_new(int n,...);
 void l_slices_free(LSlices *r);
 void *l_slice_alloc(LSlices *r,int size);
 #define l_slice_new(r,t) l_slice_alloc(r,sizeof(t))
 void l_slice_free(LSlices *r,void *p,int size);
+
+#ifdef __GNUC__
+#define L_AUTO_FREE_X(p) __attribute__((cleanup(p))
+#define L_AUTO_FREE L_AUTO_FREE_X(l_free)
+#endif
 
 #endif/*_LMEM_H_*/
 

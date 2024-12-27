@@ -41,7 +41,7 @@ int y_mb_pick(struct y_mb *mb,FILE *fp,int option,int clen,int dlen,int filter,c
 					if(cp->del)
 						goto dump_next;
 					data=y_mb_ci_string(cp);
-					if(dlen && dlen!=gb_strlen((uint8_t*)data))
+					if(dlen && dlen!=l_gb_strlen(data,-1))
 						goto dump_next;
 					if(filter && cp->zi && cp->ext)
 						goto dump_next;
@@ -209,7 +209,7 @@ int y_mb_diff(struct y_mb *mb,FILE *fp,char *fn,int strict)
 	return 0;
 }
 
-static void mb_hash_foreach(LHashTable *h,LFunc cb,void *arg)
+static void mb_hash_foreach(LHashTable *h,LEnumFunc cb,void *arg)
 {
 	LHashIter iter;
 	void *data;
@@ -560,20 +560,22 @@ dump_next:
 	if(format==MB_FMT_YONG && (option&MB_DUMP_ADJUST) && mb->zi)
 	{
 		int count=0;
-		mb_hash_foreach(mb->zi,(LFunc)mb_zi_virt_count,&count);
+		mb_hash_foreach(mb->zi,(LEnumFunc)mb_zi_virt_count,&count);
 		if(count>0)
 		{
 			struct y_mb_zi **list,**p;
 			int i;
 			p=list=calloc(count,sizeof(struct y_mb_zi*));
-			mb_hash_foreach(mb->zi,(LFunc)mb_zi_virt_store,&p);
+			mb_hash_foreach(mb->zi,(LEnumFunc)mb_zi_virt_store,&p);
 			qsort(list,count,sizeof(struct y_mb_zi*),mb_zi_virt_cmp);
 			for(i=0;i<count;i++)
 			{
 				struct y_mb_zi *z=list[i];
-				char code[Y_MB_KEY_SIZE+1];
+				char code[Y_MB_KEY_SIZE+1],data[8];
 				y_mb_code_get_string(mb,z->code,code);
-				fprintf(fp,"^%s %s\n",code,mb_data_conv_r(z->data));
+				int len=l_char_to_gb(z->data,data);
+				data[len]=0;
+				fprintf(fp,"^%s %s\n",code,data);
 			}
 			free(list);
 		}
@@ -664,7 +666,7 @@ int y_mb_stat(struct y_mb *mb,FILE *fp,int level)
 	
 	if(!mb->zi)
 		return -1;
-	mb_hash_foreach(mb->zi,(LFunc)mb_stat_cb,&st);
+	mb_hash_foreach(mb->zi,(LEnumFunc)mb_stat_cb,&st);
 	fprintf(fp,"%d %d %d\n",st.count[0],st.count[1],st.count[2]);
 	return 0;
 }

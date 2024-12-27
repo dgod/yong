@@ -187,9 +187,20 @@ static int cset_predict_group_get(CSET_GROUP_PREDICT *g,int at,int num,char cand
 		const char *s=y_mb_predict_nth(g->phrase,at+i);
 		assert(s!=NULL);
 		strcpy(cand[i],s);
-		tip[i][0]=0;
+		s=y_mb_predict_nth(g->codetip,at+i);
+		if(s)
+			strcpy(tip[i],s);
+		else
+			tip[i][0]=0;
 	}
 	return 0;
+}
+
+static void cset_predict_group_free(CSET_GROUP_PREDICT *g)
+{
+	if(!g)
+		return;
+	g->codetip[0]=0;
 }
 
 CSET_GROUP_PREDICT *cset_predict_group_new(CSET *cs)
@@ -201,7 +212,7 @@ CSET_GROUP_PREDICT *cset_predict_group_new(CSET *cs)
 
 	g->type=CSET_TYPE_PREDICT;
 	g->get=(void*)cset_predict_group_get;
-	g->free=NULL;
+	g->free=(void*)cset_predict_group_free;
 
 	g->phrase[0]=0;
 	g->count=0;

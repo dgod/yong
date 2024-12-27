@@ -19,7 +19,6 @@ extern EXTRA_IM EIM;
 
 #if defined(CFG_XIM_ANDROID) && L_WORD_SIZE==32
 #define rand() (int)lrand48()
-#define signal(s,f) bsd_signal(s,f)
 #endif
 
 #define WAKEUP_SIGNAL		SIGUSR2

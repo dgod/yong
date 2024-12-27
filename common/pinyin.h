@@ -10,8 +10,10 @@ void py_init(int split,char *sp);
 
 int py_parse_string(const char *input,py_item_t *token,int caret,int (*check)(int,const char*,void *),void *arg);
 int py_build_string(char *out,py_item_t *token,int count);
-int py_build_string_no_split(char *out,py_item_t *token,int count);
+int py_build_string_no_split(char *out,const py_item_t *token,int count);
 int py_build_sp_string(char *out,py_item_t *token,int count);
+int py_build_jp_string(char *out,const py_item_t *token,int count);
+int py_build_zrm_string(char *out,const py_item_t *token,int count);
 int py_prepare_string(char *to,const char *from,int *caret);
 int py_parse_sp_jp(const char *input,py_item_t *token);
 int py_caret_to_pos(py_item_t *token,int count,int caret);

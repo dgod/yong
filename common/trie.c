@@ -708,3 +708,43 @@ int main(int arc,char *arg[])
 
 #endif
 
+#if 0
+int main(int argc,char *argv[])
+{
+	char line[1024];
+	if(argc!=2)
+	{
+		printf("invalid argument count\n");
+		return -1;
+	}
+	FILE *fp=fopen(argv[1],"r");
+	if(fp==NULL)
+	{
+		printf("open file failed\n");
+		return -1;
+	}
+	trie_tree_t *tree=trie_tree_new();
+	while(fgets(line,1024,fp)!=NULL)
+	{
+		char code[256],cand[256];
+		char sp[256];
+		if(line[0]=='#') continue;
+		sscanf(line,"%*s %s %s",code,cand);
+		int i,c,pos=0;
+		for(i=0;(c=line[i])!=0;i++)
+		{
+			if(c>='a' && c<='z')
+				code[pos++]=c;
+		}
+		code[pos]=0;
+		// trie_tree_add(tree,code,pos);
+		py_conv_to_sp(code,cand,sp);
+		trie_tree_add(tree,sp,strlen(sp));
+	}
+	fclose(fp);
+	trie_tree_free(tree);
+	printf("%d\n",tree->count);
+	return 0;
+}
+// gcc trie.c test.c pinyin.c -o test.exe -I../llib -I../include
+#endif

@@ -76,6 +76,13 @@ int y_im_load_app_config(void)
 				config=l_key_file_load("",0);
 			l_key_file_set_int(config,"IM","onspot",atoi(val));
 		}
+		val=l_key_file_get_data(key_file,group,"lang");
+		if(val && val[0])
+		{
+			if(!config)
+				config=l_key_file_load("",0);
+			l_key_file_set_int(config,"IM","lang",atoi(val));
+		}
 		if(!config)
 			continue;
 		item=l_new(struct app_item);
@@ -97,11 +104,10 @@ void y_im_free_app_config(void)
 
 LKeyFile *y_im_get_app_config(const char *exe)
 {
-	struct app_item *item,key;
+	struct app_item *item;
 	if(!app)
 		return NULL;
-	key.exe=(char*)exe;
-	item=l_hash_table_find(app,&key);
+	item=l_hash_table_lookup(app,exe);
 	if(!item)
 		return NULL;
 	return item->config;

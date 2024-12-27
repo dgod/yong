@@ -177,6 +177,32 @@ skip:;
 	return count;
 }
 
+static int move_phrase_equal(char *phrase,const char *s,int tlen)
+{
+	char *temp=l_memdupa(phrase,tlen+1);
+	for(int i=0;i<tlen;i++)
+	{
+		int c=s[i];
+		if(c!=temp[i])
+		{
+			if(c==',')
+			{
+				memmove(temp+i+1,temp+i,tlen-i+1);
+				temp[i]=c;
+				tlen++;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+	}
+	if(s[tlen]>0x7a)
+		return 0;
+	memcpy(phrase,temp,tlen+1);
+	return tlen;
+}
+
 void y_assoc_move(void *handle,const char *phrase)
 {
 	ASSOC *p=handle;
@@ -197,8 +223,11 @@ void y_assoc_move(void *handle,const char *phrase)
 
 	while(s && (!end || s<end))
 	{
-		if(!memcmp(s,temp,tlen) && s[tlen]<=0x7a)
+		// if(s[tlen]<=0x7a && !memcmp(s,temp,tlen))
+		int nlen=move_phrase_equal(temp,(const void*)s,tlen);
+		if(nlen>0)
 		{
+			tlen=nlen;
 			if(p->data+pos+2==s)
 				break;
 			while(s[tlen]>0x20)

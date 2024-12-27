@@ -62,6 +62,14 @@ function set_ver(){
 }
 
 function deb(){
+	if(!which('dpkg')){
+		console.log("dpkg not found\n");
+		return;
+	}
+	if(!which('fakeroot')){
+		console.log("fakeroot not found\n");
+		return;
+	}
 	var VER=process.env.VER || shell("date +%Y%m%d");
 	mkdir(['deb','deb/opt','deb/DEBIAN']);
 	cp('yong','deb/opt/');
@@ -92,6 +100,75 @@ cd /opt/yong
 	exec(`fakeroot dpkg -b deb yong-${VER}.deb`);
 }
 
+function rpm(){
+	if(!which('rpmbuild')){
+		console.log("rpmbuild not found\n");
+		return;
+	}
+	var VER=process.env.VER || shell("date +%Y%m%d");
+const spec=
+`%define name		yong
+%define version		${VER}
+%define release		0
+
+%define prefix		/opt
+
+%global _binaries_in_noarch_packages_terminate_build 0
+%define _source_payload w9.gzdio
+%define _binary_payload w9.gzdio
+
+Name:		%{name}
+Version:	%{version}
+Release:	%{release}
+Summary:	Yong Input Method
+Summary(zh_CN):	Yong输入法
+Packager:	dgod <dgod.osa@gmail.com>
+URL:		https://yong.dgod.net
+Group:		User Interface/X
+License:	DGOD
+Source:		%{name}-%{version}.tar.gz
+BuildRoot:	%{_builddir}/%{name}-%{version}-root
+BuildArch:		noarch
+
+%description
+Yong Input Method, include yong(zrm), wubi, zhengma, erbi, english, gbk, pinyin, zhangma.
+
+%description -l zh_CN
+Yong输入法，包含永码(自然双拼)，五笔，郑码，二笔，英语，内码，拼音，张码。
+
+%prep
+
+%build
+
+%install
+mkdir -p \${RPM_BUILD_ROOT}/%{prefix}
+cp -r ~/yong/install/yong \${RPM_BUILD_ROOT}/%{prefix}
+
+%clean
+[ \${RPM_BUILD_ROOT} != "/" ] && rm -rf \${RPM_BUILD_ROOT}
+
+%files
+%{prefix}/yong
+
+%post
+cd %{prefix}/yong
+sh ./yong-tool.sh --install
+
+%preun
+if [ "$1" = "0" ] ; then
+	cd %{prefix}/yong
+	sh ./yong-tool.sh --uninstall
+fi
+
+%postun
+
+%changelog
+`;
+	fs.writeFileSync('yong.spec',spec);
+	exec('rpmbuild -bb yong.spec --target=noarch --define "_rpmdir `pwd`"');
+	rm('yong.spec');
+}
+
 if(target=="copy"){
 	copy_data();
 	copy_build("l32");
@@ -106,7 +183,7 @@ if(target=="copy"){
 	set_ver();
 	exec("7za a yong-lin-$(VER).7z yong");	
 }else if(target=="rpm"){
-	exec('rpmbuild -bb yong.spec --target=i686 --define "_rpmdir `pwd`"');
+	rpm();
 }else if(target=="deb"){
 	deb();
 }

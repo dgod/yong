@@ -191,6 +191,57 @@ static void y_im_strip_key_useless(char *gb)
 	}
 }
 
+static int y_im_strip_key(char *gb,int *repeat)
+{
+	char *s=strrchr(gb,'$');
+	if(s && s[1]=='|')
+	{
+		int i;
+		int key=0;
+		memmove(s,s+2,strlen(s+2)+1);
+		for(i=0;s[i];)
+		{
+			if(s[i] && !s[i+1])
+			{
+				key++;
+				break;
+			}
+			if(s[i]&0x80)
+			{
+				key++;
+				if(gb_is_gb18030_ext((void*)s+i))
+					i+=4;
+				else
+					i+=2;
+			}
+			else
+			{
+				if(s[i]=='$' && (s[i+1]=='_' || s[i+1]=='$' || s[i+1]=='/'))
+				{
+					key++;
+					i+=2;
+				}
+				else
+				{
+					key++;
+					i++;
+				}
+			}
+		}
+		if(repeat)
+			*repeat=key;
+		return key?YK_LEFT:0;
+	}
+	else if(s)
+	{
+		int key=y_im_str_to_key(s+1,repeat);
+		if(key>0)
+			*s=0;
+		return key;
+	}
+	return 0;
+}
+
 static void escape_last(const char *s,char *out)
 {
 	char c;
@@ -244,9 +295,18 @@ void y_xim_send_keys(const char *s)
 		xim.send_keys(keys,count);
 }
 
+int y_xim_get_onspot(void)
+{
+	if(!xim.get_onspot)
+	{
+		return 0;
+	}
+	return xim.get_onspot();
+}
+
 void y_xim_send_string2(const char *s,int flag)
 {
-	int key=0;
+	int key=0,key_repeat=0;
 	if(s)
 	{
 		if(flag&SEND_RAW)
@@ -262,7 +322,7 @@ void y_xim_send_string2(const char *s,int flag)
 			{
 				int len=strlen(s);
 				if(len>6)
-					s=l_strndupa(s,len-6);
+					s=l_memdupa0(s,len-6);
 			}
 			if(!strcmp(s,"$LAST"))
 			{
@@ -358,7 +418,7 @@ void y_xim_send_string2(const char *s,int flag)
 			}
 			else if(l_str_has_surround(s,"$IMKEY(",")"))
 			{
-				char *temp=l_strndupa(s+7,strlen(s+7)-1);
+				char *temp=l_memdupa0(s+7,strlen(s+7)-1);
 				int *keys=y_im_str_to_keys(temp);
 				y_ui_idle_add((void*)y_im_input_key_at_idle,keys);
 			}
@@ -366,7 +426,7 @@ void y_xim_send_string2(const char *s,int flag)
 			{
 				if(xim.send_keys)
 				{
-					char *temp=l_strndupa(s+10,strlen(s+10)-1);
+					char *temp=l_memdupa0(s+10,strlen(s+10)-1);
 					int keys[256];
 					int count=y_im_parse_keys(temp,keys,256);
 					if(count<=0)
@@ -377,6 +437,18 @@ void y_xim_send_string2(const char *s,int flag)
 				else
 				{
 					y_ui_show_tip(YT("不支持此功能"));
+				}
+			}
+			else if(!strcmp(s,"$REDIRECT()"))
+			{
+				int ret=y_im_history_redirect_run();
+				if(ret==-1)
+				{
+					y_ui_show_tip(YT("当前配置不支持这样运行"));
+				}
+				else if(ret==0)
+				{
+					y_ui_show_tip(YT("没有匹配的数据"));
 				}
 			}
 			else
@@ -433,7 +505,7 @@ COPY:
 		s+=y_im_str_desc(s,NULL);
 		if(!y_im_forward_key(s))
 			goto out;
-		key=y_im_strip_key((char*)s);
+		key=y_im_strip_key((char*)s,&key_repeat);
 		if(!y_im_go_url(s))
 			goto out;
 		if(!y_im_send_file(s))
@@ -448,7 +520,11 @@ COPY:
 	}
 
 	y_im_speed_update(0,s);
-	y_im_history_write(s);
+	int back=y_im_history_write(s,true);
+	if(back>0)
+	{
+		goto out;
+	}
 	if(xim.send_string)
 	{
 		if(s[0]=='$')
@@ -470,13 +546,7 @@ COPY:
 	}
 	if(key>0)
 	{
-#ifdef WIN32
-		y_xim_forward_key(YK_LEFT,key);
-#else
-		int i;
-		for(i=0;i<key;i++)
-			y_xim_forward_key(YK_LEFT,1);
-#endif
+		y_xim_forward_key(key,key_repeat);
 	}
 out:
 	temp_output[0]=0;
@@ -547,7 +617,7 @@ int y_im_get_real_cand(const char *s,char *out,size_t size)
 	if(s[0]=='$' || s[0]=='\0')
 		return 0;
 
-	y_im_strip_key(out);
+	y_im_strip_key(out,NULL);
 	return strlen(out);
 }
 
@@ -1033,6 +1103,7 @@ static const struct{
 	{"INSERT",YK_INSERT},
 	{"CAPSLOCK",YK_CAPSLOCK},
 	{"COMMA",','},
+	{"BACK",YK_BACK},
 	{NULL,0}
 };
 
@@ -1067,44 +1138,44 @@ int y_im_str_to_key(const char *s,int *repeat)
 		tmp[i]=0;
 		if(i==0)
 		{
-			return -1;
+			return -2;
 		}
 		else if(i==1)
 		{
 			if(isgraph(tmp[0]))
 			{
 				key|=tmp[0];
-				if(p[0])
-					return -1;
+				if(p[0] && p[0]!=' ')
+					return -3;
 				break;
 			}
 			else
 			{
-				return -1;
+				return -4;
 			}
 		}
 		else if(!strcmp(tmp,"CTRL"))
 		{
 			if(key&KEYM_CTRL)
-				return -1;
+				return -5;
 			key|=KEYM_CTRL;
 		}
 		else if(!strcmp(tmp,"SHIFT"))
 		{
 			if(key&KEYM_SHIFT)
-				return -1;
+				return -6;
 			key|=KEYM_SHIFT;
 		}
 		else if(!strcmp(tmp,"ALT"))
 		{
 			if(key&KEYM_ALT)
-				return -1;
+				return -7;
 			key|=KEYM_ALT;
 		}
 		else if(!strcmp(tmp,"WIN"))
 		{
 			if(key&KEYM_SUPER)
-				return -1;
+				return -8;
 			key|=KEYM_SUPER;
 		}
 		else
@@ -1138,9 +1209,9 @@ int y_im_str_to_key(const char *s,int *repeat)
 								s+=y_im_str_desc(s,NULL);
 								if(s[0]=='$')
 									s=y_im_str_escape(s,0,last_output_time);
-								*repeat=last_biaodian_only?0:gb_strlen((const uint8_t*)s);
+								*repeat=last_biaodian_only?0:l_gb_strlen(s,-1);
 								if(last_biaodian[0])
-									*repeat+=gb_strlen((const uint8_t*)last_biaodian);
+									*repeat+=l_gb_strlen(last_biaodian,-1);
 								if(*repeat==0)
 									*repeat=1;
 							}
@@ -1154,10 +1225,12 @@ int y_im_str_to_key(const char *s,int *repeat)
 					}
 				}			
 			}
+			
 			if(!str_key_map[i].name)
 			{
-				return -1;
+				return -9;
 			}
+			
 			if(p[0]==' ')
 				break;
 		}
@@ -1346,6 +1419,12 @@ int y_im_parse_keys(const char *s,int *out,int size)
 				goto unmask;
 				break;
 			case '{':
+				if(s[i+1]!=0 && s[i+2]=='}')
+				{
+					out[count++]=s[i+1];
+					i+=2;
+					break;
+				}
 				esc_len=0;
 				break;
 			case '}':
@@ -1621,6 +1700,7 @@ static char **y_im_parse_argv(const char *s,int size)
 				if(l_str_has_prefix(temp,"../"))
 					memmove(temp,temp+3,strlen(temp+3)+1);
 #endif
+				l_free(first);
 				l_ptr_array_nth(arr,0)=l_strdup(temp);
 			}
 #ifdef _WIN32
@@ -1650,7 +1730,7 @@ static char **y_im_parse_argv(const char *s,int size)
 			continue;
 		if(l_str_has_surround(p,"$CONFIG(",")"))
 		{
-			char *t=l_strndupa(p+8,strlen(p+8)-1);
+			char *t=l_memdupa0(p+8,strlen(p+8)-1);
 			char **cfg=l_strsplit(t,',');
 			if(!cfg[0] || !cfg[1])
 			{
@@ -1699,7 +1779,10 @@ static char **y_im_parse_argv(const char *s,int size)
 				return NULL;
 			}
 			l_free(p);
-			l_ptr_array_nth(arr,i)=t;
+			char temp[1024];
+			l_gb_to_utf8(t,temp,sizeof(temp));
+			l_free(t);
+			l_ptr_array_nth(arr,i)=l_strdup(temp);
 		}
 		else if(l_str_has_prefix(p,"$(_HOME)") || l_str_has_prefix(p,"$(_DATA)"))
 		{
@@ -1843,6 +1926,7 @@ int y_im_go_url(const char *s)
 		if(s[len-1]==')')
 		{
 			char go[256];
+			char u8[512];
 			static const L_ESCAPE_CONFIG c={
 				.lead='$',
 				.flags=L_ESCAPE_GB|L_ESCAPE_LAST,
@@ -1863,7 +1947,8 @@ int y_im_go_url(const char *s)
 				tmp[strlen(tmp)-1]=0;
 				if(0!=y_im_book_decrypt(tmp+9,dec))
 					return -1;
-				y_xim_explore_url(dec);
+				l_gb_to_utf8(dec,u8,sizeof(u8));
+				y_xim_explore_url(u8);
 				return 0;
 			}
 			//y_im_expand_with(tmp,tmp,sizeof(go)-(tmp-go),EXPAND_SPACE|EXPAND_ENV);
@@ -1873,7 +1958,8 @@ int y_im_go_url(const char *s)
 			else if(!strcmp(tmp,"update"))
 				tmp="yong-config --update";
 #endif
-			y_xim_explore_url(tmp);
+			l_gb_to_utf8(tmp,u8,sizeof(u8));
+			y_xim_explore_url(u8);
 			return 0;
 		}
 	}
@@ -1914,12 +2000,12 @@ int y_im_str_desc(const char *s,void *out)
 	while(1)
 	{
 		uint32_t hz;
-		end=gb_next(end,&hz);
+		end=gb_next_be(end,&hz);
 		if(!end)
 			return 0;
 		if(hz=='$')
 		{
-			end=gb_next(end,&hz);
+			end=gb_next_be(end,&hz);
 			if(!end)
 				return 0;
 			if(hz=='[' || hz==']')
@@ -2181,58 +2267,6 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 	return line;
 }
 
-int y_im_strip_key(char *gb)
-{
-	char *s;
-	int key=0;
-	s=strrchr(gb,'$');
-	if(s && s[1]=='|')
-	{
-		int i;
-		key=0;
-		memmove(s,s+2,strlen(s+2)+1);
-		for(i=0;s[i];)
-		{
-			if(s[i] && !s[i+1])
-			{
-				key++;
-				break;
-			}
-			if(s[i]&0x80)
-			{
-				key++;
-				if(gb_is_gb18030_ext((void*)s+i))
-					i+=4;
-				else
-					i+=2;
-			}
-			else
-			{
-				if(s[i]=='$' && (s[i+1]=='_' || s[i+1]=='$' || s[i+1]=='/'))
-				{
-					key++;
-					i+=2;
-				}
-				else
-				{
-					key++;
-					i++;
-				}
-			}
-		}
-	}
-	else if(s)
-	{
-		key=y_im_str_to_key(s+1,NULL);
-		if(key>0) *s=0;
-		if(key==YK_LEFT)
-			key=1;
-		else
-			key=0;
-	}
-	return key;
-}
-
 void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,const char *tip)
 {
 	char temp[MAX_CAND_LEN+1];
@@ -2267,10 +2301,10 @@ void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,co
 	/* escape the string */
 	s=y_im_str_escape(s,0,0);
 	/* strip key in it */
-	y_im_strip_key(s);
+	y_im_strip_key(s,NULL);
 SKIP:
 	/* get the length of input */
-	len=gb_strlen(s);
+	len=l_gb_strlen(s,-1);
 	/* get string should escape */
 	skip=len-(pre+suf);
 	if(skip<=0)
@@ -2280,8 +2314,8 @@ SKIP:
 		return;
 	}
 	/* copy the string and skip some */
-	char *pad_str=gb_offset(s,pre);
-	char *suf_str=gb_offset(s,len-suf);
+	char *pad_str=l_gb_offset(s,pre);
+	char *suf_str=l_gb_offset(s,len-suf);
 	memmove(pad_str+3,suf_str,strlen(suf_str)+1);
 	pad_str[0]=pad_str[1]=pad_str[2]='.';
 	y_im_str_encode(s,out,DONT_ESCAPE);
@@ -2299,7 +2333,7 @@ int y_im_str_encode(const char *gb,void *out,int flags)
 	if(!(flags&DONT_ESCAPE))
 	{
 		s=y_im_str_escape(gb,1,0);
-		y_im_strip_key(s);
+		y_im_strip_key(s,NULL);
 	}
 	else
 	{
@@ -2356,6 +2390,8 @@ int y_im_is_url(const char *s)
 {
 	const char *p1,*p2,*p3;
 	if(s[0]=='"')
+		return 0;
+	if(l_str_has_prefix(s,"action:"))
 		return 0;
 	p1=strchr(s,':');
 	p2=strchr(s,' ');
@@ -2625,7 +2661,8 @@ void y_im_about_self(void)
 	
 	pos=sprintf(temp,"%s%s\n",YT("作者："),"dgod");
 	pos+=sprintf(temp+pos,"%s%s\n",YT("论坛："),"http://yong.dgod.net");
-	/*pos+=*/sprintf(temp+pos,"%s%s\n",YT("编译时间："),YONG_VERSION);
+	pos+=sprintf(temp+pos,"%s%s\n",YT("编译时间："),YONG_VERSION);
+	/*pos+=*/sprintf(temp+pos,"%s%s",YT("感谢："),"stb, nanosvg");
 	
 #if 0
 	pos+=sprintf(temp+pos,"%s%d",YT("机器码："),(int)y_im_gen_mac());
@@ -2635,50 +2672,31 @@ void y_im_about_self(void)
 }
 
 
-void *y_im_module_open(char *path)
+void *y_im_module_open(const char *path)
 {
-	void *ret=0;
 	char temp[256];
 	
 	if(strchr(path,'/'))
 		strcpy(temp,path);
 	else
 		sprintf(temp,"%s/%s",y_im_get_path("LIB"),path);
-#ifdef _WIN32
-	WCHAR real[MAX_PATH];
-	l_utf8_to_utf16(temp,real,sizeof(real));
-	ret=(void*)LoadLibrary(real);
-#else
-	ret=dlopen(temp,RTLD_LAZY);
+	void *ret=l_dlopen(temp);
 	if(!ret)
 	{
-		printf("dlopen %s error %s\n",temp,dlerror());
+		printf("dlopen %s fail\n",temp);
 	}
-#endif
 	return ret;
 }
 
 void *y_im_module_symbol(void *mod,char *name)
 {
-	void *ret;
-#ifdef _WIN32
-	ret=(void*)GetProcAddress(mod,name);
-#else
-	ret=dlsym(mod,name);
-#endif
+	void *ret=l_dlsym(mod,name);
 	return ret;
 }
 
 void y_im_module_close(void *mod)
 {
-#ifdef _WIN32
-	FreeLibrary(mod);
-#else
-	if(0!=dlclose(mod))
-	{
-		perror("dlclose");
-	}
-#endif
+	l_dlclose(mod);
 }
 
 int y_im_run_tool(char *func,void *arg,void **out)
@@ -2731,7 +2749,7 @@ int y_im_has_im_config(int index,const char *key)
 	entry=l_key_file_get_data(MainConfig,"IM",temp);
 	if(!entry)
 		return 0;
-	return l_key_file_get_data(MainConfig,entry,"skin")?1:0;
+	return l_key_file_get_data(MainConfig,entry,key)?1:0;
 }
 
 int y_im_get_im_config_int(int index,const char *key)
@@ -2811,6 +2829,10 @@ void y_im_setup_config(void)
 		args[0]=setup;
 	}
 #ifndef _WIN32
+	if(!args[0] && l_file_exists("./yong-config-gtk3"))
+	{
+		args[0]="./yong-config-gtk3";
+	}
 	if(!args[0] && l_file_exists("/usr/bin/yong-config"))
 	{
 		args[0]="/usr/bin/yong-config";
@@ -2874,28 +2896,6 @@ struct im_helper{
 };
 static struct im_helper helper_list[4];
 
-static time_t y_im_last_mtime(const char *file)
-{
-#if 0
-#ifdef _WIN32
-	struct _stat st;
-	wchar_t temp[MAX_PATH];
-	if(!file) return 0;
-	l_utf8_to_utf16(file,temp,sizeof(temp));
-	if(0!=_wstat(temp,&st))
-		return 0;
-	return st.st_mtime;
-#else
-	struct stat st;
-	if(!file) return 0;
-	if(0!=stat(file,&st))
-		return 0;
-	return st.st_mtime;
-#endif
-#endif
-	return l_file_mtime(file);
-}
-
 #ifdef _WIN32
 static VOID CALLBACK HelperTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
 {
@@ -2909,7 +2909,7 @@ static VOID CALLBACK HelperTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD 
 		if(p->watch)
 		{
 			time_t mtime;
-			mtime=y_im_last_mtime(p->watch);
+			mtime=l_file_mtime(p->watch);
 			if(mtime!=p->mtime)
 			{
 				p->mtime=mtime;
@@ -2985,7 +2985,7 @@ int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*e
 		p->prog=l_strdup(prog);
 		p->watch=watch?l_strdup(watch):NULL;
 		p->pid=pi.hProcess;
-		p->mtime=watch?y_im_last_mtime(watch):0;
+		p->mtime=watch?l_file_mtime(watch):0;
 		p->timer=SetTimer(NULL,0,1000,HelperTimerProc);
 		p->cb=cb;
 		p->exit_cb=exit_cb;
@@ -3005,7 +3005,7 @@ static void  HelperExit(GPid pid,gint status,gpointer data)
 		if(p->watch)
 		{
 			time_t mtime;
-			mtime=y_im_last_mtime(p->watch);
+			mtime=l_file_mtime(p->watch);
 			if(mtime!=p->mtime)
 			{
 				p->mtime=mtime;
@@ -3031,7 +3031,7 @@ static gboolean HelperTimerProc(gpointer data)
 	if(p->watch)
 	{
 		time_t mtime;
-		mtime=y_im_last_mtime(p->watch);
+		mtime=l_file_mtime(p->watch);
 		if(mtime!=p->mtime)
 		{
 			p->mtime=mtime;
@@ -3072,7 +3072,7 @@ int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*e
 		p->prog=g_strdup(prog);
 		p->watch=watch?g_strdup(watch):NULL;
 		p->pid=pid;
-		p->mtime=watch?y_im_last_mtime(watch):0;
+		p->mtime=watch?l_file_mtime(watch):0;
 		p->timer=g_timeout_add(1000,HelperTimerProc,p);
 		p->cb=cb;
 		p->exit_cb=exit_cb;
@@ -3085,27 +3085,9 @@ int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*e
 #endif
 #endif
 
-int y_strchr_pos(char *s,int c)
-{
-	int i;
-	for(i=0;s[i];i++)
-	{
-		if(s[i]==c)
-			return i;
-	}
-	return -1;
-}
-
 void y_im_str_strip(char *s)
 {
-	int c,l;
-	while((c=*s++)!=0)
-	{
-		if(c!=' ') continue;
-		l=strlen(s);
-		memmove(s-1,s,l+1);
-		s--;
-	}
+	l_str_replace(s,' ','\0');
 }
 
 void y_im_show_help(char *wh)
@@ -3189,21 +3171,6 @@ int y_im_show_keymap(void)
 
 
 
-static FILE *d_fp;
-void y_im_debug(char *fmt,...)
-{
-	va_list ap;
-	if(!d_fp)
-	{
-		d_fp=fopen("log.txt","w");
-	}
-	if(!d_fp) return;
-	va_start(ap,fmt);
-	vfprintf(d_fp,fmt,ap);
-	va_end(ap);
-	fflush(d_fp);
-}
-
 int y_im_diff_hand(char c1,char c2)
 {
 	const char *left="qwertasdfgzxcvb";
@@ -3264,6 +3231,7 @@ void y_im_update_sub_config(const char *name)
 	{
 		SubConfig=NULL;
 	}
+	l_key_file_set_overlay(MainConfig,SubConfig);
 }
 
 void y_im_free_config(void)
@@ -3286,53 +3254,26 @@ char *y_im_get_config_string(const char *group,const char *key)
 	if(!MainConfig)
 		y_im_update_main_config();
 #endif
-	if(SubConfig)
-	{
-		char *s=l_key_file_get_string(SubConfig,group,key);
-		if(s) return s;
-	}
-	char *res= l_key_file_get_string(MainConfig,group,key);
-	return res;
+	return l_key_file_get_string(MainConfig,group,key);
 }
 
 char *y_im_get_config_string_gb(const char *group,const char *key)
 {
-	if(SubConfig)
-	{
-		char *s=l_key_file_get_string_gb(SubConfig,group,key);
-		if(s) return s;
-	}
-	char *res= l_key_file_get_string_gb(MainConfig,group,key);
-	return res;
+	return l_key_file_get_string_gb(MainConfig,group,key);
 }
 
 const char *y_im_get_config_data(const char *group,const char *key)
 {
-	if(SubConfig)
-	{
-		const char *s=l_key_file_get_data(SubConfig,group,key);
-		if(s) return s;
-	}
 	return l_key_file_get_data(MainConfig,group,key);
 }
 
 int y_im_get_config_int(const char *group,const char *key)
 {
-	if(SubConfig)
-	{
-		const char *s=l_key_file_get_data(SubConfig,group,key);
-		if(s) return atoi(s);
-	}
 	return l_key_file_get_int(MainConfig,group,key);
 }
 
 int y_im_has_config(const char *group,const char *key)
 {
-	if(SubConfig)
-	{
-		const char *s=l_key_file_get_data(SubConfig,group,key);
-		if(s) return 1;
-	}
 	return l_key_file_get_data(MainConfig,group,key)?1:0;
 }
 
@@ -3345,14 +3286,6 @@ void y_im_set_config_string(const char *group,const char *key,const char *val)
 			return;
 	}
 	l_key_file_set_string(MainConfig,group,key,val);
-}
-
-void y_im_verbose(const char *fmt,...)
-{
-	va_list ap;
-	va_start(ap,fmt);
-	vprintf(fmt,ap);
-	va_end(ap);
 }
 
 #ifndef CFG_XIM_ANDROID
@@ -3391,8 +3324,6 @@ int y_im_handle_menu(const char *cmd)
 	{
 		char temp[256];
 		int len;
-		//l_sscanf(cmd+4,"%256[^)]",temp);
-		//y_xim_explore_url(temp);
 		snprintf(temp,256,"%s",cmd+4);
 		len=strlen(temp);
 		if(len>0 && temp[len-1]==')')

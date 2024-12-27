@@ -52,7 +52,6 @@ void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,co
 int y_im_str_encode(const char *gb,void *out,int flags);
 void y_im_str_encode_r(const void *in,char *gb);
 int y_im_str_len(const void *in);
-int y_im_strip_key(char *gb);
 void y_im_load_punc(void);
 int y_im_forward_key(const char *s);
 void y_im_url_encode(const char *gb,char *out);
@@ -66,7 +65,7 @@ char *y_im_find_url(const char *pre);
 char *y_im_find_url2(const char *pre,int next);
 void y_im_backup_file(const char *path,const char *suffix);
 void y_im_copy_config(void);
-void *y_im_module_open(char *path);
+void *y_im_module_open(const char *path);
 void *y_im_module_symbol(void *mod,char *name);
 void y_im_module_close(void *mod);
 int y_im_run_tool(char *func,void *arg,void **out);
@@ -78,7 +77,7 @@ char *y_im_get_current_engine(void);
 void y_im_about_self(void);
 void y_im_setup_config(void);
 int y_im_key_desc_update(void);
-int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char *data,char *res,int size);
+int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const char *data,char *res,int size);
 bool y_im_cand_desc_translate(const char *data,const char *code,const char *tip,char *res,int size);
 bool y_im_key_desc_is_first(int code);
 int y_im_key_desc_first(int code,int len,char *res,int size);
@@ -90,7 +89,7 @@ char *y_im_get_im_config_string(int index,const char *key);
 const char *y_im_get_im_config_data(int index,const char *key);
 int y_im_get_im_config_int(int index,const char *key);
 int y_im_has_im_config(int index,const char *key);
-int y_strchr_pos(char *s,int c);
+int y_strchr_pos(const char *s,int c);
 int y_im_last_key(int key);
 void y_im_str_strip(char *s);
 int y_im_help_desc(char *wh,char *desc,int len);
@@ -99,7 +98,6 @@ int y_im_get_keymap(char *name,int len);
 int y_im_show_keymap(void);
 int y_im_gen_mac(void);
 int y_im_diff_hand(char c1,char c2);
-void y_im_verbose(const char *fmt,...);
 int y_im_is_url(const char *s);
 void y_im_set_last_code(const char *s,const char *cand);
 const char *y_im_get_last_code(void);
@@ -112,7 +110,7 @@ void y_im_expand_space(char *s);
 void y_im_expand_env(char *s,int size);
 int y_im_expand_with(const char *s,char *to,int size,int which);
 
-#define VERBOSE(...) //y_im_verbose(__VA_ARGS__)
+#define VERBOSE(...) //YongLogWrite(__VA_ARGS__)
 
 struct y_im_speed{
 	int zi;
@@ -123,8 +121,8 @@ struct y_im_speed{
 	int select;
 	int back;
 	int speed;
-	time_t start;
-	time_t last;
+	int64_t start;
+	int64_t last;
 };
 
 void y_im_speed_init(void);
@@ -158,14 +156,18 @@ void y_xim_preedit_draw(char *s,int len);
 void y_xim_enable(int enable);
 int y_xim_input_key(int key);
 void y_xim_send_keys(const char *s);
+int y_xim_get_onspot(void);
 
 void y_im_history_free(void);
 void y_im_history_init(void);
-void y_im_history_write(const char *s);
+int y_im_history_write(const char *s,bool flush);
 void y_im_history_update(void);
 int y_im_history_query(const char *src,char out[][MAX_CAND_LEN+1],int max);
 const char *y_im_history_get_last(int len);
 void y_im_history_flush(void);
+void y_im_history_redirect_init(void);
+void y_im_history_redirect_free(void);
+int y_im_history_redirect_run(void);
 
 void y_im_nl_day(int64_t t,char *s);
 
@@ -174,8 +176,6 @@ void y_dict_close(void *p);
 char *y_dict_query(void *p,char *s);
 int y_dict_query_and_show(void *p,const char *s);
 int y_dict_query_network(const char *s);
-
-void y_im_debug(char *fmt,...);
 
 LKeyFile *y_im_get_menu_config(void);
 int y_im_handle_menu(const char *cmd);
@@ -234,5 +234,7 @@ int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *u
 
 int y_main_init(int index);
 void y_main_clean(void);
+
+int y_im_check_select(int key,int flags);
 
 #endif/*_COMMON_H_*/

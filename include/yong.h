@@ -60,6 +60,7 @@ enum{
 	EIM_CALLBACK_NONE=0,
 	EIM_CALLBACK_ASYNC_WRITE_FILE,
 	EIM_CALLBACK_SELECT_KEY,
+	EIM_CALLBACK_SET_ASSIST_CODE,
 };
 
 typedef struct {
@@ -99,7 +100,7 @@ typedef struct {
 	int (*GetKey)(const char *);
 	int (*Request)(int);
 	void *(*OpenFile)(const char *,const char *);
-	void (*SendString)(const char*);
+	void (*SendString)(const char*,int);
 	void (*Beep)(int c);
 	int (*QueryHistory)(const char *,char [][MAX_CAND_LEN+1],int);
 	const char *(*GetLast)(int len);
@@ -170,6 +171,7 @@ typedef struct {
 	})							\
 )
 
+#define YK_BACK		0xff26u
 #define YK_HOME		0xff50u
 #define YK_LEFT		0xff51u
 #define YK_UP		0xff52u
@@ -180,18 +182,18 @@ typedef struct {
 #define YK_END		0xff57u
 #define YK_INSERT	0xff63u
 
-#define YK_F1		0xffbe
-#define YK_F2		0xffbf
-#define YK_F3		0xffc0
-#define YK_F4		0xffc1
-#define YK_F5		0xffc2
-#define YK_F6		0xffc3
-#define YK_F7		0xffc4
-#define YK_F8		0xffc5
-#define YK_F9		0xffc6
-#define YK_F10		0xffc7
-#define YK_F11		0xffc8
-#define YK_F12		0xffc9
+#define YK_F1		0xffbeu
+#define YK_F2		0xffbfu
+#define YK_F3		0xffc0u
+#define YK_F4		0xffc1u
+#define YK_F5		0xffc2u
+#define YK_F6		0xffc3u
+#define YK_F7		0xffc4u
+#define YK_F8		0xffc5u
+#define YK_F9		0xffc6u
+#define YK_F10		0xffc7u
+#define YK_F11		0xffc8u
+#define YK_F12		0xffc9u
 
 #define YK_KP_0		(KEYM_KEYPAD|'0')
 #define YK_KP_1		(KEYM_KEYPAD|'1')

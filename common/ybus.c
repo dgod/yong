@@ -115,7 +115,8 @@ YBUS_CONNECT *ybus_find_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	}
 	for(p=conn_list;p!=NULL;p=p->next)
 	{
-		if(p->plugin!=plugin) continue;
+		if(p->plugin!=plugin)
+			continue;
 		if(plugin->match_connect)
 		{
 			if(plugin->match_connect(conn_id,p->id))
@@ -153,6 +154,18 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 	if(plugin->getpid)
 	{
 		conn->pid=plugin->getpid(conn_id);
+		if(conn->pid>0)
+		{
+			conn->app=y_im_get_app_config_by_pid(conn->pid);
+			if(conn->app!=NULL)
+			{
+				const char *t=l_key_file_get_data(conn->app,"IM","onspot");
+				if(t)
+				{
+					conn->onspot=2|atoi(t);
+				}
+			}
+		}
 #if 0
 		if(conn->pid>0)
 		{
@@ -164,6 +177,19 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 			fprintf(stderr,"%s(%d) connected\n",temp,conn->pid);
 		}
 #endif
+	}
+	else if(plugin->get_appid)
+	{
+		const char *app=plugin->get_appid(conn_id);
+		if(app!=NULL && app[0])
+		{
+			conn->app=y_im_get_app_config(app);
+			const char *t=l_key_file_get_data(conn->app,"IM","onspot");
+			if(t)
+			{
+				conn->onspot=2|atoi(t);
+			}
+		}
 	}
 	
 	ybus_recycle_connect(now);
@@ -310,17 +336,24 @@ int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	conn=ybus_find_connect(plugin,conn_id);
 	if(!conn)
 	{
-		return 0;
+		return -1;
 	}
 	conn->state=1;
 	client=ybus_find_client(conn,client_id);
 	if(!client)
 	{
-		return 0;
+		return -2;
 	}
 	client->state=1;
 	YongResetIM();
-	YongSetLang(def_lang);
+	int lang=def_lang;
+	if(conn->app!=NULL)
+	{
+		const char *t=l_key_file_get_data(conn->app,"IM","lang");
+		if(t!=NULL)
+			lang=atoi(t);
+	}
+	YongSetLang(lang);
 	if(conn_active==NULL)
 	{
 		conn_active=conn;
@@ -409,7 +442,7 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YBUS_CLIENT *client;
 	
 	conn=ybus_find_connect(plugin,conn_id);
-	//printf("focus out %s:%p:%p\n",plugin->name,conn,(void*)client_id);
+	// printf("focus out %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 		return 0;
 	if(conn_active!=conn)
@@ -685,6 +718,8 @@ static void ybus_recycle_connect(int64_t now)
 	{
 		YBUS_PLUGIN *plugin=p->plugin;
 		n=p->next;
+		if(!plugin->getpid)
+			continue;
 		if(p->alive<now && p->alive+60000>now)
 			continue;
 		p->alive=now;
@@ -770,6 +805,7 @@ CONNECT_ID *xim_ybus_get_connect(void)
 	id->trad=conn_active->trad;
 	id->focus=conn_active->focus;
 	id->corner=conn_active->corner;
+	id->onspot=conn_active->onspot;
 	return id;
 }
 
@@ -806,9 +842,9 @@ void xim_ybus_forward_key(int key,int repeat)
 	plugin=conn->plugin;
 	if(!plugin->send_key)
 		return;
-	do{
-		plugin->send_key(conn->id,conn->active->id,key);
-	}while(--repeat>0);
+	if(repeat<=0)
+		repeat=1;
+	plugin->send_key(conn->id,conn->active->id,key,repeat);
 }
 
 void xim_ybus_send_string(const char *s,int flags)
@@ -825,7 +861,6 @@ int xim_ybus_preedit_clear(void)
 {
 	YBUS_CONNECT *conn=conn_active;
 	YBUS_PLUGIN *plugin;
-	//if(!onspot) return 0;
 	if(!conn || !conn->active)
 		return -1;
 	plugin=conn->plugin;
@@ -840,11 +875,14 @@ int xim_ybus_preedit_draw(const char *s,int len)
 	YBUS_CONNECT *conn=conn_active;
 	YBUS_PLUGIN *plugin;
 	char temp[512];
-	//if(!onspot) return 0;
 	if(!conn || !conn->active)
 		return -1;
 	plugin=conn->plugin;
 	if(!plugin->preedit_draw)
+		return -1;
+	if(conn->onspot==2)
+		return -1;
+	if(!conn->onspot && !onspot)
 		return -1;
 	y_im_str_encode_r(s,temp);
 	plugin->preedit_draw(conn->id,conn->active->id,temp);
@@ -896,6 +934,14 @@ static void xim_action(const char *s)
 		y_im_async_spawn(argv,download_clipboard_cb,NULL);
 		// y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
 	}
+	else if(!strcmp(s,"undo"))
+	{
+		y_xim_send_string("$BACKSPACE(LAST)");
+	}
+	else if(!strcmp(s,"redo"))
+	{
+		y_xim_send_keys("^Y");
+	}
 }
 
 static void xim_explore_url(const char *s)
@@ -905,19 +951,44 @@ static void xim_explore_url(const char *s)
 		xim_action(s+7);
 		return;
 	}
-	char temp[256];
-	y_im_str_encode(s,temp,0);
-	if(y_im_is_url(temp))
+	if(y_im_is_url(s))
 	{
-		char *args[]={"xdg-open",temp,0};
+		char *args[]={"xdg-open",s,0};
 		g_spawn_async(NULL,args,NULL,
 			G_SPAWN_SEARCH_PATH|G_SPAWN_STDOUT_TO_DEV_NULL,
 			0,0,0,0);
 	}
 	else
 	{
-		g_spawn_command_line_async(temp,NULL);
+		g_spawn_command_line_async(s,NULL);
 	}
+}
+
+static int xim_send_keys(const int *keys,int count)
+{
+	YBUS_CONNECT *conn=conn_active;
+	YBUS_PLUGIN *plugin;
+	if(!conn || !conn->active)
+		return -1;
+	plugin=conn->plugin;
+	if(!plugin->send_keys)
+		return -1;
+	plugin->send_keys(conn->id,conn->active->id,keys,count);
+	return 0;
+}
+
+static int xim_get_onspot(void)
+{
+	YBUS_CONNECT *conn=conn_active;
+	YBUS_PLUGIN *plugin;
+	if(!conn || !conn->active)
+		return 0;
+	plugin=conn->plugin;
+	if(!plugin->preedit_draw)
+		return 0;
+	if(conn->onspot)
+		return conn->onspot&1;
+	return onspot;
 }
 
 int y_xim_init_default(Y_XIM *x)
@@ -944,6 +1015,8 @@ int y_xim_init_default(Y_XIM *x)
 	x->put_connect=xim_ybus_put_connect;
 	x->update_config=xim_ybus_update_config;
 	x->explore_url=xim_explore_url;
+	x->send_keys=xim_send_keys;
+	x->get_onspot=xim_get_onspot;
 	x->name="ybus";
 	return 0;
 }

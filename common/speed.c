@@ -3,9 +3,6 @@
 #include "gbk.h"
 #include <inttypes.h>
 
-extern int key_select[];
-extern char key_select_n[];
-
 static struct y_im_speed speed_all;
 static struct y_im_speed speed_last;
 static struct y_im_speed speed_cur;
@@ -33,15 +30,13 @@ static void reduce_all(void)
 	s->zi=(int)(s->zi*r);
 	s->key=(int)(s->key*r);
 	s->space=(int)(s->space*r);
-	s->select2=(int)(s->select2*r);
-	s->select3=(int)(s->select3*r);
 	s->select=(int)(s->select*r);
 	s->back=(int)(s->back*r);
 	s->start=0;
-	s->last=(time_t)(s->last*r);
+	s->last=(int64_t)(s->last*r);
 }
 
-static void im_speed_update(time_t now,int force)
+static void im_speed_update(int64_t now,int force)
 {
 	int delta;
 	delta=now-speed_cur.last;
@@ -68,8 +63,6 @@ static void im_speed_update(time_t now,int force)
 		speed_all.zi+=speed_cur.zi;
 		speed_all.key+=speed_cur.key;
 		speed_all.space+=speed_cur.space;
-		speed_all.select2+=speed_cur.select2;
-		speed_all.select3+=speed_cur.select3;
 		speed_all.select+=speed_cur.select;
 		speed_all.back+=speed_cur.back;
 		speed_all.speed=speed_all.zi*60/speed_all.last;
@@ -80,7 +73,7 @@ static void im_speed_update(time_t now,int force)
 
 void y_im_speed_update(int key,const char *s)
 {
-	time_t now=time(NULL);
+	int64_t now=l_time();
 	
 	im_speed_update(now,0);
 	if(key)
@@ -88,11 +81,7 @@ void y_im_speed_update(int key,const char *s)
 		speed_cur.key++;
 		if(key==YK_SPACE)
 			speed_cur.space++;
-		else if(key==key_select[0])
-			speed_cur.select2++;
-		else if(key==key_select[1])
-			speed_cur.select3++;
-		else if(strchr(key_select_n,key))
+		else if(y_im_check_select(key,6))
 			speed_cur.select++;
 		else if(key==YK_BACKSPACE)
 			speed_cur.back++;
@@ -102,7 +91,7 @@ void y_im_speed_update(int key,const char *s)
 	}
 	if(s)
 	{
-		speed_cur.zi+=gb_strlen((uint8_t*)s);
+		speed_cur.zi+=l_gb_strlen(s,-1);
 	}
 	speed_dirty=1;
 }
@@ -116,7 +105,7 @@ char *y_im_speed_stat(void)
 	static const char *split="------------------------------------------------------------------------\n";
 	struct y_im_speed *speed;
 
-	im_speed_update(time(0),1);
+	im_speed_update(l_time(),1);
 	
 	sprintf(format,"%s: %%d%s \t%s: %%d%s\n"
 		"%s: %%.2f%s \t%s: %%.2f%s \t%s: %%.2f%s\n"
@@ -160,17 +149,15 @@ static void load_section(LKeyFile *k,struct y_im_speed *s,const char *which)
 	s->zi=l_key_file_get_int(k,which,"zi");
 	s->key=l_key_file_get_int(k,which,"key");
 	s->space=l_key_file_get_int(k,which,"space");
-	s->select2=l_key_file_get_int(k,which,"select2");
-	s->select3=l_key_file_get_int(k,which,"select3");
 	s->select=l_key_file_get_int(k,which,"select");
 	s->back=l_key_file_get_int(k,which,"back");
 	s->speed=l_key_file_get_int(k,which,"speed");
 	const char *t=l_key_file_get_data(k,which,"start");
 	if(t)
-		s->start=(time_t)strtoll(t,NULL,10);
+		s->start=(int64_t)strtoll(t,NULL,10);
 	t=l_key_file_get_data(k,which,"last");
 	if(t)
-		s->last=(time_t)strtoll(t,NULL,10);
+		s->last=(int64_t)strtoll(t,NULL,10);
 }
 
 static void save_section(LKeyFile *k,struct y_im_speed *s,const char *which)
@@ -178,8 +165,6 @@ static void save_section(LKeyFile *k,struct y_im_speed *s,const char *which)
 	l_key_file_set_int(k,which,"zi",s->zi);
 	l_key_file_set_int(k,which,"key",s->key);
 	l_key_file_set_int(k,which,"space",s->space);
-	l_key_file_set_int(k,which,"select2",s->select2);
-	l_key_file_set_int(k,which,"select3",s->select3);
 	l_key_file_set_int(k,which,"select",s->select);
 	l_key_file_set_int(k,which,"back",s->back);
 	l_key_file_set_int(k,which,"speed",s->speed);
@@ -227,7 +212,7 @@ void y_im_speed_save(void)
 		return;
 	}
 	s++;
-	im_speed_update(time(NULL),1);
+	im_speed_update(l_time(),1);
 	LKeyFile *k=l_key_file_open(s,1,y_im_get_path("HOME"),NULL);
 	if(!k)
 	{

@@ -1,15 +1,17 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 #include "ltypes.h"
 
-#define CPB         0x80
+#define CPB         0x7b
 #define MCP(a,b)    (((a)<<8)|(b))
 
-#define CZB			0x1
+#define CZB			0x00
 #define MCZ(a,b)	(((uint8_t)(a)<<8)|((uint8_t)(b)))
 
-static const uint16_t cp_list[128]={
+// 7b-ff 00-3a
+static const uint16_t cp_list[]={
 	// 按频率排
 	MCP('d','e'),
 	MCP('u','i'),
@@ -139,9 +141,79 @@ static const uint16_t cp_list[128]={
 	MCP('d','l'),
 	MCP('g','v'),
 	MCP('f','j'),
-};
 
-static const uint16_t cz_list[47]={
+	MCP('w','o'),
+	MCP('b','z'),
+	MCP('x','w'),
+	MCP('w','j'),
+	MCP('d','s'),
+
+	MCP('v','j'),
+	MCP('b','m'),
+	MCP('u','v'),
+	MCP('f','g'),
+	MCP('t','m'),
+	MCP('g','u'),
+	MCP('g','j'),
+	MCP('l','m'),
+	MCP('n','a'),
+	MCP('v','f'),
+	MCP('n','i'),
+	MCP('b','y'),
+	MCP('t','b'),
+	MCP('t','l'),
+	MCP('b','j'),
+	MCP('k','l'),
+	MCP('z','v'),
+	MCP('l','q'),
+	MCP('u','j'),
+	MCP('b','l'),
+	MCP('t','y'),
+	MCP('h','r'),
+	MCP('g','g'),
+	MCP('b','a'),
+	MCP('i','i'),
+	MCP('m','j'),
+	MCP('l','y'),
+	MCP('l','u'),
+	MCP('d','b'),
+	MCP('s','u'),
+	MCP('v','r'),
+	MCP('s','j'),
+
+	MCP('v','k'),
+	MCP('j','p'),
+	MCP('r','i'),
+	MCP('m','o'),
+	MCP('t','u'),
+	MCP('g','d'),
+	MCP('i','r'),
+
+	MCP('q','d'),	// 0x27
+	MCP('w','l'),
+	MCP('h','j'),
+	MCP('l','k'),
+	MCP('p','n'),
+	MCP('z','k'),
+	MCP('d','g'),
+	MCP('k','j'),
+	MCP('m','e'),
+	MCP('m','n'),
+	MCP('z','u'),
+	MCP('p','m'),
+	MCP('s','v'),
+	MCP('d','r'),
+	MCP('q','q'),
+	MCP('j','t'),
+	MCP('t','c'),
+	MCP('p','l'),
+	MCP('b','o'),
+	MCP('i','s'),	// 0x3a
+};
+static_assert(lengthof(cp_list)==5+128+59,"cp list length not allow");
+
+// 00 80
+static const uint16_t cz_list[]={
 	0xb5c4,			//的
 	0xd2bb,			//一
 	0xcac7,			//是
@@ -189,28 +261,114 @@ static const uint16_t cz_list[47]={
 	0xc4ea,			//年
 	0xd0d0,			//行
 	0xbcd2,			//家
+
+	0xb7bd,			//方
+	0xbaf3,			//后
+	0xd7f7,			//作
+	0xb3c9,			//成
+	0xbfaa,			//开
+	0xc3e6,			//面
+	0xcac2,			//事
+	0xbac3,			//好
+	0xd0a1,			//小
+	0xd0c4,			//心
+	0xc7b0,			//前
+	0xcbf9,			//所
+	0xb5c0,			//道
+	0xb7a8,			//法
+	0xc8e7,			//如
+	0xbdf8,			//进
+	0xd7c5,			//着
+	0xcdac,			//同
+	0xbead,			//经
+	0xb7d6,			//分
+	0xb6a8,			//定
+	0xb6bc,			//都
+	0xc8bb,			//然
+	0xd3eb,			//与
+	0xb1be,			//本
+	0xbbb9,			//还
+	0xc6e4,			//其
+	0xb5b1,			//当
+	0xc6f0,			//起
+	0xb6af,			//动
+	0xd2d1,			//已
+	0xc1bd,			//两
+	0xb5e3,			//点
+	0xb4d3,			//从
+	0xceca,			//问
+	0xc0ef,			//里
+	0xd6f7,			//主
+	0xcab5,			//实
+	0xccec,			//天
+	0xb8df,			//高
+	0xc8a5,			//去
+	0xcfd6,			//现
+	0xb3a4,			//长
+	0xb4cb,			//此
+	0xc8fd,			//三
+	0xbdab,			//将
+	0xcede,			//无
+	0xb9fa,			//国
+	0xc8ab,			//全
+	0xcec4,			//文
+	0xc0ed,			//理
+	0xc3f7,			//明
+	0xc8d5,			//日
+	0xd0a9,			//些
+	0xbfb4,			//看
+	0xd6bb,			//只
+	0xb9ab,			//公
+	0xb5c8,			//等
+	0xcaae,			//十
+	0xd2e2,			//意
+	0xd5fd,			//正
+	0xcde2,			//外
+	0xcfeb,			//想
+	0xbce4,			//间
+	0xb0d1,			//把
+	0xc7e9,			//情
+	0xd5df,			//者
+	0xc3bb,			//没
+	0xd6d8,			//重
+	0xcfe0,			//相
+	0xc4c7,			//那
+	0xcff2,			//向
+	0xd6aa,			//知
+	0xd2f2,			//因
+	0xd1f9,			//样
+	0xd1a7,			//学
+	0xd3a6,			//应
+	0xd3d6,			//又
+	0xcad6,			//手
+	0xb5ab,			//但
+	0xd0c5,			//信
+	0xb9d8,			//关
 };
+static_assert(lengthof(cz_list)==0x81,"cz list length not allow");
 
 static inline int cp_find(const char *in)
 {
 	uint16_t cp=MCP(in[0],in[1]);
-	for(int i=0;i<L_ARRAY_SIZE(cp_list);i++)
+	for(int i=0;i<lengthof(cp_list);i++)
 	{       
 		if(cp==cp_list[i])
-			return CPB+i;
+		{
+			return (CPB+i)&0xff;
+		}
 	}
-	return 0;
+	return -1;
 }
 
 static inline int cz_find(const char *in)
 {
 	uint16_t cp=MCZ(in[0],in[1]);
-	for(int i=0;i<L_ARRAY_SIZE(cz_list);i++)
+	for(int i=0;i<lengthof(cz_list);i++)
 	{       
 		if(cp==cz_list[i])
 			return CZB+i;
 	}
-	return 0;
+	return -1;
 }
 
 int cp_zip(const char *in,char *out)
@@ -219,7 +377,7 @@ int cp_zip(const char *in,char *out)
 	while(*in)
 	{
 		int ret=cp_find(in);
-		if(ret)
+		if(ret>=0)
 		{
 			*out++=ret;
 			in+=2;
@@ -242,9 +400,15 @@ int cp_unzip(const char *in,char *out,int size)
 	for(;size>0;size--)
 	{
 		int c=*(uint8_t*)in++;
-		if((c&0x80))
+		if(c>=CPB)
 		{
 			uint16_t cp=cp_list[c-CPB];
+			*out++=cp>>8;
+			*out++=cp&0xff;
+		}
+		else if(c<=0x3a)
+		{
+			uint16_t cp=cp_list[5+128+c];
 			*out++=cp>>8;
 			*out++=cp&0xff;
 		}
@@ -265,7 +429,7 @@ int cp_unzip_size(const char *in,int size)
 	for(;size>0;size--)
 	{
 		int c=*(uint8_t*)in++;
-		if((c&0x80))
+		if(c<=0x3a || c>=CPB)
 		{
 			len++;
 		}
@@ -285,9 +449,15 @@ int cp_unzip_py(const char *in,char *out,int size)
 	for(;size>0;size--)
 	{
 		s=*(uint8_t*)in++;
-		if((s&0x80))
+		if(s>=CPB)
 		{
 			uint16_t cp=cp_list[s-CPB];
+			s=cp>>8;
+			y=cp&0xff;
+		}
+		else if(s<=0x3a)
+		{
+			uint16_t cp=cp_list[5+128+s];
 			s=cp>>8;
 			y=cp&0xff;
 		}
@@ -451,6 +621,38 @@ int cp_unzip_py(const char *in,char *out,int size)
 	return (int)(size_t)(out-orig);
 }
 
+int cp_unzip_jp(const char *in,char *out,int size)
+{
+	int s;
+	char *orig=out;
+	for(;size>0;size--)
+	{
+		s=*(uint8_t*)in++;
+		if(s>=CPB)
+		{
+			uint16_t cp=cp_list[s-CPB];
+			s=cp>>8;
+		}
+		else if(s<=0x3a)
+		{
+			uint16_t cp=cp_list[5+128+s];
+			s=cp>>8;
+		}
+		else
+		{
+			in++;
+		}
+		switch(s){
+			case 'i':*out++='c';break;
+			case 'u':*out++='s';break;
+			case 'v':*out++='z';break;
+			default:*out++=s;break;
+		}
+	}
+	*out=0;
+	return (int)(size_t)(out-orig);
+}
+
 int cz_zip(const char *in,char *out)
 {
 	const char *base=out;
@@ -458,7 +660,7 @@ int cz_zip(const char *in,char *out)
 	{
 		int ret;
 		ret=cz_find(in);
-		if(ret)
+		if(ret>=0)
 		{
 			*out++=ret;
 			in+=2;
@@ -479,7 +681,7 @@ int cz_unzip(const char *in,char *out,int size)
 	for(;size>0;size--)
 	{
 		int c=*(uint8_t*)in++;
-		if(c<0x30 && c>0)
+		if(c<lengthof(cz_list))
 		{
 			uint16_t cp=cz_list[c-CZB];
 			*out++=cp>>8;

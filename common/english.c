@@ -12,13 +12,12 @@ static char *EnglishGetCandWord(int index);
 static int EnglishGetCandWords(int mode);
 static int EnglishDestroy(void);
 static int EnglishDoInput(int key);
+static int EnglishDoSearch(void);
 
 static int PhraseListCount;
 static int key_temp_english;
 static int en_commit_select;
 static int en_degrade;
-extern int key_commit;
-extern int key_select[9];
 
 static EXTRA_IM EIM={
 	.Name			=	"english",
@@ -93,7 +92,8 @@ static void EnglishReset(void)
 	EIM.CurCandPage=EIM.CandPageCount=EIM.CandWordCount=0;
 	EIM.SelectIndex=0;
 	
-	for(i=0;i<ENIM_COUNT;i++){
+	for(i=0;i<ENIM_COUNT;i++)
+	{
 		ENGLISH_IM *e=enim[i];
 		e->Count=0;
 	}
@@ -133,8 +133,13 @@ static int AutoCompleteByDict(int index)
 				return 1;
 			char *p=LINT_TO_PTR(e->Priv1);
 			int len=strlen(p);
-			if(strlen(phrase)<=len)
+			if(strlen(phrase)<len)
 				return 2;
+			for(int i=0;i<len;i++)
+			{
+				if(p[i]>='a' && p[i]<='z')
+					p[i]=phrase[i];
+			}
 			strcat(p,phrase+len);
 			EIM.CaretPos=EIM.CodeLen=strlen(EIM.CodeInput);
 			return 1;
@@ -145,16 +150,23 @@ static int AutoCompleteByDict(int index)
 
 static char *EnglishGetCandWord(int index)
 {
-	char *ret;
-
 	if(index>=EIM.CandWordCount)
 		return 0;
 	if(index==-1)
 		index=EIM.SelectIndex;
-	ret=&EIM.CandTable[index][0];
-	if(!en_commit_select && AutoCompleteByDict(index))
+	char *ret=&EIM.CandTable[index][0];
+	int complete=AutoCompleteByDict(index);
+	if(!en_commit_select && complete)
 	{
+		EnglishDoSearch();
 		return NULL;
+	}
+	if(complete)
+	{
+		ret=EIM.CodeInput;
+		if(ret[0]==key_temp_english && ret[1])
+			ret++;
+		return ret;
 	}
 	strcpy(EIM.StringGet,ret);
 	return ret;
@@ -235,16 +247,9 @@ static int EnglishDoSearch(void)
 	return PhraseListCount;
 }
 
-static int key_is_select(int key)
+static inline int key_is_select(int key)
 {
-	if(key==key_commit)
-		return 1;
-	for(int i=0;i<9;i++)
-	{
-		if(key==key_select[i])
-			return 1;
-	}
-	return 0;
+	return y_im_check_select(key,3)>=0;
 }
 
 static int EnglishDoInput(int key)
@@ -335,6 +340,15 @@ static int EnglishDoInput(int key)
 		EIM.CodeLen++;
 		EIM.CaretPos++;
 		EIM.CodeInput[EIM.CodeLen]=0;
+	}
+	else if(key==SHIFT_ENTER)
+	{
+		int start=EIM.CaretPos=(EIM.CodeInput[0]==key_temp_english)?1:0;
+		int c=EIM.CodeInput[start];
+		if(c>='a' && c<='z')
+			EIM.StringGet[0]=c-'a'+'A';
+		strcpy(EIM.StringGet+1,EIM.CodeInput+start+1);
+		return IMR_COMMIT;
 	}
 	else if(key==YK_VIRT_REFRESH)
 	{

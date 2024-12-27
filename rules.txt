@@ -15,8 +15,10 @@ if(BUILD=="w32"){
 	env("LDFLAGS+=-Wl,--hash-style=sysv -m32");
 	env("EXE=");
 	env("DESTDIR=.");
-	env("CC=$(CROSS_COMPILE)gcc -m32 -march=i686");
-	env("CXX=$(CROSS_COMPILE)g++ -m32");
+	//env("CC=$(CROSS_COMPILE)gcc -m32 -march=i686");
+	//env("CXX=$(CROSS_COMPILE)g++ -m32");
+	env("CC=clang -m32");
+	env("CXX=clang++ -m32");
 	env("PICFLAGS=-fPIC");
 	if(os.platform()=='linux')
 		env("CFLAGS+=-D_GNU_SOURCE");
@@ -33,9 +35,10 @@ if(BUILD=="w32"){
 	env("LDFLAGS+=-Wl,--hash-style=sysv");
 	env("EXE=");
 	env("DESTDIR=.");
-	env("CC=$(CROSS_COMPILE)gcc");
-	//env("CC=clang -m64");
-	env("CXX=$(CROSS_COMPILE)g++");
+	//env("CC=$(CROSS_COMPILE)gcc");
+	//env("CXX=$(CROSS_COMPILE)g++");
+	env("CC=clang -m64");
+	env("CXX=clang++ -m64");
 	env("PICFLAGS=-fPIC");
 	if(os.platform()=='linux')
 		env("CFLAGS+=-D_GNU_SOURCE");
@@ -48,6 +51,8 @@ if(BUILD=="w32"){
 	env("LDFLAGS+=-Wno-emcc");
 	env("CC:=$(CROSS_COMPILE)emcc");
 	env("CFLAGS+=-Wno-invalid-source-encoding");
+	env('CFLAGS+=-sSUPPORT_LONGJMP=wasm');
+	env('LDFLAGS+=-sSUPPORT_LONGJMP=wasm');
 }else if(BUILD=="loongson"){
 	env("CFLAGS+=-march=mips64r2 -mabi=64");
 	env("EXE=");
@@ -65,6 +70,10 @@ env("STRIP=$(CROSS_COMPILE)strip");
 env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
 
 env("CFLAGS+=-Wall -g -O2 -fno-plt -fno-strict-aliasing -Wno-format-truncation -fms-extensions -pipe -ffast-math -I$(TOPDIR)/include -I$(TOPDIR)/common");
+if($('CC').includes('clang')){
+	env('CFLAGS+=-Wno-invalid-source-encoding');
+	env('CFLAGS+= -Wno-microsoft-anon-tag');
+}
 if(BUILD=='js')
 	env("CFLAGS+=-Wno-microsoft-anon-tag");
 

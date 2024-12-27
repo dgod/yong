@@ -1,7 +1,7 @@
-#ifndef USE_SYSTEM_ICONV
-
 #include "ltypes.h"
+#include "lbits.h"
 
+#ifndef USE_SYSTEM_ICONV
 #include <string.h>
 
 typedef struct{
@@ -6488,29 +6488,6 @@ static inline uint16_t find_code(const CODE_MAP *m,int count,uint16_t c)
 }
 #endif
 
-const uint8_t *l_gb_next_char(const uint8_t *s)
-{
-	uint8_t c=s[0];
-	if(!c)
-	{
-		return 0;
-	}
-	else if(c<=0x80)
-	{
-		return s+1;
-	}
-	else if(c<=0xfe && c>=0x81)
-	{
-		c=s[1];
-		if(c<=0x39) return s+4;
-		else return s+2;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
 int l_unichar_to_gb(uint32_t c,uint8_t *outbuf)
 {
 	if(c<=0x80)
@@ -6678,3 +6655,123 @@ uint32_t l_gb_to_unichar(const uint8_t *s)
 }
 
 #endif/*USE_SYSTEM_ICONV*/
+
+void *l_gb_next_char(const void *p)
+{
+	const uint8_t *s=p;
+	uint8_t c=s[0];
+	if(!c)
+	{
+		return NULL;
+	}
+	else if(c<=0x80)
+	{
+		return (void*)(s+1);
+	}
+	else if(c<=0xfe && c>=0x81)
+	{
+		c=s[1];
+		if(c<=0x39)
+			return (void*)(s+4);
+		else
+			return (void*)(s+2);
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+int l_gb_strlen(const void *p,int size)
+{
+	const uint8_t *s=p;
+	const uint8_t *end=size<0?LINT_TO_PTR(-1):s+size;
+	int count=0;
+	while(s<end)
+	{
+		s=l_gb_next_char(s);
+		if(s==NULL)
+			break;
+		count++;
+	}
+	return count;
+}
+
+void *l_gb_offset(const void *p,int offset)
+{
+	const uint8_t *s=p;
+	int i;
+	for(i=0;i<offset;i++)
+	{
+		s=l_gb_next_char(s);
+		if(s==NULL)
+			return NULL;
+	}
+	return (void*)s;
+}
+
+uint32_t l_gb_to_char(const void *p)
+{
+	const uint8_t *s=p;
+	uint32_t r;
+	if(!(s[0]&0x80))
+	{
+		r=s[0];
+	}
+	else if(s[0]<=0xfe && s[0]>=0x81 && s[1]>=0x40)
+	{
+		r=l_read_u16be(s);
+	}
+	else
+	{
+		r=l_read_u32be(s);
+	}
+	return r;
+}
+uint32_t l_gb_last_char(const void *p)
+{
+	if(!p)
+		return 0;
+	const uint8_t *s=p;
+	uint32_t r;
+	do{
+		r=l_gb_to_char(s);
+		s=l_gb_next_char(s);
+	}while(s!=NULL && s[0]!=0);
+	return r;
+}
+
+int l_char_to_gb(uint32_t c,void *outbuf)
+{
+	uint8_t *s=outbuf;
+	if(c<0x100)
+	{
+		s[0]=(uint8_t)c;
+		return 1;
+	}
+	else if(c<0x10000)
+	{
+		l_write_u16be(s,c);
+		return 2;
+	}
+	else
+	{
+		l_write_u32be(s,c);
+		return 4;
+	}
+}
+
+const void *l_gb_strchr(const void *p,uint32_t c)
+{
+	const uint8_t *s=p;
+	while(1)
+	{
+		uint32_t cur=l_gb_to_char(s);
+		if(cur==0)
+			return NULL;
+		if(cur==c)
+			return s;
+		s=l_gb_next_char(s);
+	}
+}
+

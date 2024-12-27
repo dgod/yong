@@ -12,7 +12,9 @@
 #include <stdalign.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <assert.h>
 
+#include "lconfig.h"
 #include "ltypes.h"
 #include "lmacros.h"
 #include "lmem.h"
@@ -37,4 +39,8 @@
 #include "lenv.h"
 #include "lescape.h"
 #include "ltime.h"
+#include "lfuncs.h"
+#include "lthreads.h"
+#include "lcoroutine.h"
+#include "ldlfcn.h"
 #include "ltricky.h"

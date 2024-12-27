@@ -101,7 +101,7 @@ static void y_im_key_desc_free(void)
 static void load_cand_desc(FILE *fp)
 {
 	char line[1024];
-	p_cand_desc_idx=L_HASH_TABLE_STRING(struct cand_desc,cand,0);
+	p_cand_desc_idx=L_HASH_TABLE_STRING(struct cand_desc,cand,999);
 	for(;l_get_line(line,sizeof(line),fp)>=0;)
 	{
 		if(line[0]==0 || line[0]=='#')
@@ -208,6 +208,8 @@ int y_im_key_desc_update(void)
 			idx->at=at;
 			if(!strcmp(temp,"SPACE"))
 				idx->split=' ';
+			else if(!strcmp(temp,"NONE"))
+				idx->split='\0';
 			else
 				idx->split=temp[0];
 			continue;
@@ -384,7 +386,7 @@ QUIT:
 	return 0;
 }
 
-int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char *data,char *res,int size)
+int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const char *data,char *res,int size)
 {
 	char out[size*2+1];
 	int i,zi;
@@ -405,15 +407,15 @@ int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char 
 		struct cand_desc_item *item=cand_desc_item_get(code,tip,data);
 		if(item && item->key_desc!=NULL)
 		{
-			const char *p=gb_offset((const uint8_t*)item->key_desc,pos);
+			const char *p=l_gb_offset((const uint8_t*)item->key_desc,pos);
 			if(p!=NULL)
 			{
 				int len=strlen(pos?tip:code);
-				const char *e=gb_offset((const uint8_t*)p,len);
+				const char *e=l_gb_offset((const uint8_t*)p,len);
 				if(e!=NULL)
 				{
 					len=(int)(size_t)(e-p);
-					p=l_strndupa(p,len);
+					p=l_memdupa0(p,len);
 				}
 				y_im_str_encode(p,res,DONT_ESCAPE);
 			}
@@ -435,7 +437,7 @@ int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char 
 		goto QUIT;
 
 	/* get n chars phrase's desc */
-	zi=gb_strlen((const uint8_t*)data);
+	zi=l_gb_strlen(data,-1);
 	for(idx=p_key_desc_idx;idx;idx=idx->next)
 	{
 		if(zi==idx->nchar || (zi>idx->nchar && idx->above))
@@ -445,34 +447,45 @@ int y_im_key_desc_translate(const char *code,const char *tip,int pos,const char 
 	{
 		goto QUIT;
 	}
+	if(pos==0 && idx->split)
+	{
+		EXTRA_IM *eim=YongCurrentIM();
+		if(l_str_has_suffix(eim->StringGet,"\xa3\xba"))
+		{
+			goto QUIT;
+		}
+	}
 	/* get desc of code at special pos */
 	out[0]=0;
 	const char *orig_code=code;
 	code-=pos;
 	i=pos;
-NEXT:
+	EXTRA_IM *eim=YongCurrentIM();
+	int CaretPos=(eim==im.eim&&code==eim->CodeInput)?eim->CaretPos:-1;
+	int CaretAdvance=0;
+	int SkipSpace=0;
+	
 	for(;code[i]!=0;i++)
 	{
 		char temp[4];
 		int tlen;
 		if(code[i]==' ')
 		{
-			/* skip space, so let this can work with pinyin */
-			if(idx->split)
-			{
-				temp[0]=idx->split;
-				temp[1]=0;
-				strcat(out,temp);
-			}
-			code=code+i+1;
-			i=0;
-			goto NEXT;
+			temp[0]=' ';
+			temp[1]=0;
+			strcat(out,temp);
+			SkipSpace=1;
+			continue;
 		}
-		if(i!=0 && idx->split && (i%idx->at)==0)
-		{			
+		if(i!=0 && idx->split && ((i+SkipSpace)%idx->at)==0 && pos==0 && code[i-1]!=' ' && CaretPos>=0)
+		{
+			// if prev is space don't add useless split here
+			// pos>0 means we translate code tip, should not here
 			temp[0]=idx->split;
 			temp[1]=0;
 			strcat(out,temp);
+			if(CaretPos>=i)
+				CaretAdvance++;
 		}
 		l_strncpy(temp,code+i,3);
 		for(tlen=strlen(temp);;temp[--tlen]=0)
@@ -489,10 +502,10 @@ NEXT:
 				goto QUIT;
 			}
 		}
-		desc=desc_item_lookup(ikey,i+1);
-		if(!desc && idx->split)
+		desc=desc_item_lookup(ikey,i+SkipSpace+1);
+		if(!desc && idx->at)
 		{
-			desc=desc_item_lookup(ikey,(i+1)%idx->at+1);
+			desc=desc_item_lookup(ikey,(i+SkipSpace+1)%idx->at+1);
 			if(!desc)
 				desc=desc_item_lookup(ikey,1);
 		}
@@ -504,6 +517,8 @@ NEXT:
 		strcat(out,desc);
 	}
 	y_im_str_encode(out,res,DONT_ESCAPE);
+	if(CaretPos>=0)
+		im.CaretPos=CaretPos+CaretAdvance;
 	return 0;
 QUIT:
 	y_im_str_encode(code,res,DONT_ESCAPE);

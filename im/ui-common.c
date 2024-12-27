@@ -56,6 +56,16 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 {
 	const char *scale_str=NULL;
 	UI_IMAGE p=NULL;
+	if(l_str_has_suffix(file,".svg"))
+	{
+		if(width>0 && height>0)
+		{
+			width=(int)round(scale*width);
+			height=(int)round(scale*height);
+		}
+		p=ui_image_load_at_size(file,width,height,where);
+		return p;
+	}
 	if(scale>0.99 && scale<1.01)
 		scale_str="1";
 	else if(scale>1.24 && scale<1.26)
@@ -224,7 +234,6 @@ struct{
 	int x,y;
 	int tran;
 	double line_width;
-	int onspot;
 	int radius;
 	uint8_t pad[4];
 	struct{
@@ -255,9 +264,18 @@ UI_COLOR ui_color_parse(const char *s)
 	int len=strlen(s);
 	int a=255,r,g,b;
 	if(len==9)
+	{
 		l_sscanf(s,"#%02x%02x%02x%02x",&a,&r,&g,&b);
-	else
+	}
+	else if(len==7)
+	{
 		l_sscanf(s,"#%02x%02x%02x",&r,&g,&b);
+	}
+	else
+	{
+		l_sscanf(s,"#%1x%1x%1x",&r,&g,&b);
+		r*=17;g*=17;b*=17;
+	}
 	clr.a=a;clr.g=g;clr.b=b;clr.r=r;
 	return clr;
 }
@@ -600,7 +618,7 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 		ui_draw_line(ctx,4,h/2-1,w-5,h/2-1,InputTheme.sep,InputTheme.line_width*scale);
 	}
 	
-	if(InputTheme.caret && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
+	if(InputTheme.caret && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
 	{
 		ui_draw_line(ctx,im.CodePos[2],InputTheme.CodeY+2,
 					im.CodePos[2],InputTheme.CodeY+im.cursor_h,
@@ -661,13 +679,13 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 
 	ui_draw_text_begin(ctx);
 
-	if(eim && eim->StringGet[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
+	if(eim && eim->StringGet[0] && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
 	{
 		ui_draw_text(ctx,InputTheme.layout,im.CodePos[0],InputTheme.CodeY,
 			im.StringGet,InputTheme.text[6]);
 
 	}
-	if(im.CodeInput[0] && !(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1))
+	if(im.CodeInput[0] && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
 	{
 		ui_draw_text(ctx,InputTheme.layout,im.CodePos[1],InputTheme.CodeY,
 			im.CodeInput,InputTheme.text[5]);

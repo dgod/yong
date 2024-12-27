@@ -286,7 +286,7 @@ struct y_mb *y_mb_load(const char *fn,int flag,struct y_mb_arg *arg);
 int y_mb_set(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_get(struct y_mb *mb,int at,int num,
 	char cand[][MAX_CAND_LEN+1],char tip[][MAX_TIPS_LEN+1]);
-struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand);
+struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand,char *tip);
 int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,
 		int dlen,char calc[][MAX_CAND_LEN+1],int max);
 int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super);
@@ -310,7 +310,7 @@ int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *out[],char hin
 void y_mb_save_user(struct y_mb *mb);
 int y_mb_has_wildcard(struct y_mb *mb,const char *s);
 FILE *y_mb_open_file(const char *fn,const char *mode);
-int y_mb_max_match(struct y_mb *mb,char *s,int len,int dlen,int filter,int *good,int *less);
+int y_mb_max_match(struct y_mb *mb,const char *s,int len,int dlen,int filter,int *good,int *less);
 int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre);
 int y_mb_get_exist_code(struct y_mb *mb,const char *data,char *code);
 void y_mb_push_context(struct y_mb *mb,struct y_mb_context *ctx);
@@ -345,6 +345,8 @@ int y_mb_error_del(struct y_mb *mb,const char *phrase);
 bool y_mb_error_has(struct y_mb *mb,const char *phrase);
 const char *y_mb_skip_display(const char *s,int len);
 bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s);
+int y_mb_key_to_code(struct y_mb *mb,struct y_mb_index *index,struct y_mb_item *item,char out[Y_MB_KEY_SIZE+1]);
+bool y_mb_zi_is_code0(struct y_mb *mb,const void *s,char c);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);

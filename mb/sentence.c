@@ -193,7 +193,7 @@ int sentence_add(const char *code,const char *cand)
 	int ret=strlen(code);
 	if(ret<=2)
 		return -1;
-	ret=gb_strlen((const uint8_t*)cand);
+	ret=l_gb_strlen((const uint8_t*)cand,-1);
 	if(ret<sentence->begin || ret>sentence->end)
 		return -1;
 	ITEM *prev=l_hash_table_lookup(sentence->cand_index,cand);

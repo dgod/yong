@@ -11,7 +11,7 @@ static void xim_close_im(CONN_ID conn_id,CLIENT_ID client_id);
 static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id);
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s);
 static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,int flags);
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat);
 static int xim_init(void);
 
 static void wm_state(CONN_ID conn_id,int state);
@@ -39,7 +39,6 @@ static YBUS_PLUGIN plugin={
 
 typedef struct{
 	int pid;
-	int onspot;
 }YBUS_CLIENT_PRIV;
 
 typedef struct{
@@ -55,7 +54,6 @@ typedef struct{
 
 static LCallServ *serv;
 static int trigger=CTRL_SPACE;
-static int onspot=0;
 
 static void serv_init(LCallConn *conn)
 {
@@ -268,7 +266,7 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 						}
 						else
 						{
-							xim_send_key(yconn->id,client->id,p[i]);
+							xim_send_key(yconn->id,client->id,p[i],1);
 						}
 					}
 					return 0;
@@ -278,7 +276,7 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 					l_call_conn_return((LCallConn*)yconn->id,kev->seq,1);
 					for(i=0;i<=3 && p[i];i++)
 					{
-						xim_send_key(yconn->id,client->id,p[i]);
+						xim_send_key(yconn->id,client->id,p[i],1);
 					}
 					return 0;
 				}
@@ -322,7 +320,6 @@ static void init_client_priv(LCallConn *conn,YBUS_CLIENT *client)
 	priv->pid=l_call_conn_peer_pid(conn);
 	if(priv->pid<=0)
 		return;
-	priv->onspot=-1;
 	LKeyFile *app=y_im_get_app_config_by_pid(priv->pid);
 	if(!app)
 	{
@@ -333,10 +330,10 @@ static void init_client_priv(LCallConn *conn,YBUS_CLIENT *client)
 	{
 		client->state=0;
 	}
-	t=l_key_file_get_data(app,"IM","onspot");
+	t=l_key_file_get_data(app,"IM","lang");
 	if(t)
 	{
-		priv->onspot=atoi(t);
+		// TODO:
 	}
 #endif
 }
@@ -517,10 +514,6 @@ static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...
 		int key=va_arg(ap,int);		
 		trigger=key;
 	}
-	else if(!strcmp(config,"onspot"))
-	{
-		onspot=va_arg(ap,int);
-	}
 	else
 	{
 		ret=-1;
@@ -548,18 +541,9 @@ static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id)
 
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 {
-	YBUS_CLIENT_PRIV *priv=ybus_get_priv(&plugin,conn_id,client_id);
-	int preedit=onspot;
-	if(priv && priv->pid>0 && priv->onspot!=-1)
-	{
-		preedit=priv->onspot;
-	}
-	if(preedit)
-	{
-		char out[512];
-		y_im_str_encode(s,out,0);
-		l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,out);
-	}
+	char out[512];
+	y_im_str_encode(s,out,0);
+	l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,out);
 	return 0;
 }
 
@@ -570,9 +554,9 @@ static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,in
 	l_call_conn_call((LCallConn*)conn_id,"commit",0,"is",(int)client_id,out);
 }
 
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat)
 {
-	l_call_conn_call((LCallConn*)conn_id,"forward",0,"ii",(int)client_id,key);
+	l_call_conn_call((LCallConn*)conn_id,"forward",0,"iii",(int)client_id,key,repeat);
 }
 
 static void wm_state(CONN_ID conn_id,int state)

@@ -3,16 +3,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "lmem.h"
-#include "ltypes.h"
-#include "lstring.h"
-#include "lslist.h"
-#include "lxml.h"
-#include "ltricky.h"
+#include "llib.h"
 
 enum{
 	REQ_ANY,
-	REQ_PROLOG,
 	REQ_LT,
 	REQ_SYMBOL,
 	REQ_EQ,
@@ -22,7 +16,6 @@ enum{
 
 enum{
 	TOK_NONE=0,
-	TOK_PROLOG,
 	TOK_SYMBOL,
 	TOK_STRING,
 	TOK_DATA,
@@ -69,15 +62,7 @@ restart:
 				return TOK_END;
 			}
 		}
-		else if(p[1]=='?')
-		{
-			if(xml->status==REQ_PROLOG || xml->status==REQ_ANY)
-			{
-				if(!peek) xml->data+=2;
-				return TOK_PROLOG;
-			}
-		}
-		else if(p[1]=='!')
+		else if(p[1]=='!' || p[1]=='?')
 		{
 			xml->data+=2;
 			while((c=*xml->data)!=0)
@@ -159,22 +144,6 @@ restart:
 	return TOK_NONE;
 }
 
-static int load_prolog(LXml *xml)
-{
-	int tok;
-	const char *p;
-	xml->status=REQ_ANY;
-	tok=next_token(xml,1);
-	if(tok==TOK_LT)
-		return 0;
-	if(tok!=TOK_PROLOG)
-		return -1;
-	p=strstr(xml->data,"?>");
-	if(!p) return -1;
-	xml->data=p+2;
-	return 0;
-}
-
 static char *load_data(LXml *xml)
 {
 	char temp[128];
@@ -213,7 +182,6 @@ static char *load_data(LXml *xml)
 			}
 			else if(!strncmp(xml->data,"apos;",5))
 			{
-				printf("here\n");
 				xml->data+=5;
 				temp[i++]='\'';
 			}
@@ -316,7 +284,6 @@ static char *load_string(LXml *xml)
 			}
 			else if(!strncmp(xml->data,"apos;",5))
 			{
-				printf("here\n");
 				xml->data+=5;
 				temp[i++]='\'';
 			}
@@ -493,18 +460,12 @@ LXml *l_xml_load(const char *data)
 		return NULL;
 	x=l_new0(LXml);
 	x->data=data;
-	if(0!=load_prolog(x))
-	{
-		l_xml_free(x);
-		return NULL;
-	}
 	x->cur=&x->root;
 	while(x->data[0]!=0)
 	{
 		x->status=REQ_LT;
 		if(0!=load_node(x))
 		{
-			printf("%s\n",x->data);
 			l_xml_free(x);
 			return NULL;
 		}
@@ -514,6 +475,7 @@ LXml *l_xml_load(const char *data)
 		l_xml_free(x);
 		return NULL;
 	}
+	x->data=NULL;
 	return x;
 }
 
@@ -539,7 +501,7 @@ const char *l_xml_get_prop(const LXmlNode *node,const char *name)
 	return NULL;
 }
 
-#if 0
+#if L_USE_XML_DUMP
 static void dump_string(LString *s,const char *p,int data)
 {
 	int c;

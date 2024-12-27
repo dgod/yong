@@ -3,6 +3,7 @@
 #include "llib.h"
 #include "gbk.h"
 #include "common.h"
+#include "translate.h"
 
 #include <stdlib.h>
 
@@ -21,16 +22,6 @@ typedef struct{
 }Y_REPLACE;
 
 static Y_REPLACE *R;
-
-static unsigned item_hash(struct item *p)
-{
-	return p->code;
-}
-
-static int item_cmp(const struct item *v1,const struct item *v2)
-{
-	return (int)(v1->code-v2->code);
-}
 
 static void item_free(struct item *p)
 {
@@ -55,7 +46,7 @@ int y_replace_free(void)
 int y_replace_init(const char *file)
 {
 	FILE *fp;
-	int i,ret;
+	int ret;
 	char line[128];
 	const uint8_t *p;
 	y_replace_free();
@@ -63,8 +54,8 @@ int y_replace_init(const char *file)
 	fp=y_im_open_file(file,"rb");
 	if(!fp) return 0;
 	R=l_new0(Y_REPLACE);
-	R->all=l_hash_table_new((LHashFunc)item_hash,(LCmpFunc)item_cmp,1023,0);
-	for(i=0;i<3;)
+	R->all=L_HASH_TABLE_INT(struct item,code,1023);
+	for(int i=0;i<3;)
 	{
 		ret=l_get_line(line,sizeof(line),fp);
 		if(ret<0) break;
@@ -115,26 +106,9 @@ int y_replace_init(const char *file)
 		if(ret==0) continue;
 		p=(const uint8_t*)line;
 rule:
-		if(gb_is_gbk((uint8_t*)p))
-		{
-			code=p[0]|(p[1]<<8);
-			p+=2;
-		}
-		else if(gb_is_gb18030((uint8_t*)p))
-		{
-			code=p[0]|(p[1]<<8)|(p[2]<<16)|(p[3]<<24);
-			p+=4;
-		}
-		else if(gb_is_ascii((uint8_t*)p))
-		{
-			code=p[0];
-			p++;
-		}
-		else
-		{
-			break;
-		}
-		if(p[0]!=' ')
+		code=l_gb_to_char(p);
+		p=l_gb_next_char(p);
+		if(!p || p[0]!=' ')
 			break;
 		p++;
 		it=l_new0(struct item);
@@ -167,7 +141,7 @@ static int replace_item(char *out,int pos,struct item *it,int index,int bie)
 	if(!len) return pos;
 	index=index%len;
 	entry=it->list[index];
-	middle=gb_strchr((const uint8_t*)entry,'?');
+	middle=l_gb_strchr(entry,'?');
 	if(!middle || it==R->begin || it==R->end)
 	{
 		len=strlen(entry);
@@ -181,10 +155,7 @@ static int replace_item(char *out,int pos,struct item *it,int index,int bie)
 	{
 		char orig[8]={0};
 		int biaodian;
-		orig[0]=(it->code>>0)&0xff;
-		orig[1]=(it->code>>8)&0xff;
-		orig[2]=(it->code>>16)&0xff;
-		orig[3]=(it->code>>24)&0xff;
+		l_char_to_gb(it->code,orig);
 		len=(int)(size_t)(middle-entry);
 		biaodian=gb_is_biaodian((uint8_t*)orig);
 		if(len>0 && len+pos<511 && !biaodian)
@@ -229,24 +200,13 @@ int y_replace_string(const char *in,void (*output)(const char *,int),int flags)
 
 		temp[0]=0;
 		pos=replace_item(temp,pos,R->begin,i,bie);
-		while(p[0]!=0)
+		while(p!=NULL)
 		{
-			if(gb_is_gbk(p))
-			{
-				key.code=p[0]|(p[1]<<8);
-				p+=2;
-			}
-			else if(gb_is_gb18030(p))
-			{
-				key.code=p[0]|(p[1]<<8)|(p[2]<<16)|(p[3]<<24);
-				p+=4;
-			}
-			else
-			{
-				key.code=p[0];
-				p++;
-			}
-			it=l_hash_table_find(R->all,&key);
+			key.code=l_gb_to_char(p);
+			if(!key.code)
+				break;
+			p=l_gb_next_char(p);
+			it=L_HASH_TABLE_LOOKUP_INT(R->all,key.code);
 			if(!it && R->any)
 			{
 				it=&key;
@@ -270,6 +230,10 @@ int y_replace_enable(int enable)
 		R->enable=!R->enable;
 	else
 		R->enable=enable;
+	if(R->enable)
+		y_ui_show_tip(YT("开启文字替换功能"));
+	else
+		y_ui_show_tip(YT("关闭文字替换功能"));
 	return 0;
 }
 

@@ -24,16 +24,16 @@ static unsigned dict_item_hash(const void *p)
 {
 	unsigned ret;
 	const struct dict_item *item=p;
-	uintptr_t key=item->key;
+	const char *key=(const char*)item->key;
 	char temp[4];
 	if((uintptr_t)key & 0x01)
 	{
 		temp[0]=((uintptr_t)key >> 8) &0xff;
 		temp[1]=((uintptr_t)key >> 16) &0xff;
-		temp[2]=((uintptr_t)key >> 24) &0xff;
-		key=(uintptr_t)temp;
+		temp[2]=0;
+		key=temp;
 	}
-	ret=l_str_hash((char*)key);
+	ret=l_str_hash(key);
 	return ret;
 }
 
@@ -78,7 +78,7 @@ void *y_dict_open(const char *file)
 	struct y_dict *dic;
 	FILE *fp;
 	//struct stat st;
-	int i,len,next;
+	int len,next;
 	long pos;
 	char line[512],*p;
 	char *key;
@@ -101,7 +101,7 @@ void *y_dict_open(const char *file)
 	dic->index=l_hash_table_new(dict_item_hash,dict_item_cmp,7000,0);
 
 	pos=0; /* zero it here to avoid warning */
-	for(i=0,next=1;;i++)
+	for(next=1;;)
 	{
 		struct dict_item *item;
 		if(next==1) pos=ftell(fp);
@@ -190,7 +190,7 @@ int y_dict_query_network(const char *s)
 	char url[256];
 	char temp[256];
 	char *site;
-	int eng=im.EnglishMode || (gb_strlen((uint8_t*)s)==strlen(s));
+	int eng=im.EnglishMode || (l_gb_strlen(s,-1)==strlen(s));
 	if(eng)
 		strcpy(temp,s);
 	else

@@ -123,10 +123,10 @@ int y_im_book_key(const char *s)
 	if(len<=0 || len>16)
 		return -1;
 	l_base64_decode((uint8_t*)temp,s);
-	MD5Init(&ctx);
-	MD5Update(&ctx,(const uint8_t*)temp,len);
-	MD5Update(&ctx,key,strlen((char*)key));
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,(const uint8_t*)temp,len);
+	l_md5_update(&ctx,key,strlen((char*)key));
+	l_md5_final(&ctx);
 	memcpy(key+16,ctx.digest,16);
 	return 0;
 }

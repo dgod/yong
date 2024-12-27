@@ -1,6 +1,6 @@
 #include "llib.h"
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__EMSCRIPTEN__)
 char *l_getenv(const char *name,char *buf,int size)
 {
 	char *t=getenv(name);

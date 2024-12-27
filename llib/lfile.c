@@ -41,11 +41,11 @@ extern int __fxstat(int,int,struct stat*);
 
 static int l_stat(const char *file,struct stat *buf)
 {
-#if defined(__GLIBC__)
-#if __GLIBC_PREREQ(2,33) && !defined(__loongarch64)
+#if defined(__GLIBC__) && (defined(__i386__) || defined(__x86_64__))
+#ifdef __x86_64__
 	return __xstat(0,file,buf);
 #else
-	return stat(file,buf);
+	return __xstat(3,file,buf);
 #endif
 #else
 	return stat(file,buf);
@@ -535,7 +535,7 @@ char *l_fullpath(char *abs,const char *rel,size_t size)
 }
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__EMSCRIPTEN__)
 
 char *l_getcwd(void)
 {

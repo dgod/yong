@@ -52,14 +52,25 @@ function run(target){
 	});
 }
 
+function xml_transform(buf){
+	var temp=buf.toString().replaceAll(/[\t\r\n]+/g, '');
+	return Buffer.from(temp);
+}
+
 if(target=="clean"){
 	rmdir(DIRS,'*');
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
 } else if(target=="xml") {
-	bin2c("custom.xml","custom.c",{static:true,zero:true,readonly:true,name:"config_custom"});
-	bin2c("sync.xml","custom_sync.c",{static:true,zero:true,readonly:true,name:"config_sync"});
-	bin2c("update.xml","custom_update.c",{static:true,zero:true,readonly:true,name:"config_update"});
+	bin2c("custom.xml","custom.c",{
+		static:true,zero:true,readonly:true,name:"config_custom",transform:xml_transform
+	});
+	bin2c("sync.xml","custom_sync.c",{
+		static:true,zero:true,readonly:true,name:"config_sync",transform:xml_transform
+	});
+	bin2c("update.xml","custom_update.c",{
+		static:true,zero:true,readonly:true,name:"config_update",transform:xml_transform
+	});
 } else if(target=="l32"){
 	build(undefined,undefined,["l32-gtk3","l32-gtk4"]);
 } else if(target=="l64"){

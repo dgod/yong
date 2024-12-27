@@ -23,6 +23,7 @@ typedef struct _CONNECT_ID{
 	unsigned int track:1;
 	unsigned int focus:1;
 	unsigned int lock:1;
+	unsigned int onspot:2;
 	int x,y;
 	time_t last_active;
 }CONNECT_ID;
@@ -42,7 +43,8 @@ typedef struct{
 	int (*input_key)(int key);
 	void (*update_config)(void);
 	void (*explore_url)(const char *s);
-	int (*send_keys)(int *keys,int count);
+	int (*send_keys)(const int *keys,int count);
+	int (*get_onspot)(void);
 }Y_XIM;
 
 CONNECT_ID *YongGetConnect(void);

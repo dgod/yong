@@ -81,7 +81,7 @@ static void client_add_ic(guint id);
 static void client_del_ic(guint id);
 
 static int GetKey(guint KeyCode,guint KeyState);
-static void ForwardKey(GtkIMContextYong *ctx,int key);
+static void ForwardKey(GtkIMContextYong *ctx,int key,int repeat);
 
 static gint key_snooper_cb(GtkWidget *widget,GdkEventKey *event,gpointer user_data);
 
@@ -639,6 +639,7 @@ static void gtk_im_context_yong_reset(GtkIMContext *context)
 
 static gboolean _focus_in_internal(GtkIMContextYong *ctx)
 {
+	// printf("focus in internal %lu %d\n",l_ticks(),ctx->has_focus);
 	if(!ctx->has_focus)
 		return FALSE;
 	_set_cursor_location_internal(ctx);
@@ -648,6 +649,7 @@ static gboolean _focus_in_internal(GtkIMContextYong *ctx)
 
 static gboolean _focus_out_internal(GtkIMContextYong *ctx)
 {
+	// printf("focus out internal %lu %d\n",l_ticks(),ctx->has_focus);
 	if(ctx->has_focus)
 		return FALSE;
 	client_focus_out(ctx->id);
@@ -660,14 +662,16 @@ static void gtk_im_context_yong_focus_in(GtkIMContext *context)
 	ctx->has_focus=1;
 	_focus_ctx=ctx;
 	
-	//printf("focus in %p\n",context);
+	// printf("focus in %p\n",context);
 	
-	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON)
+	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON ||
+			ctx->app_type==APP_GVIM)
 	{
-		g_idle_add_full (G_PRIORITY_DEFAULT_IDLE,
-                     (GSourceFunc) _focus_in_internal,
-                     g_object_ref (ctx),
-                     (GDestroyNotify) g_object_unref);
+		g_timeout_add_full (G_PRIORITY_DEFAULT_IDLE,
+				20,
+				(GSourceFunc) _focus_in_internal,
+				g_object_ref (ctx),
+				(GDestroyNotify) g_object_unref);
 	}
 	else
 	{
@@ -688,14 +692,16 @@ static void gtk_im_context_yong_focus_out(GtkIMContext *context)
 	if(_focus_ctx==ctx)
 		_focus_ctx=NULL;
 		
-	//printf("focus out %p\n",context);
+	// printf("focus out %p\n",context);
 	
-	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON)
+	if(ctx->app_type==APP_MOZILLA || ctx->app_type==APP_ELECTRON ||
+			ctx->app_type==APP_GVIM)
 	{
-		g_idle_add_full (G_PRIORITY_DEFAULT_IDLE,
-					(GSourceFunc) _focus_out_internal,
-					g_object_ref (ctx),
-					(GDestroyNotify) g_object_unref);
+		g_timeout_add_full (G_PRIORITY_DEFAULT_IDLE,
+				20,
+				(GSourceFunc) _focus_out_internal,
+				g_object_ref (ctx),
+				(GDestroyNotify) g_object_unref);
 	}
 	else
 	{
@@ -963,14 +969,15 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 		guint id;
 		int ret;
 		GtkIMContextYong *ctx;
-		int key;
+		int key,repeat=1;
 		ret=l_call_buf_get_val(buf,id);
 		if(ret!=0) return -1;
 		ctx=find_context(id);
 		if(ctx==NULL) return -1;
 		ret=l_call_buf_get_val(buf,key);
 		if(ret!=0) return -1;
-		ForwardKey(ctx,key);
+		l_call_buf_get_val(buf,repeat);
+		ForwardKey(ctx,key,repeat);
 	}
 	else if(!strcmp(name,"enable"))
 	{
@@ -1228,7 +1235,7 @@ out:
     return event;
 }
 
-static void ForwardKey(GtkIMContextYong *ctx,int key)
+static void ForwardKey(GtkIMContextYong *ctx,int key,int repeat)
 {
 	guint keyval,state=0;
 	int code=YK_CODE(key);
@@ -1245,16 +1252,17 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 					g_signal_emit_by_name(widget,"paste-clipboard",NULL);
 					return;
 				case YK_BACKSPACE:
-					g_signal_emit_by_name(widget,"backspace",NULL);
+					for(int i=0;i<repeat;i++)
+						g_signal_emit_by_name(widget,"backspace",NULL);
 					return;
 				case YK_DELETE:
-					g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,1,NULL);
+					g_signal_emit_by_name(widget,"delete-from-cursor",GTK_DELETE_CHARS,repeat,NULL);
 					return;
 				case YK_LEFT:
-					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-1,0,NULL);
+					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,-repeat,0,NULL);
 					return;
 				case YK_RIGHT:
-					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,1,0,NULL);
+					g_signal_emit_by_name(widget,"move-cursor",GTK_MOVEMENT_LOGICAL_POSITIONS,repeat,0,NULL);
 					return;
 				case YK_HOME:
 					if(GTK_IS_ENTRY(widget))
@@ -1273,7 +1281,10 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 					}
 					else
 					{
-						g_signal_emit_by_name(widget,"insert-at-cursor","\n",NULL);
+						char temp[repeat+1];
+						memset(temp,'\n',repeat);
+						temp[repeat]=0;
+						g_signal_emit_by_name(widget,"insert-at-cursor",temp,NULL);
 					}
 					return;
 				default:
@@ -1314,7 +1325,10 @@ static void ForwardKey(GtkIMContextYong *ctx,int key)
 	event=_create_gdk_event(ctx,keyval,state);
 	if(event!=NULL)
 	{
-		gdk_event_put ((GdkEvent *)event);
+		for(int i=0;i<repeat;i++)
+		{
+			gdk_event_put ((GdkEvent *)event);
+		}
 		gdk_event_free ((GdkEvent *)event);
 	}
 }

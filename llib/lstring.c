@@ -93,8 +93,7 @@ void l_strfreev(char **list)
 	l_free(list);
 }
 
-#ifndef EMSCRIPTEN
-#if defined(_WIN32) || (!defined(__GLIBC__)/* && !defined(__BIONIC__)*/)
+#if defined(_WIN32) || !defined(__GLIBC__)
 char *l_stpcpy(char *dest,const char *src)
 {
 	do{
@@ -102,7 +101,6 @@ char *l_stpcpy(char *dest,const char *src)
 	}while(*src++!='\0');
 	return dest-1;
 }
-#endif
 #endif
 
 char *l_strjoinv(const char *sep,char **list)
@@ -141,9 +139,26 @@ LString *l_string_new(int size)
 	if(size>0)
 	{
 		string->str=l_alloc(size);
+		string->str[0]=0;
 		string->size=size;
 	}
 	return string;
+}
+
+void l_string_init(LString *string,int size)
+{
+	if(size>0)
+	{
+		string->str=l_alloc(size);
+		string->str[0]=0;
+		string->size=size;
+	}
+	else
+	{
+		string->str=NULL;
+		string->size=0;
+		string->len=0;
+	}
 }
 
 void l_string_free(LString *string)
@@ -151,6 +166,21 @@ void l_string_free(LString *string)
 	if(!string) return;
 	l_free(string->str);
 	l_free(string);
+}
+
+char *l_string_steal(LString *string)
+{
+	char *ret=string->str;
+	string->str=NULL;
+	string->len=string->size=0;
+	return ret;
+}
+
+void l_string_clear(LString *string)
+{
+	l_free(string->str);
+	string->str=NULL;
+	string->len=string->size=0;
 }
 
 void l_string_expand(LString *string,int len)
@@ -372,6 +402,17 @@ int l_strpos(const char *haystack,const char *needle)
 	return (int)(size_t)(p-haystack);
 }
 
+int l_chrpos(const char *s,int c)
+{
+	int i;
+	for(i=0;s[i];i++)
+	{
+		if(s[i]==c)
+			return i;
+	}
+	return -1;
+}
+
 int l_str_replace(char *s,int from,int to)
 {
 	int i=0;
@@ -589,5 +630,42 @@ int l_int_to_str(int64_t n,const char *format,int flags,char *out)
 		pos=strlen(out);
 	}
 	return pos;
+}
+
+int l_strtok0(char *str,int delim,char *res[],int limit)
+{
+	int count=0;
+	while(1)
+	{
+		res[count++]=str;
+		str=strchr(str,delim);
+		if(!str)
+			break;
+		str[0]='\0';
+		if(count>=limit)
+			break;
+		str++;
+	}
+	for(int i=count;i<limit;i++)
+		res[i]=NULL;
+	return count;
+}
+
+int l_strtok(const char *str,int delim,const char *res[],int limit)
+{
+	int count=0;
+	while(1)
+	{
+		res[count++]=str;
+		if(count>=limit)
+			break;
+		str=strchr(str,delim);
+		if(!str)
+			break;
+		str++;
+	}
+	for(int i=count;i<limit;i++)
+		res[i]=NULL;
+	return count;
 }
 

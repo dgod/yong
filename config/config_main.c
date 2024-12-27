@@ -468,7 +468,7 @@ reload:
 		if(!config) return -1;
 	}
 	cu_quit_ui=0;
-	CULoopArg loop_arg={custom};
+	CULoopArg loop_arg={custom,"net.dgod.yong.config"};
 	cu_loop((void*)activate,&loop_arg);
 	l_key_file_free(config);config=NULL;
 	if(cu_reload_ui) goto reload;

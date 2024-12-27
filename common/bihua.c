@@ -88,9 +88,9 @@ int y_bihua_load(const char *fn)
 	trunc=(struct bihua_trunc*)y_mmap_addr(map_file);
 	if(!trunc || data_size<0x10000)
 	{
+		printf("yong: bihua file bad %s %p %d\n",fn,trunc,data_size);
 		y_mmap_free(map_file);
 		map_file=0;data_size=0;trunc=NULL;
-		printf("yong: bihua file bad\n");
 		return -1;
 	}
 	base=(char*)(trunc+TRUNC_COUNT);

@@ -347,7 +347,7 @@ function kde_install()
 	sed "s%\/usr\/share\/yong%`pwd`%" >$CFG <<EOF
 [Desktop Entry]
 Name=Yong Wayland
-Exec=/usr/bin/yong --wayland
+Exec=/usr/bin/yong
 Type=Application
 X-KDE-Wayland-VirtualKeyboard=true
 Icon=/usr/share/yong/skin/tray1.png

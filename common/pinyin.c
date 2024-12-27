@@ -19,10 +19,11 @@
 #define MAX_PYLEN		6
 #define MAX_DISPLAY		512
 #define PY_VAL(a,b) ((a)<<8|(b))
-#define PY_ITEM(a,b,c,d) {(a)<<8|(b),(c),0,(d)}
+#define PY_ITEM(a,b,c,d) {(a)<<8|(b),(a)<<8|(b),(c),0,(d)}
 
 struct py_item{
 	uint16_t val;
+	uint16_t zrm;
 	uint8_t yun:2;
 	uint8_t len:3;
 	const char *quan;
@@ -1133,7 +1134,29 @@ int py_build_string(char *out,py_item_t *token,int count)
 	}
 }
 
-int py_build_string_no_split(char *out,py_item_t *token,int count)
+int py_build_jp_string(char *out,const py_item_t *token,int count)
+{
+	int i;
+	if(py_type==0)
+	{
+		for(i=0;i<count;i++)
+		{
+			out[i]=token[i]->quan[0];
+		}
+	}
+	else
+	{
+		for(i=0;i<count;i++)
+		{
+			char *p=(char*)&token[i];
+			out[i]=p[0];
+		}
+	}
+	out[i]=0;
+	return i;
+}
+
+int py_build_string_no_split(char *out,const py_item_t *token,int count)
 {
 	if(py_type==0)
 	{
@@ -1225,6 +1248,41 @@ int py_build_sp_string(char *out,py_item_t *token,int count)
 		{
 			out[pos++]=(char)((token[i]->val>>8)&0xff);
 			out[pos++]=(char)((token[i]->val>>0)&0xff);
+			if(out[pos-1]==0) out[pos-1]=py_split;
+		}
+	}
+	out[pos]=0;
+	return pos;
+}
+
+int py_build_zrm_string(char *out,const py_item_t *token,int count)
+{
+	int i,pos;
+	int simple=0;
+	
+	for(i=0;i<count-1;i++)
+	{
+		if(token[i]==&py_caret || token[i]==&py_split_item)
+			continue;
+		if(!(token[i]->val&0xff))
+		{
+			simple=1;
+			break;
+		}
+	}
+	for(pos=0,i=0;i<count;i++)
+	{
+		if(token[i]==&py_caret || token[i]==&py_split_item)
+			continue;
+		if(simple && token[i]->len==1)
+		{
+			out[pos++]=token[i]->quan[0];
+			out[pos++]='\'';
+		}
+		else
+		{
+			out[pos++]=(char)((token[i]->zrm>>8)&0xff);
+			out[pos++]=(char)((token[i]->zrm>>0)&0xff);
 			if(out[pos-1]==0) out[pos-1]=py_split;
 		}
 	}
@@ -1448,7 +1506,7 @@ int py_quanpin_maybe_jp(const py_item_t *token,int count)
 	return 0;
 }
 
-/* 输入双拼和全拼中的位置，得到在双拼中的位置 */
+// 输入双拼，pos为对应带分割符全拼中的位置，得到在双拼中的位置
 int py_pos_of_sp(const char *in,int pos)
 {
 	int i=0;
@@ -1470,6 +1528,8 @@ int py_pos_of_sp(const char *in,int pos)
 			{
 				p=*pp;
 				pos-=p->len;
+				if(pos>0) // 完整的音节后面如果还有音节，则必然会有分割符
+					pos--;
 				i+=2;
 				continue;
 			}
@@ -1697,7 +1757,7 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 	int count;
 	struct py_item *it;
 
-	zi=gb_next((const uint8_t*)zi,&hz);
+	zi=gb_next_be((const uint8_t*)zi,&hz);
 	if(!zi || hz<0x80)
 	{
 		return -1;
@@ -1705,7 +1765,7 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=gb_next((const uint8_t*)zi,&hz);
+		zi=gb_next_be((const uint8_t*)zi,&hz);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{
@@ -1780,6 +1840,8 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 			*out=0;
 			return 0;
 		}
+		if(s[0]=='\'')
+			s++;
 	}
 	return -1;
 }
@@ -1822,7 +1884,7 @@ int py_jp_from_qp(const char *s,const char *zi,char *out)
 			return -1;
 		count=py_tree_get(&py_index,s,py);
 		
-		hz=gb_first_be((const uint8_t*)zi);
+		hz=l_gb_to_char(zi);
 		int code=hz?hz_get_first_code(hz):0;
 		int index=count;
 		while(--index>=0)

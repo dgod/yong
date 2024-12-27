@@ -42,7 +42,7 @@ static char *u2gb(char *u)
 	return l_strdup(data);
 }
 
-static int sg_hash(char *s,int l)
+static int sg_hash(const char *s,int l)
 {
 	unsigned int sum=0;
 	int i;
@@ -96,41 +96,6 @@ restart:
 		}
 	}
 }
-
-/*
-static int hex2c(int c1,int c2)
-{
-	c1=toupper(c1);
-	c2=toupper(c2);
-	return (((c1>='A')?(((c1&0xdf)-'A')+10):(c1-'0'))*16)+ \
-        (((c2>='A')?(((c2&0xdf)-'A')+10):(c2-'0')));
-}
-
-static char *url_decode(char *in,char *out,int *len)
-{
-	unsigned pos=0;
-	while(in[0]!=0)
-	{
-		if(in[0]=='%' && isxdigit(in[1]) && isxdigit(in[2]) && pos<*len)
-		{
-			out[pos++]=hex2c(in[1],in[2]);
-			in+=3;
-		}
-		else if(isalpha(in[0]))
-		{
-			out[pos++]=in[0];
-			in++;
-		}
-		else
-		{
-			break;
-		}
-	}
-	out[pos]=0;
-	*len=pos;
-	return in;
-}
-*/
 
 void sg_cache_add(sg_cache_t *c,sg_res_t *r)
 {
@@ -290,188 +255,6 @@ static char *url_get_auth(const char *url)
 	l_base64_encode(temp,(const void*)auth,len);
 	return l_strdup(temp);
 }
-/*
-static char *sg_parse_key(sg_cache_t *c,char *s)
-{
-	char key[64];
-	if(!s) return NULL;
-	
-	s=strstr(s,"ime_");
-	if(!s)
-		return NULL;
-#ifdef EMSCRIPTEN
-	if(strncmp(s,"ime_patch_key = \"",17))
-		return NULL;
-	s+=17;
-	int i;
-	for(i=0;i<63 && s[i]!='"';i++)
-		key[i]=s[i];
-	key[i]=0;
-#else
-	if(1!=l_sscanf(s,"ime_patch_key = \"%63[^\"]",key))
-		return NULL;
-#endif
-	return l_strdup(key);
-}
-
-static sg_res_t* sg_parse_res(sg_cache_t *c,char *s)
-{
-	sg_res_t *r;
-	char *key;
-	char *res;
-	char *p;
-	int i;
-	
-	s=strstr(s,"ime_");
-	if(!s)
-		return NULL;
-	
-	if(strncmp(s,"ime_callback(\"",14))
-		return NULL;
-	s+=14;
-	i=strcspn(s,"\"");
-	if(i<=0)
-		return NULL;
-	res=l_strndup(s,i);
-	s+=i;
-	if(strncmp(s,"\",\"",3))
-		return NULL;
-	s+=3;
-	i=strcspn(s,"\"");
-	if(i<=0)
-	{
-		l_free(res);
-		return NULL;
-	}
-	key=l_strndup(s,i);
-
-	r=l_new0(sg_res_t);
-	p=res;
-	if(!p) r->c=0;
-	else for(r->c=(res&&res[0]=='%');(p=strchr(p,'+'))!=0;r->c++,p++);
-	if(r->c)
-		r->cs=l_cnew0(r->c,sg_cand_t);
-	p=res;
-	for(i=0;i<r->c;i++)
-	{
-		char temp[256];
-		int len=sizeof(temp);
-	
-		p=url_decode(p,temp,&len);
-		if(len<=0)
-		{
-			break;
-		}
-		if(len>3 && !memcmp(temp+len-3,"\xef\xbc\x9a",3))
-		{
-			len-=3;
-			temp[len]=0;
-		}
-		r->cs[i].s=u2gb(temp);
-		r->cs[i].l=(int)strtol(p,&p,10);
-		if(p[0]=='%' && p[1]=='0' && p[2]=='9' && p[3]=='+')
-			p+=4;
-	}
-	l_free(res);
-	if(i!=r->c)
-	{
-		l_free(key);
-		sg_res_free(r);
-		return 0;
-	}
-	r->q=key;
-	r->l=(unsigned short)strlen(key);
-
-	return r;
-}
-
-static char *qq_parse_key(sg_cache_t *c,char *s)
-{
-	char key[64];
-	if(!s) return NULL;
-	if(1!=l_sscanf(s,"%*[^{]{\"key\":\"%64[^\"]",key))
-		return NULL;
-	return l_strdup(key);
-}
-
-static sg_res_t* qq_parse_res(sg_cache_t *c,char *s)
-{
-	char key[64],cand[256];
-	sg_res_t *r;
-	int i,n,ret;
-	char *p;
-	if(!strstr(s,"window.QQWebIME.callback({"))
-		return NULL;
-	p=strstr(s,"\"q\":\"");
-	if(!p) return NULL;
-	p+=5;
-	if(1!=l_sscanf(p,"%64[^\"]",key))
-		return NULL;
-	p=strstr(s,"\"rscnt\":\"");
-	if(!p)
-		return NULL;
-	r=l_new0(sg_res_t);
-	r->c=atoi(p+9);
-	if(r->c)
-		r->cs=l_cnew0(r->c,sg_cand_t);
-	p=strstr(s,"\"rs\":[\"");
-	if(!p)
-	{
-		sg_res_free(r);
-		return NULL;
-	}
-	p+=7;
-	for(i=0;i<r->c;i++)
-	{
-		ret=l_sscanf(p,"%256[^\"]%n",cand,&n);
-		if(ret==0 || p[n]!='\"')
-		{
-			sg_res_free(r);
-			return NULL;
-		}
-		p+=n+1;
-		if(i!=r->c-1)
-		{
-			if(p[0]!=','||p[1]!='\"')
-			{
-				sg_res_free(r);
-				return NULL;
-			}
-			p+=2;
-		}
-		r->cs[i].s=u2gb(cand);
-	}
-	p=strstr(s,"\"rsn\":[\"");
-	if(!p)
-	{
-		sg_res_free(r);
-		return NULL;
-	}
-	p+=8;
-	for(i=0;i<r->c;i++)
-	{
-		ret=l_sscanf(p,"%d%n",&r->cs[i].l,&n);
-		if(ret==0 || p[n]!='\"')
-		{
-			sg_res_free(r);
-			return NULL;
-		}
-		p+=n+1;
-		if(i!=r->c-1)
-		{
-			if(p[0]!=','||p[1]!='\"')
-			{
-				sg_res_free(r);
-				return NULL;
-			}
-			p+=2;
-		}
-	}
-	r->q=l_strdup(key);
-	r->l=(unsigned short)strlen(key);
-	return r;
-}
-*/
 
 static sg_res_t* bd_parse_res(sg_cache_t *c,char *s)
 {
@@ -729,22 +512,6 @@ static sg_res_t* ek_parse_res(sg_cache_t *c,char *s)
 }
 
 struct cloud_api sg_apis[]={
-	/*{
-		.name="sogou",
-		.host="web.pinyin.sogou.com",
-		.query_key="/web_ime/patch.php",
-		.query_res="/api/py?key=%s&query=%s",
-		.key_parse=sg_parse_key,
-		.res_parse=sg_parse_res
-	},
-	{
-		.name="qq",
-		.host="ime.qq.com",
-		.query_key="/fcgi-bin/getkey?callback=window.QQWebIME.keyback",
-		.query_res="/fcgi-bin/getword?key=%s&callback=window.QQWebIME.callback&q=%s",
-		.key_parse=qq_parse_key,
-		.res_parse=qq_parse_res
-	},*/
 	{
 		.name="baidu",
 		.host="olime.baidu.com",
@@ -788,7 +555,7 @@ static void sg_select_api(const char *name)
 	int i;
 	if(!name || !name[0])
 		return;
-	for(i=0;i<L_ARRAY_SIZE(sg_apis);i++)
+	for(i=0;i<lengthof(sg_apis);i++)
 	{
 		if(!strcmp(sg_apis[i].name,name))
 		{
@@ -870,12 +637,11 @@ static int SGY_Init(const char *arg)
 	{
 		if(strcmp(p,"zrm"))
 		{
-			struct stat st;
 			sprintf(scheme,"%s/%s.sp",EIM.GetPath("HOME"),p);
-			if(stat(scheme,&st))
+			if(!l_file_exists(scheme))
 			{
 				sprintf(scheme,"%s/%s.sp",EIM.GetPath("DATA"),p);
-				if(stat(scheme,&st))
+				if(!l_file_exists(scheme))
 					scheme[0]=0;
 			}
 		}
@@ -1019,7 +785,7 @@ static char *SGY_GetCandWord(int index)
 	if(SP)
 	{
 		// FIXME: code is not always cand*2
-		int len=gb_strlen((uint8_t*)cand->s)*2;
+		int len=l_gb_strlen((uint8_t*)cand->s,-1)*2;
 		if(len>EIM.CodeLen) len=EIM.CodeLen;
 		memcpy(CodeGet+CodeGetLen,EIM.CodeInput,len);
 		CodeGetLen+=len;

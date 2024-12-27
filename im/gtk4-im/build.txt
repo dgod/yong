@@ -15,6 +15,7 @@ function run(target){
 		env("CFLAGS","+=",process.env.GTK_CFLAGS);
 	else
 		env("CFLAGS+=`pkg-config --cflags gtk4`");
+	env("CFLAGS+=-Wno-deprecated-declarations");
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});

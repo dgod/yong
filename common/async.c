@@ -11,13 +11,8 @@
 #include "common.h"
 
 typedef struct{
-#ifdef _WIN32
-	HANDLE mut;
-	HANDLE th;
-#else
-	pthread_mutex_t mut;
-	pthread_t th;
-#endif
+	l_mtx_t mut;
+	l_thrd_t th;
 	LQueue *que;
 	bool run;
 	bool wait;
@@ -38,13 +33,8 @@ typedef struct{
 
 static YONG_ASYNC async;
 
-#ifdef _WIN32
-#define LOCK() WaitForSingleObject(async.mut,INFINITE)
-#define UNLOCK() ReleaseMutex(async.mut)
-#else
-#define LOCK() pthread_mutex_lock(&async.mut)
-#define UNLOCK() pthread_mutex_unlock(&async.mut)
-#endif
+#define LOCK() l_mtx_lock(&async.mut)
+#define UNLOCK() l_mtx_unlock(&async.mut)
 
 static void async_task_free(ASYNC_TASK *t)
 {
@@ -55,7 +45,7 @@ static void async_task_free(ASYNC_TASK *t)
 	l_free(t);
 }
 
-static void async_task(void *unused)
+static int async_task(void *unused)
 {
 	ASYNC_TASK *t;
 	while(1)
@@ -70,23 +60,15 @@ static void async_task(void *unused)
 	}
 	async.run=false;
 	async.wait=false;
-#ifdef _WIN32
-	CloseHandle(async.th);
-	async.th=NULL;
-#else
-	pthread_detach(async.th);
-#endif
+	l_thrd_detach(async.th);
 	UNLOCK();
+	return 0;
 }
 
 int y_im_async_init(void)
 {
 	memset(&async,0,sizeof(async));
-#ifdef _WIN32
-	async.mut=CreateMutex(NULL,FALSE,NULL);
-#else
-	pthread_mutex_init(&async.mut,NULL);
-#endif
+	l_mtx_init(&async.mut,l_mtx_plain);
 	async.que=l_queue_new((LFreeFunc)async_task_free);
 	return 0;
 }
@@ -96,61 +78,27 @@ void y_im_async_destroy(void)
 	LOCK();
 	if(async.wait || async.run)
 	{
-#ifdef _WIN32
-	WaitForSingleObject(async.th,INFINITE);
-	CloseHandle(async.th);
-#else
-	pthread_join(async.th,NULL);
-#endif
+		l_thrd_join(async.th,NULL);
 	}
 	UNLOCK();
-#ifdef _WIN32
-	CloseHandle(async.mut);
-#else
-	pthread_mutex_destroy(&async.mut);
-#endif
+	l_mtx_destroy(&async.mut);
 	l_queue_free(async.que);
 	memset(&async,0,sizeof(async));
 }
-
-#ifdef _WIN32
-static DWORD WINAPI async_thread(void *unused)
-{
-	async_task(unused);
-	return 0;
-}
-#else
-static void *async_thread(void *unused)
-{
-	async_task(unused);
-	return NULL;
-}
-#endif
 
 static void async_task_add(ASYNC_TASK *t)
 {
 	LOCK();
 	if(async.wait)
 	{
-#ifdef _WIN32
-		WaitForSingleObject(async.th,INFINITE);
-		CloseHandle(async.th);
-#else
-		pthread_join(async.th,NULL);
-#endif
+		l_thrd_join(async.th,NULL);
 		async.wait=false;
 	}
 	l_queue_push_tail(async.que,t);
 	if(!async.run)
 	{
 		async.run=true;
-#ifdef _WIN32
-		DWORD tid;
-		async.th=CreateThread(NULL,0,async_thread,NULL,0,&tid);
-		(void)tid;
-#else
-		pthread_create(&async.th,NULL,async_thread,NULL);
-#endif
+		l_thrd_create(&async.th,async_task,NULL);
 	}
 	UNLOCK();
 }
@@ -205,11 +153,7 @@ int y_im_async_wait(int timeout)
 	do{
 		if(!async.run)
 			return 1;
-#ifdef _WIN32
-		Sleep(50);
-#else
-		usleep(50*1000);
-#endif
+		l_thrd_sleep_ms(50);
 	}while(timeout>0);
 	return -1;
 }
@@ -325,7 +269,7 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 	SECURITY_ATTRIBUTES sa={.nLength=sizeof(sa),.bInheritHandle=TRUE};
 	WCHAR temp[16*1024];
 	int is_node=l_str_has_prefix(arg->str->str,"node ");
-	l_gb_to_utf16(arg->str->str,temp,sizeof(temp));
+	l_utf8_to_utf16(arg->str->str,temp,sizeof(temp));
 	arg->str->str[0]=0;
 	arg->str->len=0;
 	si.cb=sizeof(si);

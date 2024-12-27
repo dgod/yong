@@ -128,23 +128,36 @@ static int GetKey_r(int yk)
 	case YK_UP:vk=Qt::Key_Up;break;
 	case YK_RIGHT:vk=Qt::Key_Right;break;
 	case YK_TAB:vk=Qt::Key_Delete;break;
-	default:vk=yk;
+	default:
+		if(yk>='a' && yk<='z')
+			yk+='A'-'a';
+		vk=yk;
 	}
 	return vk;
 }
 
-static void ForwardKey(QYongPlatformInputContext *ctx,int key)
+static void ForwardKey(QYongPlatformInputContext *ctx,int key,int repeat)
 {
 	if(!ctx->client_window)
 		return;
 	ctx->key_ignore=1;
 	int vk=GetKey_r(key);
-	QKeyEvent *keyevent = ctx->createKeyEvent(vk, 0);
-	QGuiApplication::sendEvent(ctx->client_window, keyevent);
-	delete keyevent;
-	keyevent = ctx->createKeyEvent(vk, 1);
-	QGuiApplication::sendEvent(ctx->client_window, keyevent);
-	delete keyevent;
+	Qt::KeyboardModifiers mods = Qt::NoModifier;
+	if((key&KEYM_CTRL))
+		mods|=Qt::ControlModifier;
+	if((key&KEYM_ALT))
+		mods|=Qt::AltModifier;
+	if((key&KEYM_SHIFT))
+		mods|=Qt::ShiftModifier;
+	for(int i=0;i<repeat;i++)
+	{
+		QKeyEvent *keyevent = new QKeyEvent(QEvent::KeyPress,vk,mods);
+		QGuiApplication::sendEvent(ctx->client_window, keyevent);
+		delete keyevent;
+		keyevent = new QKeyEvent(QEvent::KeyRelease,vk,mods);
+		QGuiApplication::sendEvent(ctx->client_window, keyevent);
+		delete keyevent;
+	}
 	ctx->key_ignore=0;
 }
 
@@ -242,14 +255,15 @@ static int client_dispatch(const char *name,LCallBuf *buf)
 		guint id;
 		int ret;
 		QYongPlatformInputContext *ctx;
-		int key;
+		int key,repeat=1;
 		ret=l_call_buf_get_val(buf,id);
 		if(ret!=0) return -1;
 		ctx=find_context(id);
 		if(ctx==NULL) return -1;
 		ret=l_call_buf_get_val(buf,key);
 		if(ret!=0) return -1;
-		ForwardKey(ctx,key);
+		l_call_buf_get_val(buf,repeat);
+		ForwardKey(ctx,key,repeat);
 	}
 	else if(!strcmp(name,"enable"))
 	{

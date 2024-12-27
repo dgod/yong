@@ -34,6 +34,7 @@ typedef struct _cset_group_predict{
 	CSET_GROUP;
 	int ptype;
 	char phrase[MAX_CAND_LEN+1];
+	char codetip[MAX_CODE_LEN+1];
 }CSET_GROUP_PREDICT;
 
 typedef struct _cset_group_mb{

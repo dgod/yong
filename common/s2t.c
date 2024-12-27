@@ -17,8 +17,6 @@
 #include "t2s_char.c"
 #include "t2s_phrase.c"
 
-//#define memcpy(a,b,c) memmove(a,b,c)
-
 static int s2t_open;
 static int s2t_bd;
 static int s2t_multi;
@@ -52,7 +50,8 @@ int s2t_is_enable(void)
 {
 	return s2t_open;
 }
-static unsigned hash_func(char *in,int len)
+
+static unsigned hash_func(const char *in,int len)
 {
 	unsigned int ha=0;
 	int i;
@@ -66,70 +65,18 @@ static int s2t_compar(const void *a,const void *b)
 	return (int)(*(uint16_t*)a)-(int)(*(uint16_t*)b);	
 }
 
-#if 0
-static char *adjust_phrase(char *in,int len)
-{
-	unsigned int ha;
-	unsigned short magic;
-	int i;
-	int pos;
-	char *p;
-	if(len<=3) return in;
-	ha=hash_func(in,len);
-	magic=ha>>16;
-	for(i=ha%S2T_PHRASE_NUM;(pos=s2t_phrase[i])!=0xffff;i=(i+1)%S2T_PHRASE_NUM)
-	{
-		p=(char*)s2t_data+pos;
-		if(*(unsigned short*)p!=magic) continue;
-		p+=2;
-		if(*p!=(char)len) continue;
-		p+=1;
-		if(memcmp(in,p,len)) continue;
-		return p+len;
-	}
-	return in;
-}
-
-static char *adjust_phrase_t2s(char *in,int len)
-{
-	unsigned int ha;
-	unsigned short magic;
-	int i;
-	int pos;
-	char *p;
-	if(len<=3) return in;
-	ha=hash_func(in,len);
-	magic=ha>>16;
-	for(i=ha%T2S_PHRASE_NUM;(pos=t2s_phrase[i])!=0xffff;i=(i+1)%T2S_PHRASE_NUM)
-	{
-		p=(char*)t2s_data+pos;
-		if(*(unsigned short*)p!=magic) continue;
-		p+=2;
-		if(*p!=(char)len) continue;
-		p+=1;
-		if(memcmp(in,p,len)) continue;
-		return p+len;
-	}
-	return in;
-}
-#endif
-
 static int adjust_phrase_s2t_ext(char *in,int len)
 {
 	unsigned int ha;
-	unsigned short magic;
 	int i;
 	int pos;
 	char *p;
 	if(len<=3)
 		return 0;
 	ha=hash_func(in,len);
-	magic=ha>>16;
 	for(i=ha%S2T_PHRASE_NUM;(pos=s2t_phrase[i])!=0xffff;i=(i+1)%S2T_PHRASE_NUM)
 	{
 		p=(char*)s2t_data+pos;
-		if(*(unsigned short*)p!=magic) continue;
-		p+=2;
 		if(*p!=(char)len) continue;
 		p+=1;
 		if(memcmp(in,p,len)) continue;
@@ -149,19 +96,15 @@ static int adjust_phrase_s2t_ext(char *in,int len)
 static int adjust_phrase_t2s_ext(char *in,int len)
 {
 	unsigned int ha;
-	unsigned short magic;
 	int i;
 	int pos;
 	char *p;
 	if(len<=3)
 		return 0;
 	ha=hash_func(in,len);
-	magic=ha>>16;
 	for(i=ha%T2S_PHRASE_NUM;(pos=t2s_phrase[i])!=0xffff;i=(i+1)%T2S_PHRASE_NUM)
 	{
 		p=(char*)t2s_data+pos;
-		if(*(unsigned short*)p!=magic) continue;
-		p+=2;
 		if(*p!=(char)len) continue;
 		p+=1;
 		if(memcmp(in,p,len)) continue;
@@ -262,7 +205,7 @@ int s2t_select(const char *s)
 		return 0;
 	if(!gb_is_gbk((const uint8_t*)s))
 		return 0;
-	if(gb_strlen((const uint8_t*)s)!=1)
+	if(l_gb_strlen(s,-1)!=1)
 		return 0;
 
 	eim=y_select_eim();

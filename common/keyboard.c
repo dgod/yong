@@ -1,5 +1,6 @@
 #include "common.h"
 #include "ui.h"
+#include "translate.h"
 #include "ui-draw.h"
 
 #include <math.h>
@@ -293,7 +294,7 @@ static int kbd_select(int8_t pos,int8_t sub)
 				btn->data=NULL;
 			}
 			else
-				btn->data=l_strdup(gb);
+				btn->data=l_strdup(YT(gb));
 
 			if(kst.xim && btn->data && btn->data[0]=='$' && kst.layout.key_mods)
 			{
@@ -325,7 +326,7 @@ static int kbd_select(int8_t pos,int8_t sub)
 			kst.layout.shift->data=l_strdup("Shift");
 		}
 	}
-	kst.layout.name=l_xml_get_prop(keyboard,"name");
+	kst.layout.name=YT8(l_xml_get_prop(keyboard,"name"));
 	if(!kst.layout.name) kst.layout.name="";
 #ifdef _WIN32
 	{
@@ -424,6 +425,44 @@ int y_kbd_show(int b)
 	return 0;
 }
 
+#ifdef _WIN32
+// delay hide for QQ flicker
+static bool pending_hide;
+static void kbd_hide_latter(void)
+{
+	if(!pending_hide)
+		return;
+	y_kbd_show(0);
+	kst.show=1;
+	pending_hide=false;
+}
+
+int y_kbd_show_with_main(int b)
+{
+	if(b)
+	{
+		pending_hide=false;
+		if(kst.show)
+		{
+			y_kbd_show(1);
+		}
+	}
+	else
+	{
+		if(kst.show)
+		{
+			if(!pending_hide)
+			{
+				pending_hide=true;
+				y_ui_timer_add(50,(void*)kbd_hide_latter,NULL);
+			}
+		}
+	}
+	return 0;
+}
+
+#else
+
 int y_kbd_show_with_main(int b)
 {
 	// 打开软键盘，wayland中目标程序必然失去焦点
@@ -451,6 +490,7 @@ int y_kbd_show_with_main(int b)
 	}
 	return 0;
 }
+#endif
 
 static void kbd_paint(void)
 {
@@ -482,9 +522,15 @@ static gboolean keyboard_motion_cb(GtkWidget *window,GdkEventMotion *event,gpoin
 {
 	gint drag_x=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"drag-x"));
 	gint drag_y=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(window),"drag-y"));
+	gint x=(gint) event->x_root;
+	gint y=(gint) event->y_root;
+
+	if(x>kst.layout.main.rc.w ||y>kst.layout.main.rc.h)
+		return TRUE;
+
 	ybus_wayland_win_move_relative(kst.layout.win,
-			(gint) event->x_root - drag_x,
-			(gint) event->y_root - drag_y);
+			x - drag_x,
+			y - drag_y);
 	return TRUE;
 }
 #endif
@@ -569,7 +615,7 @@ static int kbd_click(int x,int y,int up)
 							key|=KEYM_SHIFT;
 					}
 				}
-				if((key<=0 || !y_xim_input_key(key)) && text)
+				if((key<=0 || !y_im_input_key(key)) && text)
 					y_xim_send_string(text);
 			}
 		}
@@ -710,7 +756,7 @@ static void y_kbd_popup_menu_real(int from)
 	arr=l_ptr_array_new(10);
 	for(LXmlNode *keyboard=data->child;keyboard!=NULL;keyboard=keyboard->next)
 	{
-		const char *name=l_xml_get_prop(keyboard,"name");
+		const char *name=YT8(l_xml_get_prop(keyboard,"name"));
 		if(!name || !name[0])
 		{
 			break;
@@ -754,7 +800,7 @@ static void kbd_select_sub(void)
 	{
 		LPtrArray *arr=l_ptr_array_new(10);
 		node=h;
-		for(int i=0;node!=NULL;i++,node=node->next)
+		for(;node!=NULL;node=node->next)
 		{
 			const char *name=l_xml_get_prop(node,"name");
 			l_ptr_array_append(arr,name);
@@ -1024,7 +1070,7 @@ static gboolean kbd_click_cb (GtkWidget *window,GdkEventButton *event,gpointer u
 		if(ui_is_wayland())
 		{
 			static guint keyboard_motion_handler;
-			if(!kst.layout.psel && click==0)
+			if(!kst.layout.psel && click==0 && keyboard_motion_handler==0)
 			{
 				GdkCursor *cursor=gdk_cursor_new (GDK_FLEUR);
 				gdk_window_set_cursor(gtk_widget_get_window(kst.layout.win),cursor);

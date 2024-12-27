@@ -14,7 +14,7 @@ static void xim_close_im(CONN_ID conn_id,CLIENT_ID client_id);
 static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id);
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s);
 static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,int flags);
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
@@ -116,8 +116,6 @@ struct _IBusYongEngine {
 struct _IBusYongEngineClass {
 	IBusEngineClass parent;
 };
-
-static int ibus_version;
 
 static void  ibus_yong_engine_class_init(IBusYongEngineClass *klass);
 static void  ibus_yong_engine_init(IBusYongEngine *yong);
@@ -222,8 +220,6 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 {
 	IBusYongEngine *yong=(IBusYongEngine*)engine;
 	int key;
-	if(ibus_version>=1)
-		modifiers=keycode;
 	
 	key=GetKey(keyval,modifiers);
 	if(!key)
@@ -486,7 +482,7 @@ static int GetKey_r(int yk)
 	return vk;
 }
 
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat)
 {
 	int KeyCode,KeyState;
 	KeyCode=GetKey_r(key&~KEYM_MASK);
@@ -497,9 +493,13 @@ static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
 		KeyState|=IBUS_CONTROL_MASK;
 	if(key & KEYM_SHIFT)
 		KeyState|=IBUS_SHIFT_MASK;
-	p_ibus_engine_forward_key_event((IBusEngine*)conn_id,KeyCode,TRUE,KeyState);
-	p_ibus_engine_forward_key_event((IBusEngine*)conn_id,KeyCode,FALSE,KeyState);
-
+	for(int i=0;i<repeat;i++)
+	{
+		KeyState&=~IBUS_RELEASE_MASK;
+		p_ibus_engine_forward_key_event((IBusEngine*)conn_id,KeyCode,0,KeyState);
+		KeyState|=IBUS_RELEASE_MASK;
+		p_ibus_engine_forward_key_event((IBusEngine*)conn_id,KeyCode,0,KeyState);
+	}
 }
 
 static int xim_ibus_base_init(void)

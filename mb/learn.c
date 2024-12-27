@@ -15,7 +15,7 @@
 #include "cset.h"
 #include "learn.h"
 
-#define LEARN_MAGIC 0x44332220
+#define LEARN_MAGIC 0x44332221
 
 #define PSEARCH_PHRASE		0x00
 #define PSEARCH_SENTENCE	0x01
@@ -40,6 +40,7 @@ typedef struct{
 	uint32_t raw_size;			/* 数据大小 */
 }LEARN_HEADER;
 
+#pragma pack(1)
 typedef struct{
 	uint32_t len:4;
 	uint32_t pos:28;
@@ -48,9 +49,9 @@ typedef struct{
 	uint16_t last:3;
 	uint16_t freq:5;
 	uint16_t allow:3;
-	uint16_t unused;
 }LEARN_ITEM;
-static_assert(sizeof(LEARN_ITEM)==8,"learn item c2 size bad");
+#pragma pack()
+static_assert(sizeof(LEARN_ITEM)==6,"learn item c2 size bad");
 
 #ifdef TOOLS_LEARN
 typedef struct{
@@ -79,7 +80,6 @@ typedef struct learn_data{
 	uint32_t hz_freq[GB_HZ_SIZE];	// 字频表
 	int ci_count;					// 词频数量
 	CI_FREQ_ITEM_S *ci_flat;		// 使用线性数组的词频表
-	LHashTable *ci_index;			// 所有词的哈希索引，只在创建语料库时用
 	int it_count;					// 总的语料数量
 	int it_phrase;					// 三元组语料数量
 	LArray *it_data;				// 语料指针
@@ -89,6 +89,7 @@ typedef struct learn_data{
 	void *user;
 	int32_t jp_index[26][26][2];	// 简码首字母索引
 #ifdef TOOLS_LEARN
+	LHashTable *ci_index;			// 所有词的哈希索引，只在创建语料库时用
 	LHashTable *ci_freq;			// 词频表
 	CODE_CACHE *code_cache;
 	int raw_offset;
@@ -113,8 +114,8 @@ void y_mb_learn_free(LEARN_DATA *data)
 	l_hash_table_free(data->ci_freq,l_free);
 #endif
 	l_free(data->ci_flat);
-	l_hash_table_free(data->ci_index,l_free);
 #ifdef TOOLS_LEARN
+	l_string_set_free(data->ci_index);
 	code_cache_free(data->code_cache);
 #endif
 	l_array_free(data->it_data,NULL);
@@ -310,22 +311,9 @@ typedef struct{
 	char assist_end;		// 句尾辅助码
 	int mark_skip;			// 标记是否跳过第一个匹配的
 	char last_zi[8];		// 在没有句尾辅助码的情况下的最后一个字
+	const char *prefix;		// 要匹配的汉字前缀
 	struct y_mb_ci *codec[1024];
 }MMSEG;
-
-#if 0
-void uprintf(const char *fmt,...)
-{
-	va_list ap;
-	char gb[256];
-	char utf8[256];
-	va_start(ap,fmt);
-	vsprintf(gb,fmt,ap);
-	va_end(ap);
-	l_gb_to_utf8(gb,utf8,256);
-	printf("%s",utf8);
-}
-#endif
 
 static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 {
@@ -339,7 +327,6 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 	ret=mm->codec[pos];
 	if(ret!=(struct y_mb_ci*)-1)
 		return ret?1:0;
-
 	int len=py_build_string_no_split(code,input,count);
 	if(mm->space && count>1)
 	{
@@ -353,14 +340,24 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 		}
 	}
 
-#ifdef TOOLS_LEARN
-	if(mm->mb->split>1)
+	char next[16];
+	if(count==2)
 	{
-		ret=code_cache_test(l_predict_data->code_cache,code,len,count);
+		py_build_string_no_split(next,input+1,1);
 	}
 	else
 	{
-		ret=code_cache_test(l_predict_data->code_cache,code,len,-1);
+		next[0]=0;
+	}
+
+#ifdef TOOLS_LEARN
+	if(mm->mb->split>1)
+	{
+		ret=code_cache_test(l_predict_data->code_cache,code,len,count,next[0]);
+	}
+	else
+	{
+		ret=code_cache_test(l_predict_data->code_cache,code,len,-1,0);
 	}
 	mm->codec[pos]=ret;
 	return ret?1:0;
@@ -412,9 +409,13 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 			ret=((struct y_mb_item*)n->data)->phrase;
 			for(;ret!=NULL;ret=ret->next)
 			{
-				if(ret->del) continue;
-				if(gb_strlen2(ret->data,ret->len)!=count) continue;
+				if(ret->del)
+					continue;
+				if(l_gb_strlen(ret->data,ret->len)!=count)
+					continue;
 				if(!(ret->data[0]&0x80))
+					continue;
+				if(next[0] && ret->len==4 && !y_mb_zi_is_code0(mm->mb,ret->data+2,next[0]))
 					continue;
 				if(end && !y_mb_assist_test(mm->mb,ret,mm->assist_end,0,1))
 				{
@@ -451,7 +452,9 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 			if(ret->del) continue;
 			if(!ret->zi && ret->ext)
 				continue;
-			if(gb_strlen2(ret->data,ret->len)!=count)
+			if(l_gb_strlen(ret->data,ret->len)!=count)
+				continue;
+			if(next[0] && ret->len==4 && !y_mb_zi_is_code0(mm->mb,ret->data+2,next[0]))
 				continue;
 			if(end && !y_mb_assist_test(mm->mb,ret,mm->assist_end,0,1))
 			{
@@ -496,9 +499,7 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 		tmp=list;
 		for(i=0,list=list->next;i<6 && list!=NULL;list=list->next)
 		{
-			if(l_predict_sp && gb_strlen2(list->data,list->len)!=len)
-				continue;
-			if(mm->mb->split>=2 && mm->mb->split<=4 && gb_strlen2(list->data,list->len)!=len)
+			if(l_gb_strlen(list->data,list->len)!=len)
 				continue;
 			if(end && mm->assist_end && !y_mb_assist_test(mm->mb,list,mm->assist_end,0,1))
 				continue;
@@ -519,14 +520,10 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 
 		if(list->del)
 			continue;
-		if(l_predict_sp && gb_strlen2(list->data,list->len)!=len)
-			continue;
 		if(!list->zi && list->ext)
 			continue;
-		if(mm->mb->split>=2 && mm->mb->split<=4 && gb_strlen2(list->data,list->len)!=len)
-		{
+		if(l_gb_strlen(list->data,list->len)!=len)
 			continue;
-		}
 		if(end && mm->assist_end && !y_mb_assist_test(mm->mb,list,mm->assist_end,0,1))
 		{
 			continue;
@@ -682,6 +679,7 @@ static int predict_compar_part(const LEARN_ITEM *p1, const LEARN_ITEM *p2)
 		s1=temp;
 		n=strlen(s2);
 	}
+
 	return strncmp(s1,s2,n);
 }
 
@@ -711,17 +709,18 @@ static LEARN_ITEM *predict_search2(LEARN_DATA *data,MMSEG *mm,int cpos,int cnum,
 {
 	LEARN_ITEM *key=&data->key;
 	LEARN_ITEM *item=NULL,*pnext=NULL;
-	char *temp;
 	int end=pos&PSEARCH_END;
 	if(!data)
 		return NULL;
-	temp=(char*)data->raw_data+key->pos;
-
+	char *temp=(char*)data->raw_data+key->pos;
+	char zrm[256];
+	if(mm->mb->split=='\'')
+		py_build_zrm_string(zrm,mm->input+cpos,cnum);
 	py_build_string_no_split(temp,mm->input+cpos,cnum);
 
 	{
-		int i,num;
-		i=l_array_bsearch_left(data->it_data,key,(LCmpFunc)(flag==PSEARCH_PHRASE?predict_compar_phrase:predict_compar_part));
+		int num;
+		int i=l_array_bsearch_left(data->it_data,key,(LCmpFunc)(flag==PSEARCH_PHRASE?predict_compar_phrase:predict_compar_part));
 		for(num=0;i<data->it_count;i++)
 		{
 			LEARN_ITEM *p=l_array_nth(data->it_data,i);
@@ -735,10 +734,18 @@ static LEARN_ITEM *predict_search2(LEARN_DATA *data,MMSEG *mm,int cpos,int cnum,
 				continue;
 			if(p->allow && !(p->allow&pos))
 				continue;
-			if(l_predict_sp)
+			if(mm->mb->split=='\'')
 			{
-				int len=cand_gblen(p);
-				if(len!=cnum)
+				char zrm2[256];
+				cp_unzip((const char *)data->raw_data+p->pos,zrm2,cnum);
+				if(memcmp(zrm,zrm2,cnum*2))
+					continue;
+			}
+			if(mm->prefix!=NULL)
+			{
+				char temp[64];
+				cand_unpack(data,p,temp,sizeof(temp));
+				if(!l_str_has_prefix(temp,mm->prefix))
 					continue;
 			}
 			if(predict_test_assist(mm,p,end)==1)
@@ -990,10 +997,11 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 					
 					// prefix是k个词的文本
 					char *prefix=predict+strlen(predict)-2*base;
+					mm->prefix=prefix;
 					item=NULL;
 					for(ext=3;ext>0;ext--)
 					{
-						//printf("i:%d ext:%d len:%d\n",i,ext,len);
+						// printf("i:%d ext:%d len:%d\n",i,ext,len);
 						if(i+ext>len)
 							continue;
 						extlen=0;
@@ -1008,15 +1016,16 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 						else
 						{
 							predict_copy(l_predict_data,temp,item,-1);
-							if(memcmp(prefix,temp,2*base))
-							{
-								item=NULL;
-								continue;
-							}
+							// if(memcmp(prefix,temp,2*base))
+							// {
+								// item=NULL;
+								// continue;
+							// }
 							memset(from+i,1,ext);
 							break;
 						}
 					}
+					mm->prefix=NULL;
 					if(!item) continue;
 					predict_copy(l_predict_data,temp,item,-1);
 					out=l_stpcpy(out,temp+2*base);
@@ -1032,7 +1041,7 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 		}
 #endif
 		c=unigram_codec[pos<<3|seq[i]];
-		//fprintf(stderr,"%d %d %d %p %d\n",i,pos,seq[i],c,pos<<3|seq[i]);
+		// fprintf(stderr,"%d: %d %d %p %d\n",i,pos,seq[i],c,pos<<3|seq[i]);
 		out+=y_mb_ci_string2(c,out);
 		pos+=seq[i];
 		i++;
@@ -1507,7 +1516,8 @@ const char *y_mb_predict_nth(const char *s,int n)
 	for(i=0;i<n;i++)
 	{
 		int len=strlen(s);
-		assert(len>0);
+		if(len==0)
+			return NULL;
 		s+=len+1;
 	}
 	return s;
@@ -1632,14 +1642,17 @@ retry:
 			goto retry;
 		}
 	}
+	struct y_mb_ci *prev=NULL;
 	for(ret=len=0;ret<array->len;ret++)
 	{
 		struct _p_item *it=l_array_nth(array,ret);
 		struct y_mb_ci *ci=it->c;
 		if(len+ci->len+1+1>MAX_CAND_LEN)
 			break;
-		y_mb_ci_string2(ci,out+len);
-		len+=ci->len+1;
+		if(prev!=NULL && ci->len==prev->len && !memcmp(ci->data,prev->data,ci->len))
+			continue;
+		len+=y_mb_ci_string2(ci,out+len)+1;
+		prev=ci;
 	}
 	out[len]=0;
 	l_array_free(array,NULL);
@@ -1914,6 +1927,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 	mm.setence_end=(s[caret]==0);
 	mm.assist_begin=0;
 	mm.assist_end=0;
+	mm.prefix=NULL;
 	tmp=s[caret];s[caret]=0;
 
 	if(l_predict_sp)
@@ -2122,7 +2136,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 	len=strlen(mm.cand);
 	mb->match=tmp;
 	
-	if(gb_strlen((uint8_t*)mm.cand)==1)
+	if(l_gb_strlen((uint8_t*)mm.cand,-1)==1)
 	{
 		out[0]=0;
 		len=0;

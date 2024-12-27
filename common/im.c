@@ -17,10 +17,6 @@
 #include "xim.h"
 #include "translate.h"
 
-extern int key_commit;
-extern int key_select[9];
-extern char key_select_n[11];
-
 static char *eim_get_config(const char *section,const char *key)
 {
 	static char ret[512];
@@ -34,11 +30,12 @@ static char *eim_get_config(const char *section,const char *key)
 	{
 		tmp=y_im_get_config_string(section,key);
 	}
-	if(!tmp) return 0;
+	if(!tmp)
+		return NULL;
 	if(strlen(tmp)>=sizeof(ret)-1)
 	{
 		l_free(tmp);
-		return 0;
+		return NULL;
 	}
 	strcpy(ret,tmp);		
 	l_free(tmp);
@@ -82,40 +79,35 @@ static int eim_callback(int index,...)
 				va_end(ap);
 				if(!keys)
 					return -1;
-				if(!(key_commit&~0xff) && strchr(keys,key_commit))
-					return 1;
-				for(int i=0;i<9 && key_select[i]!=YK_NONE;i++)
+				for(int i=0;keys[i]!=0;i++)
 				{
-					if(key&~0xff)
-						continue;
-					if(strchr(keys,key_select[i]))
-						return 2+i;
-				}
-				for(int i=0;key_select_n[i]!=0;i++)
-				{
-					if(strchr(keys,key_select_n[i]))
-						return 1+i;
+					int index=y_im_check_select(keys[i],0xf);
+					if(index>=0)
+						return index+1;
 				}
 				return -1;
 			}
 			va_end(ap);
-			if(key==key_commit)
-			{
-				return 1;
-			}
-			for(int i=0;i<9 && key_select[i]!=YK_NONE;i++)
-			{
-				if(key==key_select[i])
-				{
-					return 2+i;
-				}
-			}
-			if((key&~0xff)!=0)
+			int index=y_im_check_select(key,0xf);
+			if(index<0)
 				return -1;
-			const char *p=strchr(key_select_n,key);
-			if(!p)
-				return -1;
-			return (int)(size_t)(p-key_select_n+1);
+			return index+1;
+		}
+		case EIM_CALLBACK_SET_ASSIST_CODE:
+		{
+			const char *code=va_arg(ap,const char *);
+			if(code==NULL || !code[0])
+			{
+				im.AssistCode[0]=0;
+				break;
+			}
+			else if(strlen(code)>sizeof(im.AssistCode)-1)
+			{
+				res=-1;
+				break;
+			}
+			strcpy(im.AssistCode,code);
+			break;
 		}
 	}
 	va_end(ap);
@@ -136,7 +128,7 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 	eim->GetConfig=eim_get_config;
 	eim->GetKey=eim_get_key;
 	eim->OpenFile=(void*)y_im_open_file;
-	eim->SendString=(void*)y_xim_send_string;
+	eim->SendString=(void*)y_xim_send_string2;
 	eim->Beep=eim_beep;
 	eim->QueryHistory=y_im_history_query;
 	eim->GetLast=y_im_history_get_last;
@@ -165,17 +157,14 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 int y_im_load_extra(IM *im,const char *name)
 {
 	EXTRA_IM *eim;
-	char *p;
+	const char *p;
 	CONNECT_ID id={.dummy=1};
 	
-	// p=y_im_get_config_string(name,"overlay");
-	// y_im_update_sub_config(p);
-	// l_free(p);
 #ifdef CFG_XIM_WEBIM
 	extern EXTRA_IM EIM;
 	eim=&EIM;
 #else
-	p=y_im_get_config_string(name,"engine");
+	p=y_im_get_config_data(name,"engine");
 	if(!p)
 	{
 		printf("eim: im can't found config %s\n",name);
@@ -186,17 +175,15 @@ int y_im_load_extra(IM *im,const char *name)
 		im->eim->Destroy();
 		im->eim=NULL;
 		y_im_module_close(im->handle);
-		im->handle=0;
+		im->handle=NULL;
 	}
 	im->handle=y_im_module_open(p);
 	if(!im->handle)
 	{
 		printf("eim: open %s fail\n",p);
 		y_ui_show_tip(YT("¼ÓÔØ¶¯Ì¬¿â%sÊ§°Ü"),p);
-		l_free(p);
 		return -1;
 	}
-	l_free(p);
 	if(!(eim=y_im_module_symbol(im->handle,"EIM")) ||
 		!eim || !eim->Init)
 	{
@@ -208,53 +195,43 @@ int y_im_load_extra(IM *im,const char *name)
 #endif
 	im->eim=eim;
 
-	p=y_im_get_config_string(name,"arg");
+	p=y_im_get_config_data(name,"arg");
 	if(InitExtraIM(im,eim,p))
 	{
-		l_free(p);
 		y_im_module_close(im->handle);
 		im->handle=NULL;
 		im->eim=NULL;
 		return -1;
 	}
-	l_free(p);
-	//YongSetLang(LANG_CN);
 	id.lang=LANG_CN;
-	p=y_im_get_config_string(name,"biaodian");
+	p=y_im_get_config_data(name,"biaodian");
 	if(p && !strcmp(p,"en"))
 	{
-		//YongSetBiaodian(LANG_EN);
 		im->Biaodian=LANG_EN;
 		id.biaodian=LANG_EN;
 	}
 	else
 	{
-		//YongSetBiaodian(LANG_CN);
 		im->Biaodian=LANG_CN;
 		id.biaodian=LANG_CN;
 	}
-	l_free(p);
 	p=y_im_get_config_string(name,"corner");
 	if(p && !strcmp(p,"full"))
 	{
-		//YongSetCorner(CORNER_FULL);
 		id.corner=CORNER_FULL;
 	}
 	else
 	{
-		//YongSetCorner(CORNER_HALF);
 		id.corner=CORNER_HALF;
 	}
-	l_free(p);
 	im->Trad=y_im_get_config_int(name,"trad");
 	im->TradDef=y_im_get_config_int("IM","s2t")?!im->Trad:im->Trad;
-	//YongSetTrad(im->Trad);
 	id.trad=im->TradDef;
 	im->Bing=y_im_get_config_int(name,"bing");
 	if(im->Bing)
 	{
 		im->BingSkip[0]=140;im->BingSkip[1]=100;
-		p=y_im_get_config_string(name,"bing_p");
+		p=y_im_get_config_data(name,"bing_p");
 		if(p)
 		{
 			int skip1,skip2;
@@ -264,18 +241,16 @@ int y_im_load_extra(IM *im,const char *name)
 				im->BingSkip[0]=skip1;
 				im->BingSkip[1]=skip2;
 			}
-			l_free(p);
 		}
 	}
 	im->Beep=0;
-	p=y_im_get_config_string(name,"beep");
+	p=y_im_get_config_data(name,"beep");
 	if(p)
 	{
 		if(strstr(p,"empty"))
 			im->Beep|=1<<YONG_BEEP_EMPTY;
 		if(strstr(p,"multi"))
 			im->Beep|=1<<YONG_BEEP_MULTI;
-		l_free(p);
 	}
 	y_xim_put_connect(&id);
 	YongUpdateMain(&id);

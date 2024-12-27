@@ -21,6 +21,7 @@ bool l_key_file_has_group(LKeyFile *key_file,const char *group);
 char **l_key_file_get_groups(LKeyFile *key_file);
 char **l_key_file_get_keys(LKeyFile *key_file,const char *group);
 void l_key_file_set_inherit(LKeyFile *key_file,char delimiter);
+void l_key_file_set_overlay(LKeyFile *key_file,LKeyFile *overly);
 
 #define l_key_file_remove_group(key_file,group) \
 	l_key_file_set_data((key_file),(group),NULL,NULL)

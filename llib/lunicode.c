@@ -351,3 +351,47 @@ char *l_utf16_to_gb(const void *s,char *out,int size)
 	return out;
 }
 #endif
+
+int l_utf8_strlen(const void *p,int size)
+{
+	const uint8_t *s=p;
+	const uint8_t *end=size<0?LINT_TO_PTR(-1):s+size;
+	int count=0;
+	while(s<end)
+	{
+		s=l_utf8_next_char(s);
+		if(s==NULL)
+			break;
+		count++;
+	}
+	return count;
+}
+
+int l_utf16_strlen(const void *p,int size)
+{
+	const uint16_t *s=p;
+	const uint16_t *end=size<0?LINT_TO_PTR(-1):s+(size>>1);
+	int count=0;
+	while(s<end)
+	{
+		s=l_utf16_next_char(s);
+		if(s==NULL)
+			break;
+		count++;
+	}
+	return count;
+}
+
+const void *l_utf16_offset(const void *p,int offset)
+{
+	const uint16_t *s=p;
+	int i;
+	for(i=0;i<offset;i++)
+	{
+		s=l_utf16_next_char(s);
+		if(s==NULL)
+			return NULL;
+	}
+	return s;
+}
+

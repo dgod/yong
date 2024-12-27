@@ -229,6 +229,19 @@ void *l_hash_table_remove(LHashTable *h,void *item)
 	return old;
 }
 
+void *l_hash_table_del(LHashTable *h,const void *key)
+{
+	if(!h->offset)
+		return NULL;
+	int index=h->hash(key)%h->size;
+	void *item=_slist_find_key(h->array[index],key,h);
+	if(!item)
+		return NULL;
+	h->array[index]=l_slist_remove(h->array[index],item);
+	h->count--;
+	return item;
+}
+
 int l_hash_table_size(LHashTable *h)
 {
 	return h->count;
@@ -276,10 +289,5 @@ unsigned l_str_hash (const void *v)
 unsigned l_int_hash(const void *v)
 {
 	return *(const unsigned *)v;
-}
-
-int l_int_equal(const void *v1,const void *v2)
-{
-	return *(const int*)v1-*(const int*)v2;
 }
 

@@ -242,6 +242,6 @@ static inline int y_layout_keyup(Y_LAYOUT *layout,int key,uint32_t timestamp)
 }
 
 Y_LAYOUT *y_layout_load(const char *path);
-void y_layout_free(Y_LAYOUT *layout);
+#define y_layout_free(layout) l_free(layout)
 
 #endif/*_LAYOUT_H_*/

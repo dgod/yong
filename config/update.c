@@ -5,18 +5,18 @@
 #include <errno.h>
 #include <assert.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <llib.h>
 #include "ltricky.h"
 #include "md5.h"
 #include "session.h"
 
 #include "config_ui.h"
-
-#ifdef _WIN32
-#include <winsock2.h>
-#else
-#include <unistd.h>
-#endif
 
 #include "custom_update.c"
 
@@ -43,9 +43,9 @@ static char *md5_file(const char *path,uint32_t *size)
 	if(path[0]=='/') path++;	
 	data=l_file_get_contents(path,&length,y_im_get_path("DATA"),NULL);
 	if(!data) return NULL;
-	MD5Init(&ctx);
-	MD5Update(&ctx,data,length);
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,data,length);
+	l_md5_final(&ctx);
 	l_free(data);
 	for(i=0;i<16;i++)
 	{
@@ -61,9 +61,9 @@ static int md5_check(const void *data,size_t length,const char *md5)
 	char temp[64];
 	int i;
 	
-	MD5Init(&ctx);
-	MD5Update(&ctx,data,length);
-	MD5Final(&ctx);
+	l_md5_init(&ctx);
+	l_md5_update(&ctx,data,length);
+	l_md5_final(&ctx);
 	
 	for(i=0;i<16;i++)
 	{
@@ -432,7 +432,7 @@ int UpdateMain(void)
 #endif
 	cu_init();
 	LXml *custom=l_xml_load((const char*)config_update);
-	CULoopArg loop_arg={custom};
+	CULoopArg loop_arg={custom,"net.dgod.yong.update"};
 	cu_loop((void*)activate,&loop_arg);
 	l_xml_free(custom);
 	return 0;

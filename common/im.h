@@ -41,6 +41,7 @@ typedef struct{
 	int CaretPos;
 	char CandTable[10][(MAX_CAND_LEN+1)*2];
 	char CodeTips[10][(MAX_TIPS_LEN+1)*2];
+	char AssistCode[4];
 
 	char StringGetEngine[MAX_CAND_LEN+2];
 	char CodeInputEngine[MAX_CODE_LEN+2];

@@ -91,20 +91,6 @@ static void (*app_indicator_set_title)(void *self,const gchar *title);
 static GtkWidget *ImageWin;
 static UI_IMAGE ImageWin_bg;
 
-static int im_pipe[2];
-
-static gboolean im_pipe_cb(GIOChannel *source,GIOCondition condition,gpointer data)
-{
-	unsigned char c;
-	int ret;
-	ret=read(im_pipe[0],&c,1);
-	if(ret==1)
-	{
-		y_im_request(c);
-	}
-	return TRUE;
-}
-
 static void (*set_opacity)(GdkWindow *window,gdouble opacity);
 static void (*set_opacity2)(GtkWidget *window,gdouble opacity);
 static gboolean (*is_composited)(GtkWidget *widget);
@@ -173,11 +159,14 @@ void YongSetXErrorHandler(void);
 static int ui_init(void)
 {
 	GtkSettings*p;
-	GIOChannel *chn;
 
 	setenv("GTK_CSD","0",1);
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
-		setenv("GDK_BACKEND","x11",1);
+	{
+		const char *desktop=getenv("XDG_CURRENT_DESKTOP");
+		if(!desktop || (!strstr(desktop,"wlroots") && !strstr(desktop,"KDE")))
+			setenv("GDK_BACKEND","x11",1);
+	}
 	if(getenv("GDK_SCALE"))
 	{
 		double scale1=strtod(getenv("GDK_SCALE"),NULL);
@@ -205,10 +194,6 @@ static int ui_init(void)
 	my_menu_popup_at_pointer=dlsym(NULL,"gtk_menu_popup_at_pointer");
 	load_sound_system();
 	
-	pipe(im_pipe);
-	chn=g_io_channel_unix_new(im_pipe[0]);
-	guint src=g_io_add_watch(chn,G_IO_IN,im_pipe_cb,NULL);
-	g_source_set_name_by_id(src,"yong-comm");
 	p=gtk_settings_get_default();
 	if(p)
 	{
@@ -228,6 +213,12 @@ static int ui_init(void)
 	}
 
 	YongSetXErrorHandler();
+
+	int delay=y_im_get_config_int("main","delay");
+	if(delay>0)
+	{
+		usleep(delay*1000);
+	}
 	
 	calc_ui_scale();
 	if(l_str_has_prefix(gdk_display_get_name(gdk_display_get_default()),"wayland"))
@@ -240,6 +231,13 @@ static int ui_init(void)
 	wayland_tip_center=y_im_get_config_int("main","wayland_tip_center");
 
 	load_app_indicator();
+
+	L_CO_INIT init={
+		.events={
+			.sleep=ui_timer_add
+		}
+	};
+	l_co_init(&init);
 	
 	return 0;
 }
@@ -383,9 +381,13 @@ static gboolean main_motion_cb (GtkWidget *window,GdkEventMotion *event,gpointer
 	{
 		if(is_wayland)
 		{
+			gint x=(gint) event->x_root;
+			gint y=(gint) event->y_root;
+			if(x>=MainWin_W || y>=MainWin_H)
+				return TRUE;
 			ybus_wayland_win_move_relative(window,
-					(gint) event->x_root - MainWin_Drag_X,
-					(gint) event->y_root - MainWin_Drag_Y);
+					x - MainWin_Drag_X,
+					y - MainWin_Drag_Y);
 		}
 		else
 		{
@@ -1664,7 +1666,7 @@ int YongDrawInput(void)
 		YongShowInput(0);
 		return 0;
 	}
-	if(InputTheme.onspot && InputTheme.line==1 && im.Preedit==1)
+	if(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1)
 		CodeWidth=0;
 	else
 		CodeWidth=YongCodeWidth();
@@ -1995,6 +1997,8 @@ static void ui_tray_update_with_indicator(UI_TRAY *param)
 	if(!StatusIcon)
 	{
 		StatusIcon=app_indicator_new("net.dgod.yong",icon2,0);
+		if(!StatusIcon)
+			return;
 		app_indicator_set_attention_icon_full(StatusIcon,icon1,NULL);
 	}
 	else
@@ -2113,6 +2117,54 @@ void ui_tray_status(int which)
 	}
 }
 
+static void send_file_get_func(
+		GtkClipboard* clipboard,
+		GtkSelectionData* selection_data,
+		guint info,
+		gpointer user_data)
+{
+#if 0
+	if(info==0)
+	{
+		char *uris[2]={NULL,NULL};
+		char *fullpath=g_object_get_data(G_OBJECT(user_data),"fullpath");
+		uris[0]=g_filename_to_uri(fullpath,NULL,NULL);
+		gtk_selection_data_set_uris(selection_data,uris);
+		g_free(uris[0]);
+	}
+#endif
+	if(info==1)
+	{
+		char *fullpath=g_object_get_data(G_OBJECT(user_data),"fullpath");
+		char *uri=g_filename_to_uri(fullpath,NULL,NULL);
+		char temp[256];
+		int len=sprintf(temp,"copy\n%s",uri);
+		g_free(uri);
+		gtk_selection_data_set(
+				selection_data,
+				gtk_selection_data_get_target(selection_data),
+				8,
+				(guchar*)temp,
+				len);
+	}
+#if 0
+	if(info==2)
+	{
+		char *fullpath=g_object_get_data(G_OBJECT(user_data),"fullpath");
+		gtk_selection_data_set_text(selection_data,fullpath,-1);
+	}
+#endif
+	if(info==3)
+	{
+		gtk_selection_data_set_pixbuf(selection_data,user_data);
+	}
+}
+
+static void send_file_clear_func(GtkClipboard* clipboard,gpointer user_data)
+{
+	g_object_unref(G_OBJECT(user_data));
+}
+
 static gboolean YongSendFile_real(char *fn)
 {
 	if(strstr(fn,".txt"))
@@ -2145,20 +2197,43 @@ static gboolean YongSendFile_real(char *fn)
 	else
 	{
 		GdkPixbuf *pb;		
-		pb=ui_image_load(fn,IMAGE_ALL);
+		pb=ui_image_load(fn,IMAGE_ROOT);
 		if(pb)
 		{
 			GtkClipboard *cb;
 			cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 			if(cb!=NULL)
 			{
-				gtk_clipboard_set_image(cb,pb);
-				g_object_unref(pb);
+				char temp[256];
+				char fullpath[256];
+				ui_image_path(fn,temp,IMAGE_ROOT);
+				l_fullpath(fullpath,temp,sizeof(fullpath));
+				g_object_set_data_full(G_OBJECT(pb),"fullpath",g_strdup(fullpath),g_free);
+
+				GtkTargetEntry entries[]={
+					// {"text/uri-list",0,0},
+					{"x-special/gnome-copied-files",0,1},
+					// {"UTF8_STRING",0,2},
+				};
+
+				GtkTargetList *list=gtk_target_list_new(entries,lengthof(entries));
+				gtk_target_list_add_image_targets(list, 3 ,TRUE);
+				gint n_targets;
+				GtkTargetEntry *targets=gtk_target_table_new_from_list(list,&n_targets);
+
+				gtk_clipboard_set_with_data(cb,
+						targets,n_targets,
+						send_file_get_func,
+						send_file_clear_func,
+						g_object_ref(pb));
 				y_xim_forward_key(CTRL_V,1);
+
+				gtk_target_table_free(targets,n_targets);
+				gtk_target_list_unref(list);
 			}
+			g_object_unref(pb);
 		}
 	}
-	g_free(fn);
 	return FALSE;
 }
 
@@ -2174,7 +2249,7 @@ void YongSendFile(const char *fn)
 	g_idle_add_full(G_PRIORITY_DEFAULT,(GSourceFunc)YongSendFile_real,utf8,g_free);
 }
 
-static gboolean send_ctrl_v_at_idle(void*)
+static gboolean send_ctrl_v_at_idle(void)
 {
 	y_xim_forward_key(CTRL_V,1);
 	return FALSE;
@@ -2185,7 +2260,7 @@ static gboolean YongSendClipboard_real(char *utf8)
 	cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(cb!=NULL)
 		gtk_clipboard_set_text(cb,utf8,-1);
-	g_timeout_add(50,send_ctrl_v_at_idle,NULL);
+	g_timeout_add(50,(GSourceFunc)send_ctrl_v_at_idle,NULL);
 	return FALSE;
 }
 
@@ -2283,6 +2358,7 @@ void ui_show_message(const char *s)
 		GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_MESSAGE_INFO,
 		GTK_BUTTONS_OK,
+		"%s",
 		temp);
 	gtk_window_set_position(GTK_WINDOW(dlg),GTK_WIN_POS_CENTER);
 	y_im_str_encode(YT("YongÊäÈë·¨"),temp,0);
@@ -2855,10 +2931,6 @@ void ui_cfg_ctrl(char *name,...)
 		if(res)
 			*res=ui_calc_with_metrics(s);
 	}
-	else if(!strcmp(name,"onspot"))
-	{
-		InputTheme.onspot=va_arg(ap,int);
-	}
 	else if(!strcmp(name,"status_pos"))
 	{
 		int *x=va_arg(ap,int *);
@@ -3026,8 +3098,25 @@ static void ui_beep(int c)
 
 static int ui_request(int cmd)
 {
-	unsigned char tmp=(unsigned char)cmd;
-	write(im_pipe[1],&tmp,1);
+	g_idle_add((GSourceFunc)y_im_request,LINT_TO_PTR(cmd));
+	return 0;
+}
+
+static gboolean ui_call_wraper(void **p)
+{
+	void (*cb)(void*)=p[0];
+	void *arg=p[1];
+	l_free(p);
+	cb(arg);
+	return FALSE;
+}
+
+static int ui_call(void (*cb)(void*),void *arg)
+{
+	void **p=l_cnew(2,void*);
+	p[0]=cb;
+	p[1]=arg;
+	g_idle_add((GSourceFunc)ui_call_wraper,p);
 	return 0;
 }
 
@@ -3124,4 +3213,5 @@ void ui_setup_default(Y_UI *p)
 	p->timer_del=ui_timer_del;
 	p->idle_add=ui_idle_add;
 	p->idle_del=ui_idle_del;
+	p->call=ui_call;
 }

@@ -2,7 +2,7 @@
 
 static void Transform(uint32_t *buf,const uint32_t *in);
 
-static uint8_t PADDING[64] = {
+static const uint8_t PADDING[64] = {
   0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -41,7 +41,7 @@ static uint8_t PADDING[64] = {
    (a) += (b); \
   }
 
-void MD5Init(MD5_CTX *ctx)
+void l_md5_init(MD5_CTX *ctx)
 {
 	ctx->i[0] = ctx->i[1] = (uint32_t)0;
 	ctx->buf[0] = (uint32_t)0x67452301;
@@ -50,7 +50,7 @@ void MD5Init(MD5_CTX *ctx)
 	ctx->buf[3] = (uint32_t)0x10325476;
 }
 
-void MD5Update(MD5_CTX *ctx,const uint8_t *inBuf,unsigned inLen)
+void l_md5_update(MD5_CTX *ctx,const uint8_t *inBuf,unsigned inLen)
 {
 	uint32_t in[16];
 	int mdi;
@@ -80,7 +80,7 @@ void MD5Update(MD5_CTX *ctx,const uint8_t *inBuf,unsigned inLen)
 	}
 }
 
-void MD5Final(MD5_CTX *ctx)
+void l_md5_final(MD5_CTX *ctx)
 {
 	uint32_t in[16];
 	int mdi;
@@ -92,7 +92,7 @@ void MD5Final(MD5_CTX *ctx)
 	mdi = (int)((ctx->i[0] >> 3) & 0x3F);
 
 	padLen = (mdi < 56) ? (56 - mdi) : (120 - mdi);
-	MD5Update (ctx, PADDING, padLen);
+	l_md5_update (ctx, PADDING, padLen);
 
 	for (i = 0, ii = 0; i < 14; i++, ii += 4)
 		in[i] = (((uint32_t)ctx->in[ii+3]) << 24) |

@@ -40,7 +40,6 @@ function run(target){
 	var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});
-	env("CFLAGS+=-O0");
 	begin();
 	cc(SRCS,OBJS);
 	end(function(){
@@ -86,7 +85,16 @@ if(target=="clean"){
 } else if(target=="test"){
 	exec("install l64-gtk3/yong ../install/yong/l64/yong-gtk3");
 } else if(target=='xml'){
-	bin2c("../data/keyboard.xml","../common/keyboard.xml.c",{static:true,zero:true,readonly:true,name:"keyboard_xml"});
+	bin2c("../data/keyboard.xml","../common/keyboard.xml.c",{
+		static:true,
+		zero:true,
+		readonly:true,
+		name:"keyboard_xml",
+		transform(buf){
+			var temp=buf.toString().replaceAll(/[\t\r\n]+/g, '');
+			return Buffer.from(temp);
+		}
+	});
 } else {
 	run(target);
 }

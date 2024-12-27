@@ -29,7 +29,7 @@ static void xim_close_im(CONN_ID conn_id,CLIENT_ID client_id);
 static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id);
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s);
 static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,int flags);
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key);
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
@@ -297,7 +297,7 @@ static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 		
 	if(!onspot) return 0;
 
-	len=gb_strlen((uint8_t*)s);
+	len=l_gb_strlen(s,-1);
 
 	for(i=0; i<len; i++)
 		feedback[i] = XIMUnderline;
@@ -389,7 +389,7 @@ static int GetKey_r(int yk)
 	return vk;
 }
 
-static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
+static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat)
 {
 	YBUS_CLIENT_PRIV *priv;
 	
@@ -433,12 +433,16 @@ static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key)
 		xEvent.xkey.window = priv->client_window;
 
 	xEvent.xkey.keycode = keycode;
-	memcpy (&(forwardEvent.event), &xEvent, sizeof (forwardEvent.event));
-	IMForwardEvent (ims, (XPointer) (&forwardEvent));
+	for(int i=0;i<repeat;i++)
+	{
+		xEvent.xkey.type = KeyPress;
+		memcpy (&(forwardEvent.event), &xEvent, sizeof (forwardEvent.event));
+		IMForwardEvent (ims, (XPointer) (&forwardEvent));
 
-	xEvent.xkey.type = KeyRelease;
-	memcpy (&(forwardEvent.event), &xEvent, sizeof (forwardEvent.event));
-	IMForwardEvent (ims, (XPointer) (&forwardEvent));
+		xEvent.xkey.type = KeyRelease;
+		memcpy (&(forwardEvent.event), &xEvent, sizeof (forwardEvent.event));
+		IMForwardEvent (ims, (XPointer) (&forwardEvent));
+	}
 }
 
 static XErrorHandler OldXErrorHandler;
@@ -892,7 +896,7 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 						}
 						else
 						{
-							xim_send_key(data->connect_id,data->icid,p[i]);
+							xim_send_key(data->connect_id,data->icid,p[i],1);
 						}
 					}
 					return TRUE;
@@ -902,7 +906,7 @@ static Bool YongForwardHandler(IMForwardEventStruct *data)
 					
 					for(i=0;i<=3 && p[i];i++)
 					{
-						xim_send_key(data->connect_id,data->icid,p[i]);
+						xim_send_key(data->connect_id,data->icid,p[i],1);
 					}
 					return TRUE;
 				}
@@ -1108,7 +1112,8 @@ static int xim_init(void)
 	}
 	
 	//dpy=gdk_x11_get_default_xdisplay();
-	dpy=XOpenDisplay(NULL);
+	if(!dpy)
+		dpy=XOpenDisplay(NULL);
 	if(!dpy) return -1;
 	source=xim_poll_display_fd(dpy);
 	
@@ -1139,7 +1144,11 @@ static int xim_init(void)
 void ybus_xim_get_workarea(int *x, int *y, int *width, int *height)
 {
 	if(!dpy)
-		return;
+	{
+		dpy=XOpenDisplay(NULL);
+		if(!dpy)
+			return;
+	}
 	Window root = RootWindow(dpy, DefaultScreen(dpy));
 	Atom net_workarea_atom = XInternAtom(dpy, "_NET_WORKAREA", True);
 	if(net_workarea_atom==None)

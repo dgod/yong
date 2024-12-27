@@ -1,12 +1,14 @@
 #ifndef _LMACROS_H_
 #define _LMACROS_H_
 
+#ifndef likely
 #ifdef __GNUC__
-  #define L_LIKELY(x) __builtin_expect(!!(x), 1)
-  #define L_UNLIKELY(x) __builtin_expect(!!(x),0)
+  #define likely(x) __builtin_expect(!!(x), 1)
+  #define unlikely(x) __builtin_expect(!!(x),0)
 #else
-  #define L_LIKELY(x) (x)
-  #define L_UNLIKELY(x) (x)
+  #define likely(x) (x)
+  #define unlikely(x) (x)
+#endif
 #endif
 
 #ifdef _WIN32
@@ -80,5 +82,19 @@ do{							\
 	a[_i]=a[_j];			\
 	a[_j]=t;				\
 }while(0)
+
+#ifdef __clang__
+
+#else
+
+#define LAMDA(body)						\
+(__extension__ 							\
+	({									\
+	 int l_lamda_func body				\
+	 (void*)l_lamda_func;				\
+	})									\
+)
+
+#endif
 
 #endif/*_LMACROS_H_*/

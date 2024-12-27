@@ -3,7 +3,7 @@
 typedef struct{
 	void *next;
 	int key;
-	char *exec;
+	char exec[];
 }Y_KEY_TOOL;
 
 Y_KEY_TOOL *y_key_tools_load(void);

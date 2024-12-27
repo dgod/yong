@@ -23,6 +23,7 @@ typedef struct{
 	int (*init)(void);
 	
 	int (*getpid)(CONN_ID id);
+	const char *(*get_appid)(CONN_ID id);
 	CLIENT_ID (*copy_client_id)(CLIENT_ID id);
 	void (*free_client_id)(CLIENT_ID id);
 	int (*match_client)(CLIENT_ID,CLIENT_ID);
@@ -37,7 +38,8 @@ typedef struct{
 	void (*preedit_clear)(CONN_ID,CLIENT_ID);
 	int (*preedit_draw)(CONN_ID,CLIENT_ID,const char*);
 	void (*send_string)(CONN_ID,CLIENT_ID,const char*,int flags);
-	void (*send_key)(CONN_ID,CLIENT_ID,int key);
+	void (*send_key)(CONN_ID,CLIENT_ID,int key,int repeat);
+	void (*send_keys)(CONN_ID,CLIENT_ID,const int *keys,int count);
 
 	void (*wm_state)(CONN_ID,int);
 	void (*wm_make_above)(CONN_ID,const char *);
@@ -53,6 +55,8 @@ typedef struct{
 	YBUS_PLUGIN *plugin;
 	YBUS_CLIENT *active;
 	int64_t alive;
+
+	LKeyFile *app;
 	
 	unsigned int state:1;
 	unsigned int lang:1;
@@ -60,6 +64,7 @@ typedef struct{
 	unsigned int focus:1;
 	unsigned int biaodian:1;
 	unsigned int trad:1;
+	unsigned int onspot:2;
 }YBUS_CONNECT;
 
 enum{
