@@ -169,7 +169,7 @@ void y_im_history_redirect_init(void);
 void y_im_history_redirect_free(void);
 int y_im_history_redirect_run(void);
 
-void y_im_nl_day(int64_t t,char *s);
+int y_im_nl_day(int64_t t,char *s);
 
 void *y_dict_open(const char *file);
 void y_dict_close(void *p);

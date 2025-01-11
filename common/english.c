@@ -5,6 +5,7 @@
 #include "yong.h"
 #include "common.h"
 #include "english.h"
+#include "translate.h"
 
 static int EnglishInit(const char *arg);
 static void EnglishReset(void);
@@ -447,7 +448,19 @@ static int n_is_date(const char *s,int len)
 	NEED_INT(1000,2999);
 	NEED_CH('.');
 	if(strspn(s-1,"0123456789.")==strlen(s-1) && s[0]!='.' && n_spec_count(s,'.')<=1)
+	{
+		int month=0,day=0;
+		int count=sscanf(s,"%d.%d",&month,&day);
+		if(count>=1 && (month<1 || month>12))
+		{
+			goto out;
+		}
+		if(count==2 && (day<1 || day>31))
+		{
+			goto out;
+		}
 		ret=1;
+	}
 out:
 	return ret;
 }
@@ -514,7 +527,8 @@ static int NumSet(const char *s)
 		{
 			int year,month,day;
 			char c1,c2;
-			if(5==sscanf(s,"%d%c%d%c%d",&year,&c1,&month,&c2,&day))
+			if(5==sscanf(s,"%d%c%d%c%d",&year,&c1,&month,&c2,&day) &&
+					month>=1 && month<=12 && day>=1 && day<=31)
 				e->Count=3;
 		}
 	}
@@ -523,7 +537,7 @@ static int NumSet(const char *s)
 		e->Count=2;
 		e->Priv1=2;
 	}
-	//printf("%d %d\n",e->Priv1,e->Count);
+	// printf("%ld %d\n",e->Priv1,e->Count);
 	return e->Count;
 }
 
@@ -594,7 +608,11 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 					tm.tm_year=year-1900;
 					tm.tm_mon=month-1;
 					tm.tm_mday=day;
-					y_im_nl_day(l_mktime(&tm),cand[i]+strlen(cand[i]));
+					int ret=y_im_nl_day(l_mktime(&tm),cand[i]+strlen(cand[i]));
+					if(ret!=0)
+					{
+						strcat(cand[i],YT("·¶Î§³¬ÏÞ"));
+					}
 				}
 			}
 		}

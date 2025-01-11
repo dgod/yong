@@ -341,7 +341,7 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 	}
 
 	char next[16];
-	if(count==2)
+	if(count==2 || count==3)
 	{
 		py_build_string_no_split(next,input+1,1);
 	}

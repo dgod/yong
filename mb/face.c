@@ -1135,6 +1135,7 @@ static int TableOnVirtAdd(const char *ph)
 		PhraseListCount=cset_count(&cs);
 		InsertMode=1;
 		EIM.GetCandWords(PAGE_FIRST);
+		EIM.WorkMode=EIM_WM_INSERT;
 		return IMR_DISPLAY;
 	}
 	else

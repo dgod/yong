@@ -1537,8 +1537,13 @@ static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 		const char *text=
 			"[Desktop Entry]\n"
 			"Name=yong\n"
-			"Exec=/usr/bin/yong -d\n"
-			"Type=Application";
+			"Exec=/usr/bin/yong\n"
+			"Type=Application\n"
+			"X-GNOME-Autostart-enabled=false\n"
+			"X-KDE-autostart-after=panel\n"
+			"X-LXQt-Need-Tray=true\n"
+			"StartupNotify=false\n"
+			;
 		l_file_set_contents(path,text,strlen(text),NULL);
 	}
 	else if(s[0]!='1' && exist)

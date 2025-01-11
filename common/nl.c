@@ -177,7 +177,7 @@ static int GetSpanDays(int year,int yday)
 	return GetDaysToYear(1900+year)-GetDaysToYear(1901)+yday;
 }
 
-void y_im_nl_day(int64_t t,char *s)
+int y_im_nl_day(int64_t t,char *s)
 {
 	int year,month,day;
 	struct tm *tm;
@@ -187,12 +187,14 @@ void y_im_nl_day(int64_t t,char *s)
 
 	tm=l_localtime(&t);
 	if(tm==NULL)
-		return;
+		return -1;
+	if(tm->tm_year+1900>END_YEAR || tm->tm_year+1900<START_YEAR)
+		return -2;
 	iSpanDays=GetSpanDays(tm->tm_year,tm->tm_yday);
 	LunarDay(&year,&month,&day,iSpanDays);
-
 	if(month>=1 && month<=12 && day>=1 && day<=30)
 		sprintf(s,"%s%s",nl_mon[month-1],nl_day[day-1]);
+	return 0;
 }
 
 #if 0

@@ -147,13 +147,11 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 			memcpy(name,p,len);
 			name[len]=0;
 			char env[256];
-			char *val=l_getenv(name,env,sizeof(env));
-			if(val && (config->flags&L_ESCAPE_GB)!=0)
-			{
-				char temp[256];
-				l_utf8_to_gb(env,temp,sizeof(temp));
-				strcpy(val,temp);
-			}
+			char *val;
+			if((config->flags&L_ESCAPE_GB)!=0)
+				val=l_getenv_gb(name,env,sizeof(env));
+			else
+				val=l_getenv(name,env,sizeof(env));
 			if((const void*)in==(const void*)out)
 			{
 				int start=pos;
@@ -342,13 +340,11 @@ char **l_unescape_array(const void *in, const L_ESCAPE_CONFIG *config)
 			memcpy(name,p,len);
 			name[len]=0;
 			char env[256];
-			char *val=l_getenv(name,env,sizeof(env));
-			if(val && (config->flags&L_ESCAPE_GB)!=0)
-			{
-				char temp[256];
-				l_utf8_to_gb(env,temp,sizeof(temp));
-				strcpy(val,temp);
-			}
+			char *val;
+			if((config->flags&L_ESCAPE_GB)!=0)
+				val=l_getenv_gb(name,env,sizeof(env));
+			else
+				val=l_getenv(name,env,sizeof(env));
 			if((const void*)in==(const void*)out)
 			{
 				int start=pos;

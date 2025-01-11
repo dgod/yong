@@ -1265,18 +1265,26 @@ void YongShowInput(int show)
 		y_ui_timer_del(HideInputLater,NULL);
 		InputShow=1;
 	}
-	if(InputNoShow==1 && auto_show && eim)
+	if(InputNoShow==1 && eim)
 	{
-		if(!InputShow && eim->CurCandPage==0 &&
-			eim->CodeLen>=auto_show && eim->CandWordCount>1)
+		if(eim->WorkMode==EIM_WM_INSERT || eim->WorkMode==EIM_WM_QUERY)
 		{
 			InputShow=1;
 			y_ui_input_show(1);
 		}
-		else if(InputShow && eim->CodeLen<auto_show)
+		else if(auto_show)
 		{
-			InputShow=0;
-			y_ui_input_show(0);
+			if(!InputShow && eim->CurCandPage==0 &&
+				eim->CodeLen>=auto_show && eim->CandWordCount>1)
+			{
+				InputShow=1;
+				y_ui_input_show(1);
+			}
+			else if(InputShow && eim->CodeLen<auto_show)
+			{
+				InputShow=0;
+				y_ui_input_show(0);
+			}
 		}
 	}
 	if(show && !InputShow && im.EnglishMode)
@@ -1585,6 +1593,7 @@ int YongHotKey(int key)
 		{
 			y_ui_show_message(stat);
 			l_free(stat);
+			return 1;
 		}
 	}
 #ifndef CFG_NO_REPLACE
@@ -1987,6 +1996,12 @@ IMR_TEST:
 			case IMR_PASS:
 				return 0;
 			case IMR_CLEAN_PASS:
+				if(!(key&~0x7f))
+				{
+					char temp[2]={key,0};
+					y_im_last_key(key);
+					y_im_history_write(temp,true);
+				}
 				YongResetIM();
 				return 0;
 			case IMR_CLEAN:
@@ -2641,6 +2656,125 @@ static void signal_handler(int sig)
 	_exit(0);
 }
 
+#ifdef _WIN32
+static void deal_exec(void)
+{
+	int show=SW_SHOWNORMAL;
+	LPWSTR cmdline_w=GetCommandLineW();
+	int argc;
+	LPWSTR *argv=CommandLineToArgvW(cmdline_w,&argc);
+	cmdline_w=NULL;
+	for(int i=1;i<argc;i++)
+	{
+		if(!wcscmp(argv[i],L"-exec") && i+2==argc)
+		{
+			cmdline_w=argv[i+1];
+		}
+	}
+	if(!cmdline_w)
+		return;
+	char cmdline[256];
+	char *p=cmdline;
+	l_utf16_to_utf8(cmdline_w,cmdline,sizeof(cmdline));
+	y_im_expand_env(p,sizeof(cmdline));
+	cmdline_w=l_alloca(256);
+#ifdef _WIN64
+	char real_prog[256];
+	snprintf(real_prog,sizeof(real_prog),"../%s",p);
+#endif
+	if(y_im_is_url(p))
+	{
+		l_utf8_to_utf16(cmdline,cmdline_w,512);
+		ShellExecuteW(NULL,L"open",cmdline_w,NULL,NULL,show);
+	}
+	else if(l_file_exists(p))
+	{
+		if(l_str_has_suffix(p,".bat"))
+			show=SW_HIDE;
+		l_str_replace(p,'/','\\');
+		l_utf8_to_utf16(cmdline,cmdline_w,512);
+		ShellExecuteW(NULL,L"open",cmdline_w,NULL,NULL,show);
+	}
+#ifdef _WIN64
+	else if(l_file_exists(real_prog))
+	{
+		if(l_str_has_suffix(p,".bat"))
+			show=SW_HIDE;
+		chdir("..");
+		l_str_replace(p,'/','\\');
+		l_utf8_to_utf16(cmdline,cmdline_w,512);
+		ShellExecuteW(NULL,L"open",cmdline_w,NULL,NULL,show);
+	}
+#endif
+	else
+	{
+		char *cmd,*param;
+		if(p[0]=='"')
+		{
+			param=strchr(p+1,'"');
+			if(!param) return;
+			cmd=l_strndupa(p+1,param-p-1);
+			param++;
+			if(*param==' ') param++;
+			else param=NULL;
+		}
+		else
+		{
+			param=strchr(p+1,' ');
+			if(!param)
+			{
+				cmd=l_strdupa(p);
+				param=NULL;
+			}
+			else
+			{
+				cmd=l_strndupa(p,param-p);
+				param++;
+			}
+			if(!strcmp(cmd,"yong-config"))
+			{
+				cmd=l_strdupa("yong-config.exe");
+			}
+			l_str_replace(cmd,'/','\\');
+
+			WCHAR cmd_w[256];
+			LPWSTR param_w=NULL;
+			l_utf8_to_utf16(cmd,cmd_w,sizeof(cmd_w));
+			if(param)
+			{
+				param_w=l_alloca(256);
+				l_utf8_to_utf16(param,param_w,512);
+			}
+
+			SHELLEXECUTEINFOW info;
+			memset(&info,0,sizeof(info));
+			info.cbSize=sizeof(info);
+			info.lpFile=cmd_w;
+			info.lpParameters=param_w;
+			info.nShow=SW_SHOWNORMAL;
+			info.hwnd=y_ui_main_win();
+			info.lpVerb=L"open";
+
+			if(strstr(cmd,"yong-config") && param!=NULL && strstr(param,"--update"))
+			{
+				static const char *sys="C:\\Program Files";
+				char path[MAX_PATH];
+				OSVERSIONINFO ovi={.dwOSVersionInfoSize=sizeof(ovi)};
+				GetVersionEx(&ovi);
+				GetCurrentDirectoryA(sizeof(path),path);
+				int uac=!strncasecmp(sys,path,strlen(sys));
+				if(ovi.dwMajorVersion>=6 && uac!=0)
+				{
+					info.lpVerb=L"runas";
+				}
+				info.lpDirectory=NULL;
+			}
+			ShellExecuteExW(&info);
+		}
+	}
+}
+#endif
+
 int main(int arc,char *arg[])
 {
 	int mb_tool=0;
@@ -2741,24 +2875,39 @@ int main(int arc,char *arg[])
 #ifdef _WIN32
 		else if(!strcmp(arg[i],"-exec") && i+2==arc)
 		{
+			deal_exec();
+#if 0
 			int y_im_is_url(const char *s);
 			int show=SW_SHOWNORMAL;
 			char cmdline[256];
 			char *p=cmdline;
 			snprintf(cmdline,256,"%s",arg[i+1]);
 			y_im_expand_env(p,sizeof(cmdline));
+#ifdef _WIN64
+			char real_prog[256];
+			snprintf(real_prog,sizeof(real_prog),"../%s",p);
+#endif
 			if(y_im_is_url(p))
 			{
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
 			}
-			else if(!_access(p,F_OK))
+			else if(l_file_exists(p))
 			{
-				int len=strlen(p);
-				if(len>4 && !strcmp(p+len-4,".bat"))
+				if(l_str_has_suffix(p,".bat"))
 					show=SW_HIDE;
 				l_str_replace(p,'/','\\');
 				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
-			}			
+			}
+#ifdef _WIN64
+			else if(l_file_exists(real_prog))
+			{
+				if(l_str_has_suffix(p,".bat"))
+					show=SW_HIDE;
+				chdir("..");
+				l_str_replace(p,'/','\\');
+				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
+			}
+#endif	
 			else
 			{
 				char *cmd,*param;
@@ -2825,7 +2974,8 @@ int main(int arc,char *arg[])
 					info.lpDirectory=NULL;
 				}
 				ShellExecuteExA(&info);
-			}			
+			}
+#endif		
 			return 0;
 		}
 #endif

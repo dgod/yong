@@ -46,7 +46,7 @@ function run(target){
 	} else {
 		return;
 	}
-	env("CFLAGS+=-Wall -pipe -g -O2 -fno-plt -flto=auto -ffast-math");
+	env("CFLAGS+=-Wall -pipe -g -O2 -fno-plt -flto=auto -ffast-math -fms-extensions -Wno-microsoft-anon-tag");
 	//env("CFLAGS+=-fanalyzer -Wno-analyzer-possible-null-dereference -Wno-analyzer-possible-null-argument -Wanalyzer-malloc-leak");
 	if(target!='js'){
 		if(!$('CC'))

@@ -1784,7 +1784,7 @@ static char **y_im_parse_argv(const char *s,int size)
 			l_free(t);
 			l_ptr_array_nth(arr,i)=l_strdup(temp);
 		}
-		else if(l_str_has_prefix(p,"$(_HOME)") || l_str_has_prefix(p,"$(_DATA)"))
+		else if(l_str_has_surround(p,"$(",")"))
 		{
 			char temp[256];
 			y_im_expand_with(p,temp,sizeof(temp),EXPAND_ENV);
@@ -1876,7 +1876,7 @@ int y_im_expand_with(const char *s,char *to,int size,int which)
 				char temp[256];
 				const char *val;
 				name[j]=0;
-				val=l_getenv_gb(name,temp,sizeof(temp));
+				val=l_getenv(name,temp,sizeof(temp));
 				if(val!=NULL)
 				{
 					int len=strlen(val);
@@ -1951,7 +1951,6 @@ int y_im_go_url(const char *s)
 				y_xim_explore_url(u8);
 				return 0;
 			}
-			//y_im_expand_with(tmp,tmp,sizeof(go)-(tmp-go),EXPAND_SPACE|EXPAND_ENV);
 #ifndef CFG_XIM_ANDROID
 			if(!strcmp(tmp,"sync"))
 				tmp="yong-config --sync";

@@ -45,7 +45,7 @@ function run(target){
 			env("LIBS+=`pkg-config --libs gtk+-3.0`");
 		else
 			env("LIBS+=`pkg-config --libs gtk4`");
-		env("LIBS+=-lcurl");
+		env("LIBS+=-lcurl -ldl");
 	}
 	end(function(){
 		ld(OBJS,'$(DESTDIR)/yong-config$(EXE)');

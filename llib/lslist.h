@@ -26,4 +26,17 @@ int l_slist_length(void *h);
 void *l_slist_nth(void *h,int n);
 void *l_slist_last(void *h);
 
+#define l_slist_find_by(h,k,cmp,v)			\
+(__extension__								\
+	({										\
+	 	typeof(h) p;						\
+		for(p=h;p!=NULL;p=(void*)p->next)	\
+		{									\
+			if(!cmp(p->k,v))				\
+	 			break;						\
+		}									\
+		p;									\
+	 })										\
+)
+
 #endif/*_LSLIST_H_*/

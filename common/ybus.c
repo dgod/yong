@@ -953,7 +953,7 @@ static void xim_explore_url(const char *s)
 	}
 	if(y_im_is_url(s))
 	{
-		char *args[]={"xdg-open",s,0};
+		char *args[]={"xdg-open",(char*)s,0};
 		g_spawn_async(NULL,args,NULL,
 			G_SPAWN_SEARCH_PATH|G_SPAWN_STDOUT_TO_DEV_NULL,
 			0,0,0,0);

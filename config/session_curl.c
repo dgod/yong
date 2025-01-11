@@ -43,8 +43,13 @@ int http_session_set_host(HttpSession *ss,const char *host,int port)
 static size_t write_callback(char *ptr, size_t size, size_t nmemb,  HttpSession *ss)
 {
 	// printf("write %d\n",nmemb);
+#ifndef CURL_WRITEFUNC_ERROR
+	if(ss->abort)
+		return 0;
+#else
 	if(ss->abort)
 		return CURL_WRITEFUNC_ERROR;
+#endif
 	l_string_append(&ss->str,ptr,nmemb);
 	return nmemb;
 }
@@ -102,7 +107,9 @@ int http_session_abort(HttpSession *ss)
 	if(!ss)
 		return -1;
 	ss->abort=1;
+#if LIBCURL_VERSION_NUM>0x074400
 	curl_multi_wakeup(ss->curlm);
+#endif
 	return 0;
 }
 

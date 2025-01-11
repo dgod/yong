@@ -95,6 +95,9 @@ static void (*set_opacity)(GdkWindow *window,gdouble opacity);
 static void (*set_opacity2)(GtkWidget *window,gdouble opacity);
 static gboolean (*is_composited)(GtkWidget *widget);
 
+static bool clipboard_skip;
+static char clipboard_text[512];
+
 static void load_sound_system(void)
 {
 	my_gdk_window_beep=dlsym(NULL,"gdk_window_beep");
@@ -153,6 +156,52 @@ static void calc_ui_scale(void)
 	{
 		ui_scale=strtod(temp,NULL);
 	}
+}
+
+static void on_clipboard_owner_change(GtkClipboard* self,GdkEventOwnerChange event,gpointer user_data)
+{
+	if(clipboard_skip)
+		return;
+	char *s=gtk_clipboard_wait_for_text(self);
+	if(!s)
+	{
+		clipboard_text[0]=0;
+		return;
+	}
+	l_strcpy(clipboard_text,sizeof(clipboard_text),s);
+	l_free(s);
+}
+
+static bool is_process_running(const char *exe)
+{
+	LDir *dir=l_dir_open("/proc");
+	if(!dir)
+		return true;
+	while(1)
+	{
+		const char *name=l_dir_read_name(dir);
+		if(!name)
+			break;
+		if(!isdigit(name[0]))
+			continue;
+		char cmdline[1024];
+		sprintf(cmdline,"/proc/%s/cmdline",name);
+		FILE *fp=fopen(cmdline,"r");
+		if(!fp)
+			continue;
+		size_t size=fread(cmdline,1,sizeof(cmdline)-1,fp);
+		fclose(fp);
+		if(size<=0)
+			continue;
+		cmdline[size]=0;
+		if(strstr(cmdline,exe))
+		{
+			l_dir_close(dir);
+			return true;
+		}
+	}
+	l_dir_close(dir);
+	return false;
 }
 
 void YongSetXErrorHandler(void);
@@ -238,6 +287,31 @@ static int ui_init(void)
 		}
 	};
 	l_co_init(&init);
+
+	GtkClipboard *cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	if(cb!=NULL)
+	{
+		g_signal_connect(cb,"owner-change",(void*)on_clipboard_owner_change,NULL);
+		l_setenv_pseudo("CLIPBOARD",L_PSEUDO_ENV_STRING|L_PSEUDO_ENV_UTF8,clipboard_text);
+	}
+
+	const char *wait=y_im_get_config_data("main","wait");
+	if(wait)
+	{
+		char exe[128];
+		int timeout0=2000,timeout1=100;
+		sscanf(wait,"%127s %d %d",exe,&timeout0,&timeout1);
+		for(int i=0;i<timeout0;i+=100)
+		{
+			if(is_process_running(exe))
+			{
+				if(timeout1>0)
+					l_thrd_sleep_ms(timeout1);
+				break;
+			}
+			l_thrd_sleep_ms(100);
+		}
+	}
 	
 	return 0;
 }
@@ -2177,21 +2251,7 @@ static gboolean YongSendFile_real(char *fn)
 			int len;
 			len=fread(temp,1,sizeof(temp)-1,fp);
 			temp[len]=0;
-			fclose(fp);
-			if(len>0)
-			{
-				GtkClipboard *cb;
-				gchar *utf8;
-				cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-				if(cb!=NULL)
-				{
-					utf8=g_malloc(len*2+1);
-					y_im_str_encode(temp,utf8,0);
-					gtk_clipboard_set_text(cb,utf8,-1);
-					g_free(utf8);
-					y_xim_forward_key(CTRL_V,1);
-				}
-			}
+			YongSendClipboard(temp);
 		}
 	}
 	else
@@ -2254,13 +2314,18 @@ static gboolean send_ctrl_v_at_idle(void)
 	y_xim_forward_key(CTRL_V,1);
 	return FALSE;
 }
-static gboolean YongSendClipboard_real(char *utf8)
+static gboolean YongSendClipboard_real(const char *utf8)
 {
 	GtkClipboard *cb;
 	cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(cb!=NULL)
+	{
+		clipboard_skip=true;
+		l_strcpy(clipboard_text,sizeof(clipboard_text),utf8);
 		gtk_clipboard_set_text(cb,utf8,-1);
-	g_timeout_add(50,(GSourceFunc)send_ctrl_v_at_idle,NULL);
+		clipboard_skip=false;
+		g_timeout_add(50,(GSourceFunc)send_ctrl_v_at_idle,NULL);
+	}
 	return FALSE;
 }
 
@@ -2278,6 +2343,7 @@ void YongSendClipboard(const char *s)
 	g_idle_add_full(G_PRIORITY_DEFAULT,(GSourceFunc)YongSendClipboard_real,utf8,g_free);
 }
 
+#if 0
 static void on_ui_get_select_cb(GtkClipboard *clipboard,const char*text,int(*cb)(const char*))
 {
 	char phrase[1024];
@@ -2328,13 +2394,43 @@ char *ui_get_select(int (*cb)(const char *))
 	gtk_clipboard_request_text(clipboard,(GtkClipboardTextReceivedFunc)on_ui_get_select_cb,cb);
 	return NULL;
 }
+#endif
+
+char *ui_get_select(int (*cb)(const char *))
+{
+	if(!clipboard_text[0])
+	{
+		if(cb)
+			cb(NULL);
+		return NULL;
+	}
+	char phrase[1024];
+	y_im_str_encode_r(clipboard_text,phrase);
+	if(cb)
+	{
+		int ret=cb(phrase);
+		if(ret==IMR_DISPLAY)
+		{
+			EXTRA_IM *eim=im.eim;
+			if(eim->SelectIndex>=0)
+				YongUpdateInputDesc(eim);
+			y_im_str_encode(s2t_conv(eim->StringGet),im.StringGet,0);
+			y_ui_input_draw();
+		}
+		return NULL;
+	}
+	return l_strdup(phrase);
+}
 
 static void ui_set_select(const char *text)
 {
 	char temp[8192];
 	l_gb_to_utf8(text,temp,sizeof(temp));
 	GtkClipboard *cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	clipboard_skip=true;
+	l_strcpy(clipboard_text,sizeof(clipboard_text),temp);
 	gtk_clipboard_set_text(cb,temp,-1);
+	clipboard_skip=false;
 }
 
 static int menu_disable;

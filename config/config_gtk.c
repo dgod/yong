@@ -4,6 +4,10 @@
 
 #include "config_ui.h"
 
+#if GTK_CHECK_VERSION(4,0,0)
+#define USE_LIST_AS_TREE	1
+#endif
+
 static GtkApplication *app;
 typedef int (*InitSelfFunc)(CUCtrl p);
 typedef void (*DestroySelfFunc)(CUCtrl p);
@@ -216,6 +220,149 @@ int cu_ctrl_init_button(CUCtrl p)
 	return 0;
 }
 
+#if USE_LIST_AS_TREE
+
+static GListModel *create_tree_model(GObject *item,CUCtrl tree)
+{
+	CUCtrl p=item?g_object_get_data(item,"cuctrl"):tree;
+	if(p->type==CU_ITEM && p->self)
+	{
+		return G_LIST_MODEL(p->self);
+	}
+	if(!p->child)
+	{
+		return NULL;
+	}
+	GListStore *result=g_list_store_new (GTK_TYPE_STRING_OBJECT);
+	int pos=0;
+	GSList *slist=g_slist_alloc();
+	for(CUCtrl c=p->child;c!=NULL;c=c->next)
+	{
+		slist=g_slist_prepend(slist,c);
+	}
+	for(GSList *p=slist;p!=NULL;p=p->next,pos++)
+	{
+		CUCtrl c=p->data;
+		if(!c)
+			break;
+		GObject *o=(GObject*)gtk_string_object_new(c->text);
+		g_object_set_data(o,"cuctrl",c);
+		if(c->init)
+			c->self=g_list_store_new(GTK_TYPE_STRING_OBJECT);
+		g_list_store_append(result,o);
+	}
+	g_slist_free(slist);
+	return G_LIST_MODEL(result);
+}
+
+static void tree_changed(GtkListView* self,guint position)
+{
+	GListModel *model=G_LIST_MODEL(gtk_list_view_get_model(self));
+	GtkTreeListRow *row=(GtkTreeListRow*)g_list_model_get_object(model,position);
+	if(!row)
+		return;
+	GObject *o=gtk_tree_list_row_get_item(row);
+	CUCtrl c=g_object_get_data(o,"cuctrl");
+	cu_ctrl_action_run(c,c->action);
+}
+
+static gboolean tree_right_click(GtkGestureClick *gesture,int n_press, double x, double y, CUCtrl p)
+{
+	GtkWidget *tree=gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(p->self));
+	GtkSingleSelection *model=GTK_SINGLE_SELECTION(gtk_list_view_get_model(GTK_LIST_VIEW(tree)));
+	GtkTreeListRow *row=(GtkTreeListRow*)gtk_single_selection_get_selected_item(model);
+	if(!row)
+		return FALSE;
+	GObject *o=gtk_tree_list_row_get_item(row);
+	CUCtrl item=g_object_get_data(o,"cuctrl");
+	if(item->menu!=NULL)
+	{
+		item->menu->x=(int)x;
+		item->menu->y=(int)y;
+		cu_menu_popup(p,item->menu);
+	}
+	return FALSE;
+}
+
+int cu_ctrl_init_tree(CUCtrl p)
+{
+// https://gitlab.gnome.org/GNOME/gtk/-/blob/main/demos/gtk-demo/listview_settings.ui
+	const char *ui_string=
+  "<interface>"
+    "<template class=\"GtkListItem\">"
+      "<property name=\"child\">"
+        "<object class=\"GtkTreeExpander\" id=\"expander\">"
+          "<binding name=\"list-row\">"
+            "<lookup name=\"item\">GtkListItem</lookup>"
+          "</binding>"
+          "<property name=\"child\">"
+            "<object class=\"GtkLabel\">"
+              "<property name=\"xalign\">0</property>"
+              "<binding name=\"label\">"
+                "<lookup name=\"string\" type=\"GtkStringObject\">"
+                  "<lookup name=\"item\">expander</lookup>"
+                "</lookup>"
+              "</binding>"
+            "</object>"
+          "</property>"
+        "</object>"
+      "</property>"
+    "</template>"
+  "</interface>";
+
+	GtkWidget *tree=gtk_list_view_new(
+			NULL,
+			gtk_builder_list_item_factory_new_from_bytes(NULL,g_bytes_new_static(ui_string,strlen(ui_string)))
+		);
+	gtk_list_view_set_single_click_activate(GTK_LIST_VIEW(tree),TRUE);
+	g_signal_connect(G_OBJECT(tree),"activate",(void*)tree_changed,p);
+	GtkWidget *sw=gtk_scrolled_window_new();
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(sw),tree);
+	p->self=sw;
+	gtk_widget_show(tree);
+	g_object_set_data(p->self,"tree",tree);
+	cu_ctrl_add_to_parent(p);
+	
+	GtkGesture *gesture = gtk_gesture_click_new ();
+    gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture), GDK_BUTTON_SECONDARY);
+    GtkEventController *controller = GTK_EVENT_CONTROLLER (gesture);
+    g_signal_connect (controller, "pressed", G_CALLBACK (tree_right_click), p);
+    gtk_widget_add_controller (tree, controller);
+	return 0;
+}
+
+int cu_ctrl_init_tree_done(CUCtrl p)
+{
+	GtkListView *tree=(GtkListView*)gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(p->self));
+	GListModel *root=create_tree_model(NULL,p);
+	GtkTreeListModel *model=gtk_tree_list_model_new(
+			root,
+			FALSE,
+			TRUE,
+			(void*)create_tree_model,
+			p,
+			NULL);
+	gtk_tree_list_model_set_autoexpand(model,TRUE);
+	GtkSingleSelection *selection=gtk_single_selection_new(G_LIST_MODEL(model));
+	gtk_list_view_set_model(tree,GTK_SELECTION_MODEL(selection));
+	g_object_unref(selection);
+	return 0;
+}
+
+int cu_ctrl_init_item(CUCtrl p)
+{
+	if(p->parent->type!=CU_ITEM)
+	{
+		return 0;
+	}
+	GListStore *model=p->parent->self;
+	GObject *o=(GObject*)gtk_string_object_new(p->text);
+	g_object_set_data(o,"cuctrl",p);
+	g_list_store_append(model,o);
+	return 0;
+}
+
+#else
 static void tree_changed(GtkTreeSelection *w,CUCtrl p)
 {
 	GtkTreeModel *model;
@@ -324,6 +471,11 @@ int cu_ctrl_init_tree(CUCtrl p)
 	return 0;
 }
 
+int cu_ctrl_init_tree_done(CUCtrl p)
+{
+	return 0;
+}
+
 int cu_ctrl_init_item(CUCtrl p)
 {
 	CUCtrl tree;
@@ -354,6 +506,7 @@ int cu_ctrl_init_item(CUCtrl p)
 	
 	return 0;
 }
+#endif
 
 int cu_ctrl_init_group(CUCtrl p)
 {
@@ -437,6 +590,24 @@ static InitSelfFunc init_funcs[]={
 	cu_ctrl_init_link,
 };
 
+static InitSelfFunc done_funcs[]={
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	cu_ctrl_init_tree_done,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
 int cu_ctrl_init_self(CUCtrl p)
 {
 	return init_funcs[p->type](p);
@@ -444,7 +615,10 @@ int cu_ctrl_init_self(CUCtrl p)
 
 int cu_ctrl_init_done(CUCtrl p)
 {
-	return 0;
+	InitSelfFunc cb=done_funcs[p->type];
+	if(!cb)
+		return 0;
+	return cb(p);
 }
 
 static void cu_ctrl_destroy_window(CUCtrl p)
@@ -458,7 +632,9 @@ static void cu_ctrl_destroy_window(CUCtrl p)
 
 static void cu_ctrl_destroy_item(CUCtrl p)
 {
+#if !USE_LIST_AS_TREE
 	gtk_tree_path_free(p->self);
+#endif
 }
 
 static DestroySelfFunc destroy_funcs[]={
@@ -765,6 +941,10 @@ static void gtk_activate(GtkApplication *app,CULoopArg *arg)
 	activate(arg);
 }
 
+#ifndef G_APPLICATION_DEFAULT_FLAGS
+#define G_APPLICATION_DEFAULT_FLAGS G_APPLICATION_FLAGS_NONE
+#endif
+
 int cu_loop(void (*activate)(CULoopArg *),CULoopArg*arg)
 {
 	app=gtk_application_new(arg->app_id,G_APPLICATION_DEFAULT_FLAGS);
@@ -820,6 +1000,7 @@ int cu_confirm(CUCtrl p,const char *message)
 		GTK_DIALOG_DESTROY_WITH_PARENT | GTK_DIALOG_MODAL,
 		GTK_MESSAGE_INFO,
 		GTK_BUTTONS_OK_CANCEL,
+		"%s",
 		message);
 	gtk_window_set_title(GTK_WINDOW(dlg),p->text);
 	g_signal_connect (dlg, "response",  G_CALLBACK (_cu_confirm_response), &response);

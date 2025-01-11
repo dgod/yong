@@ -106,10 +106,11 @@ function rpm(){
 		return;
 	}
 	var VER=process.env.VER || shell("date +%Y%m%d");
+	var RELEASE=process.env.RELEASE || 0;
 const spec=
 `%define name		yong
 %define version		${VER}
-%define release		0
+%define release		${RELEASE}
 
 %define prefix		/opt
 
