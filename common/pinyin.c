@@ -1134,6 +1134,19 @@ int py_build_string(char *out,py_item_t *token,int count)
 	}
 }
 
+int py_get_jp_code(const py_item_t token)
+{
+	if(py_type==0)
+	{
+		return token->quan[0];
+	}
+	else
+	{
+		char *p=(char*)&token;
+		return p[0];
+	}
+}
+
 int py_build_jp_string(char *out,const py_item_t *token,int count)
 {
 	int i;

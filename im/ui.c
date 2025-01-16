@@ -213,7 +213,7 @@ static int ui_init(void)
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 	{
 		const char *desktop=getenv("XDG_CURRENT_DESKTOP");
-		if(!desktop || (!strstr(desktop,"wlroots") && !strstr(desktop,"KDE")))
+		if(!desktop ||(!strstr(desktop,"wlroots") && !strstr(desktop,"KDE") && !strstr(desktop,"UKUI")))
 			setenv("GDK_BACKEND","x11",1);
 	}
 	if(getenv("GDK_SCALE"))

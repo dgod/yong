@@ -2347,7 +2347,7 @@ buil 鄙视链
 buir 不穿
 buis 补充
 buiu 不出 博士生 办实事
-buiw 不失为
+buiw 八十五 不失为
 buix 杯水车薪
 buiy 不适应 办事员
 buj 钸 钚
@@ -2733,7 +2733,7 @@ bygs 冰宫 兵工 秉公
 bygu 病故
 bygv 冰柜 并轨
 byh 炳
-byhb 炳
+byhb 病后 炳
 byhd 白洋淀
 byhe 不一会儿
 byhf 必有后福
@@ -5591,6 +5591,7 @@ dmjq 碘酒
 dmjt 钿
 dmjw 电价
 dmkd 癫狂
+dmkl 点开
 dml 电 典
 dmlb 典
 dmld 电量 掂量
@@ -5662,6 +5663,7 @@ dmxg 等米下锅
 dmxm 电线 癫痫
 dmxn 电信 点心
 dmxp 电讯
+dmxt 点穴
 dmxw 殿下
 dmxx 电谢
 dmxy 典型
@@ -6942,6 +6944,7 @@ erqx 而且
 err 佴
 erre 佴
 errf 二人
+erri 二日
 errr 耳软
 ersp 儿孙
 erts 儿童
@@ -11570,6 +11573,7 @@ hlbn 海滨
 hlbu 还不
 hlbw 何乐不为
 hlcg 还曾
+hldc 海钓
 hlde 还得 害得
 hldi 海底 海地
 hldj 画龙点睛
@@ -21708,6 +21712,7 @@ lnmv 粼
 lnns 林农
 lno 瞵 膦
 lnol 膦 瞵
+lnpf 临盆
 lnpm 鳞片
 lnqr 临泉
 lnqu 林区
@@ -28650,6 +28655,7 @@ pyie 平车
 pyih 平常
 pyii 平尺
 pyij 平产
+pyip 碰一碰
 pyir 平川
 pyiu 评出 屏除
 pyjd 评奖 平江
@@ -29463,7 +29469,7 @@ qivg 齐整 起征
 qivi 气质 旗帜 起至 岂止 起止 岂知 奇志 弃置
 qivj 前车之鉴
 qivs 其中 期中 起重 器重 期终
-qivu 起租
+qivu 砌筑 起租
 qivv 浅尝辄止
 qivy 歧
 qiw 齐 弃 戚 琪 琦 炁
@@ -32372,6 +32378,7 @@ rzfz 认罪服罪
 rzgz 认祖归宗
 rzil 人走茶凉
 rzin 孺子牛
+rzit 人字拖
 rzjh 人赃俱获
 rzkg 人造革
 rzkj 孺子可教
@@ -35044,6 +35051,7 @@ tlhe 太和
 tlhf 太狠
 tlhk 太好
 tlhl 涕泪横流
+tlhn 腾笼换鸟
 tlhu 太湖
 tlhv 偷梁换柱
 tlhw 同流合污
@@ -39006,6 +39014,7 @@ uudi 属地 树敌 熟地
 uudk 疏导
 uudl 竖
 uudm 书店 输电
+uuds 树洞
 uudu 熟读 数度 审时度势
 uudv 书堆 殊
 uudy 书钉
@@ -44654,6 +44663,7 @@ wyrv 委员长
 wyry 无业人员
 wyst 危言耸听
 wytf 五月份
+wyti 网约车
 wyvq 乌烟瘴气
 wyvu 无源之水
 wyvv 无意之中
@@ -47107,6 +47117,7 @@ xths 血红
 xthv 学会
 xthw 雪花
 xthy 学坏
+xtib 血仇
 xtig 学成
 xtii 雪耻
 xtij 习题集
@@ -49603,6 +49614,7 @@ yjam 拥军爱民
 yjan 延安 沿岸
 yjav 檐
 yjb 宴
+yjbc 言表
 yjbg 研究报告
 yjbi 掩蔽
 yjbj 严办

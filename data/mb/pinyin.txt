@@ -1153,6 +1153,7 @@ bashe 跋涉
 bashi 八十 八时 巴士 把式
 bashidiyu 巴士底狱
 bashiniandai 八十年代
+bashiwu 八十五
 bashou 把手 把守 罢手
 bashu 巴蜀
 bashuijiaohun 把水搅浑
@@ -1967,6 +1968,7 @@ binggui 冰柜 并轨
 bingguishensu 兵贵神速
 bingguorubi 兵过如篦
 binghao 病号
+binghou 病后
 binghuangmaluan 兵荒马乱
 binghuo 冰火
 bingjia 病假 兵家
@@ -6699,6 +6701,7 @@ dianjingzhibi 点睛之笔
 dianjiren 奠基人
 dianjishi 奠基石
 dianjiu 碘酒
+diankai 点开
 diankuang 癫狂
 dianlaidaoqu 颠来倒去
 dianlan 电缆
@@ -8215,6 +8218,7 @@ erqie 而且
 erqu 而去 二区
 erquanyingyue 二泉映月
 erren 二人
+erri 二日
 erruan 耳软
 errumuran 耳濡目染
 ershang 而上
@@ -11701,6 +11705,7 @@ haide 还得 害得
 haidi 海底 海地
 haidian 海淀
 haidianqu 海淀区
+haidiao 海钓
 haidilaoyue 海底捞月
 haidilaozhen 海底捞针
 haidongqing 海东青
@@ -20479,6 +20484,7 @@ linmo 临摹
 linmu 林木
 linna 林娜 琳娜
 linnong 林农
+linpen 临盆
 linpian 鳞片
 linqing 临清
 linqu 林区
@@ -28088,6 +28094,7 @@ qizhixianming 旗帜鲜明
 qizhong 其中 期中 起重 器重 期终
 qizhongji 起重机
 qizhongzhiyi 其中之一
+qizhu 砌筑
 qizhuagongguan 齐抓共管
 qizhuagongjian 齐抓共建
 qizhuangshanhe 气壮山河
@@ -32791,6 +32798,7 @@ shudian 书店 输电
 shudianwangzu 数典忘祖
 shudiao 输掉
 shuding 书钉
+shudong 树洞
 shudu 熟读 数度
 shudui 书堆
 shue 数额
@@ -34913,6 +34921,7 @@ tengfei 腾飞
 tengkong 腾空
 tengkongerqi 腾空而起
 tengku 疼苦
+tenglonghuanniao 腾笼换鸟
 tengnuo 腾挪
 tengqi 腾起
 tengqing 誊清
@@ -41851,6 +41860,7 @@ yanbao 延报
 yanbei 燕北 雁北
 yanbi 掩蔽
 yanbian 演变 沿边 延边
+yanbiao 言表
 yanbierguo 掩鼻而过
 yanbing 眼病
 yanbixin 言必信
@@ -43311,7 +43321,8 @@ yinfa 引发 印发
 yinfan 银帆
 yinfu 音符 隐伏 淫妇
 ying 应 英 影 营 迎 硬 映 赢 盈 颖 鹰 婴 蝇 樱 莹 荧 膺 萤 萦 莺 罂 瀛 楹 缨 颍 嬴 鹦 瑛 茔 嘤 璎 荥 撄 郢 瘿 蓥 滢 潆 媵
-yingan 阴干 应按
+yingan 阴干
+yingan 应按
 yinganzhao 应按照
 yingba 应把
 yingban 应办

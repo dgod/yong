@@ -4653,17 +4653,27 @@ bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s)
 	return true;
 }
 
-bool y_mb_zi_is_code0(struct y_mb *mb,const void *s,char c)
+bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int count)
 {
-    struct y_mb_zi *z=mb_find_zi(mb,s);
-    if(!z)
-        return false;
-    for(struct y_mb_code *code=z->code;code!=NULL;code=code->next)
-    {
-        if(c==y_mb_code_n_key(mb,code,0))
-            return true;
-    }
-    return false;
+	uint8_t *data=c->data;
+	data=l_gb_next_char(data);
+	for(int i=1;i<count;i++)
+	{
+		struct y_mb_zi *z=mb_find_zi(mb,(const char*)data);
+		if(!z)
+			return false;
+		int first=py_get_jp_code(input[i]);
+		struct y_mb_code *code=z->code;
+		for(;code!=NULL;code=code->next)
+		{
+			if(first==y_mb_code_n_key(mb,code,0))
+				break;
+		}
+		if(!code)
+			return false;
+		data=l_gb_next_char(data);
+	}
+	return true;
 }
 
 // 在分词可能有问题的情况下，判断某个词是否和全拼是否匹配，存在问题，需要改进
@@ -4696,7 +4706,7 @@ static int mb_match_quanpin(struct y_mb *mb,struct y_mb_ci *c,int clen,const cha
 			return 1;
 		return 0;
 	}
-	if(c->len==4)
+	if(c->len>=4)
 	{
 		struct y_mb_zi *z=mb_find_zi(mb,(char*)&c->data+2);
 		if(z)

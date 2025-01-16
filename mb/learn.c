@@ -340,20 +340,10 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 		}
 	}
 
-	char next[16];
-	if(count==2 || count==3)
-	{
-		py_build_string_no_split(next,input+1,1);
-	}
-	else
-	{
-		next[0]=0;
-	}
-
 #ifdef TOOLS_LEARN
 	if(mm->mb->split>1)
 	{
-		ret=code_cache_test(l_predict_data->code_cache,code,len,count,next[0]);
+		ret=code_cache_test(l_predict_data->code_cache,code,len,count,input);
 	}
 	else
 	{
@@ -415,7 +405,7 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 					continue;
 				if(!(ret->data[0]&0x80))
 					continue;
-				if(next[0] && ret->len==4 && !y_mb_zi_is_code0(mm->mb,ret->data+2,next[0]))
+				if(!ret->zi && !y_mb_ci_py_match(mm->mb,ret,input,count))
 					continue;
 				if(end && !y_mb_assist_test(mm->mb,ret,mm->assist_end,0,1))
 				{
@@ -454,7 +444,7 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 				continue;
 			if(l_gb_strlen(ret->data,ret->len)!=count)
 				continue;
-			if(next[0] && ret->len==4 && !y_mb_zi_is_code0(mm->mb,ret->data+2,next[0]))
+			if(!ret->zi && !y_mb_ci_py_match(mm->mb,ret,input,count))
 				continue;
 			if(end && !y_mb_assist_test(mm->mb,ret,mm->assist_end,0,1))
 			{
@@ -503,6 +493,8 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 				continue;
 			if(end && mm->assist_end && !y_mb_assist_test(mm->mb,list,mm->assist_end,0,1))
 				continue;
+			if(!y_mb_ci_py_match(mm->mb,list,mm->input+pos,len))
+				continue;
 			if(!tmp2)
 				tmp2=list;
 			if(tmp->zi && mm->mb->simple && list->simp)
@@ -525,9 +517,9 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 		if(l_gb_strlen(list->data,list->len)!=len)
 			continue;
 		if(end && mm->assist_end && !y_mb_assist_test(mm->mb,list,mm->assist_end,0,1))
-		{
 			continue;
-		}
+		if(!y_mb_ci_py_match(mm->mb,list,mm->input+pos,len))
+			continue;
 		i++;
 		if(len>4)
 		{
@@ -818,11 +810,11 @@ static uint32_t unigram_best(MMSEG *mm,int b,int l)
 		goto out;
 		//if(l==1)
 		//	goto out;
-		//printf("R %d %d %d %d\n",b,l,res&0x3f,res>>6);
+		// printf("R %d %d %d %d\n",b,l,res&0x3f,res>>6);
 	}
 	if(l==1)
 	{
-		//printf("unigram best can't found %d %d\n",b,l);
+		printf("unigram best can't found %d %d\n",b,l);
 		return 0;
 	}
 
@@ -840,7 +832,7 @@ static uint32_t unigram_best(MMSEG *mm,int b,int l)
 		}
 	}
 out:
-	//printf("%d %d %d %d\n",b,l,res&0x3f,res>>6);
+	// printf("%d %d %d %d\n",b,l,res&0x3f,res>>6);
 	unigram_split[b][l]=res;
 	return res;
 }

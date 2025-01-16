@@ -346,7 +346,7 @@ bool y_mb_error_has(struct y_mb *mb,const char *phrase);
 const char *y_mb_skip_display(const char *s,int len);
 bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s);
 int y_mb_key_to_code(struct y_mb *mb,struct y_mb_index *index,struct y_mb_item *item,char out[Y_MB_KEY_SIZE+1]);
-bool y_mb_zi_is_code0(struct y_mb *mb,const void *s,char c);
+bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int count);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);

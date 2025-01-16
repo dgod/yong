@@ -38,5 +38,6 @@ int py_quanpin_maybe_jp(const py_item_t *token,int count);
 int py_first_zrm_shen(const char *s);
 int py_jp_from_qp(const char *s,const char *zi,char *out);
 int py_item_len(py_item_t it);
+int py_get_jp_code(const py_item_t token);
 
 #endif/*_PINYIN_H_*/
