@@ -343,7 +343,6 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 	YBUS_CONNECT *yconn;
 	int ret;
 
-	// printf("lcall %s\n",name);
 	if(!strcmp(name,"tool"))
 	{
 		int type,param;
@@ -485,12 +484,6 @@ static int xim_init(void)
 
 int ybus_lcall_init(void)
 {
-	const char *imm=getenv("GTK_IM_MODULE");
-	if(imm && imm[0] && strcmp(imm,"yong"))
-	{
-		if(y_im_get_config_int("IM","lcall")!=1)
-			return -1;
-	}
 	ybus_add_plugin(&plugin);
 	return 0;
 }
@@ -541,9 +534,7 @@ static void xim_preedit_clear(CONN_ID conn_id,CLIENT_ID client_id)
 
 static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 {
-	char out[512];
-	y_im_str_encode(s,out,0);
-	l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,out);
+	l_call_conn_call((LCallConn*)conn_id,"preedit",0,"is",(int)client_id,s);
 	return 0;
 }
 

@@ -12,6 +12,8 @@
 #include <stdalign.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdbool.h>
+
 #include <assert.h>
 
 #include "lconfig.h"

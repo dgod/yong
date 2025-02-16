@@ -32,38 +32,43 @@ static EXTRA_IM EIM={
 
 static int NumSet(const char *s);
 static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_num={NumSet,NumGet};
+static ENGLISH_IM eim_num={.Set=NumSet,.Get=NumGet};
 
 static int CalcSet(const char *s);
 static int CalcGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_calc={CalcSet,CalcGet};
+static ENGLISH_IM eim_calc={.Set=CalcSet,.Get=CalcGet};
 
 static int UrlSet(const char *s);
 static int UrlGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_url={UrlSet,UrlGet};
+static ENGLISH_IM eim_url={.Set=UrlSet,.Get=UrlGet};
 
 static int BdSet(const char *s);
 static int BdGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_bd={BdSet,BdGet};
+static ENGLISH_IM eim_bd={.Set=BdSet,.Get=BdGet};
 
 static int MoneySet(const char *s);
 static int MoneyGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_money={MoneySet,MoneyGet};
+static ENGLISH_IM eim_money={.Set=MoneySet,.Get=MoneyGet};
 
 static int HexSet(const char *s);
 static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_hex={HexSet,HexGet};
+static ENGLISH_IM eim_hex={.Set=HexSet,.Get=HexGet};
 
 static void DictLoad(void);
 static void DictFree(void);
 static int DictSet(const char *s);
 static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_dict={DictSet,DictGet};
+static ENGLISH_IM eim_dict={.Set=DictSet,.Get=DictGet};
+
+static int PipeSet(const char *s);
+static int PipeGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
+static void PipeReset(void);
+static ENGLISH_IM eim_pipe={.Set=PipeSet,.Get=PipeGet,.Reset=PipeReset};
 
 extern ENGLISH_IM eim_book;
 
 static ENGLISH_IM *enim[]={
-	&eim_num,&eim_calc,&eim_url,&eim_bd,&eim_money,&eim_book,&eim_hex,&eim_dict
+	&eim_num,&eim_calc,&eim_url,&eim_bd,&eim_money,&eim_book,&eim_hex,&eim_pipe,&eim_dict
 };
 #define ENIM_COUNT	(sizeof(enim)/sizeof(ENGLISH_IM*))
 
@@ -96,6 +101,8 @@ static void EnglishReset(void)
 	for(i=0;i<ENIM_COUNT;i++)
 	{
 		ENGLISH_IM *e=enim[i];
+		if(e->Reset)
+			e->Reset();
 		e->Count=0;
 	}
 }
@@ -1108,6 +1115,8 @@ static int DictSet(const char *s)
 	}
 	if(!strncasecmp(s,"key ",4) || !strncasecmp(s,"miyao ",6))
 		return 0;
+	if(eim_pipe.Count>0)
+		return 0;
 	// 寻找最后一个单词的开始位置
 	p=s;
 #if 0
@@ -1188,3 +1197,173 @@ static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 	}
 	return 0;
 }
+
+typedef struct{
+	bool run;
+	char **result;
+}PIPE_PRIV;
+
+static void PipeCb(const char *result,char *code)
+{
+	ENGLISH_IM *e=&eim_pipe;
+	char *cur=LINT_TO_PTR(e->Priv1);
+	PIPE_PRIV *pp=LINT_TO_PTR(e->Priv2);
+	if(pp)
+		pp->run=false;
+	if(!cur || !pp)
+	{
+		printf("bad1\n");
+		l_free(code);
+		return;
+	}
+	if(strcmp(cur,code))
+	{
+		printf("bad2 %s %s\n",cur,code);
+		e->Priv1=0;
+		l_free(code);
+		PipeSet(cur);
+		l_free(cur);
+		return;
+	}
+	if(pp->result)
+	{
+		l_strfreev(pp->result);
+		pp->result=NULL;
+	}
+	if(!result || !result[0])
+	{
+		y_im_request(1);
+		return;
+	}
+	char **p=l_strsplit(result,'\n');
+	pp->result=p;
+	e->Count=l_strv_length(p);
+#ifdef _WIN32
+	for(int i=0;i<e->Count;i++)
+	{
+		l_str_trim_right(p[i]);
+	}
+#endif
+	y_im_request(1);
+}
+
+static int PipeRun(char **argv,const char *s)
+{
+	char *user=l_strdup(s);
+	int ret=y_im_async_spawn(argv,(void*)PipeCb,user);
+	l_strfreev(argv);
+	return ret;
+}
+
+static int PipeSet(const char *s)
+{
+	ENGLISH_IM *e=&eim_pipe;
+	char **argv=NULL;
+	if(s[0] && s[1]==' ' && s[2])
+	{
+		for(int i=0;i<10;i++)
+		{
+			char key[32];
+			sprintf(key,"en_pipe[%d]",i);
+			const char *p=y_im_get_config_data("IM",key);
+			if(p!=NULL && p[0]==s[0])
+			{
+				char temp[256];
+				sprintf(temp,"%s %s",p+2,s+2);
+				argv=y_im_parse_argv(temp,-1);
+				break;
+			}
+		}
+	}
+	else if(s[0]=='|')
+	{
+		const char *p=strchr(s,' ');
+		if(p && p[1])
+			argv=y_im_parse_argv(s+1,-1);
+	}
+	if(argv==NULL)
+	{
+		PipeReset();
+		return 0;
+	}
+#ifdef _WIN64
+	if(!l_file_exists(argv[0]))
+	{
+		char temp[256];
+		sprintf(temp,"%s/%s",y_im_get_path("DATA"),argv[0]);
+		if(l_file_exists(temp))
+		{
+			if(l_fullpath(temp,temp,sizeof(temp)))
+			{
+				l_free(argv[0]);
+				argv[0]=l_strdup(temp);
+			}
+		}
+	}
+#endif
+	char *prev=LINT_TO_PTR(e->Priv1);
+	if(prev)
+	{
+		if(!strcmp(prev,s))
+		{
+			l_strfreev(argv);
+			return 0;
+		}
+		l_free(prev);
+	}
+	e->Priv1=(int64_t)(uintptr_t)l_strdup(s);
+	PIPE_PRIV *pp=LINT_TO_PTR(e->Priv2);
+	if(pp)
+	{
+		if(pp->run)
+		{
+			l_strfreev(argv);
+			return 0;
+		}
+	}
+	else
+	{
+		pp=l_new(PIPE_PRIV);
+		pp->result=NULL;
+		e->Priv2=(uintptr_t)pp;
+	}
+	pp->run=true;
+	if(0!=PipeRun(argv,s))
+	{
+		PipeReset();
+		return 0;
+	}
+	return 0;
+}
+
+static int PipeGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
+{
+	ENGLISH_IM *e=&eim_pipe;
+	PIPE_PRIV *pp=(PIPE_PRIV*)e->Priv2;
+	if(!pp || !pp->result)
+		return 0;
+	for(int i=0;i<count;i++)
+	{
+		l_strcpy(cand[i],MAX_CAND_LEN+1,pp->result[pos+i]);
+	}
+	return 0;
+}
+
+static void PipeReset(void)
+{
+	ENGLISH_IM *e=&eim_pipe;
+	e->Count=0;
+	if(e->Priv1)
+	{
+		l_free(LINT_TO_PTR(e->Priv1));
+		e->Priv1=0;
+	}
+	if(e->Priv2)
+	{
+		PIPE_PRIV *pp=(PIPE_PRIV*)e->Priv2;
+		l_strfreev(pp->result);
+		l_free(pp);
+		e->Priv2=0;
+	}
+}
+

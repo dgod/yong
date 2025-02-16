@@ -15,7 +15,13 @@
 #include "cset.h"
 #include "learn.h"
 
+#define USE_ADJUST_PHRASE		0
+
+#if USE_ADJUST_PHRASE
+#define LEARN_MAGIC 0x44332222
+#else
 #define LEARN_MAGIC 0x44332221
+#endif
 
 #define PSEARCH_PHRASE		0x00
 #define PSEARCH_SENTENCE	0x01
@@ -47,7 +53,8 @@ typedef struct{
 	uint16_t nseg:2;
 	uint16_t first:3;
 	uint16_t last:3;
-	uint16_t freq:5;
+	uint16_t freq:4;
+	uint16_t combine:1;
 	uint16_t allow:3;
 }LEARN_ITEM;
 #pragma pack()
@@ -129,6 +136,128 @@ static inline int cand_gblen(const LEARN_ITEM *it)
 	return it->len+2;
 }
 
+#if USE_ADJUST_PHRASE
+
+static inline int read_offset(const uint8_t *p,uint8_t **n)
+{
+	int i=l_read_u16be(p);
+	if((i&0x8000)==0)
+	{
+		*n=(uint8_t*)(p+2);
+	}
+	else
+	{
+		i=((i&0x7fff)<<8)|p[2];
+		*n=(uint8_t*)(p+3);
+	}
+	return i;
+}
+
+static int cand_unpack(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
+{
+	int len=cand_gblen(it);
+	if(it->combine==0)
+	{
+		const char *raw=(const char*)data->raw_data;
+		int code_size=cp_unzip_size(raw+it->pos,len);
+		if(size>=0)
+			len=MIN(len,size);
+		len=cz_unzip(raw+it->pos+code_size,out,len);
+		return len;
+	}
+	else
+	{
+		uint8_t *raw=data->raw_data;
+		uint8_t *p=raw+it->pos;
+		int out_size=0;
+		if(size>=0)
+			len=MIN(len,size);
+		for(int i=0;i<=it->nseg;i++)
+		{
+			int offset=read_offset(p,&p);
+			int size=raw[offset]&0x07;
+			size=MIN(size,len);
+			int code_size=raw[offset]>>3;
+			int ret=cz_unzip((const char*)raw+offset+1+code_size,out+out_size,size);
+			out_size+=ret;
+			len-=size;
+			if(len==0)
+				break;
+		}
+		return out_size;
+	}
+}
+
+static int code_unpack_raw(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
+{
+	int len=cand_gblen(it);
+	if(size>=0)
+		len=MIN(len,size);
+	if(it->combine==0)
+	{
+		const char *raw=(const char*)data->raw_data;
+		len=cp_unzip(raw+it->pos,out,len);
+		return len;
+	}
+	else
+	{
+		uint8_t *raw=data->raw_data;
+		uint8_t *p=raw+it->pos;
+		int out_size=0;
+		for(int i=0;i<=it->nseg;i++)
+		{
+			int offset=read_offset(p,&p);
+			int size=raw[offset]&0x07;
+			size=MIN(size,len);
+			int ret=cp_unzip((const char*)raw+offset+1,out+out_size,size);
+			out_size+=ret;
+			len-=size;
+			if(len==0)
+				break;
+		}
+		return out_size;
+	}
+}
+
+static int code_unpack(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
+{
+	int len=cand_gblen(it);
+	if(size>=0)
+		len=MIN(len,size);
+	if(it->combine==0)
+	{
+		const char *raw=(const char*)data->raw_data;
+		if(data->mb->split=='\'')
+			len=cp_unzip_py(raw+it->pos,out,len);
+		else
+			len=cp_unzip(raw+it->pos,out,len);
+		return len;
+	}
+	else
+	{
+		uint8_t *raw=data->raw_data;
+		uint8_t *p=raw+it->pos;
+		int out_size=0;
+		for(int i=0;i<=it->nseg;i++)
+		{
+			int offset=read_offset(p,&p);
+			int size=raw[offset]&0x07;
+			size=MIN(size,len);	
+			int ret;
+			if(data->mb->split=='\'')
+				ret=cp_unzip_py((const char*)raw+offset+1,out+out_size,size);
+			else
+				ret=cp_unzip((const char*)raw+offset+1,out+out_size,size);
+			out_size+=ret;
+			len-=size;
+			if(len==0)
+				break;
+		}
+		return out_size;
+	}
+}
+
+#else
 static inline int cand_unpack(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
 {
 	int len=cand_gblen(it);
@@ -151,15 +280,22 @@ static inline int code_unpack(LEARN_DATA *data,const LEARN_ITEM *it,char *out,in
 	return cp_unzip(raw+it->pos,out,len);
 }
 
+static inline int code_unpack_raw(LEARN_DATA *data,const LEARN_ITEM *it,char *out,int size)
+{
+	int len=cand_gblen(it);
+	if(size>=0)
+		len=MIN(len,size);
+	const char *raw=(const char*)data->raw_data;
+	return cp_unzip(raw+it->pos,out,len);
+}
+#endif
+
 static int simple_code_from_item(LEARN_DATA *data,const LEARN_ITEM *it,char *scode,int size)
 {
 	struct y_mb *mb=data->mb;
 	char code[64];
 	int i,pos;
-	int len=cand_gblen(it);
-	if(size>=0)
-		len=MIN(len,size);
-	len=cp_unzip((const char*)data->raw_data+it->pos,code,len);
+	int len=code_unpack_raw(data,it,code,size);
 	if(mb->split!='\'')
 	{
 		for(i=0,pos=0;i<len;i+=mb->split,pos++)
@@ -198,10 +334,14 @@ static void y_mb_build_jp_index(LEARN_DATA *data)
 	// clock_t start=clock();
 	for(int i=0;i<data->it_count;i++)
 	{
-		char jp[4];
+		char jp[8];
 		LEARN_ITEM *it=l_array_nth(data->it_data,i);
 		simple_code_from_item(data,it,jp,2);
 		int32_t *p=data->jp_index[jp[0]-'a'][jp[1]-'a'];
+#ifdef TOOLS_LEARN
+		assert((uint8_t*)p>=(uint8_t*)data->jp_index);
+		assert((uint8_t*)p<(uint8_t*)data->jp_index+sizeof(data->jp_index));
+#endif
 		if(p[1]==0)
 		{
 			p[0]=i;
@@ -312,7 +452,9 @@ typedef struct{
 	int mark_skip;			// 标记是否跳过第一个匹配的
 	char last_zi[8];		// 在没有句尾辅助码的情况下的最后一个字
 	const char *prefix;		// 要匹配的汉字前缀
-	struct y_mb_ci *codec[1024];
+	int prefix_freq;		// 要匹配的汉字前缀对应的语料频率
+	bool prefix_bad;		// 有高频语料前缀不匹配
+	struct y_mb_ci *codec[512];
 }MMSEG;
 
 static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
@@ -729,16 +871,24 @@ static LEARN_ITEM *predict_search2(LEARN_DATA *data,MMSEG *mm,int cpos,int cnum,
 			if(mm->mb->split=='\'')
 			{
 				char zrm2[256];
-				cp_unzip((const char *)data->raw_data+p->pos,zrm2,cnum);
+				code_unpack_raw(data,p,zrm2,cnum);
 				if(memcmp(zrm,zrm2,cnum*2))
 					continue;
 			}
 			if(mm->prefix!=NULL)
 			{
 				char temp[64];
-				cand_unpack(data,p,temp,sizeof(temp));
+				cand_unpack(data,p,temp,-1);
 				if(!l_str_has_prefix(temp,mm->prefix))
+				{
+					if(p->freq>mm->prefix_freq)
+					{
+						// printf("%s:%d %s:%d\n",temp,p->freq,mm->prefix,mm->prefix_freq);
+						mm->prefix_bad=true;
+						return NULL;
+					}
 					continue;
+				}
 			}
 			if(predict_test_assist(mm,p,end)==1)
 			{
@@ -760,7 +910,7 @@ static LEARN_ITEM *predict_search2(LEARN_DATA *data,MMSEG *mm,int cpos,int cnum,
 	return item;
 }
 
-static int predict_copy(LEARN_DATA *data,char *dst,LEARN_ITEM *src,int count)
+static inline int predict_copy(LEARN_DATA *data,char *dst,LEARN_ITEM *src,int count)
 {
 	return cand_unpack(data,src,dst,count);
 }
@@ -870,6 +1020,31 @@ static int inline predict_pos(int pos,int tlen,int count)
 	return res;
 }
 
+static bool test_next_phrase_bad(MMSEG *mm,LEARN_ITEM *cur,const char *predict,uint8_t *seq,int len,int pos,int i)
+{
+	int begin=seq[i-1];
+	int zi=cand_gblen(cur)-begin;
+	int tlen=0;
+	for(int j=0;j<3 && i+j<len;j++)
+	{
+		tlen+=seq[i+j];
+		if(tlen>zi)
+		{
+			LEARN_ITEM *next=predict_search2(l_predict_data,mm,pos,tlen,PSEARCH_PHRASE,0,predict_pos(i,j+1,len));
+			if(next)
+			{
+				if(next->freq>cur->freq)
+				{
+					char next_str[64];
+					cand_unpack(l_predict_data,next,next_str,-1);
+					return !l_str_has_prefix(next_str,l_gb_offset(predict,begin));
+				}
+			}
+		}
+	}
+	return false;
+}
+
 // 输出汉字
 static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 {
@@ -892,7 +1067,6 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 			temp=(char*)l_predict_data->raw_data+key->pos;
 			for(int k=0;k<j;k++) tlen+=seq[i+k];
 			item=predict_search2(l_predict_data,mm,pos,tlen,PSEARCH_PHRASE,0,predict_pos(i,j,len));
-			//printf("%s %p\n",temp,item);
 			if(!item)
 			{
 				continue;
@@ -935,52 +1109,38 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 					}
 				}
 			}
-			if(i+j<len)
+			if(i+j==len)
 			{
-				int tlen2=0,k;
-				LEARN_ITEM *item2;
-				for(k=0;k<j;k++) tlen2+=seq[i+1+k];
-				item2=predict_search2(l_predict_data,mm,pos+seq[i],tlen2,PSEARCH_PHRASE,0,predict_pos(i,j+1,len));
-				
+				i+=j;
+				pos+=tlen;
+				goto next;
+			}
+			else
+			{
 				// 后续语料优先级高且重合内容不一样，放弃在当前位置进行查找
-				if(item2!=NULL && item2->freq>item->freq)
+				if(test_next_phrase_bad(mm,item,predict,seq,len,pos+seq[i],i+1))
 				{
-					predict_copy(l_predict_data,temp,item,-1);
-					if(memcmp(predict+2*seq[i],temp,(tlen-seq[i])*2))
-					{
-						memset(from+i,0,j);
-						predict[0]=0;
-						out=predict;
-						break;
-					}
-				}
-				if(i+k+1<len)
-				{
-					tlen2+=seq[i+1+k];
-					item2=predict_search2(l_predict_data,mm,pos+seq[i],tlen2,PSEARCH_PHRASE,0,i+j+1==len);
-					if(item2!=NULL && item2->freq>item->freq)
-					{
-						predict_copy(l_predict_data,temp,item,-1);
-						memset(from+pos+seq[i],1,tlen2);
-						if(memcmp(predict+2*seq[i],temp,(tlen-seq[i])*2))
-						{
-							memset(from+i,0,j);
-							predict[0]=0;
-							out=predict;
-							break;
-						}
-					}
+					memset(from+i,0,j);
+					predict[0]=0;
+					out=predict;
+					break;
 				}
 			}
 			
 			i+=j;
 			pos+=tlen;
+
+			int prev_i=i;
+			int prev_pos=pos;
+			char *prev_out=out;
+			int prev_ext=0;
 			
 			// 循环语料联想
 			while(i<len)		// 没有到句尾
 			{
 
 				int k;
+				mm->prefix_freq=item->freq;
 				for(k=j-1;k>=1;k--)
 				{
 
@@ -993,40 +1153,56 @@ static void unigram_output(MMSEG *mm,uint8_t *seq,int len,char *out)
 					item=NULL;
 					for(ext=3;ext>0;ext--)
 					{
-						// printf("i:%d ext:%d len:%d\n",i,ext,len);
+						// printf("i:%d ext:%d len:%d\n",i,ex,len);
 						if(i+ext>len)
 							continue;
 						extlen=0;
 						for(t=0;t<ext;t++)
 							extlen+=seq[i+t];
+						mm->prefix_bad=false;
 						item=predict_search2(l_predict_data,mm,pos-base,base+extlen,PSEARCH_PHRASE,0,pos+extlen==mm->count);
 
 						if(!item)
 						{
+							if(mm->prefix_bad)
+							{
+								memset(from+prev_i,0,prev_ext);
+								i=prev_i;
+								out=prev_out;
+								pos=prev_pos;
+								out[0]=0;
+								break;
+							}
 							continue;
 						}
 						else
 						{
-							predict_copy(l_predict_data,temp,item,-1);
-							// if(memcmp(prefix,temp,2*base))
-							// {
-								// item=NULL;
-								// continue;
-							// }
+							prev_ext=ext;
 							memset(from+i,1,ext);
 							break;
 						}
 					}
 					mm->prefix=NULL;
-					if(!item) continue;
+					if(!item)
+					{
+						if(mm->prefix_bad)
+							break;
+						continue;
+					}
 					predict_copy(l_predict_data,temp,item,-1);
+					prev_i=i;
+					prev_out=out;
+					prev_pos=pos;
 					out=l_stpcpy(out,temp+2*base);
 					pos+=extlen;
 					i+=ext;
 					j=k+ext;
 					break;
 				}
-				if(k==0) break;
+				if(k==0 || mm->prefix_bad)
+				{
+					break;
+				}
 			}
 			
 			goto next;
@@ -1051,8 +1227,11 @@ static int unigram(MMSEG *mm)
 	
 	//clock_t start=clock();
 	
-	memset(mm->codec,-1,sizeof(mm->codec));
-	memset(unigram_split,0,sizeof(unigram_split));
+	// memset(mm->codec,-1,sizeof(mm->codec));
+	// memset(unigram_split,0,sizeof(unigram_split));
+	//只对可能用到的部分初始化
+	memset(mm->codec,-1,(mm->count<<3)*sizeof(void*));
+	memset(unigram_split,0,mm->count*64*sizeof(uint32_t));
 	mm->mark_skip=0;
 	
 	if(0==unigram_best(mm,0,mm->count))
@@ -1996,7 +2175,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 	}
 	s[caret]=tmp;
 
-	if(mm.count<=1)
+	if(mm.count<=1 || mm.count>64)
 	{
 		return 0;
 	}

@@ -8,6 +8,8 @@
 #include "lmem.h"
 #include "ltricky.h"
 
+#include <stdio.h>
+
 typedef struct expr_item{
 	struct expr_item *next;
 	struct expr_item *prev;
@@ -16,6 +18,7 @@ typedef struct expr_item{
 
 // op can't defined by one ascii char
 #define OP_POW		0x01
+#define OP_NEG		0x02
 
 static LVariant l_expr_next_token(const char *s,char **next)
 {
@@ -80,6 +83,7 @@ static void TO_FLOAT(EITEM *v)
 LVariant l_expr_calc(const char *s)
 {
 	LVariant var={.type=L_TYPE_VOID};
+	LVariant prev={.type=L_TYPE_VOID};
 	LVariant tok;
 	LQueue *stk=NULL;
 	LQueue *back=NULL;
@@ -96,6 +100,15 @@ LVariant l_expr_calc(const char *s)
 			switch(it->var.v_op){
 			case OP_POW:
 			{
+				while(1)
+				{
+					top=l_queue_peek_head(stk);
+					if(!top) break;
+					if(top->var.v_op!=OP_NEG)
+						break;
+					l_queue_pop_head(stk);
+					l_queue_push_tail(back,top);
+				}
 				l_queue_push_head(stk,it);
 				break;
 			}
@@ -107,7 +120,7 @@ LVariant l_expr_calc(const char *s)
 				{
 					top=l_queue_peek_head(stk);
 					if(!top) break;
-					if(top->var.v_op!='*' && top->var.v_op!='/' && top->var.v_op!='%' && top->var.v_op!=OP_POW)
+					if(top->var.v_op!='*' && top->var.v_op!='/' && top->var.v_op!='%' && top->var.v_op!=OP_POW && top->var.v_op!=OP_NEG)
 						break;
 					l_queue_pop_head(stk);
 					l_queue_push_tail(back,top);
@@ -116,8 +129,19 @@ LVariant l_expr_calc(const char *s)
 				break;
 			}
 			case '+':
+				if(prev.type==L_TYPE_VOID || prev.type==L_TYPE_OP)
+				{
+					l_free(it);
+					break;
+				}
 			case '-':
 			{
+				if(prev.type==L_TYPE_VOID || prev.type==L_TYPE_OP)
+				{
+					it->var.v_op=OP_NEG;
+					l_queue_push_head(stk,it);
+					break;
+				}
 				while(1)
 				{
 					top=l_queue_peek_head(stk);
@@ -174,8 +198,9 @@ LVariant l_expr_calc(const char *s)
 			}
 			l_free(it);
 		}
+		prev=tok;
 	}while(tok.type!=L_TYPE_VOID);
-	if(s[0]/* || l_queue_length(back)<2*/)
+	if(s[0])
 		goto out;
 	while((it=l_queue_pop_head(back))!=NULL)
 	{
@@ -188,19 +213,18 @@ LVariant l_expr_calc(const char *s)
 		v2=l_queue_pop_head(stk);
 		if(!v2)
 			goto out;
-		v1=l_queue_pop_head(stk);
-		if(v1 && v2 && v1->var.type!=v2->var.type)
+		if(it->var.v_op!=OP_NEG)
 		{
-			if(v1->var.type==L_TYPE_INT)
+			v1=l_queue_pop_head(stk);
+			if(v1 && v2 && v1->var.type!=v2->var.type)
 			{
-				v1->var.v_float=(double)v1->var.v_int;
-				v1->var.type=L_TYPE_FLOAT;
+				TO_FLOAT(v1);
+				TO_FLOAT(v2);
 			}
-			else if(v2->var.type==L_TYPE_INT)
-			{
-				v2->var.v_float=(double)v2->var.v_int;
-				v2->var.type=L_TYPE_FLOAT;
-			}
+		}
+		else
+		{
+			v1=NULL;
 		}
 		switch(it->var.v_op){
 		case '+':
@@ -306,7 +330,7 @@ LVariant l_expr_calc(const char *s)
 				l_free(it);
 				goto out;
 			}
-			if(v1->var.type==L_TYPE_INT && v1->var.type==L_TYPE_INT)
+			if(v1->var.type==L_TYPE_INT)
 			{
 				double temp=pow(v1->var.v_int,v2->var.v_int);
 				if(v2->var.v_int<0)
@@ -323,6 +347,17 @@ LVariant l_expr_calc(const char *s)
 			{
 				TO_FLOAT(v1);TO_FLOAT(v2);
 				v2->var.v_float=pow(v1->var.v_float,v2->var.v_float);
+			}
+			l_queue_push_head(stk,v2);
+			break;
+		case OP_NEG:
+			if(v2->var.type==L_TYPE_INT)
+			{
+				v2->var.v_int=-v2->var.v_int;
+			}
+			else
+			{
+				v2->var.v_float=-v2->var.v_float;
 			}
 			l_queue_push_head(stk,v2);
 			break;

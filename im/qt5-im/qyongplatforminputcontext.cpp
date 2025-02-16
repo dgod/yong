@@ -10,6 +10,7 @@
 
 #include <xkbcommon/xkbcommon.h>
 #include <dlfcn.h>
+#include <unistd.h>
 
 #include <stdio.h>
 #include <glib.h>

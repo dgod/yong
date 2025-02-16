@@ -8,6 +8,8 @@ var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
 
 var DIRS=['l32-gtk3','l64-gtk3'];
 
+feature(['x11','ibus']);
+
 env("VPATH+=$(TOPDIR)/im");
 env("VPATH+=$(TOPDIR)/im/fbterm");
 env("VPATH+=$(TOPDIR)/im/wayland");
@@ -16,15 +18,17 @@ env("CFLAGS+=$(LLIB_CFLAGS)");
 env("LDFLAGS+=$(LLIB_LDFLAGS)");
 env("LIBS+=$(LLIB_LDADD)");
 
-env("CFLAGS+=-I$(TOPDIR)/im -I$(TOPDIR)/im/IMdkit");
+env("CFLAGS+=-I$(TOPDIR)/im");
 env("CFLAGS+=-DCFG_XIM_YBUS");
 env("CFLAGS+=-DCFG_XIM_IBUS `pkg-config --cflags ibus-1.0`");
 env("CFLAGS+=-DCFG_XIM_FBTERM -I$(TOPDIR)/im/fbterm");
 env("CFLAGS+=-DL_CALL_GLIB_SERVER -DL_CALL_GLIB_CLIENT");
 env("CFLAGS+=-Wno-deprecated-declarations");
+if(support("x11"))
+	env("CFLAGS+=-I$(TOPDIR)/im/IMdkit");
 
 env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
-env("LIBS+=-ll -ldl -lm -lXimd -lxkbcommon");
+env("LIBS+=-ll -ldl -lm -lxkbcommon");
 
 function run(target){
 	cd(target);
@@ -46,10 +50,12 @@ function run(target){
 		env("LDFLAGS+=-L$(TOPDIR)/im/IMdkit/$(BUILD)");
 		if("GTK_LDFLAGS" in process.env)
 			env("LDFLAGS","+=",process.env.GTK_LDFLAGS);
+		if(support('x11'))
+			env('LIBS+=-lX11 -lXimd');
 		if(GTK=="gtk4")
-			env("LIBS+=-lX11 `pkg-config --libs gtk+-4.0`");
+			env("LIBS+=`pkg-config --libs gtk+-4.0`");
 		else
-			env("LIBS+=-lX11 `pkg-config --libs gtk+-3.0`");
+			env("LIBS+=`pkg-config --libs gtk+-3.0`");
 		ld(OBJS,'$(DESTDIR)/yong');
 	});
 }
@@ -71,13 +77,15 @@ if(target=="clean"){
 } else if(target=="bihua") {
 	bihua();
 } else if(target=="l32") {
-	build("IMdkit",undefined,"l32");
+	if(support('x11'))
+		build("IMdkit",undefined,"l32");
 	build("gtk-im",undefined,['l32-gtk2','l32-gtk3']);
 	build("gtk4-im",undefined,['l32-gtk4']);
 	build("qt5-im",undefined,['l32-qt5','l32-qt6']);
 	build(undefined,undefined,['l32-gtk3']);
 } else if(target=="l64") {
-	build("IMdkit",undefined,"l64");
+	if(support('x11'))
+		build("IMdkit",undefined,"l64");
 	build("gtk-im",undefined,['l64-gtk2','l64-gtk3']);
 	build("gtk4-im",undefined,['l64-gtk4']);
 	build("qt5-im",undefined,['l64-qt5','l64-qt6']);

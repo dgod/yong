@@ -189,7 +189,9 @@ static gboolean cb_stdout(GIOChannel* channel, GIOCondition condition, SPAWN_ARG
 		char temp[16*1024];
 		l_utf8_to_gb(arg->str->str,temp,sizeof(temp));
 		l_str_trim_right(temp);
-		if(l_str_has_prefix(temp,"yong:text "))
+		if(!strcmp(temp,"yong:text"))
+			temp[0]=0;
+		else if(l_str_has_prefix(temp,"yong:text "))
 			memmove(temp,temp+10,strlen(temp+10)+1);
 		arg->cb(temp,arg->user);
 	}

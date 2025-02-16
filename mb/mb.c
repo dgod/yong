@@ -2994,8 +2994,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 
 static int mb_load_user(struct y_mb *mb,const char *fn)
 {
-	FILE *fp;
-	fp=y_mb_open_file(fn,"rb");
+	FILE *fp=y_mb_open_file(fn,"rb");
 	if(!fp) return 0;
 	mb_load_data(mb,fp,Y_MB_DIC_USER);
 	fclose(fp);
@@ -3421,8 +3420,14 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 			}
 			else
 			{
-				if(!mb->encode)
+				if(mb->encode==1)
+				{
+					l_utf8_to_gb(line+5,mb->name,sizeof(mb->name));
+				}
+				else
+				{
 					strcpy(mb->name,line+5);
+				}
 			}
 		}
 		else if(!strncmp(line,"key=",4))
@@ -3590,6 +3595,11 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 				free(mb->user);
 			char file[256];
 			int words=0;
+			if(mb->encode==1)
+			{
+				l_utf8_to_gb(line+5,file,sizeof(file));
+				strcpy(line+5,file);
+			}
 			l_sscanf(line+5,"%255s %d",file,&words);
 			mb->user=l_strdup(file);
 			mb->user_words=words;
@@ -3846,7 +3856,9 @@ void y_mb_save_user(struct y_mb *mb)
 			it=it->next;
 		}
 	}
-	EIM.Callback(EIM_CALLBACK_ASYNC_WRITE_FILE,mb->user,str,true);
+	char user[256];
+	l_gb_to_utf8(mb->user,user,sizeof(user));
+	EIM.Callback(EIM_CALLBACK_ASYNC_WRITE_FILE,user,str,true);
 	mb->dirty=0;
 }
 #else

@@ -80,7 +80,6 @@ static XIMTriggerKey Trigger_Keys[] = {
 	{0L, 0L, 0L}
 };
 
-static int is_utf8;
 static int onspot;
 static XIMS ims;
 static Display *dpy;
@@ -311,11 +310,6 @@ static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 	data.todo.draw.chg_length = priv->last_len;
 	data.todo.draw.text = &text;
 	text.encoding_is_wchar = False;
-	if(!is_utf8)
-	{
-		XmbTextListToTextProperty (dpy, (char **)&s, 1, XCompoundTextStyle, &tp);
-	}
-	else
 	{
 		char temp[512];
 		l_gb_to_utf8(s,temp,sizeof(temp));s=temp;
@@ -342,14 +336,8 @@ static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,in
 	
 	xim_preedit_clear(conn_id,client_id);
 
-	if(is_utf8)
 	{
 		y_im_str_encode(s,out,0);
-		ps=out;
-	}
-	else
-	{
-		strcpy(out,s);
 		ps=out;
 	}
 
@@ -1062,8 +1050,6 @@ static int xim_init(void)
 	Window im_window;
 	guint source;
 
-	is_utf8=!strcmp(nl_langinfo(CODESET),"UTF-8");
-	
 	imname = getenv ("XMODIFIERS");
 	if(imname)
 	{

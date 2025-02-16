@@ -52,17 +52,31 @@
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #endif
 
+#ifndef EQUAL
+#define EQUAL(a,b) _Generic(			\
+		(a),							\
+		const char*:					\
+			!strcmp(					\
+				(void*)(uintptr_t)(a),	\
+				(void*)(uintptr_t)(b)),	\
+		char*:							\
+			!strcmp(					\
+				(void*)(uintptr_t)(a),	\
+				(void*)(uintptr_t)(b)),	\
+		default:(a)==(b))
+#endif
+
 #ifdef __GNUC__
 #define array_index(a,c,v)				\
 (__extension__							\
 	({									\
-		typeof(v) *__a=(typeof(v)*)(a);	\
+		typeof((a)[0]) *__a=(void*)(a);	\
 		int __c=(int)(c);				\
 		typeof(v) __v=(v);				\
 		int __r=-1;						\
-		for(int __i=0;__i<__c;__i++)		\
+		for(int __i=0;__i<__c;__i++)	\
 		{								\
-			if(__v==__a[__i])			\
+			if(EQUAL(__v,__a[__i]))		\
 			{							\
 				__r=__i;				\
 				break;					\

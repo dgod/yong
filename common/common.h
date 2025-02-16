@@ -47,6 +47,7 @@ int *y_im_str_to_keys(const char *s);
 int y_im_get_key(const char *name,int pos,int def);
 int y_im_key_eq(int k1,int k2);
 int y_im_parse_keys(const char *s,int *out,int size);
+char **y_im_parse_argv(const char *s,int size);
 char *y_im_str_escape(const char *s,int commit,int64_t t);
 void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,const char *tip);
 int y_im_str_encode(const char *gb,void *out,int flags);
@@ -101,7 +102,7 @@ int y_im_diff_hand(char c1,char c2);
 int y_im_is_url(const char *s);
 void y_im_set_last_code(const char *s,const char *cand);
 const char *y_im_get_last_code(void);
-void y_im_repeat_last_code(void *);
+void y_im_repeat_last_code(void);
 
 #define EXPAND_SPACE			0x01
 #define EXPAND_ENV				0x02

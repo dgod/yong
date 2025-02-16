@@ -107,6 +107,7 @@ p_wl_keyboard_add_listener(struct wl_keyboard *wl_keyboard,
 #include "libwayland-glib-source.c"
 
 static GWaylandSource *l_source;
+static bool l_wayland_debug;
 
 #define CLIENT_ID_VAL			1
 
@@ -1233,7 +1234,8 @@ static void registry_handle_global(void *data, struct wl_registry *registry,
 		       uint32_t name, const char *interface, uint32_t version)
 {
 	struct simple_im *keyboard=data;
-	// fprintf(stderr,"%s %u\n",interface,version);
+	if(l_wayland_debug)
+		fprintf(stderr,"%s %u\n",interface,version);
 	if(!strcmp(interface,"wl_seat"))
 	{
 		if(!l_source->display_owned)
@@ -1307,10 +1309,14 @@ static bool load_gtk_layer_shell(void)
 		p_gtk_layer_set_margin=dlsym(l_so,"gtk_layer_set_margin");
 		p_gtk_layer_set_keyboard_mode=dlsym(l_so,"gtk_layer_set_keyboard_mode");
 		p_gtk_layer_set_anchor=dlsym(l_so,"gtk_layer_set_anchor");
+		if(l_wayland_debug)
+			fprintf(stderr,"load gtk-layer-shell ok\n");
 		return true;
 	}
 	else
 	{
+		if(l_wayland_debug)
+			fprintf(stderr,"load gtk-layer-shell fail\n");
 		return false;
 	}
 #endif
@@ -1326,9 +1332,13 @@ int ybus_wayland_ui_init(void)
 	l_so=dlopen("libwayland-client.so.0",RTLD_LAZY);
 	if(!l_so)
 	{
-		//printf("wayland library not found\n");
+		if(l_wayland_debug)
+			fprintf(stderr,"wayland library not found\n");
 		return -1;
 	}
+	
+	if(getenv("YONG_WAYLAND_DEBUG"))
+		l_wayland_debug=true;
 
 	p_wl_display_connect=dlsym(l_so,"wl_display_connect");
 	p_wl_display_disconnect=dlsym(l_so,"wl_display_disconnect");
@@ -1377,7 +1387,12 @@ int ybus_wayland_ui_init(void)
 #endif
 
 	l_source=g_wayland_source_new(NULL,NULL);
-	if(!l_source) return -1;
+	if(!l_source)
+	{
+		if(l_wayland_debug)
+			fprintf(stderr,"wayland source new fail\n");
+		return -1;
+	}
 
 	if(!l_source->display_owned)
 	{
@@ -1406,10 +1421,8 @@ int ybus_wayland_init(void)
 #ifndef WAYLAND_STANDALONE
 	ybus_add_plugin(&plugin);
 #endif
-
 	return 0;
 }
-
 
 #ifdef WAYLAND_STANDALONE
 
@@ -1579,7 +1592,6 @@ int ybus_wayland_win_show(GtkWidget *w,int show)
 			zwp_input_panel_surface_v1_set_overlay_panel(surface);
 			g_object_set_data_full(G_OBJECT(w),"wayland-surface",surface,
 				(GDestroyNotify)zwp_input_panel_surface_v1_destroy);
-			fprintf(stderr,"show %p\n",surface);
 		}
 	}
 	else
@@ -1746,6 +1758,8 @@ static void wayland_init_main_win(struct simple_im *keyboard)
 	p_gtk_layer_set_anchor(w,GTK_LAYER_SHELL_EDGE_BOTTOM,FALSE);
 	g_object_set_data(G_OBJECT(w),"wayland-custom",GINT_TO_POINTER(IM_WIN_LAYER));
 	g_object_set_data(G_OBJECT(keyboard->wins.main),"wayland-surface",GINT_TO_POINTER(1));
+	if(l_wayland_debug)
+		fprintf(stderr,"init main win as layer shell\n");
 }
 
 static void wayland_init_keyboard_win(struct simple_im *keyboard)
@@ -2002,11 +2016,13 @@ static int xim_init(void)
 	if(!keyboard->virtual_keyboard_v1 && keyboard->seat && keyboard->virtual_keyboard_manager_v1)
 	{
 		keyboard->virtual_keyboard_v1 = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(keyboard->virtual_keyboard_manager_v1, keyboard->seat);
-		// printf("create virtual keyboard %p\n",keyboard->virtual_keyboard);
+		// if(l_wayland_debug)
+			// fprintf(stderr,"create virtual keyboard %p\n",keyboard->virtual_keyboard_v1);
 	}
 	if(keyboard->input_method_v2 && keyboard->seat)
 	{
-		// printf("get input method %p\n",keyboard->input_method);
+		// if(l_wayland_debug)
+			// fprintf(stderr,"get input method %p\n",keyboard->input_method_v2);
 		zwp_input_method_v2_add_listener(keyboard->input_method_v2,
 					  &input_method_listener_v2, keyboard);
 	}

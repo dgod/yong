@@ -79,7 +79,10 @@ enum
 #define l_thread_local __declspec(thread)
 typedef HANDLE l_thrd_t;
 typedef HANDLE l_mtx_t;
-typedef HANDLE l_cnd_t;
+typedef struct{
+	HANDLE event;
+	bool has_waiter;
+}l_cnd_t;
 
 DWORD WINAPI l_winthread_wrapper(void *param);
 
@@ -156,32 +159,43 @@ static inline int l_mtx_unlock(l_mtx_t *mtx)
 
 static inline int l_mtx_timedlock(l_mtx_t *mtx, const struct timespec *ts)
 {
-	return WaitForSingleObject(*mtx,ts->tv_sec*1000+ts->tv_nsec/1000000)>=WAIT_OBJECT_0?l_thrd_success:l_thrd_busy;
+	return WaitForSingleObject(*mtx,ts?ts->tv_sec*1000+ts->tv_nsec/1000000:INFINITE)>=WAIT_OBJECT_0?l_thrd_success:l_thrd_busy;
 }
 
 static inline int l_cnd_init(l_cnd_t *cond)
 {
-	*cond=CreateEvent(NULL,FALSE,FALSE,NULL);
-	if(!*cond)
+	cond->event=CreateEvent(NULL,FALSE,FALSE,NULL);
+	if(!cond->event)
 		return l_thrd_error;
+	cond->has_waiter=false;
 	return l_thrd_success;
 }
 
-static inline int l_cnd_destroy(l_cnd_t *cond)
+static inline void l_cnd_destroy(l_cnd_t *cond)
 {
-	return CloseHandle(*cond)?l_thrd_success:l_thrd_error;
+	if(cond && cond->event)
+	{
+		CloseHandle(cond->event);
+		cond->event=NULL;
+	}
 }
 
 static inline int l_cnd_signal(l_cnd_t *cond)
 {
-	return SetEvent(*cond)?l_thrd_success:l_thrd_error;
+	if(cond->has_waiter)
+	{
+		cond->has_waiter=false;
+		return SetEvent(cond->event)?l_thrd_success:l_thrd_error;
+	}
+	return l_thrd_success;
 }
 
 static inline int l_cnd_wait(l_cnd_t *cond,l_mtx_t *mtx)
 {
+	cond->has_waiter=true;
 	if(TRUE!=ReleaseMutex(*mtx))
 		return l_thrd_error;
-	DWORD ret=WaitForSingleObject(*cond,INFINITE);
+	DWORD ret=WaitForSingleObject(cond->event,INFINITE);
 	if(ret!=WAIT_OBJECT_0)
 	{
 		WaitForSingleObject(*mtx,INFINITE);
@@ -195,9 +209,10 @@ static inline int l_cnd_wait(l_cnd_t *cond,l_mtx_t *mtx)
 
 static inline int l_cnd_timedwait(l_cnd_t *cond,l_mtx_t *mtx,const struct timespec *ts)
 {
+	cond->has_waiter=true;
 	if(TRUE!=ReleaseMutex(*mtx))
 		return l_thrd_error;
-	DWORD ret=WaitForSingleObject(*cond,ts->tv_sec*1000+ts->tv_nsec/1000000);
+	DWORD ret=WaitForSingleObject(cond->event,ts?ts->tv_sec*1000+ts->tv_nsec/1000000:INFINITE);
 	if(ret==WAIT_TIMEOUT)
 	{
 		WaitForSingleObject(*mtx,INFINITE);
@@ -294,16 +309,24 @@ static inline int l_mtx_unlock(l_mtx_t *mtx)
 
 static inline int l_mtx_timedlock(l_mtx_t *mtx, const struct timespec *ts)
 {
-	struct timespec t;
-	clock_gettime(CLOCK_REALTIME,&t);
-	t.tv_sec+=ts->tv_sec;
-	t.tv_nsec+=ts->tv_nsec;
-	if(t.tv_nsec>=1000000000)
+	int ret;
+	if(!ts)
 	{
-		t.tv_nsec-=1000000000;
-		t.tv_sec++;
+		ret=pthread_mutex_unlock(mtx);
 	}
-	int ret=pthread_mutex_timedlock(mtx,&t);
+	else
+	{
+		struct timespec t;
+		clock_gettime(CLOCK_REALTIME,&t);
+		t.tv_sec+=ts->tv_sec;
+		t.tv_nsec+=ts->tv_nsec;
+		if(t.tv_nsec>=1000000000)
+		{
+			t.tv_nsec-=1000000000;
+			t.tv_sec++;
+		}
+		ret=pthread_mutex_timedlock(mtx,&t);
+	}
 	return ret==0?l_thrd_success:l_thrd_error;
 }
 
@@ -317,6 +340,8 @@ static inline int l_cnd_signal(l_cnd_t *cnd)
 	return pthread_cond_signal(cnd)==0?l_thrd_success:l_thrd_error;
 }
 
+#define l_cnd_destroy(cnd) pthread_cond_destroy(cnd)
+
 static inline int l_cnd_wait(l_cnd_t *cnd,l_mtx_t *mtx)
 {
 	return pthread_cond_wait(cnd,mtx)==0?l_thrd_success:l_thrd_error;
@@ -324,16 +349,25 @@ static inline int l_cnd_wait(l_cnd_t *cnd,l_mtx_t *mtx)
 
 static inline int l_cnd_timedwait(l_cnd_t *cnd,l_mtx_t *mtx,const struct timespec *ts)
 {
-	struct timespec t;
-	clock_gettime(CLOCK_REALTIME,&t);
-	t.tv_sec+=ts->tv_sec;
-	t.tv_nsec+=ts->tv_nsec;
-	if(t.tv_nsec>=1000000000)
+	int ret;
+	if(ts)
 	{
-		t.tv_nsec-=1000000000;
-		t.tv_sec++;
+		struct timespec t;
+		clock_gettime(CLOCK_REALTIME,&t);
+		t.tv_sec+=ts->tv_sec;
+		t.tv_nsec+=ts->tv_nsec;
+		if(t.tv_nsec>=1000000000)
+		{
+			t.tv_nsec-=1000000000;
+			t.tv_sec++;
+		}
+		ret=pthread_cond_timedwait(cnd,mtx,&t);
 	}
-	return pthread_cond_timedwait(cnd,mtx,&t)==0?l_thrd_success:l_thrd_error;
+	else
+	{
+		ret=pthread_cond_wait(cnd,mtx);
+	}
+	return ret==0?l_thrd_success:l_thrd_error;
 }
 
 #endif

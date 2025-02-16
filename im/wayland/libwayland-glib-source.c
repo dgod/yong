@@ -77,9 +77,8 @@ static GWaylandSource *g_wayland_source_new(GMainContext *context, const gchar *
     struct wl_display *display;
     GWaylandSource *source;
    
-    GdkDisplay *gd;
-    gd=gdk_display_get_default();
-    if(gd!=NULL && l_str_has_prefix(gdk_display_get_name(gd),"wayland"))
+    GdkDisplay *gd=gdk_display_get_default();
+    if(gd!=NULL && !l_str_has_prefix(gdk_display_get_name(gd),":"))
     {
 		display=p_gdk_wayland_display_get_wl_display(gd);
 		source = (GWaylandSource *)g_source_new(&_g_wayland_source_funcs, sizeof(GWaylandSource));

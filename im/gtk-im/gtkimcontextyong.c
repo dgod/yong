@@ -266,14 +266,8 @@ static int is_wayland(void)
 {
 	if(!getenv("WAYLAND_DISPLAY"))
 		return 0;
-	if(_app_type==APP_GVIM)
-		return 0;
-	char *s=getenv("GDK_BACKEND");
-	if(!s)
-		return 1;
-	if(!strcmp(s,"x11"))
-		return 0;
-	return 1;
+	GdkDisplay *gd=gdk_display_get_default();
+	return gdk_display_get_name(gd)[0]!=':';
 }
 #else
 static int is_wayland(void)

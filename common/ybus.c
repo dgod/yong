@@ -874,7 +874,6 @@ int xim_ybus_preedit_draw(const char *s,int len)
 {
 	YBUS_CONNECT *conn=conn_active;
 	YBUS_PLUGIN *plugin;
-	char temp[512];
 	if(!conn || !conn->active)
 		return -1;
 	plugin=conn->plugin;
@@ -884,8 +883,7 @@ int xim_ybus_preedit_draw(const char *s,int len)
 		return -1;
 	if(!conn->onspot && !onspot)
 		return -1;
-	y_im_str_encode_r(s,temp);
-	plugin->preedit_draw(conn->id,conn->active->id,temp);
+	plugin->preedit_draw(conn->id,conn->active->id,s);
 	return 0;
 }
 

@@ -57,6 +57,12 @@ void y_xim_forward_key(int key,int repeat)
 {
 	if(xim.forward_key)
 		xim.forward_key(key,repeat);
+	if(key==YK_BACKSPACE)
+	{
+		do{
+			y_im_history_write("\b",false);
+		}while(--repeat>0);
+	}
 }
 
 void y_xim_update_config(void)
@@ -74,8 +80,6 @@ static void send_raw_string_async(const char *text,void *unused)
 	else
 		xim.send_string(text,DONT_ESCAPE);
 }
-
-static char **y_im_parse_argv(const char *s,int size);
 
 static void async_spawn_at_idle(char *s)
 {
@@ -278,8 +282,26 @@ static void y_im_input_key_at_idle(int *keys)
 {
 	if(!keys)
 		return;
-	for(int i=0;keys[i]!=0;i++)
+	int i=0;
+	for(;keys[i]==YK_BACKSPACE;i++);
+	if(i>0)
+	{
+		y_xim_forward_key(YK_BACKSPACE,i);
+		if(keys[i]==0)
+			return;
+		for(int j=0;;j++,i++)
+		{
+			keys[j]=keys[i];
+			if(!keys[j])
+				break;
+		}
+		y_ui_timer_add(50,(void*)y_im_input_key_at_idle,keys);
+		return;
+	}
+	for(;keys[i]!=0;i++)
+	{
 		y_im_input_key(keys[i]);
+	}
 	l_free(keys);
 }
 
@@ -566,7 +588,7 @@ void y_im_set_last_code(const char *s,const char *cand)
 		if(!strcmp(cand,"$BACKSPACE(LAST)"))
 			return;
 		// 如果之前是发送repeat_code按键，则可能形成死循环
-		if(l_str_has_surround(cand,"$IMKEY(",")"))
+		if(l_str_has_prefix(cand,"$IMKEY("))
 			return;
 	}
 	strcpy(last_code,s);
@@ -577,9 +599,8 @@ const char *y_im_get_last_code(void)
 	return last_code;
 }
 
-void y_im_repeat_last_code(void *unused)
+void y_im_repeat_last_code(void)
 {
-	(void)unused;
 	for(int i=0;last_code[i]!=0;i++)
 	{
 		y_im_input_key(last_code[i]);
@@ -1253,7 +1274,7 @@ int *y_im_str_to_keys(const char *s)
 	int keys[64];
 	int count=0;
 	const char *begin=s;
-	while(count<L_ARRAY_SIZE(keys)-1)
+	while(count<lengthof(keys)-1)
 	{
 		int key;
 		int repeat;
@@ -1283,7 +1304,7 @@ int *y_im_str_to_keys(const char *s)
 		}
 		if(!key)
 			break;
-		while(count<L_ARRAY_SIZE(keys)-1 && repeat>0)
+		while(count<lengthof(keys)-1 && repeat>0)
 		{
 			keys[count++]=key;
 			repeat--;
@@ -1618,7 +1639,7 @@ unmask:
 	return count;
 }
 
-static char **y_im_parse_argv(const char *s,int size)
+char **y_im_parse_argv(const char *s,int size)
 {
 	if(size<=0)
 		size=strlen(s);

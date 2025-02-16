@@ -430,9 +430,7 @@ static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s)
 	if (s != NULL && s[0] != 0)
 	{
 		int length;
-		char out[512];
-		y_im_str_encode(s,out,0);
-		text = p_ibus_text_new_from_string(out);
+		text = p_ibus_text_new_from_string(s);
 		length=p_ibus_text_get_length(text);
 		p_ibus_text_append_attribute (text, IBUS_ATTR_TYPE_UNDERLINE, IBUS_ATTR_UNDERLINE_LOW, 0, -1);
 		p_ibus_engine_update_preedit_text ((IBusEngine *)conn_id,text,length,TRUE);

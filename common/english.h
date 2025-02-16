@@ -7,9 +7,10 @@
 typedef struct{
 	int (*Set)(const char *s);
 	int (*Get)(char cand[][MAX_CAND_LEN+1],int pos,int count);
+	void (*Reset)(void);
+	int Count;
 	int64_t Priv1;
 	uintptr_t Priv2;
-	int Count;
 }ENGLISH_IM;
 
 void y_english_init(void);

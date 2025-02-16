@@ -1842,7 +1842,6 @@ int YongKeyInput(int key,int mod)
 		YongResetIM();
 		return 1;
 	}
-
 	if((key&KEYM_MASK)==KEYM_SHIFT)
 	{
 		int temp=YK_CODE(key);
@@ -1928,7 +1927,7 @@ ENGLISH_MODE:
 		}
 		else if(!im.EnglishMode && key==key_repeat_code && !eim->CodeLen && !eim->CandWordCount)
 		{
-			y_ui_idle_add(y_im_repeat_last_code,NULL);
+			y_im_repeat_last_code();
 			return 1;
 		}
 		if(im.EnglishMode)

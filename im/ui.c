@@ -213,7 +213,8 @@ static int ui_init(void)
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 	{
 		const char *desktop=getenv("XDG_CURRENT_DESKTOP");
-		if(!desktop ||(!strstr(desktop,"wlroots") && !strstr(desktop,"KDE") && !strstr(desktop,"UKUI")))
+		const char *support[]={"KDE","UKUI","DDE"};
+		if(!desktop ||(!strstr(desktop,"wlroots") && !array_includes(support,lengthof(support),desktop)))
 			setenv("GDK_BACKEND","x11",1);
 	}
 	if(getenv("GDK_SCALE"))
@@ -270,11 +271,11 @@ static int ui_init(void)
 	}
 	
 	calc_ui_scale();
-	if(l_str_has_prefix(gdk_display_get_name(gdk_display_get_default()),"wayland"))
+	const char *display_name=gdk_display_get_name(gdk_display_get_default());
+	if(!l_str_has_prefix(display_name,":"))
 	{
 		is_wayland=true;
 	}
-
 	ybus_wayland_ui_init();
 	wayland_show_hack=y_im_get_config_int("main","wayland_show_hack");
 	wayland_tip_center=y_im_get_config_int("main","wayland_tip_center");
@@ -3230,6 +3231,21 @@ static void on_gsetting_changed(GSettings *settings, const gchar *key, gpointer 
 	}
 }
 
+static bool is_settings_has_key(const char *s)
+{
+	gchar **keys=g_settings_list_keys(gsettings);
+	bool found=false;
+	for(int i=0;keys[i]!=NULL;i++)
+	{
+		if(!strcmp(s,keys[i]))
+		{
+			found=true;
+			break;
+		}
+	}
+	g_strfreev(keys);
+	return found;
+}
 static bool ui_get_dark(void)
 {
 	bool is_dark=false;
@@ -3245,10 +3261,17 @@ static bool ui_get_dark(void)
 	{
 		goto fallback;
 	}
+	if(!is_settings_has_key("color-scheme"))
+	{
+		g_object_unref(gsettings);
+		gsettings=NULL;
+		goto fallback;
+	}
 	char *color=g_settings_get_string(gsettings,"color-scheme");
 	if(!color)
 	{
 		g_object_unref(gsettings);
+		gsettings=NULL;
 		goto fallback;
 	}
 	is_dark=!strcmp(color,"prefer-dark");
