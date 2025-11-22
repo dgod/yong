@@ -135,12 +135,18 @@ static int xim_preedit_draw(CONN_ID conn_id,CLIENT_ID client_id,const char *s);
 static void xim_send_string(CONN_ID conn_id,CLIENT_ID client_id,const char *s,int flags);
 static void xim_send_key(CONN_ID conn_id,CLIENT_ID client_id,int key,int repeat);
 static void xim_send_keys(CONN_ID conn_id,CLIENT_ID client_id,const int *key,int count);
+static CONN_ID xim_copy_connect_id(CONN_ID id);
+static void xim_free_connect_id(CONN_ID id);
+static int xim_match_connect(CONN_ID a,CONN_ID b);
 static int xim_init(void);
 
 static YBUS_PLUGIN plugin={
 	.name="wayland",
 	.init=xim_init,
 	.get_appid=xim_get_appid,
+	.copy_connect_id=xim_copy_connect_id,
+	.free_connect_id=xim_free_connect_id,
+	.match_connect=xim_match_connect,
 	.config=xim_config,
 	.open_im=xim_open_im,
 	.close_im=xim_close_im,
@@ -158,11 +164,6 @@ enum{
 	IM_WIN_INPUT,
 	IM_WIN_LAYER,
 	IM_WIN_CUSTOM,
-};
-
-struct conn_app{
-	void *next;
-	char *id;
 };
 
 struct simple_im{
@@ -202,6 +203,13 @@ struct simple_im{
 	uint32_t repeat_key;
 	guint repeat_tmr;
 	
+	// v2 only keymap state
+	struct{
+		uint32_t format;
+		int32_t fd;
+		uint32_t size;
+	}keymap_param;
+
 	struct xkb_keymap *keymap;
 	struct xkb_state *state;
 	xkb_mod_mask_t control_mask;
@@ -238,38 +246,20 @@ struct simple_im{
 	}wins;
 #endif
 
-	LHashTable *app_list;
-	struct conn_app *app_active;
+	char app_active[128];
 }simple_im;
 
-#if 0
-static void conn_app_free(struct conn_app *app)
+static YBUS_CONNECT *conn_app_set_active(const char *id)
 {
-	if(!app)
-		return;
-	YBUS_CONNECT *yconn=ybus_find_connect(&plugin,(CONN_ID)app);
-	if(yconn)
+	l_strcpy(simple_im.app_active,sizeof(simple_im.app_active),id);
+	YBUS_CONNECT *conn;
+	conn=ybus_find_connect(&plugin,(CONN_ID)simple_im.app_active);
+	if(!conn)
 	{
-		ybus_free_connect(yconn);
+		conn=ybus_add_connect(&plugin,(CONN_ID)simple_im.app_active);
+		ybus_add_client(conn,CLIENT_ID_VAL,0);
 	}
-	l_free(app->id);
-	l_free(app);
-}
-#endif
-
-static struct conn_app *conn_app_set_active(const char *id)
-{
-	struct conn_app *r=l_hash_table_lookup(simple_im.app_list,id);
-	if(!r)
-	{
-		r=l_new(struct conn_app);
-		r->id=l_strdup(id);
-		l_hash_table_insert(simple_im.app_list,r);
-		YBUS_CONNECT *yconn=ybus_add_connect(&plugin,(CONN_ID)r);
-		ybus_add_client(yconn,CLIENT_ID_VAL,0);
-	}
-	simple_im.app_active=r;
-	return r;
+	return conn;
 }
 
 static void input_method_keyboard_keymap(
@@ -279,14 +269,20 @@ static void input_method_keyboard_keymap(
 		int32_t fd,
 		uint32_t size)
 {
-	//printf("input_method_keyboard_keymap %u %d %u\n",format,fd,size);
+	// printf("input_method_keyboard_keymap %u %d %u\n",format,fd,size);
+	if(keyboard->keymap_param.fd>0)
+		close(keyboard->keymap_param.fd);
+	keyboard->keymap_param.format=format;
+	keyboard->keymap_param.fd=fd;
+	keyboard->keymap_param.size=size;
+
 	if(keyboard->virtual_keyboard_v1)
 	{
 		zwp_virtual_keyboard_v1_keymap(keyboard->virtual_keyboard_v1, format, fd, size);
 	}
 	if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
 	{
-		close(fd);
+		// close(fd);
 		printf("format not support\n");
 		return;
 	}
@@ -294,7 +290,7 @@ static void input_method_keyboard_keymap(
 	char *map_str=mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
 	if (map_str == MAP_FAILED)
 	{
-		close(fd);
+		// close(fd);
 		printf("mmap fail\n");
 		return;
 	}
@@ -310,7 +306,7 @@ static void input_method_keyboard_keymap(
 					XKB_KEYMAP_FORMAT_TEXT_V1,
 					0);
 	munmap(map_str, size);
-	close(fd);
+	// close(fd);
 
 	keyboard->state = xkb_state_new(keyboard->keymap);
 	if (!keyboard->state)
@@ -469,6 +465,7 @@ static int GetKey_r(struct simple_im *keyboard,int yk)
 	case YK_LSHIFT:vk=XKB_KEY_Shift_L;break;
 	case YK_LALT:vk=XKB_KEY_Alt_L;break;
 	case YK_LWIN:vk=XKB_KEY_Super_L;break;
+	case YK_BACK:vk=XKB_KEY_XF86Back;break;
 	default:vk=yk;
 	}
 
@@ -664,9 +661,9 @@ static void input_method_keyboard_key_real(
 		uint32_t key,
 		uint32_t state)
 {
-	// printf("input_method_keyboard_key_real %u %u\n",key,state);
 	int res=FALSE;
 	int yk=GetKey(keyboard,key,state);
+	// fprintf(stderr,"input_method_keyboard_key_real key:%u state:%u yk:%x\n",key,state,yk);
 	if(state==WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
 #ifndef WAYLAND_STANDALONE
@@ -696,7 +693,8 @@ static void input_method_keyboard_key_real(
 	if(YK_CODE(yk)>=YK_LSHIFT && YK_CODE(yk)<=YK_RWIN)
 	{
 		keyboard->bing=0;
-		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,keyboard->time,key,state);
+		if(keyboard->virtual_keyboard_v1)
+			zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,keyboard->time,key,state);
 		if(state==WL_KEYBOARD_KEY_STATE_PRESSED)
 			return;
 		yk&=~KEYM_UP;
@@ -779,7 +777,7 @@ static void input_method_keyboard_key_real(
 		res=ybus_on_key(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,yk);
 #endif
 	}
-	if(!res)
+	if(!res && keyboard->virtual_keyboard_v1)
 	{
 		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,keyboard->time,key,state);
 	}
@@ -808,7 +806,7 @@ static void input_method_keyboard_key(
 		uint32_t key,
 		uint32_t state)
 {
-	// printf("input_method_keyboard_key %u %u %u %u\n",serial,time,key,state);
+	// fprintf(stderr,"input_method_keyboard_key %u %u %u %u\n",serial,time,key,state);
 	if(!keyboard->state)
 	{
 		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,time,key,state);
@@ -840,7 +838,8 @@ static void input_method_keyboard_modifiers(
 		uint32_t group)
 {
 	// fprintf(stderr,"input_method_keyboard_modifiers %x %x %x %x\n",mods_depressed,mods_latched,mods_locked,group);
-	zwp_virtual_keyboard_v1_modifiers(keyboard->virtual_keyboard_v1,mods_depressed,mods_latched,mods_locked,group);
+	if(keyboard->virtual_keyboard_v1)
+		zwp_virtual_keyboard_v1_modifiers(keyboard->virtual_keyboard_v1,mods_depressed,mods_latched,mods_locked,group);
 	keyboard->modifiers_os.depressed=mods_depressed;
 	keyboard->modifiers_os.latched=mods_latched;
 	keyboard->modifiers_os.locked=mods_locked;
@@ -888,13 +887,22 @@ static void input_method_activate(
 		struct simple_im *keyboard,
 		struct zwp_input_method_v2 *zwp_input_method_v2)
 {
-	conn_app_set_active("");
-	// printf("input_method_activate %p\n",keyboard->app_active);
+	conn_app_set_active("v2");
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_activate v2 %s\n",keyboard->app_active);
+	if(!keyboard->virtual_keyboard_v1)
+	{
+		keyboard->virtual_keyboard_v1 = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(
+				keyboard->virtual_keyboard_manager_v1, keyboard->seat);
+		// set key map first
+		zwp_virtual_keyboard_v1_keymap(keyboard->virtual_keyboard_v1,
+				keyboard->keymap_param.format, keyboard->keymap_param.fd, keyboard->keymap_param.size);
+	}
 	if(!simple_im.keyboard_grab_v2)
 	{
 		simple_im.keyboard_grab_v2=zwp_input_method_v2_grab_keyboard(zwp_input_method_v2);
 		zwp_input_method_keyboard_grab_v2_add_listener(simple_im.keyboard_grab_v2,&input_method_keyboard_listener,keyboard);
-	}
+	}	
 #ifdef WAYLAND_STANDALONE
 	client_focus_in(CLIENT_ID_VAL);
 #else
@@ -906,9 +914,21 @@ static void input_method_deactivate(
 		struct simple_im *keyboard,
 		struct zwp_input_method_v2 *zwp_input_method_v2)
 {
-	// printf("input_method_deactivate %p\n",keyboard->app_active);
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_deactivate v2 %s\n",keyboard->app_active);
 	CONN_ID id=(CONN_ID)keyboard->app_active;
-	keyboard->app_active=NULL;
+	keyboard->app_active[0]=0;
+#if 0
+	// we don't have bug in ALT-TAB like fcitx and ibus, so don't enable below code now
+	if(keyboard->virtual_keyboard_v1)
+	{
+		zwp_virtual_keyboard_v1_destroy(keyboard->virtual_keyboard_v1);
+		keyboard->virtual_keyboard_v1=NULL;
+	}
+#endif
+	// clear modifiers state
+	keyboard->modifiers=0;
+
 #ifdef WAYLAND_STANDALONE
 	client_focus_out(CLIENT_ID_VAL);
 #else
@@ -1189,8 +1209,8 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 			 struct zwp_input_method_v1 *zwp_input_method_v1,
 			 struct zwp_input_method_context_v1 *context)
 {
+	conn_app_set_active("v1");
 	// fprintf(stderr,"input_method_activate_v1\n");
-	conn_app_set_active("");
 	if (keyboard->context)
 		zwp_input_method_context_v1_destroy(keyboard->context);
 	keyboard->serial=0;
@@ -1216,7 +1236,7 @@ static void input_method_deactivate_v1(struct simple_im *keyboard,
 {
 	// fprintf(stderr,"input_method_deactivate_v1\n");
 	CONN_ID id=(CONN_ID)keyboard->app_active;
-	keyboard->app_active=NULL;
+	keyboard->app_active[0]=0;
 #ifdef WAYLAND_STANDALONE
 	client_focus_out(CLIENT_ID_VAL);
 #else
@@ -1585,6 +1605,8 @@ int ybus_wayland_win_show(GtkWidget *w,int show)
 			surface=zwp_input_method_v2_get_input_popup_surface(simple_im.input_method_v2,s);
 			g_object_set_data_full(G_OBJECT(w),"wayland-surface",surface,
 				(GDestroyNotify)zwp_input_popup_surface_v2_destroy);
+			if(l_wayland_debug)
+				fprintf(stderr,"input set popup surface v2\n");
 		}
 		else if(simple_im.input_method_v1 && simple_im.input_panel_v1)
 		{
@@ -1592,6 +1614,8 @@ int ybus_wayland_win_show(GtkWidget *w,int show)
 			zwp_input_panel_surface_v1_set_overlay_panel(surface);
 			g_object_set_data_full(G_OBJECT(w),"wayland-surface",surface,
 				(GDestroyNotify)zwp_input_panel_surface_v1_destroy);
+			if(l_wayland_debug)
+				fprintf(stderr,"input set popup surface v1\n");
 		}
 	}
 	else
@@ -1853,10 +1877,7 @@ void ybus_wayland_set_window(GtkWidget *w,const char *role,int type)
 
 static const char *xim_get_appid(CONN_ID conn_id)
 {
-	struct conn_app *app=(struct conn_app*)conn_id;
-	if(!app)
-		return NULL;
-	return app->id;
+	return (const char*)conn_id;
 }
 
 static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...)
@@ -2007,22 +2028,35 @@ static void xim_send_keys(CONN_ID conn_id,CLIENT_ID client_id,const int *keys,in
 	// send_key(&simple_im,KEYM_CTRL|'A',0);
 }
 
+static CONN_ID xim_copy_connect_id(CONN_ID id)
+{
+	return (CONN_ID)l_strdup((char*)id);
+}
+
+static void xim_free_connect_id(CONN_ID id)
+{
+	l_free((void*)id);
+}
+
+static int xim_match_connect(CONN_ID a,CONN_ID b)
+{
+	return !strcmp((char*)a,(char*)b);
+}
+
 static int xim_init(void)
 {
 	struct simple_im *keyboard=&simple_im;
 
-	keyboard->app_list=L_HASH_TABLE_STRING(struct conn_app,id,0);
-
 	if(!keyboard->virtual_keyboard_v1 && keyboard->seat && keyboard->virtual_keyboard_manager_v1)
 	{
 		keyboard->virtual_keyboard_v1 = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(keyboard->virtual_keyboard_manager_v1, keyboard->seat);
-		// if(l_wayland_debug)
-			// fprintf(stderr,"create virtual keyboard %p\n",keyboard->virtual_keyboard_v1);
+		if(l_wayland_debug)
+			fprintf(stderr,"create virtual keyboard %p\n",keyboard->virtual_keyboard_v1);
 	}
 	if(keyboard->input_method_v2 && keyboard->seat)
 	{
-		// if(l_wayland_debug)
-			// fprintf(stderr,"get input method %p\n",keyboard->input_method_v2);
+		if(l_wayland_debug)
+			fprintf(stderr,"get input method %p\n",keyboard->input_method_v2);
 		zwp_input_method_v2_add_listener(keyboard->input_method_v2,
 					  &input_method_listener_v2, keyboard);
 	}

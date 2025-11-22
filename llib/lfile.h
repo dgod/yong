@@ -21,10 +21,12 @@ char **l_readdir(const char *path);
 int l_remove(const char *name);
 
 bool l_file_is_dir(const char *path);
+int l_access(const char *path,int mode);
 bool l_file_exists(const char *path);
 time_t l_file_mtime(const char *path);
 ssize_t l_file_size(const char *path);
 ssize_t l_filep_size(FILE *fp);
+int l_file_touch(const char *path,int64_t mtime);
 
 int l_file_copy(const char *dst,const char *src,...);
 

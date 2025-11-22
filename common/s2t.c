@@ -23,8 +23,7 @@ static int s2t_multi;
 
 static int s2t_get_enable(void)
 {
-	CONNECT_ID *id;
-	id=y_xim_get_connect();
+	CONNECT_ID *id=y_xim_get_connect();
 	if(!id) return 0;
 	if(id->trad==im.Trad)
 		return 0;

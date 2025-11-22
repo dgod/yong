@@ -9,7 +9,7 @@
 #else
 #if !__has_include("threads.h")
 #undef L_USE_C11_THREADS
-#define L_USE_C11_THREADS 1
+#define L_USE_C11_THREADS 0
 #endif
 #endif
 
@@ -132,14 +132,14 @@ static inline int l_mtx_init(l_mtx_t *mtx,int type)
 {
 	(void)type;
 	*mtx=CreateMutex(NULL,FALSE,NULL);
-	return *mtx==NULL?l_thrd_success:l_thrd_busy;
+	return *mtx!=NULL?l_thrd_success:l_thrd_error;
 }
 
 static inline int l_mtx_destroy(l_mtx_t *mtx)
 {
 	BOOL ret=CloseHandle(*mtx);
 	*mtx=NULL;
-	return ret?l_thrd_success:l_thrd_busy;
+	return ret?l_thrd_success:l_thrd_error;
 }
 
 static inline int l_mtx_lock(l_mtx_t *mtx)
@@ -312,7 +312,7 @@ static inline int l_mtx_timedlock(l_mtx_t *mtx, const struct timespec *ts)
 	int ret;
 	if(!ts)
 	{
-		ret=pthread_mutex_unlock(mtx);
+		ret=pthread_mutex_lock(mtx);
 	}
 	else
 	{

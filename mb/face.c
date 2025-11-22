@@ -9,6 +9,7 @@
 #include "cset.h"
 #include "fuzzy.h"
 #include "sentence.h"
+#include "correct.h"
 
 static int TableInit(const char *arg);
 static void TableReset(void);
@@ -69,6 +70,21 @@ L_EXPORT(EXTRA_IM EIM)={
 };
 
 static struct y_mb *mb;
+
+static inline struct y_mb *Y_MB_ACTIVE(struct y_mb *mb)
+{
+	if(EIM.StringGet[0])
+		return mb;
+	const char *s=EIM.CodeInput;
+	int c=s[0];
+	if(!c || !s[1])
+		return mb;
+	if(mb->ass_mb && c==mb->ass_lead)
+		return mb->ass_mb;
+	if(mb->quick_mb && c==mb->quick_lead)
+		return mb->quick_mb;
+	return mb;
+}
 
 static char SimplePhrase[4][5];
 static char SuperPhrase[MAX_CAND_LEN+1];
@@ -259,8 +275,10 @@ static void TableInitReplaceKey(void)
 
 static inline int TableReplaceKey(int key)
 {
-	int i,t;
-	for(i=0;i<L_ARRAY_SIZE(key_replace) && (t=key_replace[i])!=YK_NONE;i+=2)
+	int t;
+	if(EIM.WorkMode==EIM_WM_INSERT)
+		return key;
+	for(int i=0;i<L_ARRAY_SIZE(key_replace) && (t=key_replace[i])!=YK_NONE;i+=2)
 	{
 		if(key==t)
 			return key_replace[i+1];
@@ -278,7 +296,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 	{
 		py_init(mb->split,NULL);
 		if(mb->split=='\'')
-			mb->trie=trie_tree_new();
+			mb->trie=trie_tree_new(512*1024);
 		return;
 	}
 	EIM.GetCandWord=PinyinGetCandWord;
@@ -328,7 +346,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 		l_predict_simple=atoi(name);
 	}
 	if(mb->split=='\'')
-		mb->trie=trie_tree_new();
+		mb->trie=trie_tree_new(512*1024);
 }
 
 static Y_BIHUA_INFO *TableGetBihuaConfig(void)
@@ -384,7 +402,9 @@ static int TableInitReal(const char *arg)
 		y_mb_error_init(mb);
 		zi_output_codes=l_array_new(20,2);
 	}
-	if(0!=y_mb_load_to(mb,arg,mb_flag,&mb_arg))
+	char fn[256];
+	l_utf8_to_gb(arg,fn,sizeof(fn));
+	if(0!=y_mb_load_to(mb,fn,mb_flag,&mb_arg))
 	{
 		y_mb_free(mb);
 		mb=NULL;
@@ -508,7 +528,7 @@ static int TableInitReal(const char *arg)
 		block_config_load(&bc_conf);
 	}
 	sentence_init();
-
+	correct_init();
 	cset_init(&cs);
 
 	return 0;
@@ -566,6 +586,7 @@ static int TableDestroy(void)
 	y_mb_free(mb);
 	mb=NULL;
 	sentence_destroy();
+	correct_destroy();
 	y_assoc_free(assoc_handle);
 	assoc_handle=NULL;
 	l_array_free(zi_output_codes,NULL);
@@ -587,13 +608,16 @@ static void TableReset(void)
 	if(TableReady)
 	{
 		/* clean left info at mb */
-		if(!zi_mode)
+		if(mb)
 		{
-			y_mb_set_zi(mb,0);
+			if(!zi_mode)
+			{
+				y_mb_set_zi(mb,0);
+			}
+			y_mb_context_reset(mb);
+			y_mb_context_reset(mb->ass_mb);
+			y_mb_context_reset(mb->quick_mb);
 		}
-		mb->ctx.input[0]=0;
-		mb->ctx.result_filter_ext=0;
-		mb->ctx.result_match=0;
 
 		cset_reset(&cs);
 	}
@@ -905,7 +929,7 @@ static int TableGetCandWords(int mode)
 	if(active==mb->ass_mb || active==mb->quick_mb)
 		EIM.WorkMode=EIM_WM_ASSIST;
 	max=EIM.CandWordMax;
-	if(mb->ass_mb==active && cand_a)
+	if((mb->ass_mb==active || mb->quick_mb) && cand_a)
 		max=cand_a;
 	EIM.CandWordMaxReal=max;
 	if(mode==PAGE_FIRST)
@@ -1144,6 +1168,57 @@ static int TableOnVirtAdd(const char *ph)
 	}
 }
 
+static struct y_mb *ShouldEnterAssistMode(int key)
+{
+	if(EIM.StringGet[0])
+		return NULL;
+	const char *s=EIM.CodeInput;
+	if(s[0]==0)
+	{
+		if(key==mb->ass_lead)
+			return mb->ass_mb;
+		if(key==mb->quick_lead)
+			return mb->quick_mb;
+		return NULL;
+	}
+	if(s[0]==mb->ass_lead)
+	{
+		if(key && !y_mb_is_key(mb->ass_mb,key))
+			return NULL;
+		return mb->ass_mb;
+	}
+	else if(s[0]==mb->quick_lead)
+	{
+		if(key && !y_mb_is_key(mb->quick_mb,key))
+			return NULL;
+		return mb->quick_mb;
+	}
+	return NULL;
+}
+
+static int TableAssistDoSearch(struct y_mb *active_mb)
+{
+	PhraseListCount=y_mb_set(active_mb,EIM.CodeInput+1,EIM.CodeLen-1,0);
+	cset_mb_group_set(&cs,active_mb,PhraseListCount);
+	PhraseListCount=cset_count(&cs);
+	int max=EIM.CandWordMax;
+	EIM.CandWordMaxReal=max;
+	EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
+	TableGetCandWords(PAGE_FIRST);
+	char *p=EIM.CandTable[0];
+	if(PhraseListCount==1 && l_str_has_suffix(p,"$SPACE"))
+	{
+		size_t len=strlen(p);
+		if(len!=6 && !strstr(p,"$$"))
+		{
+			p[len-6]=0;
+			strcpy(EIM.StringGet,p);
+			return IMR_COMMIT;
+		}
+	}
+	return IMR_DISPLAY;
+}
+
 static int TableDoInput(int key)
 {
 	int ret=IMR_DISPLAY;
@@ -1161,7 +1236,6 @@ static int TableDoInput(int key)
 	if(key==key_backspace)
 		key='\b';
 	key=TableReplaceKey(key);
-
 	if(key==YK_BACKSPACE || key==(YK_BACKSPACE|KEYM_SHIFT))
 	{
 		if(assoc_mode || EIM.WorkMode==EIM_WM_QUERY)
@@ -1182,6 +1256,9 @@ static int TableDoInput(int key)
 		if(EIM.CodeLen==0 && EIM.StringGet[0]==0)
 			return IMR_CLEAN;
 		if(hz_filter_show) hz_filter_temp=hz_filter;
+		active_mb=Y_MB_ACTIVE(mb);
+		if(active_mb!=mb && active_mb)
+			return TableAssistDoSearch(active_mb);
 		goto LIST;
 	}
 	else if(key==YK_ENTER && InsertMode)
@@ -1218,12 +1295,6 @@ static int TableDoInput(int key)
 			}
 		}
 		TableGetCandWords(PAGE_REFRESH);
-		// int pos=EIM.CurCandPage*EIM.CandWordMax+EIM.SelectIndex;
-		// CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_get_group_by_type(&cs,CSET_TYPE_CALC);
-		// assert(g!=NULL);
-		// char *codes[]={EIM.CodeInput,NULL};
-		// if(0==y_mb_code_by_rule(mb,g->phrase[pos],strlen(g->phrase[pos]),codes,NULL))
-				// EIM.CodeLen=strlen(EIM.CodeInput);
 	}
 	else if(InsertMode && key==key_clear_code && EIM.CodeLen>0)
 	{
@@ -1358,20 +1429,14 @@ static int TableDoInput(int key)
 		TableGetCandWords(PAGE_REFRESH);
 		return IMR_DISPLAY;
 	}
-	else if(key==key_filter)
+	else if(key==key_filter && (EIM.CodeLen!=0 || key>=0x80) && !InsertMode)
 	{
-		if(InsertMode)
-			return IMR_NEXT;
-		if(EIM.CodeLen==0)
+		if(EIM.CodeLen==0 && key>=0x80)
 		{
-			if(key & (KEYM_CTRL|KEYM_ALT|KEYM_SHIFT))
-			{
-				hz_filter=!hz_filter;
-				hz_filter_temp=hz_filter;
-				EIM.ShowTip("汉字过滤：%s",hz_filter?"开启":"关闭");
-				return IMR_BLOCK;
-			}
-			return IMR_NEXT;
+			hz_filter=!hz_filter;
+			hz_filter_temp=hz_filter;
+			EIM.ShowTip("汉字过滤：%s",hz_filter?"开启":"关闭");
+			return IMR_BLOCK;
 		}
 		hz_filter=1;
 		if(!hz_filter_temp)
@@ -1397,11 +1462,11 @@ static int TableDoInput(int key)
 			active_mb=Y_MB_ACTIVE(mb);
 			goto commit_simple;
 		}
-		if(mb->suffix[0] && mb->suffix[0]!=YK_TAB)
+		if(mb->suffix!=YK_TAB && mb->suffix!=-1)
 			return IMR_NEXT;
 		goto commit_suffix;
 	}
-	else if(key==mb->suffix[0] && EIM.CurCandPage==0 && EIM.CodeLen>=1 && EIM.CodeLen<8 && !InsertMode)
+	else if(key==mb->suffix && EIM.CurCandPage==0 && EIM.CodeLen>=1 && EIM.CodeLen<8 && !InsertMode)
 	{
 		char code[8];
 		struct y_mb_context ctx;
@@ -1453,8 +1518,8 @@ commit_suffix:
 		snprintf(EIM.StringGet,MAX_CAND_LEN,"%s%s",temp[0],temp[1]);
 		return IMR_COMMIT;
 	}
-	else if(y_mb_is_key(mb,key) || (key==mb->ass_lead && EIM.CodeLen==0) ||
-			(key==mb->quick_lead && EIM.CodeLen==0))
+	else if(y_mb_is_key(mb,key) && y_mb_is_keys(mb,EIM.CodeInput) &&
+			!(EIM.CodeLen>=1 && (EIM.CodeInput[0]==mb->quick_lead || EIM.CodeInput[0]==mb->ass_lead)))
 	{
 		int count;
 
@@ -1502,7 +1567,7 @@ commit_suffix:
 					return IMR_COMMIT;
 				}
 				y_mb_set_zi(mb,1);
-				cset_mb_group_set(&cs,mb,count);
+				cset_mb_group_set(&cs,active_mb,count);
 				PhraseListCount=cset_count(&cs);
 				TableGetCandWords(PAGE_FIRST);
 				return IMR_DISPLAY;
@@ -1646,10 +1711,27 @@ LIST:
 		}
 		if(count==0 && assoc_adjust && cset_has_assoc(&cs,EIM.CodeInput))
 		{
-			cset_mb_group_set(&cs,mb,0);
+			cset_mb_group_set(&cs,active_mb,0);
 			PhraseListCount=cset_count(&cs);
 			TableGetCandWords(PAGE_FIRST);
 			return IMR_DISPLAY;
+		}
+		if(count==0 && EIM.CodeLen==1 && ShouldEnterAssistMode(0))
+		{
+			PhraseListCount=0;
+			TableGetCandWords(PAGE_FIRST);
+			return IMR_DISPLAY;
+		}
+		if(count==0 && correct_enabled())
+		{
+			correct_run(EIM.CodeInput,mb,hz_filter_temp,&count);
+			if(hz_filter_temp && !count && !hz_filter_strict)
+			{
+				hz_filter_temp=0;
+				correct_run(EIM.CodeInput,mb,hz_filter_temp,&count);
+				if(!count && hz_filter_show)
+					hz_filter_temp=hz_filter;
+			}
 		}
 		if(count<=0 && key==YK_VIRT_REFRESH)
 		{
@@ -1902,7 +1984,7 @@ DISPLAY:
 			int dext=hz_filter_strict && mb->ctx.result_filter;
 			if(hz_filter && hz_filter_temp==0 && hz_filter_show) dext=2;
 			cset_clear(&cs,CSET_TYPE_CALC);
-			cset_mb_group_set(&cs,mb,count);
+			cset_mb_group_set(&cs,active_mb,count);
 			PhraseListCount=cset_count(&cs);
 			TableGetCandWords(PAGE_FIRST);
 			if(mb->commit_which==EIM.CodeLen)
@@ -1976,6 +2058,15 @@ DISPLAY:
 			}
 		}
 	}
+	else if((active_mb=ShouldEnterAssistMode(key))!=NULL)
+	{
+		if(EIM.CodeLen<active_mb->len)
+		{
+			EIM.CodeInput[EIM.CodeLen++]=key;
+			EIM.CodeInput[EIM.CodeLen]=0;
+		}
+		return TableAssistDoSearch(active_mb);
+	}
 	else if(bing && mb && key=='+' && EIM.CodeLen==2)
 	{
 		strcat(EIM.StringGet,EIM.CandTable[EIM.SelectIndex]);
@@ -2027,7 +2118,9 @@ DISPLAY:
 			return IMR_CLEAN;
 		}
 		if(!count)
-			return IMR_NEXT;
+		{
+			return IMR_BLOCK;
+		}
 		y_mb_set_zi(mb,1);
 		cset_mb_group_set(&cs,mb,count);
 		PhraseListCount=cset_count(&cs);
@@ -2511,9 +2604,19 @@ static int PinyinPredict(CSET_GROUP_PREDICT *g,const char *code,int len,int filt
 			code++;
 		y_mb_set(mb,code,steps[i],filter);
 		struct y_mb_ci *c=y_mb_get_first(mb,NULL,codetip);
-		memcpy(res+rlen,c->data,c->len);
+		if(c->data[0]=='$' && c->data[1]=='[')
+		{
+			const char *s=y_mb_skip_display((const char*)c->data,c->len);
+			int len=(int)(size_t)((const char*)c->data+c->len-s);
+			memcpy(res+rlen,s,len);
+			rlen+=len;
+		}
+		else
+		{
+			memcpy(res+rlen,c->data,c->len);
+			rlen+=c->len;
+		}
 		code+=steps[i];
-		rlen+=c->len;
 	}
 	res[rlen]='\0';
 	mb->ctx.result_match=saved_match;
@@ -2573,12 +2676,12 @@ static int PinyinMoveCaretTo(int key)
 	return 0;
 }
 
-static int AssistDoSearch(void)
+static int PinyinAssistDoSearch(struct y_mb *active)
 {
 	int max;
 	CodeMatch=EIM.CodeLen;
-	PhraseListCount=y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,hz_filter_temp);
-	cset_mb_group_set(&cs,mb,PhraseListCount);
+	PhraseListCount=y_mb_set(active,EIM.CodeInput+1,EIM.CodeLen-1,0);
+	cset_mb_group_set(&cs,active,PhraseListCount);
 	PhraseListCount=cset_count(&cs);
 	max=EIM.CandWordMax;
 	EIM.CandWordMaxReal=max;
@@ -2629,7 +2732,7 @@ static int SPDoSearch(int adjust)
 			return PhraseListCount;
 		}
 	}
-	
+
 	// 双拼情况下打全拼码表的自定义编码
 	if(!AssistMode && CodeGetLen==0 && EIM.CodeLen>=2 && EIM.CodeLen<=4 && 
 		EIM.CaretPos==EIM.CodeLen &&
@@ -2860,6 +2963,7 @@ static int SPDoSearch(int adjust)
 
 static int PinyinDoSearch(int adjust)
 {
+	struct y_mb *active=Y_MB_ACTIVE(mb);
 	int max;
 	int GoodMatch=0;
 	int CodeReal;
@@ -2869,10 +2973,10 @@ static int PinyinDoSearch(int adjust)
 	
 	(void)GoodMatch;
 
-	if(EIM.CodeInput[0]==mb->ass_lead)
-		return AssistDoSearch();
-	else if(EIM.CodeInput[0]==mb->quick_lead)
-		return AssistDoSearch();
+	if(active!=mb)
+	{
+		return PinyinAssistDoSearch(active);
+	}
 	
 	PySwitch=adjust;
 	if(adjust)
@@ -3133,7 +3237,7 @@ static char *PinyinGetCandWord(int index)
 		return 0;
 	if(index==-1) index=EIM.SelectIndex;
 
-	if(unlikely(index>=0))
+	if(index>=0)
 	{
 		pos=EIM.CurCandPage*EIM.CandWordMax+index;
 		ret=&EIM.CandTable[index][0];
@@ -3202,10 +3306,11 @@ static char *PinyinGetCandWord(int index)
 		}
 		else
 		{
+			int gblen=l_gb_strlen(ret,-1);
 			if((l_predict_sp || mb->split==2) && PredictCalcMark==0 &&
 					CodeGetLen>0 && CodeMatch>=3 && (CodeMatch&0x01) &&
 					pos<cset_calc_group_count(&cs) &&
-					l_gb_strlen(ret,-1)*2==CodeMatch-1)
+					gblen*2==CodeMatch-1)
 			{
 				memcpy(CodeGet+CodeGetLen,EIM.CodeInput,CodeMatch-1);
 				CodeGetLen+=CodeMatch-1;
@@ -3227,8 +3332,10 @@ static char *PinyinGetCandWord(int index)
 				char *code=CodeGet+CodeGetLen-CodeMatch;
 				if(SP==1)
 				{
+					char sp[MAX_CODE_LEN+1];	
 					char temp[MAX_CODE_LEN+1];
-					py_conv_from_sp(code,temp,sizeof(temp),0);
+					l_strncpy(sp,code,gblen*2);
+					py_conv_from_sp(sp,temp,sizeof(temp),0);
 					y_mb_auto_move(mb,temp,ret,auto_move);
 				}
 				else
@@ -3462,9 +3569,20 @@ static void PinyinSetAssistCode(const char *s)
 	}
 }
 
+static void PinyinInsertKey(int key)
+{
+	for(int i=EIM.CodeLen-1;i>=EIM.CaretPos;i--)
+		EIM.CodeInput[i+1]=EIM.CodeInput[i];
+	EIM.CodeInput[EIM.CaretPos]=key;
+	EIM.CodeLen++;
+	EIM.CaretPos++;
+	EIM.CodeInput[EIM.CodeLen]=0;
+}
+
 static int PinyinDoInput(int key)
 {
-	int i;
+	struct y_mb *active_mb=Y_MB_ACTIVE(mb);
+	bool del_key_used=false;
 
 	if(!TableReady)
 		return IMR_NEXT;
@@ -3569,7 +3687,7 @@ static int PinyinDoInput(int key)
 			}
 			return IMR_BLOCK;
 		}
-		for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
+		for(int i=EIM.CaretPos;i<EIM.CodeLen;i++)
 			EIM.CodeInput[i-1]=EIM.CodeInput[i];
 		EIM.CodeLen--;
 		EIM.CaretPos--;
@@ -3584,6 +3702,7 @@ static int PinyinDoInput(int key)
 		}
 		if(EIM.CodeLen==0 && EIM.StringGet[0]==0)
 			return IMR_CLEAN;
+		del_key_used=true;
 	}
 	else if(key==py_switch)
 	{
@@ -3605,10 +3724,11 @@ static int PinyinDoInput(int key)
 			return IMR_PASS;
 		if(EIM.CodeLen!=EIM.CaretPos)
 		{
-			for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
+			for(int i=EIM.CaretPos;i<EIM.CodeLen;i++)
 				EIM.CodeInput[i]=EIM.CodeInput[i+1];
 			EIM.CodeLen--;
 			EIM.CodeInput[EIM.CodeLen]=0;
+			del_key_used=true;
 		}
 	}
 	else if(key==YK_HOME)
@@ -3635,7 +3755,7 @@ static int PinyinDoInput(int key)
 			return IMR_DISPLAY;
 		}
 		if(EIM.CaretPos>0)
-			EIM.CaretPos--;		
+			EIM.CaretPos--;
 	}
 	else if(key==YK_RIGHT)
 	{
@@ -3788,20 +3908,14 @@ static int PinyinDoInput(int key)
 		EIM.CodeInput[0]=0;
 		return IMR_DISPLAY;
 	}
-	else if(key==key_filter)
+	else if(key==key_filter && (EIM.CodeLen!=0 || key>=0x80) && !InsertMode)
 	{
-		if(InsertMode)
-			return IMR_NEXT;
-		if(EIM.CodeLen==0)
+		if(EIM.CodeLen==0 && key>=0x80)
 		{
-			if(key & (KEYM_CTRL|KEYM_ALT|KEYM_SHIFT))
-			{
-				hz_filter=!hz_filter;
-				hz_filter_temp=hz_filter;
-				EIM.ShowTip("汉字过滤：%s",hz_filter?"开启":"关闭");
-				return IMR_BLOCK;
-			}
-			return IMR_NEXT;
+			hz_filter=!hz_filter;
+			hz_filter_temp=hz_filter;
+			EIM.ShowTip("汉字过滤：%s",hz_filter?"开启":"关闭");
+			return IMR_BLOCK;
 		}
 		hz_filter=1;
 		if(!hz_filter_temp)
@@ -3809,13 +3923,14 @@ static int PinyinDoInput(int key)
 		else
 			hz_filter_temp=0;
 	}
-	else if(key==mb->suffix[0] && EIM.CurCandPage==0 && EIM.CodeLen>=1 && !InsertMode)
+	else if(key==mb->suffix && EIM.CurCandPage==0 && EIM.CodeLen>=1 && !InsertMode && EIM.CaretPos==EIM.CodeLen)
 	{
 		char code[4];		
 		int ret;
 		code[0]=EIM.CodeInput[EIM.CodeLen-1];
 		code[1]=code[2]=0;
 		EIM.CodeInput[--EIM.CodeLen]=0;
+		EIM.CaretPos=EIM.CodeLen;
 		int got=strlen(EIM.StringGet);
 		int cur;
 		if(EIM.CodeLen>0)
@@ -3851,13 +3966,13 @@ static int PinyinDoInput(int key)
 		strcat(EIM.StringGet,EIM.CandTable[0]);
 		return IMR_COMMIT;
 	}
-	else if(y_mb_is_key(mb,key) ||
-		(key==mb->split && !SP &&key=='\'') ||
-		(key==mb->ass_lead && EIM.CodeLen==0) ||
-		(key==mb->quick_lead && EIM.CodeLen==0) ||
-		(SP==1 && key==';' && EIM.CaretPos && (py_sp_has_semi() || 
-				(EIM.CaretPos>=2 && mb->ass_mb && y_mb_is_key(mb->ass_mb,';'))
-		)))
+	else if(active_mb==mb && 
+			(y_mb_is_key(mb,key) ||
+			(key==mb->split && !SP && key=='\'') ||
+				(SP==1 && key==';' && EIM.CaretPos &&
+				 (py_sp_has_semi() || (EIM.CaretPos>=2 && mb->ass_mb && y_mb_is_key(mb->ass_mb,';')))
+				)
+			))
 	{
 		if(CodeGetLen+EIM.CodeLen>=54)
 			return IMR_BLOCK;
@@ -3873,23 +3988,33 @@ static int PinyinDoInput(int key)
 			mb->ctx.input[0]=0;
 			assoc_mode=0;
 		}
-		for(i=EIM.CodeLen-1;i>=EIM.CaretPos;i--)
-			EIM.CodeInput[i+1]=EIM.CodeInput[i];
-		EIM.CodeInput[EIM.CaretPos]=key;
-		EIM.CodeLen++;
-		EIM.CaretPos++;
-		EIM.CodeInput[EIM.CodeLen]=0;
+		PinyinInsertKey(key);
 		l_predict_simple_mode=-1;
 	}
-	else if((SP || (mb->split!='\'' && !y_mb_is_key(mb,key))) && key=='\'' && CodeGetLen==0 && EIM.CodeLen>=2 && l_predict_simple && EIM.CaretPos==EIM.CodeLen)
+	else if(CodeGetLen==0 && ShouldEnterAssistMode(key)!=NULL)
+	{
+		if(EIM.CodeLen<active_mb->len)
+		{
+			if(EIM.CodeLen==0)
+				EIM.CaretPos=0;
+			PinyinInsertKey(key);
+		}
+		if(EIM.CodeLen==1)
+			return IMR_DISPLAY;
+		active_mb=Y_MB_ACTIVE(mb);
+	}
+	else if(active_mb==mb &&
+			(SP || (mb->split!='\'' && !y_mb_is_key(mb,key))) &&
+			key=='\'' && CodeGetLen==0 && EIM.CodeLen>=2 && l_predict_simple && EIM.CaretPos==EIM.CodeLen)
 	{
 		l_predict_simple_mode=!(l_predict_simple_mode>0);
 	}
-	else if(!SP && mb && key==(KEYM_CTRL|'\'')  && CodeGetLen==0 && EIM.CodeLen>=2 && l_predict_simple && EIM.CaretPos==EIM.CodeLen)
+	else if(active_mb==mb &&
+			!SP && key==(KEYM_CTRL|'\'')  && CodeGetLen==0 && EIM.CodeLen>=2 && l_predict_simple && EIM.CaretPos==EIM.CodeLen)
 	{
 		l_predict_simple_mode=!(l_predict_simple_mode>0);
 	}
-	else if(key==YK_TAB)
+	else if(active_mb==mb && key==YK_TAB)
 	{
 		if(EIM.CandWordCount && (mb->ass_mb || mb->yong) &&
 				!InsertMode)
@@ -3952,10 +4077,14 @@ static int PinyinDoInput(int key)
 	if(!InsertMode)
 	{
 		PinyinDoSearch(0);
-		if(PhraseListCount==0 && CodeGetLen+EIM.CodeLen<=1)
+		if(PhraseListCount==0 && CodeGetLen+EIM.CodeLen<=1 && Y_MB_ACTIVE(mb)==mb)
 		{
-			PinyinReset();
-			return IMR_NEXT;
+			if(!del_key_used)
+			{
+				TableReset();
+				return IMR_NEXT;
+			}
+			return IMR_CLEAN;
 		}
 		else if(PhraseListCount>=1 && !AssistMode && CodeGetLen==0 && CodeMatch==EIM.CodeLen && !CodeTips[0][0])
 		{
@@ -4012,9 +4141,11 @@ L_EXPORT(int tool_optimize(void *arg,void **out))
 		mb_arg.dicts=EIM.GetConfig("table","dicts");
 	/* MB_FLAG_SLOW 会在大码表下变得很慢 */
 	mb=y_mb_load(temp,MB_FLAG_SLOW|MB_FLAG_NOUSER|MB_FLAG_NODICTS,NULL);
-	if(!mb) return -1;	
+	if(!mb)
+		return -1;
 	fp=y_mb_open_file(mb->main,(mb->encrypt?"wb":"wb"));
-	if(!fp) return -1;
+	if(!fp)
+		return -1;
 	y_mb_dump(mb,fp,MB_DUMP_MAIN|MB_DUMP_HEAD|MB_DUMP_ADJUST,
 			MB_FMT_YONG,0);
 	fclose(fp);

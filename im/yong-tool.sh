@@ -343,8 +343,8 @@ function ibus_uninstall()
 
 function kde_install()
 {
-	CFG=/usr/share/applications/net.dgod.yong.kde.desktop
-	sed "s%\/usr\/share\/yong%`pwd`%" >$CFG <<EOF
+	KDE_CFG=/usr/share/applications/net.dgod.yong.kde.desktop
+	sed "s%\/usr\/share\/yong%`pwd`%" >$KDE_CFG <<EOF
 [Desktop Entry]
 Name=Yong Wayland
 Exec=/usr/bin/yong

@@ -9,7 +9,12 @@ typedef struct{
 }UI_POINT;
 
 typedef struct{
-	int x,y,w,h;
+	int w,h;
+}UI_SIZE;
+
+typedef struct{
+	UI_POINT;
+	UI_SIZE;
 }UI_RECT;
 
 typedef union{
@@ -205,13 +210,13 @@ typedef struct{
 	void (*skin_path)(const char *p);
 	void (*cfg_ctrl)(char *name,...);
 	void (*show_message)(const char *s);
-	void (*show_image)(char *name,char *file,int top,int tran);
+	void (*show_image)(const char *name,const char *file,int top,int tran);
 	void (*show_tip)(const char *,...);
 	
 	void (*beep)(int c);
 	int (*request)(int cmd);
 	
-	double (*get_scale)(void);
+	double (*get_scale)(int which);
 	bool (*get_dark)(void);
 
 	int (*timer_add)(unsigned,void (*cb)(void *),void *arg);
@@ -294,8 +299,8 @@ int y_ui_init(const char *name);
 #define y_ui_beep(a) \
 	do{if(y_ui.beep) y_ui.beep(a);}while(0)
 	
-#define y_ui_get_scale() \
-	(y_ui.get_scale?y_ui.get_scale():1)
+#define y_ui_get_scale(which) \
+	(y_ui.get_scale?y_ui.get_scale(which):1)
 
 #define y_ui_get_dark() \
 	(y_ui.get_dark?y_ui.get_dark():false)
@@ -313,5 +318,7 @@ int y_ui_init(const char *name);
 	do{if(y_ui.idle_del) y_ui.idle_del(a,b);}while(0)
 
 #define y_ui_call(a,b)	(y_ui.call?y_ui.call(a,b):-1)
+
+void y_ui_reload_all(void);
 
 #endif/*_UI_H_*/

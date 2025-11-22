@@ -52,9 +52,6 @@ static int sym_select_count;
 static int key_cnen[2]={YK_LCTRL,YK_NONE};
 static int key_corner=SHIFT_SPACE;
 static int key_biaodian=KEYM_CTRL|'.';
-static int key_switch=CTRL_LSHIFT;
-static int key_switch_default;
-static int key_switch_to[10];
 static int key_s2t=CTRL_ALT_F;
 static int key_pageup='-';
 static int key_pagedown='=';
@@ -65,18 +62,10 @@ static int key_main_show;
 static int key_temp_english;
 static int key_repeat;
 static int key_stop;
-static int key_keymap;
-static int key_keyboard;
-static int key_keyboard_s;
 static int key_bihua;
-static int key_dict=ALT_ENTER;
-static int key_crab;
 static int key_repeat_code;
-static int key_speed;
 static char sym_in_num[8];
-#ifndef CFG_NO_KEYTOOL
-static Y_KEY_TOOL *key_tools;
-#endif
+static Y_KEY_TOOL2 *key_tools;
 
 static uint8_t enter_mode;
 static uint8_t num_mode;
@@ -89,7 +78,7 @@ static uint8_t caps_bd_mode;
 
 static uint8_t alt_bd_disable;
 
-static uint8_t tip_main;
+uint8_t tip_main;
 
 static uint16_t assoc_hide;
 
@@ -299,6 +288,7 @@ void YongSetTrad(int trad)
 	id->trad=trad;
 	y_xim_put_connect(id);
 	YongUpdateMain(id);
+	y_ui_input_draw();
 }
 
 static void corner_change_cb(void *user_data)
@@ -465,20 +455,25 @@ void update_main_window(void)
 		btn.color=l_key_file_get_string(ConfigSkin,main_group,key);
 		for(j=0;j<2;j++)
 		{
-			char *p;
-			char *normal,*over,*down;			
 			if(!main_btns[i].sub[j]) break;
 			tmp=l_key_file_get_string(ConfigSkin,main_group,main_btns[i].sub[j]);
-			assert(tmp);
-			p=tmp;
-			normal=strtok(p,",");
-			over=strtok(0,",");
-			down=strtok(0,",");
-			assert(normal!=NULL);
-			btn.normal=normal;btn.over=over;btn.down=down;
-			btn.click=main_btns[i].cb;btn.arg=LINT_TO_PTR(!j);
-			y_ui_button_update(main_btns[i].id+j,&btn);
-			l_free(tmp);
+			if(tmp!=NULL)
+			{
+				char *p=tmp;
+				char *normal=strtok(p,",");
+				char *over=strtok(0,",");
+				char *down=strtok(0,",");
+				btn.normal=normal;btn.over=over;btn.down=down;
+				btn.click=main_btns[i].cb;btn.arg=LINT_TO_PTR(!j);
+				y_ui_button_update(main_btns[i].id+j,&btn);
+				l_free(tmp);
+			}
+			else
+			{
+				btn.normal=btn.over=btn.down=NULL;
+				btn.click=main_btns[i].cb;btn.arg=LINT_TO_PTR(!j);
+				y_ui_button_update(main_btns[i].id+j,&btn);
+			}
 		}
 		l_free(btn.font);
 		l_free(btn.color);
@@ -536,14 +531,18 @@ int get_input_strip(void)
 	tmp=y_im_get_config_string("input","strip");
 	if(tmp)
 	{
-		int pre=0,suf=-1,spre=0,ssuf=-1;
-		l_sscanf(tmp,"%d %d;%d %d",&pre,&suf,&spre,&ssuf);
+		int pre=0,suf=-1,spre=-1,ssuf=-1;
+		int ret=l_sscanf(tmp,"%d %d;%d %d",&pre,&suf,&spre,&ssuf);
 		l_free(tmp);
-		if(pre<3 || pre>32) pre=9;
-		if(suf>32 || suf<0) suf=1;
-		if(spre<3 || spre>32) spre=14;
-		if(ssuf>32 || ssuf<0) ssuf=2;
-		if(spre<pre) spre=pre;
+		if(ret==1)
+		{
+			suf=pre;
+			pre=1;
+		}
+		if(pre<0 || pre>32) pre=1;
+		if(suf>32 || suf<3) suf=9;
+		if(spre<0 || spre>32) spre=MAX(2,pre);
+		if(ssuf>32 || ssuf<3) ssuf=MAX(14,suf);
 		return (ssuf<<24)|(spre<<16)|(suf<<8)|pre;
 	}
 	return 9;
@@ -906,7 +905,6 @@ void update_key_config(void)
 	char *tmp;
 
 	key=y_im_get_key("trigger",-1,CTRL_SPACE);
-	//if(YongTriggerKey(key)!=-1)
 	if(y_xim_trigger_key(key)!=-1)
 		key_trigger=key;
 
@@ -914,8 +912,6 @@ void update_key_config(void)
 	virt_key_del=y_im_get_key("del",-1,CTRL_DELETE);
 	virt_key_query=y_im_get_key("query",-1,KEYM_CTRL|'/');
 	
-	key_dict=y_im_get_key("dict",-1,ALT_ENTER);
-
 	key_commit=y_im_get_key("commit",-1,YK_SPACE);
 	key_select[0]=y_im_get_key("select",0,YK_LSHIFT);
 	key_select[1]=y_im_get_key("select",1,YK_RSHIFT);
@@ -957,7 +953,6 @@ void update_key_config(void)
 	key_corner=y_im_get_key("corner",-1,SHIFT_SPACE);
 	key_biaodian=y_im_get_key("biaodian",-1,KEYM_CTRL|'.');
 
-	key_switch=y_im_get_key("switch",-1,CTRL_LSHIFT);
 	key_s2t=y_im_get_key("s2t",-1,CTRL_ALT_F);
 
 	key_pageup=y_im_get_key("page",0,'-');
@@ -973,37 +968,12 @@ void update_key_config(void)
 	if(key_repeat!=YK_NONE && key_repeat<0x80)
 		key_repeat=tolower(key_repeat);
 	key_repeat_code=y_im_get_key("repeat_code",-1,YK_NONE);
-	key_speed=y_im_get_key("speed",-1,YK_NONE);
 	key_stop=y_im_get_key("stop",-1,YK_NONE);
-	key_keymap=y_im_get_key("keymap",-1,YK_NONE);
-	key_keyboard=y_im_get_key("keyboard",0,CTRL_ALT_K);
-	key_keyboard_s=y_im_get_key("keyboard",1,CTRL_SHIFT_K);
 	key_bihua=y_im_get_key("bihua",-1,'`');
 	if(key_bihua >= 0x80) key_bihua=YK_NONE;
-	key_crab=y_im_get_key("crab",-1,CTRL_SHIFT_ALT_H);
 
-	key_switch_default=y_im_get_key("switch_default",-1,0);
-	for(i=0;i<10;i++)
-	{
-		char temp[32];
-		sprintf(temp,"switch_%c",i+'0');
-		key_switch_to[i]=y_im_get_key(temp,-1,0);
-	}
-	for(i=0;i<10;i++)
-	{
-		char *s;
-		s=y_im_get_im_config_string(i,"switch");
-		if(!s)
-			continue;
-		key_switch_to[i]=y_im_str_to_key(s,NULL);
-		l_free(s);
-	}
-
-#ifndef CFG_NO_KEYTOOL
-	y_key_tools_free(key_tools);
-	key_tools=y_key_tools_load();
-#endif
-
+	y_key_tools2_free(key_tools);
+	key_tools=y_key_tools2_load();
 }
 
 void update_im(void)
@@ -1227,8 +1197,7 @@ void YongShowInput(int show)
 	
 	if(!InputShow && show && id && !id->state)
 		return;
-
-	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])))
+	if(show && !InputShow && (im.CodeInputEngine[0] || (eim && eim->StringGet[0])) && InputNoShow!=1)
 	{
 		YongMoveInput(POSITION_ORIG,POSITION_ORIG);
 		if(InputNoShow!=1 || im.CodeInputEngine[0]=='`' || im.EnglishMode)
@@ -1280,12 +1249,15 @@ void YongShowInput(int show)
 				InputShow=1;
 				y_ui_input_show(1);
 			}
-			else if(InputShow && eim->CodeLen<auto_show)
-			{
-				InputShow=0;
-				y_ui_input_show(0);
-			}
 		}
+#ifdef CFG_XIM_ANDROID
+		// android soft keyboard candidates not hide when commit at noshow=1 
+		if(!show)
+		{
+			y_ui_input_show(0);
+			return;
+		}
+#endif
 	}
 	if(show && !InputShow && im.EnglishMode)
 	{
@@ -1400,7 +1372,7 @@ static int call_dict_with_clipboard(const char *text)
 	return IMR_NEXT;
 }
 
-static int YongCallDict(void)
+int YongCallDict(int key)
 {
 	char temp[128];
 	EXTRA_IM *eim=YongCurrentIM();
@@ -1408,7 +1380,7 @@ static int YongCallDict(void)
 	if(!eim) return 0;
 	if(!eim->CodeInput[0] && !eim->CandWordCount)
 	{
-		if(key_dict!=ALT_ENTER)
+		if(key!=ALT_ENTER)
 		{
 			y_ui_get_select(call_dict_with_clipboard);
 			return 1;
@@ -1452,7 +1424,6 @@ static int YongCallDict(void)
 int YongHotKey(int key)
 {
 	CONNECT_ID *id;
-	int i;
 
 	id=y_xim_get_connect();
 	if(!id)
@@ -1515,22 +1486,6 @@ int YongHotKey(int key)
 			return 1;
 		}
 	}
-	else if(key==key_switch)
-	{
-		if(id->state)
-		{
-			char *name;
-			YongSwitchIM(-1);
-			name=y_im_get_im_name(im.Index);
-			if(name!=NULL)
-			{
-				if(tip_main)
-					y_ui_show_tip(YT("ÇÐ»»µ½£º%s"),name);
-				l_free(name);
-			}
-			return 1;
-		}
-	}
 	else if(key==key_s2t)
 	{
 		if(id->state && id->lang==LANG_CN)
@@ -1549,83 +1504,9 @@ int YongHotKey(int key)
 			y_ui_main_show(2);
 		return 1;
 	}
-	else if(key==key_keymap)
+	else
 	{
-		y_im_show_keymap();
-	}
-#ifndef CFG_NO_KEYBOARD
-	else if(key==key_keyboard)
-	{
-		y_kbd_show(-1);
-		return 1;
-	}
-	else if(key==key_keyboard_s)
-	{
-		y_kbd_popup_menu();
-		return 1;
-	}
-#endif
-#ifndef CFG_NO_DICT
-	else if(key==key_dict)
-	{
-		return YongCallDict();
-	}
-#endif
-	else if(key==key_switch_default)
-	{
-		int d=y_im_get_config_int("IM","default");
-		if(d!=im.IndexPrev && im.Index==d)
-			d=im.IndexPrev;
-		YongSwitchIM(d);
-		char *name=y_im_get_im_name(im.Index);
-		if(name!=NULL)
-		{
-			if(tip_main)
-				y_ui_show_tip(YT("ÇÐ»»µ½£º%s"),name);
-			l_free(name);
-		}
-		return 1;
-	}
-	else if(key==key_speed)
-	{
-		char *stat=y_im_speed_stat();
-		if(stat)
-		{
-			y_ui_show_message(stat);
-			l_free(stat);
-			return 1;
-		}
-	}
-#ifndef CFG_NO_REPLACE
-	else if(key==key_crab)
-	{
-		y_replace_enable(-1);
-		return 1;
-	}
-#endif
-	else// if(key&KEYM_MASK)
-	{
-		for(i=0;i<10;i++)
-		{
-			if(key==key_switch_to[i])
-			{
-				YongSwitchIM(i);
-				char *name=y_im_get_im_name(im.Index);
-				if(name!=NULL)
-				{
-					if(tip_main)
-						y_ui_show_tip(YT("ÇÐ»»µ½£º%s"),name);
-					l_free(name);
-				}
-				return 1;
-			}
-		}
-#ifndef CFG_NO_KEYTOOL
-		if(id->state && y_key_tools_run(key_tools,key))
-		{
-			return 1;
-		}
-#endif
+		return y_key_tools2_run(key_tools,key);
 	}
 	return 0;
 }
@@ -2476,6 +2357,8 @@ IMR_TEST:
 	if(!(key&~0x7f) && isgraph(key))
 	{
 		EXTRA_IM *eim=CURRENT_EIM();
+		if(im.InAssoc)
+			YongResetIM();
 		if(eim && eim->CandWordCount>0)
 		{
 			im.StringGet[0]=0;
@@ -2529,7 +2412,6 @@ void YongResetIM(void)
 	YongResetIM_();
 	YongShowInput(0);
 	y_xim_preedit_clear();
-	// y_ui_timer_del(HideInputLater,NULL);
 	y_ui_timer_del((void*)YongResetIM,NULL);
 }
 
@@ -2573,6 +2455,12 @@ void YongUpdateMain(CONNECT_ID *id)
 		YongShowInput(1);
 }
 
+void y_ui_reload_all(void)
+{
+	update_main_window();
+	update_input_window();
+}
+
 void YongReloadAll(void)
 {
 	YongResetIM();
@@ -2614,7 +2502,7 @@ void YongDestroyIM(void)
 	y_im_history_free();
 	y_im_history_redirect_init();
 #ifndef CFG_NO_KEYTOOL
-	y_key_tools_free(key_tools);
+	y_key_tools2_free(key_tools);
 	key_tools=NULL;
 #endif
 	y_im_async_wait(1000);
@@ -2678,8 +2566,12 @@ static void deal_exec(void)
 	y_im_expand_env(p,sizeof(cmdline));
 	cmdline_w=l_alloca(256);
 #ifdef _WIN64
-	char real_prog[256];
-	snprintf(real_prog,sizeof(real_prog),"../%s",p);
+	if(l_str_has_prefix(p,"yong-"))
+	{
+		char real_prog[256];
+		snprintf(real_prog,sizeof(real_prog),"w64/%s",p);
+		strcpy(cmdline,real_prog);
+	}
 #endif
 	if(y_im_is_url(p))
 	{
@@ -2694,17 +2586,6 @@ static void deal_exec(void)
 		l_utf8_to_utf16(cmdline,cmdline_w,512);
 		ShellExecuteW(NULL,L"open",cmdline_w,NULL,NULL,show);
 	}
-#ifdef _WIN64
-	else if(l_file_exists(real_prog))
-	{
-		if(l_str_has_suffix(p,".bat"))
-			show=SW_HIDE;
-		chdir("..");
-		l_str_replace(p,'/','\\');
-		l_utf8_to_utf16(cmdline,cmdline_w,512);
-		ShellExecuteW(NULL,L"open",cmdline_w,NULL,NULL,show);
-	}
-#endif
 	else
 	{
 		char *cmd,*param;
@@ -2729,10 +2610,6 @@ static void deal_exec(void)
 			{
 				cmd=l_strndupa(p,param-p);
 				param++;
-			}
-			if(!strcmp(cmd,"yong-config"))
-			{
-				cmd=l_strdupa("yong-config.exe");
 			}
 			l_str_replace(cmd,'/','\\');
 
@@ -2874,120 +2751,12 @@ int main(int arc,char *arg[])
 #ifdef _WIN32
 		else if(!strcmp(arg[i],"-exec") && i+2==arc)
 		{
+			y_im_config_path();
 			deal_exec();
-#if 0
-			int y_im_is_url(const char *s);
-			int show=SW_SHOWNORMAL;
-			char cmdline[256];
-			char *p=cmdline;
-			snprintf(cmdline,256,"%s",arg[i+1]);
-			y_im_expand_env(p,sizeof(cmdline));
-#ifdef _WIN64
-			char real_prog[256];
-			snprintf(real_prog,sizeof(real_prog),"../%s",p);
-#endif
-			if(y_im_is_url(p))
-			{
-				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
-			}
-			else if(l_file_exists(p))
-			{
-				if(l_str_has_suffix(p,".bat"))
-					show=SW_HIDE;
-				l_str_replace(p,'/','\\');
-				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
-			}
-#ifdef _WIN64
-			else if(l_file_exists(real_prog))
-			{
-				if(l_str_has_suffix(p,".bat"))
-					show=SW_HIDE;
-				chdir("..");
-				l_str_replace(p,'/','\\');
-				ShellExecuteA(NULL,"open",p,NULL,NULL,show);
-			}
-#endif	
-			else
-			{
-				char *cmd,*param;
-				if(p[0]=='"')
-				{
-					param=strchr(p+1,'"');
-					if(!param) return 0;
-					cmd=l_strndup(p+1,param-p-1);
-					param++;
-					if(*param==' ') param++;
-					else param=NULL;
-				}
-				else
-				{
-					param=strchr(p+1,' ');
-					if(!param)
-					{
-						cmd=l_strdup(p);
-						param=NULL;
-					}
-					else
-					{
-						cmd=l_strndup(p,param-p);
-						param++;
-					}
-				}
-				if(!strcmp(cmd,"yong-config"))
-				{
-					l_free(cmd);
-					cmd=l_strdup("yong-config.exe");
-				}
-
-				l_str_replace(cmd,'/','\\');
-				
-				SHELLEXECUTEINFOA info;
-				memset(&info,0,sizeof(info));
-				info.cbSize=sizeof(info);
-				info.lpFile=cmd;
-				info.lpParameters=param;
-				info.nShow=SW_SHOWNORMAL;
-				info.hwnd=y_ui_main_win();
-				info.lpVerb="open";
-
-#ifdef _WIN64
-				if(!l_str_has_prefix(cmd,"yong-config"))
-				{
-					info.lpDirectory="..";
-					if(l_str_has_prefix(param,".."))
-						info.lpParameters=param+1;
-				}
-#endif
-				if(strstr(cmd,"yong-config") && param!=NULL && strstr(param,"--update"))
-				{
-					static const char *sys="C:\\Program Files";
-					char path[MAX_PATH];
-					OSVERSIONINFO ovi={.dwOSVersionInfoSize=sizeof(ovi)};
-					GetVersionEx(&ovi);
-					GetCurrentDirectoryA(sizeof(path),path);
-					int uac=!strncasecmp(sys,path,strlen(sys));
-					if(ovi.dwMajorVersion>=6 && uac!=0)
-					{
-						info.lpVerb="runas";
-					}
-					info.lpDirectory=NULL;
-				}
-				ShellExecuteExA(&info);
-			}
-#endif		
 			return 0;
 		}
 #endif
-#if 0
-		else if(arc==3 && i==1 &&
-				arg[i][0]=='-' && arg[i][1]=='M' && arg[i][2]=='a' && arg[i][3]=='c')
-		{
-			extern int y_im_mac_force;
-			y_im_mac_force=atoi(arg[2]);
-		}
-#endif
 	}
-	
 
 	//clock_t start=clock();
 #ifdef CFG_XIM_FBTERM
@@ -3128,3 +2897,4 @@ void y_main_clean(void)
 }
 
 #endif
+

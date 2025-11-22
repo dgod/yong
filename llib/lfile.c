@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <time.h>
+#include <utime.h>
 #include <sys/stat.h>
 
 #include "ltypes.h"
@@ -367,11 +368,19 @@ bool l_file_is_dir(const char *path)
 #endif
 }
 
-bool l_file_exists(const char *path)
+int l_access(const char *path,int mode)
 {
 #ifdef _WIN32
 	wchar_t temp[MAX_PATH];
+	l_utf8_to_utf16(path,temp,MAX_PATH);
+	return _waccess(temp,mode);
+#else
+	return access(path,mode);
 #endif
+}
+
+bool l_file_exists(const char *path)
+{
 	const char *zfile=file_is_in_zip(path);
 	if(zfile)
 	{
@@ -389,12 +398,7 @@ bool l_file_exists(const char *path)
 		fclose(fp);
 		return ret;
 	}
-#ifdef _WIN32
-	l_utf8_to_utf16(path,temp,MAX_PATH);
-	return !_waccess(temp,F_OK);
-#else
-	return !access(path,F_OK);
-#endif
+	return !l_access(path,F_OK);
 }
 
 time_t l_file_mtime(const char *path)
@@ -403,6 +407,19 @@ time_t l_file_mtime(const char *path)
 	if(0!=l_stat(path,&st))
 		return 0;
 	return st.st_mtime;
+}
+
+int l_file_touch(const char *path,int64_t mtime)
+{
+#ifdef _WIN32
+	struct _utimbuf buf={(time_t)mtime,(time_t)mtime};
+	wchar_t temp[MAX_PATH];
+	l_utf8_to_utf16(path,temp,sizeof(temp));
+	return _wutime(temp,&buf);
+#else
+	struct utimbuf buf={(time_t)mtime,(time_t)mtime};
+	return utime(path,&buf);
+#endif
 }
 
 ssize_t l_file_size(const char *path)

@@ -23,10 +23,6 @@ struct _lxmlnode{
 typedef struct{
 	LXmlNode root;
 	LXmlNode *cur;
-	const char *data;
-	int deep;
-	int status;
-	int intag;
 }LXml;
 
 LXml *l_xml_load(const char *data);

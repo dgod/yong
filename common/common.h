@@ -36,7 +36,6 @@
 
 #include "xim.h"
 #include "ui.h"
-#include "mapfile.h"
 #include "llib.h"
 
 int y_im_copy_file(const char *src,const char *dst);
@@ -96,7 +95,7 @@ void y_im_str_strip(char *s);
 int y_im_help_desc(char *wh,char *desc,int len);
 void y_im_show_help(char *wh);
 int y_im_get_keymap(char *name,int len);
-int y_im_show_keymap(void);
+bool y_im_show_keymap(void);
 int y_im_gen_mac(void);
 int y_im_diff_hand(char c1,char c2);
 int y_im_is_url(const char *s);
@@ -153,7 +152,7 @@ int y_xim_trigger_key(int key);
 void y_xim_put_connect(CONNECT_ID *id);
 void y_xim_update_config(void);
 void y_xim_explore_url(const char *s);
-void y_xim_preedit_draw(char *s,int len);
+void y_xim_preedit_draw(const char *s,int len);
 void y_xim_enable(int enable);
 int y_xim_input_key(int key);
 void y_xim_send_keys(const char *s);
@@ -170,7 +169,8 @@ void y_im_history_redirect_init(void);
 void y_im_history_redirect_free(void);
 int y_im_history_redirect_run(void);
 
-int y_im_nl_day(int64_t t,char *s);
+int y_im_nl_from_day(char *s,int year,int month,int day);
+int y_im_nl_from_time(char *s,int64_t t);
 
 void *y_dict_open(const char *file);
 void y_dict_close(void *p);
@@ -182,15 +182,15 @@ LKeyFile *y_im_get_menu_config(void);
 int y_im_handle_menu(const char *cmd);
 
 int y_kbd_init(const char *fn);
-int y_kbd_show(int b);
+bool y_kbd_show(int b);
 int y_kbd_show_with_main(int b);
-void y_kbd_popup_menu(void);
+bool y_kbd_popup_menu(void);
 void y_kbd_select(int pos,int sub);
 
 int y_replace_init(const char *file);
 int y_replace_free(void);
 int y_replace_string(const char *in,void (*output)(const char *,int),int flags);
-int y_replace_enable(int enable);
+bool y_replace_enable(int enable);
 
 void y_im_load_book(void);
 void y_im_free_book(void);
@@ -231,7 +231,7 @@ int y_im_async_init(void);
 int y_im_async_write_file(const char *file,LString *data,bool backup);
 int y_im_async_wait(int timeout);
 void y_im_async_destroy(void);
-int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user);
+int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user,bool stream);
 
 int y_main_init(int index);
 void y_main_clean(void);

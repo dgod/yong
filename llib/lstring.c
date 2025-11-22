@@ -21,21 +21,8 @@ char *l_sprintf(const char *fmt,...)
 	int len;
 	char *ret;
 	va_start(ap,fmt);
-#if 1
 	len=vasprintf(&ret,fmt,ap);
 	if(len<0) ret=NULL;
-#else
-	len=vsnprintf(NULL,0,fmt,ap);
-#ifdef _WIN32
-	/* win2000 always return -1, so we set 256 to work */
-	if(len<=0) len=256;
-#endif
-	va_end(ap);
-	ret=l_alloc(len+1);
-	va_start(ap,fmt);
-	vsprintf(ret,fmt,ap);
-	
-#endif
 	va_end(ap);
 	return ret;
 }
@@ -211,6 +198,18 @@ void l_string_append_c(LString *string,int c)
 	l_string_expand(string,1);
 	string->str[string->len++]=c;
 	string->str[string->len]=0;
+}
+
+void l_string_erase(LString *string,int pos,int len)
+{
+	if(len<0 || pos+len>=string->len)
+	{
+		string->str[pos]=0;
+		string->len=pos;
+		return;
+	}
+	memmove(string->str+pos,string->str+pos+len,string->len-pos-len+1);
+	string->len-=len;
 }
 
 void *l_strncpy(char *restrict dest,const char *restrict src,size_t n)
@@ -404,8 +403,17 @@ int l_strpos(const char *haystack,const char *needle)
 
 int l_chrpos(const char *s,int c)
 {
-	int i;
-	for(i=0;s[i];i++)
+	for(int i=0;s[i];i++)
+	{
+		if(s[i]==c)
+			return i;
+	}
+	return -1;
+}
+
+int l_chrnpos(const char *s,int c,size_t n)
+{
+	for(int i=0;s[i] && i<n;i++)
 	{
 		if(s[i]==c)
 			return i;
@@ -418,7 +426,7 @@ int l_str_replace(char *s,int from,int to)
 	int i=0;
 	if(to==0)
 	{
-		for(int j=0;s[j]!=0;j++)
+		for(int j=0;s[j]!='\0';j++)
 		{
 			if(s[j]!=from)
 				s[i++]=s[j];
@@ -475,7 +483,9 @@ int l_int_to_str(int64_t n,const char *format,int flags,char *out)
 		return sprintf(out,format?format:"%"PRId64,n);
 	}
 	const char *ch0=flags&L_INT2STR_ZERO0?"©–":"Áã";
-	const char *ch=flags&L_INT2STR_BIG?"Ò¼·¡ÈþËÁÎéÂ½Æâ°Æ¾Á":"Ò»¶þÈýËÄÎåÁùÆß°Ë¾Å";
+	const char *ch=flags&L_INT2STR_BIG?
+			(flags&L_INT2STR_TRAD?"Ò¼ÙE…¢ËÁÎéê‘Æâ°Æ¾Á":"Ò¼·¡ÈþËÁÎéÂ½Æâ°Æ¾Á"):
+			"Ò»¶þÈýËÄÎåÁùÆß°Ë¾Å";
 	const char *dw=NULL;
 	if((flags&L_INT2STR_INDIRECT)!=0)
 	{
@@ -667,5 +677,16 @@ int l_strtok(const char *str,int delim,const char *res[],int limit)
 	for(int i=count;i<limit;i++)
 		res[i]=NULL;
 	return count;
+}
+
+bool l_str_is_ascii(const char *s)
+{
+	int c;
+	while((c=*s++)!=0)
+	{
+		if((c&0x80))
+			return false;
+	}
+	return true;
 }
 

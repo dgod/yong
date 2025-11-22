@@ -6,17 +6,16 @@
 
 #include "trie.h"
 
-#define TRIE_PAGE			(512*1024)
-
 #ifdef _WIN32
 #include <windows.h>
-static inline void *alloc_page(void)
+static inline void *alloc_page(int page_size)
 {
-	return VirtualAlloc(NULL,TRIE_PAGE,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
+	return VirtualAlloc(NULL,page_size,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);
 }
 
-static inline void free_page(void *p)
+static inline void free_page(void *p,int page_size)
 {
+	(void)page_size;
 	VirtualFree(p,0,MEM_RELEASE);
 }
 #elif defined(EMSCRIPTEN)
@@ -31,24 +30,28 @@ static inline void free_page(void *p)
 }
 #else
 #include <sys/mman.h>
-static inline void *alloc_page(void)
+static inline void *alloc_page(int page_size)
 {
-	return mmap(NULL,TRIE_PAGE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+	return mmap(NULL,page_size,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
 }
 
-static inline void free_page(void *p)
+static inline void free_page(void *p,int page_size)
 {
-	munmap(p,TRIE_PAGE);
+	munmap(p,page_size);
 }
 #endif
 
-trie_tree_t *trie_tree_new(void)
+trie_tree_t *trie_tree_new(int page_size)
 {
-	trie_tree_t *t;
-	trie_node_t *n;
-	t=calloc(1,sizeof(*t));
-	t->page[0]=alloc_page();
-	n=t->page[0];
+	if(!IS_POWER_OF_2(page_size) || page_size<16*1024)
+		return NULL;
+	trie_tree_t *t=l_new0(trie_tree_t);
+	t->page_size=page_size;
+	t->page_mask=page_size/8-1;
+	t->page_shift=l_ctz(page_size/8);
+	t->page=L_PTR_ARRAY_INIT_COUNT(16);
+	l_ptr_array_append(&t->page,alloc_page(page_size));
+	trie_node_t *n=l_ptr_array_nth(&t->page,0);
 	memset(n,0,sizeof(*n));
 	n->node=1;
 	t->count=1;
@@ -57,24 +60,24 @@ trie_tree_t *trie_tree_new(void)
 
 void trie_tree_free(trie_tree_t *t)
 {
-	int i;
 	if(!t)
 		return;
-	for(i=0;i<256 && t->page[i];i++)
-		free_page(t->page[i]);
-	free(t);
+	for(int i=0;i<l_ptr_array_length(&t->page);i++)
+		free_page(l_ptr_array_nth(&t->page,i),t->page_size);
+	l_free(t->page.ptr);
+	l_free(t);
 }
 
 static inline trie_node_t *trie_root(trie_tree_t *t)
 {
-	return t->page[0];
+	return l_ptr_array_nth(&t->page,0);
 }
 
 static inline trie_node_t *trie_nth(trie_tree_t *t,int n)
 {
-	int i,j;
-	i=n>>16,j=n&0xffff;
-	return t->page[i]+j;
+	int i=n>>t->page_shift,j=n&t->page_mask;
+	trie_node_t *p=l_ptr_array_nth(&t->page,i);
+	return p+j;
 }
 
 static trie_node_t *trie_node(trie_tree_t *t,trie_node_t *n,uint32_t val)
@@ -108,14 +111,13 @@ static trie_node_t *trie_leaf(trie_tree_t *t,trie_node_t *n)
 trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len)
 {
 	trie_node_t *n;
-	int i,val;
 	n=trie_root(t);
 	if(!n->child)
 		return NULL;
 	n=trie_nth(t,n->child);
-	for(i=0;i<len;i++)
+	for(int i=0;i<len;i++)
 	{
-		val=s[i];
+		int val=s[i];
 		n=trie_node(t,n,val);
 		if(!n) break;
 		if(i+1==len)
@@ -129,8 +131,7 @@ trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len)
 
 trie_node_t *trie_tree_get_leaf(trie_tree_t *t,const char *s,int len)
 {
-	trie_node_t *n;
-	n=trie_tree_get_path(t,s,len);
+	trie_node_t *n=trie_tree_get_path(t,s,len);
 	if(!n || !n->child)
 		return NULL;
 	n=trie_nth(t,n->child);
@@ -177,20 +178,20 @@ int trie_tree_del(trie_tree_t *t,const char *s,int len)
 	return 0;
 }
 
-int trie_tree_is_leaf(trie_tree_t *t,const char *s,int len)
+bool trie_tree_is_leaf(trie_tree_t *t,const char *s,int len)
 {
 	trie_node_t *n;
 	n=trie_tree_get_path(t,s,len);
 	if(!n || !n->leaf)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 static inline int trie_add(trie_tree_t *t)
 {
-	int i=t->count>>16;
-	if(!t->page[i])
-		t->page[i]=alloc_page();
+	int i=t->count >> t->page_shift;
+	if(i>=l_ptr_array_length(&t->page))
+		l_ptr_array_append(&t->page,alloc_page(t->page_size));
 	return t->count++;
 }
 

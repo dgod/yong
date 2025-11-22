@@ -12,7 +12,8 @@ typedef struct{
 }UI_EVENT;
 
 static char skin_path[64];
-static double ui_scale=1.0;
+static double ui_scale=1.0;			// ui windows scale to
+static double ui_res_scale=1.0;		// scale used when load images, @win scale=res_scale
 
 bool ui_image_path(const char *file,char path[],int where)
 {
@@ -52,9 +53,38 @@ bool ui_image_path(const char *file,char path[],int where)
 	return false;
 }
 
+double ui_image_file_scale(const char *file,char scale[])
+{
+	const char *b,*e;
+	int i;
+	scale[0]='1';scale[1]=0;
+	b=strchr(file,'@');
+	if(!b)
+		return 1.0;
+	b++;
+	e=strrchr(file,'.');
+	if(!e)
+		return 1.0;
+	for(i=0;i<5 && b+i<e;i++)
+	{
+		scale[i]=b[i];
+	}
+	scale[i]=0;
+	double r=strtod(scale,NULL);
+	if(r<=0)
+	{
+		scale[0]='1';
+		scale[1]=0;
+		return 1;
+	}
+	return r;
+}
+
 UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,int where)
 {
 	const char *scale_str=NULL;
+	char orig_scale_str[8];
+	double orig_scale;
 	UI_IMAGE p=NULL;
 	if(l_str_has_suffix(file,".svg"))
 	{
@@ -66,7 +96,8 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 		p=ui_image_load_at_size(file,width,height,where);
 		return p;
 	}
-	if(scale>0.99 && scale<1.01)
+	orig_scale=ui_image_file_scale(file,orig_scale_str);
+	if(scale==1)
 		scale_str="1";
 	else if(scale>1.24 && scale<1.26)
 		scale_str="1.25";
@@ -74,13 +105,20 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 		scale_str="1.5";
 	else if(scale>1.74 && scale<1.76)
 		scale_str="1.75";
-	else if(scale>1.99 && scale<2.01)
+	else if(scale==2)
 		scale_str="2";
 	if(scale_str)
 	{
-		char temp[64];
-		snprintf(temp,sizeof(temp),"%s/%s",scale_str,file);
-		p=ui_image_load(temp,where);
+		if(!strcmp(scale_str,orig_scale_str))
+		{
+			p=ui_image_load(file,where);
+		}
+		else
+		{
+			char temp[64];
+			snprintf(temp,sizeof(temp),"%s/%s",scale_str,file);
+			p=ui_image_load(temp,where);
+		}
 	}
 	if(!p)
 	{
@@ -92,7 +130,8 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 		}
 		else
 		{
-			p=ui_image_load(file,where);
+			width=-(int)round(scale/orig_scale*10000);
+			p=ui_image_load_at_size(file,width,-1,where);
 		}
 	}
 	return p;
@@ -106,37 +145,11 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 
 #include <gtk/gtk.h>
 typedef char UI_CHAR;
-typedef cairo_region_t *UI_REGION;
 
 UI_WINDOW MainWin;
 
 #define ui_icon_load(x) ui_image_load(x)
 #define ui_icon_free(x) ui_icon_free(x)
-
-UI_IMAGE ui_image_part(UI_IMAGE img,int x,int y,int w,int h)
-{
-	return gdk_pixbuf_new_subpixbuf(img,x,y,w,h);
-}
-
-static int ui_image_size(UI_IMAGE img,int *w,int *h)
-{
-	*w=gdk_pixbuf_get_width(img);
-	*h=gdk_pixbuf_get_height(img);
-	return 0;
-}
-
-static void ui_image_draw(UI_DC dc,UI_IMAGE img,int x,int y)
-{
-	int w,h;
-	if(!img)
-		return;
-	ui_image_size(img,&w,&h);
-	cairo_rectangle(dc,x,y,w,h);
-	cairo_clip(dc);
-	gdk_cairo_set_source_pixbuf(dc,img,x,y);
-	cairo_paint(dc);
-	cairo_reset_clip(dc);
-}
 
 static void UpdateMainWindow(void)
 {
@@ -391,20 +404,19 @@ static int ui_button_event(UI_WINDOW win,UI_EVENT *event,UI_BTN_REAL **under)
 int ui_button_update(int id,UI_BUTTON *param)
 {
 	UI_BTN_REAL *btn=btns+id;
-	int i;
 
-	for(i=0;i<3;i++)
+	for(int i=0;i<3;i++)
 	{
 		if(btn->bmp[i])
 		{
 			ui_image_free(btn->bmp[i]);
-			btn->bmp[i]=0;
+			btn->bmp[i]=NULL;
 		}
 	}
 	if(btn->font)
 	{
 		ui_font_free(btn->font);
-		btn->font=0;
+		btn->font=NULL;
 	}
 	if(!param)
 	{
@@ -414,15 +426,17 @@ int ui_button_update(int id,UI_BUTTON *param)
 	}
 	if(MainTheme.scale!=1)
 	{
-		btn->bmp[0]=ui_image_load_scale(param->normal,ui_scale,param->w,param->h,IMAGE_SKIN);
+		if(param->normal)
+			btn->bmp[0]=ui_image_load_scale(param->normal,ui_res_scale,param->w,param->h,IMAGE_SKIN);
 		if(param->down)
-			btn->bmp[1]=ui_image_load_scale(param->down,ui_scale,param->w,param->h,IMAGE_SKIN);
+			btn->bmp[1]=ui_image_load_scale(param->down,ui_res_scale,param->w,param->h,IMAGE_SKIN);
 		if(param->over)
-			btn->bmp[2]=ui_image_load_scale(param->over,ui_scale,param->w,param->h,IMAGE_SKIN);
+			btn->bmp[2]=ui_image_load_scale(param->over,ui_res_scale,param->w,param->h,IMAGE_SKIN);
 	}
 	else
 	{
-		btn->bmp[0]=ui_image_load(param->normal,IMAGE_SKIN);
+		if(param->normal)
+			btn->bmp[0]=ui_image_load(param->normal,IMAGE_SKIN);
 		if(param->down)
 			btn->bmp[1]=ui_image_load(param->down,IMAGE_SKIN);
 		if(param->over)
@@ -432,7 +446,19 @@ int ui_button_update(int id,UI_BUTTON *param)
 	{
 		int w,h;
 		ui_image_size(btn->bmp[0],&w,&h);
-		btn->rc.w=w;btn->rc.h=h;
+		if(param->w<=0 || param->h<=0)
+		{	
+			double scale=MainTheme.scale!=1?ui_res_scale:1;
+			if(scale==1)
+			{
+				btn->rc.w=w;btn->rc.h=h;
+			}
+			else
+			{
+				btn->rc.w=(int)round(w/scale);
+				btn->rc.h=(int)round(h/scale);
+			}
+		}
 	}
 	else
 	{
@@ -493,7 +519,6 @@ static void ui_skin_path(const char *p)
 static void ui_draw_main_win(DRAW_CONTEXT1 *ctx)
 {
 	double scale=MainTheme.scale!=1?ui_scale:1;
-	int i;
 
 	if(MainWin_bg)
 	{
@@ -534,11 +559,13 @@ static void ui_draw_main_win(DRAW_CONTEXT1 *ctx)
 			}				
 		}
 	}
-	for(i=0;i<UI_BTN_COUNT;i++)
+
+	for(int i=0;i<UI_BTN_COUNT;i++)
 	{
 		UI_BTN_REAL *btn=btns+i;
 		UI_RECT *r=&btn->rc;
-		if(!btn->visible || !r->w) continue;
+		if(!btn->visible || !r->w)
+			continue;
 		
 		int x=(int)round(r->x*scale);
 		int y=(int)round(r->y*scale);
@@ -549,7 +576,7 @@ static void ui_draw_main_win(DRAW_CONTEXT1 *ctx)
 			ui_stretch_image(ctx,btn->bmp[1],x,y,w,h);
 		else if(btn->state==UI_STATE_OVER && btn->bmp[2])
 			ui_stretch_image(ctx,btn->bmp[2],x,y,w,h);
-		else
+		else if(btn->bmp[0])
 			ui_stretch_image(ctx,btn->bmp[0],x,y,w,h);
 
 		if(btn->text[0])
@@ -599,18 +626,22 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 	{
 		if(InputTheme.bg[0])
 		{
-			ui_draw_image(ctx,InputTheme.bg[0],0,0);
+			ui_stretch_image(ctx,InputTheme.bg[0],
+					0,0,
+					InputTheme.Left,InputTheme.RealHeight);
 		}
 		if(InputTheme.bg[2])
 		{
-			ui_draw_image(ctx,InputTheme.bg[2],InputTheme.RealWidth-InputTheme.Right,0);
+			ui_stretch_image(ctx,InputTheme.bg[2],
+					InputTheme.RealWidth-InputTheme.Right,0,
+					InputTheme.Right,InputTheme.RealHeight);
 		}
 		ui_stretch_image(ctx,InputTheme.bg[1],
 				InputTheme.Left,0,
 				InputTheme.RealWidth-InputTheme.Left-InputTheme.Right,
 				InputTheme.RealHeight);
 	}
-	
+
 	if(InputTheme.line!=1 && InputTheme.sep.a!=0)
 	{
 		double w=InputTheme.RealWidth;

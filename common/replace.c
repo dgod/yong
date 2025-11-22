@@ -223,9 +223,9 @@ int y_replace_string(const char *in,void (*output)(const char *,int),int flags)
 	return 0;
 }
 
-int y_replace_enable(int enable)
+bool y_replace_enable(int enable)
 {
-	if(!R) return 0;
+	if(!R) return false;
 	if(enable==-1)
 		R->enable=!R->enable;
 	else
@@ -234,7 +234,7 @@ int y_replace_enable(int enable)
 		y_ui_show_tip(YT("开启文字替换功能"));
 	else
 		y_ui_show_tip(YT("关闭文字替换功能"));
-	return 0;
+	return true;
 }
 
 #endif/*CFG_NO_REPLACE*/

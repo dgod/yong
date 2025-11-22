@@ -58,19 +58,16 @@ static void dict_item_free(void *p)
 
 static void escape_space(char *s)
 {
-	int i;
 	int len=strlen(s);
-	for(i=0;i<len;i++)
+	for(int i=0;i<len;i++)
 	{
 		if(s[i]=='$' && s[i+1]=='_')
 		{
-			s[i]=' ';
-			i++;
+			s[i++]=' ';
 			len--;
-			memmove(s+i,s+i+1,len-i);
+			memmove(s+i,s+i+1,len-i+1);
 		}
 	}
-	s[i]=0;
 }
 
 void *y_dict_open(const char *file)
@@ -163,6 +160,7 @@ char *y_dict_query(void *p,char *s)
 	if(len<1) return 0;
 	if(len<=2)
 	{
+		key.key=0;
 		strcpy((char*)&key.key+1,s);
 		*((char*)&key.key)=1;
 	}
@@ -171,6 +169,7 @@ char *y_dict_query(void *p,char *s)
 		strcpy(data,s);
 		key.key=(uintptr_t)data;
 	}
+
 	item=l_hash_table_find(dic->index,&key);
 	if(!item) return 0;
 	pos=item->pos;
@@ -312,7 +311,7 @@ int dict_ui_new_real(void)
 	
 	if(!dict) return 0;
 	
-	scale=y_ui_get_scale();
+	scale=y_ui_get_scale(0);
 	
 	hdc=GetDC(NULL);	
 	size = -((12 * GetDeviceCaps(hdc, LOGPIXELSY)/ 72)); 
@@ -444,7 +443,7 @@ static void dict_ui_creat(void)
 	GtkWidget *w;
 	double scale;
 	
-	scale=y_ui_get_scale();
+	scale=y_ui_get_scale(0);
 
 	w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	y_im_str_encode(YT("Yong ‰»Î∑®"),temp,0);

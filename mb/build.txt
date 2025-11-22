@@ -1,5 +1,5 @@
 var SRCS=['mb.c','face.c','pinyin.c','learn.c','assoc.c','pyzip.c',
-	'trie.c','fuzzy.c','cset.c','sentence.c','tools.c'];
+	'trie.c','fuzzy.c','cset.c','sentence.c','tools.c','correct.c'];
 var DIRS=['l32','l64',
 
 	];

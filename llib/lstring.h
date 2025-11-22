@@ -13,6 +13,7 @@ char *l_str_trim_left(char *str);
 char *l_str_trim_right(char *str);
 char *l_str_trim(char *str);
 int l_str_replace(char *s,int from,int to);
+bool l_str_is_ascii(const char *s);
 
 typedef struct{
 	char *str;
@@ -30,6 +31,7 @@ void l_string_append(LString *string,const char *val,int len);
 void l_string_append_c(LString *string,int c);
 char *l_string_steal(LString *string);
 void l_string_clear(LString *string);
+void l_string_erase(LString *string,int pos,int len);
 
 void l_strup(char *s);
 void l_strdown(char *s);
@@ -50,6 +52,7 @@ void *l_memmem(const void *haystack,int haystacklen,const void *needle,int needl
 int l_mempos(const void *haystack,int haystacklen,const void *needle,int needlelen);
 int l_strpos(const char *haystack,const char *needle);
 int l_chrpos(const char *s,int c);
+int l_chrnpos(const char *s,int c,size_t n);
 
 #define L_INT2STR_HZ			0x01
 #define L_INT2STR_UTF8			0x03

@@ -7,7 +7,7 @@
 #define l_dlopen(x) LoadLibraryA(x)
 #define l_dlsym(x,y) (void*)GetProcAddress(x, y)
 #define l_dlclose(x) FreeLibrary(x)
-#define l_defsym(x,y) (void*)GetProcAddress(GetModuleHandlA(x), y)
+#define l_defsym(x,y) (void*)GetProcAddress(GetModuleHandleA(x), y)
 
 #else
 

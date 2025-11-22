@@ -31,16 +31,24 @@ typedef struct{
 
 typedef HDC UI_DC;
 typedef HWND UI_WINDOW;
+typedef HRGN UI_REGION;
 
 #else
 
 #include <gtk/gtk.h>
 #include <cairo.h>
 
+#define UI_IMAGE_USE_GDK_PIXBUF		0
+
+#if UI_IMAGE_USE_GDK_PIXBUF
 typedef GdkPixbuf *UI_IMAGE;
+#else
+typedef cairo_surface_t *UI_IMAGE;
+#endif
 typedef GtkWidget *UI_WINDOW;
 typedef cairo_t *UI_DC;
 typedef GdkPixbuf *UI_ICON;
+typedef cairo_region_t *UI_REGION;
 
 typedef struct{
 	PangoLayout *pango;
@@ -52,6 +60,7 @@ typedef struct{
 	int x,y;
 	GtkWidget *win;
 	cairo_t *dc;
+	double scale;
 }DRAW_CONTEXT1;
 
 #endif
@@ -82,6 +91,16 @@ UI_IMAGE ui_image_load(const char *file,int where);
 void ui_image_free(UI_IMAGE img);
 UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where);
 UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,int where);
+UI_IMAGE ui_image_part(UI_IMAGE image,int x,int y,int w,int h);
+int ui_image_size(UI_IMAGE img,int *w,int *h);
 UI_ICON ui_icon_load(const char *file);
 void ui_icon_free(UI_ICON icon);
+void ui_image_draw(UI_DC dc,UI_IMAGE img,int x,int y);
+void ui_image_draw_full(UI_DC hdc,UI_IMAGE bmp,
+				int dst_x,int dst_y,int dst_w,int dst_h,
+				int x,int y,int w,int h);
+UI_REGION ui_image_region(UI_IMAGE img,double scale);
 
+#ifndef _WIN32
+GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,int where);
+#endif

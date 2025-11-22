@@ -1,7 +1,3 @@
-/*!
- * \file extra.c
- * \author dgod
- */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -147,7 +143,7 @@ int InitExtraIM(IM *im,EXTRA_IM *eim,const char *arg)
 
 	if(eim->Init(arg))
 	{
-		printf("eim: init fail\n");
+		printf("eim: init %s fail\n",eim->Name);
 		return -1;
 	}
 

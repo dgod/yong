@@ -1,431 +1,265 @@
-#include <ctype.h>
-#include <string.h>
 #include <stdio.h>
-#include <stdarg.h>
-
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 #include "llib.h"
 
-enum{
-	REQ_ANY,
-	REQ_LT,
-	REQ_SYMBOL,
-	REQ_EQ,
-	REQ_STRING,
-	REQ_END,
-};
+#define XML_MAX_ATTRIBS 256
 
-enum{
-	TOK_NONE=0,
-	TOK_SYMBOL,
-	TOK_STRING,
-	TOK_DATA,
-	TOK_END,
-	TOK_EOF,
-	TOK_LT='<',
-	TOK_GT='>',
-	TOK_EQ='=',
-	TOK_EGT='/',
-};
-
-static void skip_space(LXml *xml)
+static void xml_parseContent(char* s,
+							   void (*contentCb)(void* ud, const char* s),
+							   void* ud)
 {
-	int c;
-	while((c=*xml->data)!=0)
-	{
-		if(!isspace(c))
-		{
-			break;
-		}
-		xml->data++;
-	}
+	while (*s && isspace(*s)) s++;
+	if (!*s) return;
+
+	if (contentCb)
+		(*contentCb)(ud, s);
 }
 
-static int next_token(LXml *xml,int peek)
+static void xml_parseElement(char* s,
+							   void (*startelCb)(void* ud, const char* el, const char** attr),
+							   void (*endelCb)(void* ud, const char* el),
+							   void* ud)
 {
-	const char *p;
-	int c;
-restart:
-	skip_space(xml);
-	p=xml->data;
-	c=p[0];
-	if(!c && xml->status==REQ_LT)
-		return TOK_EOF;
-	if(c) switch(c){
-	case '<':
-		if(xml->intag)
-			break;
-		if(p[1]=='/')
+	const char* attr[XML_MAX_ATTRIBS];
+	int nattr = 0;
+	char* name;
+	int start = 0;
+	int end = 0;
+	char quote;
+
+	// Skip white space after the '<'
+	while (*s && isspace(*s)) s++;
+
+	// Check if the tag is end tag
+	if (*s == '/')
+	{
+		s++;
+		end = 1;
+	}
+	else
+	{
+		start = 1;
+	}
+
+	// Skip comments, data and preprocessor stuff.
+	if (!*s || *s == '?' || *s == '!')
+		return;
+
+	// Get tag name
+	name = s;
+	while (*s && !isspace(*s)) s++;
+	if (*s) *s++ = '\0';
+
+	// Get attribs
+	while (!end && *s && nattr < XML_MAX_ATTRIBS-3)
+	{
+		char* name = NULL;
+		char* value = NULL;
+
+		// Skip white space before the attrib name
+		while (*s && isspace(*s)) s++;
+		if (!*s) break;
+		if (*s == '/')
 		{
-			if(xml->status==REQ_END || xml->status==REQ_ANY)
-			{
-				if(!peek) xml->data+=2;
-				return TOK_END;
-			}
-		}
-		else if(p[1]=='!' || p[1]=='?')
-		{
-			xml->data+=2;
-			while((c=*xml->data)!=0)
-			{
-				xml->data++;
-				if(c=='>')
-					break;
-			}
-			goto restart;
-		}
-		else if(xml->status==REQ_ANY || xml->status==REQ_LT)
-		{
-			if(!peek) xml->data++;
-			return TOK_LT;
-		}
-		break;
-	case '>':
-		if(!xml->intag)
-			break;
-		if(xml->status==REQ_ANY)
-		{
-			if(!peek) xml->data++;
-			return TOK_GT;
-		}
-		break;
-	case '\"':
-		if(xml->intag)
-		{
-			if(xml->status==REQ_STRING)
-			{
-				if(!peek) xml->data++;
-				return TOK_STRING;
-			}
-		}
-		else if(xml->status==REQ_ANY)
-		{
-			return TOK_DATA;
-		}
-		break;
-	case '=':
-		if(xml->intag)
-		{
-			if(xml->status==REQ_EQ)
-			{
-				if(!peek) xml->data++;
-				return TOK_EQ;
-			}
+			end = 1;
 			break;
 		}
-		else if(xml->status==REQ_ANY)
+		name = s;
+		// Find end of the attrib name.
+		while (*s && !isspace(*s) && *s != '=') s++;
+		if (*s) *s++ = '\0';
+		// Skip until the beginning of the value.
+		while (*s && *s != '\"' && *s != '\'') s++;
+		if (!*s) break;
+		quote = *s;
+		s++;
+		// Store value and find the end of it.
+		value = s;
+		while (*s && *s != quote) s++;
+		if (*s) *s++ = '\0';
+
+		// Store only well formed attributes
+		if (name && value)
 		{
-			return TOK_DATA;
+			attr[nattr++] = name;
+			attr[nattr++] = value;
 		}
-		break;
-	case '/':
-		if(xml->intag)
+	}
+
+	// List terminator
+	attr[nattr++] = NULL;
+	attr[nattr++] = NULL;
+
+	// Call callbacks.
+	if (start && startelCb)
+		(*startelCb)(ud, name, attr);
+	if (end && endelCb)
+		(*endelCb)(ud, name);
+}
+
+int l_xml_parse(char* s,
+				   void (*startelCb)(void* ud, const char* el, const char** attr),
+				   void (*endelCb)(void* ud, const char* el),
+				   void (*contentCb)(void* ud, const char* s),
+				   void* ud)
+{
+	char* mark = s;
+	bool is_content=true;
+	while (*s)
+	{
+		if (*s == '<' && is_content)
 		{
-			if(xml->status==REQ_ANY && p[1]=='>')
-			{
-				if(!peek) xml->data+=2;
-				return TOK_EGT;
-			}
+			// Start of a tag
+			*s++ = '\0';
+			xml_parseContent(mark, contentCb, ud);
+			mark = s;
+			is_content=false;
+		}
+		else if (*s == '>' && !is_content)
+		{
+			// Start of a content or new tag.
+			*s++ = '\0';
+			xml_parseElement(mark, startelCb, endelCb, ud);
+			mark = s;
+			is_content=true;
 		}
 		else
 		{
-			return TOK_DATA;
+			s++;
 		}
-	default:
-		if(xml->intag)
-		{
-			return TOK_SYMBOL;
-		}
-		else if(xml->status==REQ_ANY)
-		{
-			return TOK_DATA;
-		}
-		break;
 	}
-	return TOK_NONE;
+
+	return 1;
 }
 
-static char *load_data(LXml *xml)
+static char *load_string(const char *s)
 {
-	char temp[128];
+	char temp[256];
 	int i;
-	int c;
 	
-	for(i=0;i<128;)
+	for(i=0;i<250;)
 	{
-		c=*xml->data;
+		int c=*s++;
 		if(c==0)
-			return NULL;
-		if(c=='<')
-			break;
-		xml->data++;
-		if(c=='&')
-		{
-			if(!strncmp(xml->data,"lt;",3))
-			{
-				xml->data+=3;
-				temp[i++]='<';
-			}
-			else if(!strncmp(xml->data,"gt;",3))
-			{
-				xml->data+=3;
-				temp[i++]='>';
-			}
-			else if(!strncmp(xml->data,"amp;",4))
-			{
-				xml->data+=4;
-				temp[i++]='&';
-			}
-			else if(!strncmp(xml->data,"quot;",5))
-			{
-				xml->data+=5;
-				temp[i++]='\"';
-			}
-			else if(!strncmp(xml->data,"apos;",5))
-			{
-				xml->data+=5;
-				temp[i++]='\'';
-			}
-			else if(!strncmp(xml->data,"nbsp;",5))
-			{
-				xml->data+=5;
-				temp[i++]=' ';
-			}
-			else if(xml->data[0]=='#' && isdigit(xml->data[1]))
-			{
-				char *end;
-				long code=strtol(xml->data+1,&end,10);
-				if(*end!=';')
-					return NULL;
-				xml->data=end+1;
-				temp[i++]=(char)(code&0x7f);
-			}
-			else
-			{
-				temp[i++]=c;
-			}
-		}
-		else
-		{
-			temp[i++]=c;
-		}
-	}
-	temp[i]=0;
-	return l_strdup(temp);
-}
-
-static char *load_symbol(LXml *xml)
-{
-	char temp[64];
-	int i;
-	int c;
-	
-	skip_space(xml);
-	
-	for(i=0;i<63;i++)
-	{
-		c=*xml->data;
-		if(c==' ' || c=='=' || c=='>' || c=='/')
-		{
-			if(i>1 && temp[i-1]==':')
-				return NULL;
-			break;
-		}
-		if(isalnum(c) || c=='_' || (i!=0 && c==':'))
-		{
-			if(i==0 && isdigit(c))
-				return NULL;
-			temp[i]=c;
-			xml->data++;
-		}
-		else
-		{
-			return NULL;
-		}
-	}
-	if(i==0) return NULL;
-	temp[i]=0;
-	return l_strdup(temp);
-}
-
-static char *load_string(LXml *xml)
-{
-	char temp[128];
-	int i;
-	int c;
-	
-	for(i=0;i<128;)
-	{
-		c=*xml->data++;
-		if(c==0)
-			return NULL;
-		if(c=='\"')
 			break;
 		if(c=='&')
 		{
-			if(!strncmp(xml->data,"lt;",3))
+			if(!strncmp(s,"lt;",3))
 			{
-				xml->data+=3;
+				s+=3;
 				temp[i++]='<';
 			}
-			else if(!strncmp(xml->data,"gt;",3))
+			else if(!strncmp(s,"gt;",3))
 			{
-				xml->data+=3;
+				s+=3;
 				temp[i++]='>';
 			}
-			else if(!strncmp(xml->data,"amp;",4))
+			else if(!strncmp(s,"amp;",4))
 			{
-				xml->data+=4;
+				s+=4;
 				temp[i++]='&';
 			}
-			else if(!strncmp(xml->data,"quot;",5))
+			else if(!strncmp(s,"quot;",5))
 			{
-				xml->data+=5;
+				s+=5;
 				temp[i++]='\"';
 			}
-			else if(!strncmp(xml->data,"apos;",5))
+			else if(!strncmp(s,"apos;",5))
 			{
-				xml->data+=5;
+				s+=5;
 				temp[i++]='\'';
 			}
-			else if(!strncmp(xml->data,"nbsp;",5))
+			else if(!strncmp(s,"nbsp;",5))
 			{
-				xml->data+=5;
+				s+=5;
 				temp[i++]=' ';
 			}
-			else if(xml->data[0]=='#' && isdigit(xml->data[1]))
+			else if(s[0]=='#')
 			{
 				char *end;
-				long code=strtol(xml->data+1,&end,10);
-				if(*end!=';')
-					return NULL;
-				xml->data=end+1;
-				temp[i++]=(char)(code&0x7f);
-			}
-			else
-			{
-				temp[i++]=c;
-			}
-		}
-		else
-		{
-			temp[i++]=c;
-		}
-	}
-	temp[i]=0;
-	return l_strdup(temp);
-}
-
-static int load_prop(LXml *xml)
-{
-	LXmlNode *cur=xml->cur;
-	LXmlProp *prop;
-	prop=l_new0(LXmlProp);
-	cur->prop=l_slist_append(cur->prop,prop);
-	prop->name=load_symbol(xml);
-	if(!prop) return -1;
-	xml->status=REQ_EQ;
-	if(next_token(xml,0)!=TOK_EQ)
-		return -1;
-	xml->status=REQ_STRING;
-	if(next_token(xml,0)!=TOK_STRING)
-	{
-		return -1;
-	}
-	prop->value=load_string(xml);
-	if(!prop->value)
-		return -1;
-	return 0;
-}
-
-static int load_node(LXml *xml)
-{
-	int tok;
-	tok=next_token(xml,1);
-	if(tok==TOK_LT)
-	{
-		LXmlNode *node;
-		xml->deep++;
-		node=l_new0(LXmlNode);
-		xml->cur->child=l_slist_append(xml->cur->child,node);
-		node->parent=xml->cur;
-		xml->cur=node;
-		next_token(xml,0);
-		xml->intag=1;
-		xml->status=REQ_SYMBOL;
-		tok=next_token(xml,0);
-		if(tok!=TOK_SYMBOL)
-			return -1;
-		node->name=load_symbol(xml);
-		if(!node->name)
-			return -1;
-		while(1)
-		{
-			xml->status=REQ_ANY;
-			tok=next_token(xml,1);
-			if(tok==TOK_SYMBOL)
-			{
-				if(0!=load_prop(xml))
+				long code;
+				if(isdigit(s[1]))
 				{
-					return -1;
+					code=strtol(s+1,&end,10);
 				}
-			}
-			else if(tok==TOK_GT)
-			{
-				next_token(xml,0);
-				xml->intag=0;
-				break;
-			}
-			else if(tok==TOK_EGT)
-			{
-				next_token(xml,0);
-				xml->intag=0;
-				xml->cur=xml->cur->parent;
-				xml->deep--;
-				return 0;
+				else
+				{
+					if(s[1]!='x' || !isdigit(s[2]))
+						return NULL;
+					code=strtol(s+2,&end,16);
+				}
+				if(*end!=';')
+					return NULL;
+				s=end+1;
+				if(code!=0 && code!=0xFFFE && code!=0xFFFF && !(code>=0xD800 && code<=0xDFFF) && code<=0x10FFFF)
+				{
+					i+=l_unichar_to_utf8(code,(uint8_t*)temp+i);
+				}				
 			}
 			else
 			{
-				return -1;
+				temp[i++]=c;
 			}
 		}
-		if(tok==TOK_GT)
+		else
 		{
-			do{
-				xml->status=REQ_ANY;
-				if(0!=load_node(xml))
-					return -1;
-			}while(xml->cur==node);
-			return 0;
+			temp[i++]=c;
 		}
 	}
-	else if(tok==TOK_DATA)
+	temp[i]=0;
+	return l_strdup(temp);
+}
+	
+static void startelCb(LXml *x, const char* el, const char** attr)
+{
+	LXmlNode *node=l_new0(LXmlNode);
+	node->name=l_strdup(el);
+	node->parent=x->cur;
+	x->cur->child=l_slist_append(x->cur->child,node);
+	x->cur=node;
+	for(int i=0;attr[i]!=NULL;i+=2)
 	{
-		if(!xml->cur->name || xml->cur->data)
-			return -1;
-		xml->cur->data=load_data(xml);
-		xml->status=REQ_END;
-		return 0;
+		LXmlProp *prop=l_new0(LXmlProp);
+		prop->name=l_strdup(attr[i]);
+		prop->value=load_string(attr[i+1]);
+		if(!prop->value)
+		{
+			l_free(prop->name);
+			l_free(prop);
+			continue;
+		}
+		node->prop=l_slist_append(node->prop,prop);
 	}
-	else if(tok==TOK_END)
+}
+
+static void endelCb(LXml *x, const char *el)
+{
+	if(x->cur && !strcmp(x->cur->name,el))
 	{
-		int len=strlen(xml->cur->name);
-		next_token(xml,0);
-		if(memcmp(xml->cur->name,xml->data,len))
-			return -1;
-		xml->data+=len;
-		if(xml->data[0]!='>')
-			return -1;
-		xml->data++;
-		xml->cur=xml->cur->parent;
-		xml->deep--;
-		xml->status=REQ_LT;
-		return 0;
+		x->cur=x->cur->parent;
 	}
-	else if(tok==TOK_EOF)
+}
+
+static void contentCb(LXml *x, const char *s)
+{
+	x->cur->data=load_string(s);
+}
+
+LXml *l_xml_load(const char *data)
+{
+	if(!data)
+		return NULL;
+	LXml *x=l_new0(LXml);
+	x->cur=&x->root;
+	l_xml_parse(l_strdupa(data),(void*)startelCb,(void*)endelCb,(void*)contentCb,x);
+	if(x->cur!=&x->root)
 	{
-		return 0;
+		l_xml_free(x);
+		return NULL;
 	}
-	return -1;
+	return x;
 }
 
 static void free_prop(LXmlProp *prop)
@@ -451,32 +285,6 @@ void l_xml_free(LXml *x)
 	if(!x) return;
 	l_slist_free(x->root.child,(LFreeFunc)free_node);
 	l_free(x);
-}
-
-LXml *l_xml_load(const char *data)
-{
-	LXml *x;
-	if(!data)
-		return NULL;
-	x=l_new0(LXml);
-	x->data=data;
-	x->cur=&x->root;
-	while(x->data[0]!=0)
-	{
-		x->status=REQ_LT;
-		if(0!=load_node(x))
-		{
-			l_xml_free(x);
-			return NULL;
-		}
-	}
-	if(x->deep!=0)
-	{
-		l_xml_free(x);
-		return NULL;
-	}
-	x->data=NULL;
-	return x;
 }
 
 LXmlNode *l_xml_get_child(const LXmlNode *node,const char *name)
@@ -523,14 +331,6 @@ static void dump_string(LString *s,const char *p,int data)
 		case '\'':
 			l_string_append(s,"&apos;",6);
 			break;
-/* xml not have space entity
-		case ' ':
-			if(data)
-			{
-				l_string_append(s,"&nbsp;",6);
-				break;
-			}
-*/
 		default:
 			l_string_append_c(s,c);
 			break;
@@ -538,13 +338,13 @@ static void dump_string(LString *s,const char *p,int data)
 	}
 }
 
-static void dump_node(LXml *xml,LXmlNode *node,LString *s)
+static void dump_node(LXml *xml,LXmlNode *node,LString *s,int deep)
 {
 	LXmlProp *pp;
 	LXmlNode *pn;
 	int i;
 	
-	for(i=0;i<xml->deep;i++)
+	for(i=0;i<deep;i++)
 		l_string_append_c(s,'\t');
 	l_string_append_c(s,'<');
 	l_string_append(s,node->name,-1);
@@ -562,10 +362,8 @@ static void dump_node(LXml *xml,LXmlNode *node,LString *s)
 	if(node->child)
 	{
 		l_string_append_c(s,'\n');
-		xml->deep++;
 		for(pn=node->child;pn!=NULL;pn=pn->next)
-			dump_node(xml,pn,s);
-		xml->deep--;
+			dump_node(xml,pn,s,deep+1);
 	}
 	else if(node->data)
 	{
@@ -574,7 +372,7 @@ static void dump_node(LXml *xml,LXmlNode *node,LString *s)
 	
 	if(node->child)
 	{
-		for(i=0;i<xml->deep;i++)
+		for(i=0;i<deep;i++)
 			l_string_append_c(s,'\t');
 	}
 	l_string_append(s,"</",2);
@@ -584,17 +382,13 @@ static void dump_node(LXml *xml,LXmlNode *node,LString *s)
 
 char *l_xml_dump(LXml *xml)
 {
-	char *res;
-	LString *s;
-	LXmlNode *p;
 	if(!xml)
 		return NULL;
-	s=l_string_new(512);
-	printf("<?xml version=\"1.0\" encoding=\"utf8\"?>\n");
-	for(p=xml->root.child;p!=NULL;p=p->next)
-		dump_node(xml,p,s);
-	res=s->str;s->str=NULL;
-	l_string_free(s);
-	return res;
+	LString s;
+	l_string_init(&s,512);
+	for(LXmlNode *p=xml->root.child;p!=NULL;p=p->next)
+		dump_node(xml,p,&s,0);
+	return s.str;
 }
 #endif
+

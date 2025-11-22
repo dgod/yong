@@ -111,4 +111,32 @@ do{							\
 
 #endif
 
+#define IS_UNSIGNED(v) _Generic((v),	\
+		unsigned char:	1u,				\
+		unsigned short:	1u,				\
+		unsigned int:	1u,				\
+		unsigned long:	1u,				\
+		unsigned long long: 1u,			\
+		default:0						\
+)
+
+#define TO_UNSIGNED(v)  _Generic((v),	\
+		signed char:(unsigned char)(v),	\
+		char:(unsigned char)(v),		\
+		short:(unsigned short)(v),		\
+		int:(unsigned int)(v),			\
+		long:(unsigned long)(v),		\
+		long long:(unsigned long  long)(v),	\
+		default:(v)						\
+)
+
+#define IS_POWER_OF_2(v) 				\
+({										\
+ 	typeof(v) _v=(v);					\
+	_Generic(IS_UNSIGNED(_v),			\
+			int:_v>0 && (_v&(_v-1))==0,	\
+			default:(_v&(_v-1))==0		\
+	);									\
+})
+
 #endif/*_LMACROS_H_*/

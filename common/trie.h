@@ -1,6 +1,8 @@
 #ifndef _TRIE_H_
 #define _TRIE_H_
 
+#include "llib.h"
+
 struct trie_tree;
 typedef struct trie_tree trie_tree_t ;
 struct trie_node;
@@ -20,8 +22,11 @@ struct trie_node{
 };
 
 struct trie_tree{
-	trie_node_t *page[256];
+	LPtrArray page;
 	int count;
+	int page_size;
+	int page_shift;
+	int page_mask;
 };
 
 typedef struct trie_iter{
@@ -35,14 +40,14 @@ typedef struct trie_iter{
 
 #define TRIE_DATA(n) ((trie_node_t*)(n)->data)
 
-trie_tree_t *trie_tree_new(void);
+trie_tree_t *trie_tree_new(int page_size);
 void trie_tree_free(trie_tree_t *t);
 trie_node_t *trie_tree_root(trie_tree_t *t);
 trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len);
 trie_node_t *trie_tree_get_leaf(trie_tree_t *t,const char *s,int len);
 trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len);
 int trie_tree_del(trie_tree_t *t,const char *s,int len);
-int trie_tree_is_leaf(trie_tree_t *t,const char *s,int len);
+bool trie_tree_is_leaf(trie_tree_t *t,const char *s,int len);
 
 trie_node_t *trie_node_get_child(trie_tree_t *t,trie_node_t *n);
 trie_node_t *trie_node_get_brother(trie_tree_t *t,trie_node_t *n);
@@ -66,7 +71,7 @@ typedef union{
 }py_node_t;
 
 typedef struct{
-	uint32_t node[512];
+	uint32_t node[511];
 	int count;
 }py_tree_t;
 

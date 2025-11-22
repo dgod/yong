@@ -1,5 +1,5 @@
 var SRCS=['main.c','im.c','bihua.c','common.c','s2t.c','nl.c',
-	'english.c','dict.c','keyboard.c','mapfile.c',
+	'english.c','dict.c','keyboard.c',
 	'aes.c','book.c','keytool.c',
 	'keydesc.c','ui.c','fbterm.c','keycode.c','select.c','layout.c','translate.c',
 	'ybus.c','ybus-xim.c','ybus-lcall.c','lcall.c','ybus-ibus.c',
@@ -61,11 +61,12 @@ function run(target){
 }
 
 function bihua(){
-	var SRCS=['bihua.c','mapfile.c'];
+	var SRCS=['bihua.c'];
 	env("BUILD?=l64");
 	include("../rules.txt");
-	env("CFLAGS=-I$(TOPDIR)/include $(LLIB_CFLAGS) -Wall -DTOOLS_BIHUA");
-	cr(SRCS,'bihua','$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@');
+	env("CFLAGS+=-I$(TOPDIR)/include $(LLIB_CFLAGS) -Wall -DTOOLS_BIHUA");
+	env("LDFLAGS+=-Wl,-rpath='$ORIGIN'");
+	cr(SRCS,'l64-gtk3/bihua','$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LLIB_LDADD)');
 }
 
 if(target=="clean"){

@@ -210,7 +210,7 @@ static const uint16_t cp_list[]={
 	MCP('b','o'),
 	MCP('i','s'),	// 0x3a
 };
-static_assert(lengthof(cp_list)==5+128+59,"cp list length not allow");
+static_assert(countof(cp_list)==5+128+59,"cp list length not allow");
 
 // 00 80
 static const uint16_t cz_list[]={
@@ -345,12 +345,12 @@ static const uint16_t cz_list[]={
 	0xd0c5,			//пе
 	0xb9d8,			//╧ь
 };
-static_assert(lengthof(cz_list)==0x81,"cz list length not allow");
+static_assert(countof(cz_list)==0x81,"cz list length not allow");
 
 static inline int cp_find(const char *in)
 {
 	uint16_t cp=MCP(in[0],in[1]);
-	for(int i=0;i<lengthof(cp_list);i++)
+	for(int i=0;i<countof(cp_list);i++)
 	{       
 		if(cp==cp_list[i])
 		{
@@ -363,7 +363,7 @@ static inline int cp_find(const char *in)
 static inline int cz_find(const char *in)
 {
 	uint16_t cp=MCZ(in[0],in[1]);
-	for(int i=0;i<lengthof(cz_list);i++)
+	for(int i=0;i<countof(cz_list);i++)
 	{       
 		if(cp==cz_list[i])
 			return CZB+i;
@@ -681,7 +681,7 @@ int cz_unzip(const char *in,char *out,int size)
 	for(;size>0;size--)
 	{
 		int c=*(uint8_t*)in++;
-		if(c<lengthof(cz_list))
+		if(c<countof(cz_list))
 		{
 			uint16_t cp=cz_list[c-CZB];
 			*out++=cp>>8;

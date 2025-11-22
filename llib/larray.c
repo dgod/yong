@@ -49,11 +49,14 @@ static void l_array_expand(LArray *array)
 	array->data=l_realloc(array->data,array->size*array->count);
 }
 
-void l_array_append(LArray *array,const void *val)
+void *l_array_append(LArray *array,const void *val)
 {
 	l_array_expand(array);
-	memcpy(array->data+array->len*array->size,val,array->size);
+	void *r=array->data+array->len*array->size;
+	if(val)
+		memcpy(r,val,array->size);
 	array->len++;
+	return r;
 }
 
 void l_array_insert(LArray *array,int n,const void *val)

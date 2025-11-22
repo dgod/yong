@@ -63,7 +63,7 @@ static void ui_update_menu(void);
 static void ui_skin_path(const char *p);
 static void ui_cfg_ctrl(char *name,...);
 static void ui_show_message(const char *s);
-static void ui_show_image(char *name,char *file,int top,int tran);
+static void ui_show_image(const char *name,const char *file,int top,int tran);
 static int ui_button_label(int id,const char *text);
 
 #include "ui-common.c"
@@ -73,12 +73,13 @@ static bool is_wayland=false;
 static int MainWin_over;
 static bool MainWin_visible;
 
-static GtkStatusIcon *StatusIcon;
-static GdkPixbuf *IconPixbuf[2];
 static int IconSelected;
+static void *StatusIcon;
+static GdkPixbuf *IconPixbuf[2];
 static void (*my_ca_gtk_play_for_widget)(GtkWidget *,uint32_t id,...);
 static void (*my_gdk_window_beep)(GdkWindow *window);
 static void (*my_menu_popup_at_pointer)(GtkMenu* menu,const GdkEvent* trigger_event);
+static gint (*my_widget_get_scale_factor)(GtkWidget *widget);
 
 static void *(*app_indicator_new)(const gchar *id,const gchar *icon_name,int category);
 static void (*app_indicator_set_status)(void *self,int status);
@@ -141,21 +142,21 @@ static gboolean CompMgrExist(void)
 
 static void calc_ui_scale(void)
 {
-	int dpi;
-	if(MainWin==NULL)
-	{
-		GtkWidget *w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
-		gtk_widget_destroy(w);
-	}
-	dpi=(int)gdk_screen_get_resolution(gdk_screen_get_default());
+	GtkWidget *w=MainWin?MainWin:gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	int dpi=(int)gdk_screen_get_resolution(gdk_screen_get_default());
 	if(dpi>=96)
 		ui_scale=dpi/96.0;
-	// printf("%d %.2f\n",dpi,ui_scale);
 	const char *temp=y_im_get_config_data("main","scale");
-	if(temp)
+	if(temp && temp[0])
 	{
 		ui_scale=strtod(temp,NULL);
 	}
+	ui_res_scale=ui_scale*my_widget_get_scale_factor(w);
+	if(w!=MainWin)
+	{
+		gtk_widget_destroy(w);
+	}
+	// printf("dpi:%d scale:%.2f res_scale:%.2f screen:%dx%d\n",dpi,ui_scale,ui_res_scale,gdk_screen_width(),gdk_screen_height());
 }
 
 static void on_clipboard_owner_change(GtkClipboard* self,GdkEventOwnerChange event,gpointer user_data)
@@ -204,6 +205,13 @@ static bool is_process_running(const char *exe)
 	return false;
 }
 
+static int return_1(void)
+{
+	return 1;
+}
+
+static gboolean on_screen_size_changed_next(gpointer unused);
+
 void YongSetXErrorHandler(void);
 static int ui_init(void)
 {
@@ -214,9 +222,10 @@ static int ui_init(void)
 	{
 		const char *desktop=getenv("XDG_CURRENT_DESKTOP");
 		const char *support[]={"KDE","UKUI","DDE"};
-		if(!desktop ||(!strstr(desktop,"wlroots") && !array_includes(support,lengthof(support),desktop)))
+		if(!desktop ||(!strstr(desktop,"wlroots") && !strstr(desktop,"mir") && !array_includes(support,countof(support),desktop)))
 			setenv("GDK_BACKEND","x11",1);
 	}
+#if 1
 	if(getenv("GDK_SCALE"))
 	{
 		double scale1=strtod(getenv("GDK_SCALE"),NULL);
@@ -235,13 +244,16 @@ static int ui_init(void)
 			setenv("GDK_DPI_SCALE",temp,1);
 		}
 	}
-
+#endif
 	gtk_init(NULL,NULL);
 
 	set_opacity=dlsym(NULL,"gdk_window_set_opacity");
 	set_opacity2=dlsym(NULL,"gtk_widget_set_opacity");
 	is_composited=dlsym(NULL,"gtk_widget_is_composited");
 	my_menu_popup_at_pointer=dlsym(NULL,"gtk_menu_popup_at_pointer");
+	my_widget_get_scale_factor =dlsym(NULL,"gtk_widget_get_scale_factor");
+	if(!my_widget_get_scale_factor)
+		my_widget_get_scale_factor=(void *)return_1;
 	load_sound_system();
 	
 	p=gtk_settings_get_default();
@@ -257,7 +269,6 @@ static int ui_init(void)
 		}
 		else
 		{
-			// gtk_settings_set_string_property(p,"gtk-im-module","gtk-im-context-simple",0);
 			gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
 		}
 	}
@@ -267,7 +278,7 @@ static int ui_init(void)
 	int delay=y_im_get_config_int("main","delay");
 	if(delay>0)
 	{
-		usleep(delay*1000);
+		g_timeout_add_seconds(delay,on_screen_size_changed_next,NULL);
 	}
 	
 	calc_ui_scale();
@@ -344,6 +355,11 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		}
 	}
 #endif
+	int scale_factor=1;
+	if(MainWin && my_widget_get_scale_factor)
+	{
+		scale_factor=my_widget_get_scale_factor(MainWin);
+	}
 	
 	*x = 0;
 	*y = 0;
@@ -355,6 +371,10 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		// wayland本身无法获取工作区域，用x11来获取
 		void ybus_xim_get_workarea(int *x, int *y, int *width, int *height);
 		ybus_xim_get_workarea(x,y,width,height);
+		*x/=scale_factor;
+		*y/=scale_factor;
+		*width/=scale_factor;
+		*height/=scale_factor;
 		// printf("%d %d %d %d\n",*x,*y,*width,*height);
 		return;
 	}
@@ -392,6 +412,10 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		}
 		if (found)
 			g_free (data);
+		*x/=scale_factor;
+		*y/=scale_factor;
+		*width/=scale_factor;
+		*height/=scale_factor;
 	}
 }
 
@@ -693,7 +717,8 @@ void ui_set_css(GtkWidget *widget,const gchar *data)
 
 static gboolean on_screen_size_changed_next(gpointer unused)
 {
-	YongReloadAll();
+	calc_ui_scale();
+	y_ui_reload_all();
 	return FALSE;
 }
 
@@ -702,7 +727,6 @@ static void on_screen_size_changed(GdkScreen *screen)
 	g_timeout_add(100,on_screen_size_changed_next,NULL);
 }
 
-static UI_REGION create_rgn(GdkPixbuf *);
 int ui_main_update(UI_MAIN *param)
 {
 	int tran;
@@ -782,11 +806,9 @@ int ui_main_update(UI_MAIN *param)
 	}
 	else
 	{
-		MainWin_bg=ui_image_load(param->bg,IMAGE_SKIN);
-		if(!MainWin_bg) return -1;
 		if(param->scale!=1 && param->force_scale)
 		{
-			MainWin_bg=ui_image_load_scale(param->bg,ui_scale,param->rc.w,param->rc.h,IMAGE_SKIN);
+			MainWin_bg=ui_image_load_scale(param->bg,ui_res_scale,param->rc.w,param->rc.h,IMAGE_SKIN);
 			MainWin_W=param->rc.w;MainWin_H=param->rc.h;
 			if(param->scale!=1 && ui_scale!=1)
 			{
@@ -797,12 +819,12 @@ int ui_main_update(UI_MAIN *param)
 		else
 		{
 			MainTheme.scale=1;
-			MainWin_W = gdk_pixbuf_get_width(MainWin_bg);
-			MainWin_H = gdk_pixbuf_get_height(MainWin_bg);
+			MainWin_bg=ui_image_load(param->bg,IMAGE_SKIN);
+			ui_image_size(MainWin_bg,&MainWin_W,&MainWin_H);
 		}
 		if(!is_composited || !is_composited(MainWin))
 		{
-			UI_REGION r=create_rgn(MainWin_bg);
+			UI_REGION r=ui_image_region(MainWin_bg,ui_scale/ui_res_scale);
 			gtk_widget_shape_combine_region(MainWin,r);
 			gtk_widget_input_shape_combine_region(MainWin,r);
 			g_object_set_data_full(G_OBJECT(MainWin),"input-shape",r,(GDestroyNotify)ui_region_destroy);
@@ -827,6 +849,8 @@ int ui_main_update(UI_MAIN *param)
 		tran=255-(255-tran)*2/3;
 	ui_win_tran(MainWin,tran);
 	ui_main_show(-1);
+	// printf("screen %dx%d\n",gdk_screen_width(),gdk_screen_height());
+	// printf("main win pos:%d,%d size %dx%d\n",MainWin_X,MainWin_Y,MainWin_W,MainWin_H);
 	return 0;
 }
 
@@ -983,79 +1007,6 @@ static gboolean on_input_draw(GtkWidget *window,cairo_t *cr)
 	return TRUE;
 }
 
-static guchar get_pixel_alpha(GdkPixbuf *pixbuf,int x,int y)
-{
-	int width, height, rowstride, n_channels;
-	guchar *pixels, *p;
-
-	n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-
-	assert (gdk_pixbuf_get_colorspace (pixbuf) == GDK_COLORSPACE_RGB);
-	assert (gdk_pixbuf_get_bits_per_sample (pixbuf) == 8);
-	assert (gdk_pixbuf_get_has_alpha (pixbuf));
-	assert (n_channels == 4);
-
-	width = gdk_pixbuf_get_width (pixbuf);
-	height = gdk_pixbuf_get_height (pixbuf);
-
-	assert (x >= 0 && x < width);
-	assert (y >= 0 && y < height);
-
-	rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-	pixels = gdk_pixbuf_get_pixels (pixbuf);
-
-	p = pixels + y * rowstride + x * n_channels;
-	return p[3];
-}
-
-static UI_REGION create_rgn(GdkPixbuf *p)
-{
-	guchar a;
-	int i,j;
-	int w,h;
-	UI_REGION rgn;
-	GdkRectangle rc;
-	if(!gdk_pixbuf_get_has_alpha(p))
-		return NULL;
-	w = gdk_pixbuf_get_width (p);
-	h = gdk_pixbuf_get_height (p);
-	rgn=cairo_region_create();
-	for(j=0;j<h;j++)
-	{
-		rc.x=0;
-		rc.y=j;
-		rc.width=0;
-		rc.height=1;
-		for(i=0;i<w;i++)
-		{
-			a=get_pixel_alpha(p,i,j);
-			if(a<80)
-			{
-				if(rc.width)
-				{
-					cairo_region_union_rectangle(rgn,&rc);
-					rc.width=0;
-				}
-				continue;
-			}
-			if(!rc.width)
-			{
-				rc.x=i;
-				rc.width=1;
-			}
-			else
-			{
-				rc.width++;
-			}
-		}
-		if(rc.width)
-		{
-			cairo_region_union_rectangle(rgn,&rc);
-		}
-	}
-	return rgn;
-}
-
 static void set_rgn(void)
 {
 	UI_REGION u,t;
@@ -1083,10 +1034,8 @@ static void set_rgn(void)
 
 static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 {
-	UI_IMAGE res,tmp;
 	int cand;
 	int w,h,w0,h0;
-	double scale;
 	
 	//if(InputTheme.line==0)
 	//	return bg;
@@ -1099,6 +1048,7 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 		cand=1;
 	
 	ui_image_size(bg,&w0,&h0);
+
 
 	ui_text_size(NULL,InputTheme.layout," ",&w,&h);
 	w=w0;
@@ -1124,21 +1074,18 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 	if(InputTheme.mHeight>h)
 		InputTheme.mHeight=h;
 
-	scale=(double)(h-InputTheme.Bottom-InputTheme.Top)/(double)(h0-InputTheme.Bottom-InputTheme.Top);
-	res=gdk_pixbuf_new(GDK_COLORSPACE_RGB,
-			gdk_pixbuf_get_has_alpha(bg),
-			gdk_pixbuf_get_bits_per_sample(bg),
-			w,h);
-	gdk_pixbuf_copy_area(bg,0,0,w,InputTheme.Top,res,0,0);
-	tmp=ui_image_part(bg,0,InputTheme.Top,w,h0-InputTheme.Bottom-InputTheme.Top);
-	gdk_pixbuf_scale(tmp,res,0,InputTheme.Top,
-			w,h-InputTheme.Bottom-InputTheme.Top,
-			0,InputTheme.Top,1.0,scale,
-			GDK_INTERP_BILINEAR);
-	ui_image_free(tmp);
-	gdk_pixbuf_copy_area(bg,0,h0-InputTheme.Bottom,w,InputTheme.Bottom,
-			res,0,h-InputTheme.Bottom);
-			
+
+	int extra=h-h0;
+	UI_IMAGE res=cairo_image_surface_create(cairo_image_surface_get_format(bg),w,h);
+	UI_DC dc=cairo_create(res);
+	ui_image_draw_full(dc,bg,0,0,w,InputTheme.Top,0,0,w,InputTheme.Top);
+	ui_image_draw_full(dc,bg,0,InputTheme.Top,
+			w,h0-InputTheme.Bottom-InputTheme.Top+extra,
+			0,InputTheme.Top,w,h0-InputTheme.Bottom-InputTheme.Top);
+	ui_image_draw_full(dc,bg,0,h0-InputTheme.Bottom+extra,w,InputTheme.Bottom,
+			0,h0-InputTheme.Bottom,w,InputTheme.Bottom);
+	cairo_destroy(dc);
+
 	ui_image_free(bg);
 	return res;
 }
@@ -1146,7 +1093,7 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 int ui_input_update(UI_INPUT *param)
 {
 	char *tmp;
-	GdkPixbuf *bg;
+	UI_IMAGE bg;
 	int bg_w,bg_h;
 	int i;
 	GdkWindow *window;
@@ -1207,7 +1154,7 @@ int ui_input_update(UI_INPUT *param)
 	{
 		if(InputTheme.bg[i])
 		{
-			g_object_unref(InputTheme.bg[i]);
+			ui_image_free(InputTheme.bg[i]);
 			InputTheme.bg[i]=NULL;
 		}
 		if(InputTheme.rgn[i])
@@ -1323,8 +1270,7 @@ int ui_input_update(UI_INPUT *param)
 		if(param->scale!=1 && param->force_scale)
 		{
 			bg=ui_image_load_scale(tmp,ui_scale,param->w,param->h,IMAGE_SKIN);
-			bg_w=gdk_pixbuf_get_width(bg);
-			bg_h=gdk_pixbuf_get_height(bg);
+			ui_image_size(bg,&bg_w,&bg_h);
 			if(bg_w!=param->w)
 			{
 				// adjust all size here
@@ -1366,7 +1312,7 @@ int ui_input_update(UI_INPUT *param)
 		}
 		else
 		{
-			bg=ui_image_load(tmp,IMAGE_SKIN);
+			bg=ui_image_load_scale(tmp,ui_res_scale,-1,-1,IMAGE_SKIN);
 		}
 		if(param->work_bottom>0)
 		{
@@ -1389,8 +1335,10 @@ int ui_input_update(UI_INPUT *param)
 
 		bg=ui_input_bg_adjust(bg,param->cand_max,param->work_bottom);
 
-		bg_w=gdk_pixbuf_get_width(bg);
-		bg_h=gdk_pixbuf_get_height(bg);
+		ui_image_size(bg,&bg_w,&bg_h);
+		bg_w=(int)round(bg_w*ui_scale/ui_res_scale);
+		bg_h=(int)round(bg_h*ui_scale/ui_res_scale);
+		// printf("bg_w=%d,bg_h=%d\n",bg_w,bg_h);
 
 		InputTheme.RealHeight=bg_h;
 	
@@ -1403,14 +1351,17 @@ int ui_input_update(UI_INPUT *param)
 		}
 		else
 		{
+			int bg_w,bg_h;
+			int ileft=(int)round(InputTheme.Left*ui_res_scale/ui_scale);
+			int iright=(int)round(InputTheme.Right*ui_res_scale/ui_scale);
+			ui_image_size(bg,&bg_w,&bg_h);
 			if(InputTheme.Left)
 			{
-				InputTheme.bg[0]=gdk_pixbuf_new_subpixbuf(bg,0,0,InputTheme.Left,bg_h);
-				InputTheme.rgn[0]=create_rgn(InputTheme.bg[0]);
+				InputTheme.bg[0]=ui_image_part(bg,0,0,ileft,bg_h);
+				InputTheme.rgn[0]=ui_image_region(InputTheme.bg[0],ui_scale/ui_res_scale);
 			}
-			InputTheme.bg[1]=gdk_pixbuf_new_subpixbuf(bg,InputTheme.Left,0,
-				bg_w-InputTheme.Left-InputTheme.Right,bg_h);
-			InputTheme.rgn[1]=create_rgn(InputTheme.bg[1]);
+			InputTheme.bg[1]=ui_image_part(bg,ileft,0,bg_w-ileft-iright,bg_h);
+			InputTheme.rgn[1]=ui_image_region(InputTheme.bg[1],ui_scale/ui_res_scale);
 			if(InputTheme.rgn[1])
 			{
 				cairo_region_translate(InputTheme.rgn[1],InputTheme.Left,0);
@@ -1420,11 +1371,10 @@ int ui_input_update(UI_INPUT *param)
 			}
 			if(InputTheme.Right)
 			{
-				InputTheme.bg[2]=gdk_pixbuf_new_subpixbuf(bg,bg_w-InputTheme.Right,
-					0,InputTheme.Right,bg_h);
-				InputTheme.rgn[2]=create_rgn(InputTheme.bg[2]);
+				InputTheme.bg[2]=ui_image_part(bg,bg_w-iright,0,iright,bg_h);
+				InputTheme.rgn[2]=ui_image_region(InputTheme.bg[2],ui_scale/ui_res_scale);
 			}
-			g_object_unref(bg);
+			ui_image_free(bg);
 		}
 	}
 
@@ -1876,7 +1826,6 @@ int YongDrawInput(void)
 			{
 				strcat((char*)temp,im.CodeInput);
 			}
-			//YongPreeditDraw((char*)temp,-1);
 			y_xim_preedit_draw((char*)temp,-1);
 		}
 		else
@@ -1899,9 +1848,14 @@ void *ui_main_win(void)
 	return gtk_widget_get_window(MainWin);
 }
 
+static void ui_main_win_hide_timer(void *unused)
+{
+	ui_win_show(MainWin,0);
+}
+
 int ui_main_show(int show)
 {
-	if(show && MainWin_X==0 && MainWin_Y<=0)
+	if(show && MainWin_X==0 && MainWin_Y<=0)		// right bottom
 	{
 		gint w,h;
 		int wa_x,wa_y,wa_w,wa_h;
@@ -1917,7 +1871,7 @@ int ui_main_show(int show)
 			gtk_window_move(GTK_WINDOW(MainWin),wa_x+wa_w-w,wa_y+wa_h-h);
 		}
 	}
-	else if(show && MainWin_X==1 && MainWin_Y==-1)
+	else if(show && MainWin_X==1 && MainWin_Y==-1)			// top center
 	{
 		gint w,h;
 		MainWin_Y=0;
@@ -1933,7 +1887,7 @@ int ui_main_show(int show)
 		}
 		(void)h;
 	}
-	else if(show && MainWin_X==2 && MainWin_Y==-1)
+	else if(show && MainWin_X==2 && MainWin_Y==-1)		// left bottom
 	{
 		gint w,h;
 		gint wa_x,wa_y,wa_w,wa_h;
@@ -1946,7 +1900,7 @@ int ui_main_show(int show)
 		}
 		else
 		{
-			gtk_window_move(GTK_WINDOW(MainWin),wa_x,wa_y+wa_h-h);
+			gtk_window_move(GTK_WINDOW(MainWin),wa_x,(wa_y+wa_h-h));
 		}
 		(void)w;
 	}
@@ -1965,13 +1919,15 @@ int ui_main_show(int show)
 		show=MainWin_visible?0:1;
 	if(show>0)
 	{
+		ui_timer_del(ui_main_win_hide_timer,NULL);
 		MainWin_visible=true;
 		ui_win_show(MainWin,1);
 	}
 	else if(show==0)
 	{
 		MainWin_visible=false;
-		ui_win_show(MainWin,0);
+		// ui_win_show(MainWin,0);
+		ui_timer_add(50,ui_main_win_hide_timer,NULL);
 	}
 	return 0;
 }
@@ -2088,19 +2044,12 @@ static void ui_tray_update_with_indicator(UI_TRAY *param)
 
 void ui_tray_update(UI_TRAY *param)
 {
-	int i;
-
 	if(app_indicator_new)
 	{
 		ui_tray_update_with_indicator(param);
 		return;
 	}
-
-	if(is_wayland)
-	{
-		return;
-	}
-
+	
 	{
 		int ret;
 		char icon1[256],icon2[256];
@@ -2116,8 +2065,13 @@ void ui_tray_update(UI_TRAY *param)
 			ybus_wm_icon(icon1,icon2);
 		}
 	}
-	
-	for(i=0;i<2;i++)
+
+	if(is_wayland)
+	{
+		return;
+	}
+
+	for(int i=0;i<2;i++)
 	{
 		if(!IconPixbuf[i]) continue;
 		g_object_unref(G_OBJECT(IconPixbuf[i]));
@@ -2134,11 +2088,11 @@ void ui_tray_update(UI_TRAY *param)
 	}
 	if(!param->icon[0])
 		return;
-	for(i=0;i<2;i++)
+	for(int i=0;i<2;i++)
 	{
 		if(param->icon[i])
 		{
-			IconPixbuf[i]=ui_image_load(param->icon[i],IMAGE_SKIN|IMAGE_SKIN_DEF);
+			IconPixbuf[i]=ui_image_load_pixbuf_at_size(param->icon[i],-1,-1,IMAGE_SKIN|IMAGE_SKIN_DEF);
 		}
 	}
 	if(StatusIcon)
@@ -2185,7 +2139,6 @@ void ui_tray_status(int which)
 		app_indicator_set_status(StatusIcon,which?1:2);
 		return;
 	}
-
 	if(IconPixbuf[IconSelected])
 	{
 		gtk_status_icon_set_from_pixbuf(StatusIcon,IconPixbuf[IconSelected]);
@@ -2257,8 +2210,7 @@ static gboolean YongSendFile_real(char *fn)
 	}
 	else
 	{
-		GdkPixbuf *pb;		
-		pb=ui_image_load(fn,IMAGE_ROOT);
+		GdkPixbuf *pb=ui_image_load_pixbuf_at_size(fn,-1,-1,IMAGE_ROOT);
 		if(pb)
 		{
 			GtkClipboard *cb;
@@ -3112,7 +3064,7 @@ static gboolean on_image_win_click(GtkWidget *self,GdkEventButton *event)
 	return TRUE;
 }
 
-void ui_show_image(char *name,char *file,int top,int tran)
+static void ui_show_image(const char *name,const char *file,int top,int tran)
 {
 	GdkWindow *window;
 	static char *image_file;
@@ -3160,7 +3112,7 @@ void ui_show_image(char *name,char *file,int top,int tran)
 		free(image_file);
 		image_file=strdup(file);
 		if(ImageWin_bg) ui_image_free(ImageWin_bg);
-		ImageWin_bg=ui_image_load(image_file,IMAGE_ALL);
+		ImageWin_bg=ui_image_load_scale(image_file,ui_scale,-1,-1,IMAGE_ALL);
 		if(ImageWin_bg)
 		{
 			int width,height;
@@ -3217,8 +3169,10 @@ static int ui_call(void (*cb)(void*),void *arg)
 	return 0;
 }
 
-static double ui_get_scale(void)
+static double ui_get_scale(int which)
 {
+	if(which==1)
+		return ui_res_scale/ui_scale;
 	return ui_scale;
 }
 

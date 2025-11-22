@@ -98,6 +98,13 @@ static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count,
 		ITEM *it=container_of(p,ITEM,index);
 		if(strncmp(code,it->code,code_len))
 			continue;
+		if(super && it->code[code_len]!='\0')
+			continue;
+		if(mb->compact)
+		{
+			if(strlen(it->code)>code_len+mb->compact-1)
+				continue;
+		}
 		if(mb && super)
 		{
 			int cand_len=strlen(it->cand);
@@ -161,7 +168,7 @@ void sentence_save(void)
 		FILE *fp=EIM.OpenFile(sentence->file,"wb");
 		if(fp!=NULL)
 		{
-			
+			fwrite(str->str,str->len,1,fp);
 			fclose(fp);
 		}
 		l_string_free(str);

@@ -19,6 +19,7 @@ static int PhraseListCount;
 static int key_temp_english;
 static int en_commit_select;
 static int en_degrade;
+static char num_formats[16];
 
 static EXTRA_IM EIM={
 	.Name			=	"english",
@@ -30,9 +31,15 @@ static EXTRA_IM EIM={
 	.Destroy		=	EnglishDestroy
 };
 
+#if 0
 static int NumSet(const char *s);
 static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_num={.Set=NumSet,.Get=NumGet};
+#endif
+
+static int Num2Set(const char *s);
+static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count);
+static ENGLISH_IM eim_num2={.Set=Num2Set,.Get=Num2Get};
 
 static int CalcSet(const char *s);
 static int CalcGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
@@ -46,9 +53,11 @@ static int BdSet(const char *s);
 static int BdGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_bd={.Set=BdSet,.Get=BdGet};
 
+#if 0
 static int MoneySet(const char *s);
 static int MoneyGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_money={.Set=MoneySet,.Get=MoneyGet};
+#endif
 
 static int HexSet(const char *s);
 static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
@@ -60,15 +69,28 @@ static int DictSet(const char *s);
 static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_dict={.Set=DictSet,.Get=DictGet};
 
+#ifndef CFG_XIM_WEBIM
 static int PipeSet(const char *s);
 static int PipeGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static void PipeReset(void);
 static ENGLISH_IM eim_pipe={.Set=PipeSet,.Get=PipeGet,.Reset=PipeReset};
+#endif
 
 extern ENGLISH_IM eim_book;
 
 static ENGLISH_IM *enim[]={
-	&eim_num,&eim_calc,&eim_url,&eim_bd,&eim_money,&eim_book,&eim_hex,&eim_pipe,&eim_dict
+	&eim_num2,
+	// &eim_num,
+	&eim_calc,
+	&eim_url,
+	&eim_bd,
+	// &eim_money,
+	&eim_book,
+	&eim_hex,
+#ifndef CFG_XIM_WEBIM
+	&eim_pipe,
+#endif
+	&eim_dict
 };
 #define ENIM_COUNT	(sizeof(enim)/sizeof(ENGLISH_IM*))
 
@@ -81,6 +103,11 @@ static int EnglishInit(const char *arg)
 	en_degrade=y_im_get_config_int("IM","en_degrade");
 	if(en_degrade)
 		en_commit_select=1;
+	const char *temp=y_im_get_config_data("IM","en_num");
+	if(!temp || !temp[0])
+		strcpy(num_formats,"0dDimYyn:%");
+	else
+		l_strcpy(num_formats,sizeof(num_formats),temp);
 	EnglishReset();
 	DictLoad();
 	return 0;
@@ -390,6 +417,7 @@ static char *ch_0[]={"〇","零"};
 static char *ch_19[]={"一二三四五六七八九","壹贰叁肆伍陆柒捌玖"};
 static char *cht_19[]={"一二三四五六七八九","壹貳參肆伍陸柒捌玖"};
 
+#if 0
 static int n_spec_count(const char *in,int spec)
 {
 	int c;
@@ -400,6 +428,7 @@ static int n_spec_count(const char *in,int spec)
 	}
 	return count;
 }
+#endif
 
 static int n_is_digit(const char *s,int len)
 {
@@ -445,7 +474,7 @@ do{	\
 		goto out;	\
 }while(0)
 	
-
+#if 0
 static int n_is_date(const char *s,int len)
 {
 	int ret=0;
@@ -496,8 +525,10 @@ static int n_is_time(const char *s,int len)
 out:
 	return ret;
 }
+#endif
 
 static void parse_decimal(int sel,int64_t val,char *s);
+#if 0
 static int NumSet(const char *s)
 {
 	ENGLISH_IM *e=&eim_num;
@@ -574,11 +605,19 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 		{
 			int which=pos+i;
 			if(which==0)
+			{
 				l_int_to_str(val,format,L_INT2STR_HZ,cand[i]);
+			}
 			else if(which==1)
-				l_int_to_str(val,format,L_INT2STR_HZ|L_INT2STR_BIG,cand[i]);
+			{
+				int trad=im.Trad?L_INT2STR_TRAD:0;
+				l_int_to_str(val,format,L_INT2STR_HZ|L_INT2STR_BIG|trad,cand[i]);
+			}
 			else
-				l_int_to_str(val,NULL,L_INT2STR_INDIRECT,cand[i]);
+			{
+				int trad=im.Trad?L_INT2STR_TRAD:0;
+				l_int_to_str(val,NULL,L_INT2STR_INDIRECT|trad,cand[i]);
+			}
 		}
 		return 0;
 	}
@@ -607,15 +646,10 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			}
 			else
 			{
-				struct tm tm;
 				strcpy(cand[i],"农历");
 				if(3==len)
 				{
-					memset(&tm,0,sizeof(tm));
-					tm.tm_year=year-1900;
-					tm.tm_mon=month-1;
-					tm.tm_mday=day;
-					int ret=y_im_nl_day(l_mktime(&tm),cand[i]+strlen(cand[i]));
+					int ret=y_im_nl_from_day(cand[i]+strlen(cand[i]),year,month,day);
 					if(ret!=0)
 					{
 						strcat(cand[i],YT("范围超限"));
@@ -667,6 +701,321 @@ static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 	}
 	return 0;
 }
+#endif
+
+static int date_is_valid(const char *s)
+{
+	int year,month,day;
+	int ret=sscanf(s,"%d.%d.%d",&year,&month,&day);
+	if(ret<1)
+		return 0;
+	if(year<1000 || year>2999)
+		return 0;
+	if(ret==1)
+		return ret;
+	if(month<1 || month>12)
+		return 0;
+	if(ret==2)
+		return ret;
+	if(day<1 || day>31)
+		return 0;
+	return ret;
+}
+
+static int time_is_valid(const char *s)
+{
+	int ret,hour,minute,second;
+	ret=sscanf(s,"%d:%d:%d",&hour,&minute,&second);
+	if(ret<1)
+		return 0;
+	if(hour>24)
+		return 0;
+	if(ret==1)
+		return ret;
+	if(minute>59)
+		return 0;
+	if(ret==2)
+		return ret;
+	if(second>59)
+		return 0;
+	return ret;
+
+}
+
+static int Num2Set(const char *s)
+{
+	ENGLISH_IM *e=&eim_num2;
+	int len,i,format;
+	
+	e->Priv2=(uintptr_t)s;	
+	e->Count=0;
+	e->Priv1=0;
+	
+	len=strlen(s);
+	if(!len)
+	{
+		return 0;
+	}
+	for(i=0;(format=num_formats[i])!=0;i++)
+	{
+		switch(format){
+			case 'y':
+			case 'Y':
+			{
+				const char *re="^\\d{4}\\.(\\d{1,2}(\\.(\\d{1,2})?)?)?$";
+				if(l_re_test(re,s)>0 && date_is_valid(s))
+					e->Priv1|=1<<i;
+				break;
+			}
+			case 'n':
+			{
+				const char *re="^\\d{4}\\.\\d{1,2}\\.\\d{1,2}$";
+				if(l_re_test(re,s)>0 && date_is_valid(s)==3)
+					e->Priv1|=1<<i;
+				break;
+			}
+			case ':':
+			{
+				const char *re="^\\d{1,2}:\\d{1,2}(:\\d{0,2})?$";
+				if(l_re_test(re,s)>0 && time_is_valid(s))
+					e->Priv1|=1<<i;
+				break;
+			}
+			case '%':
+			{
+				const char *re="^\\d{1,5}(\\.\\d{0,7})?%$";
+				if(l_re_test(re,s)>0)
+					e->Priv1|=1<<i;
+				break;
+			}
+			case 'd':
+			case 'D':
+			{
+				const char *re="^\\d{1,10}$";
+				if(l_re_test(re,s)>0)
+				{
+					if(len==1 && s[0]=='0')
+					{
+						if(format=='d' && l_chrnpos(num_formats,'D',i)>=0)
+							break;
+						if(format=='D' && l_chrnpos(num_formats,'d',i)>=0)
+							break;
+					}
+					e->Priv1|=1<<i;
+				}
+				break;
+			}
+			case 'i':
+			{
+				const char *re="^[1-9]\\d{1,9}$";
+				if(l_re_test(re,s)>0)
+					e->Priv1|=1<<i;
+				break;
+			}
+			case '0':
+			{
+				if(len==1 && s[0]=='0')
+					e->Priv1|=1<<i;
+				break;
+			}
+			case 'm':
+			{
+				const char *re="^[1-9]\\d{0,11}(\\.\\d{0,2})?$";
+				if(l_re_test(re,s)>0)
+					e->Priv1|=1<<i;
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+		// if(e->Priv1&(1<<i))
+			// printf("%c match\n",format);
+	}
+	e->Count=l_popcount(e->Priv1);
+	return e->Count;
+}
+
+static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
+{
+	ENGLISH_IM *e=&eim_num2;
+	if(e->Count==0)
+		return 0;
+	int cur=-1;
+	const char *s=(const char*)(uintptr_t)(e->Priv2);
+	int trad=im.Trad?L_INT2STR_TRAD:0;
+	for(int i=0;i<16 && cur<count-1;i++)
+	{
+		if(!(e->Priv1&(1<<i)))
+			continue;
+		cur++;
+		if(cur<pos)
+			continue;
+		char *o=cand[cur];
+		int format=num_formats[i];
+		switch(format){
+			case 'y':
+			case 'Y':
+			{
+				int which=format=='y';
+				int year,month,day;
+				int ret=sscanf(s,"%d.%d.%d",&year,&month,&day);
+				int len=l_int_to_str(year,NULL,(which?0:L_INT2STR_HZ|L_INT2STR_ZERO0),o);
+				strcpy(o+len,"年");len+=2;
+				if(ret>1)
+				{
+					len+=l_int_to_str(month,NULL,(which?0:L_INT2STR_INDIRECT),o+len);
+					strcpy(o+len,"月");len+=2;
+					if(ret>2)
+					{
+						len+=l_int_to_str(day,NULL,(which?0:L_INT2STR_INDIRECT),o+len);
+						strcpy(o+len,"日");
+					}
+				}
+				break;
+			}
+			case 'n':
+			{
+				int year,month,day;
+				sscanf(s,"%d.%d.%d",&year,&month,&day);
+				int len=sprintf(o,"%s","农历");
+				int ret=y_im_nl_from_day(o+len,year,month,day);
+				if(ret!=0)
+				{
+					strcat(cand[i],YT("范围超限"));
+				}
+				break;
+			}
+			case ':':
+			{
+				int ret,len,h,m,sec;
+				ret=sscanf(s,"%d:%d:%d",&h,&m,&sec);
+				len=l_int_to_str(h,NULL,L_INT2STR_INDIRECT,o);
+				strcpy(o+len,"点");
+				len+=2;
+				if(ret>1)
+				{
+					len+=l_int_to_str(m,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,o+len);
+					strcpy(o+len,"分");
+					len+=2;
+					if(ret>2)
+					{
+						len+=l_int_to_str(sec,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,o+len);
+						strcpy(o+len,"秒");
+					}
+				}
+				break;
+			}
+			case '%':
+			{
+				int ret,len,p0;
+				char p1[8];
+				ret=sscanf(s,"%d.%7[^%]",&p0,p1);
+				len=sprintf(o,"%s","百分之");
+				len+=l_int_to_str(p0,NULL,L_INT2STR_INDIRECT,o+len);
+				if(ret>1)
+				{
+					const char *num0=ch_0[0];
+					const char *num19=ch_19[0];
+					strcpy(o+len,"点");len+=2;
+					for(int j=0;p1[j]!=0;j++)
+					{
+						int n=p1[j]-'0';
+						if(n==0)
+							strcpy(o+len,num0);
+						else
+							l_strncpy(o+len,num19+(n-1)*2,2);
+						len+=2;
+					}
+					o[len]=0;
+				}
+				break;
+			}
+			case 'd':
+			{
+				int64_t n=(int64_t)strtoll(s,NULL,10);
+				l_int_to_str(n,NULL,L_INT2STR_HZ,o);
+				break;
+			}
+			case 'D':
+			{
+				int64_t n=(int64_t)strtoll(s,NULL,10);
+				l_int_to_str(n,NULL,L_INT2STR_HZ|L_INT2STR_BIG|trad,o);
+				break;
+			}
+			case 'i':
+			{
+				int64_t n=(int64_t)strtoll(s,NULL,10);
+				l_int_to_str(n,NULL,L_INT2STR_INDIRECT|trad,o);
+				break;
+			}
+			case '0':
+			{
+				printf("here\n");
+				l_int_to_str(0,NULL,L_INT2STR_HZ|L_INT2STR_ZERO0,o);
+				break;
+			}
+			case 'm':
+			{
+				/* 测试例子 101,100001,208,2008,120000,101101,0.34，0.04 */
+				int64_t yuan=0;
+				uint8_t jiao=0,fen=0;
+				sscanf(s,"%"PRId64".%c%c",&yuan,&jiao,&fen);
+				if(jiao)
+					jiao-='0';
+				if(fen)
+					fen-='0';
+				if(yuan)
+				{
+					parse_decimal(1,yuan,o);
+					strcat(o,"元");
+				}
+				if(!jiao && !fen)
+				{
+					strcat(o,"整");
+				}
+				else
+				{
+					const char *num=(im.Trad?cht_19:ch_19)[1];
+					int len=strlen(o);
+					if(jiao)
+					{
+						memcpy(o+len,num+(jiao-1)*2,2);
+						len+=2;
+						strcpy(o+len,"角");
+						len+=2;
+					}
+					else if(yuan!=0)
+					{
+						strcpy(o+len,ch_0[1]);
+						len+=2;
+					}
+					o[len]=0;
+					if(fen)
+					{
+						memcpy(o+len,num+(fen-1)*2,2);
+						len+=2;
+						o[len]=0;
+						strcpy(o+len,"分");
+					}
+					else
+					{
+						strcat(o,"整");
+					}
+				}
+				break;
+			}
+			default:
+			{
+				cand[cur][0]=0;
+				break;
+			}
+		}
+	}
+	return 0;
+}
+
 
 static int y_expr_calc(const char *s,char *res,int len)
 {
@@ -808,6 +1157,7 @@ static int BdGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 	return 0;
 }
 
+#if 0
 static int MoneySet(const char *s)
 {
 	ENGLISH_IM *e=&eim_money;
@@ -839,6 +1189,7 @@ static int MoneySet(const char *s)
 	e->Count=1;
 	return e->Count;
 }
+#endif
 
 static void parse_decimal(int sel,int64_t val,char *s)
 {
@@ -846,7 +1197,7 @@ static void parse_decimal(int sel,int64_t val,char *s)
 	if(im.Trad)
 		flags|=L_INT2STR_TRAD;
 	if(sel)
-		flags|=L_INT2STR_BIG;
+		flags|=L_INT2STR_BIG|L_INT2STR_KEEP10;
 	l_int_to_str(val,NULL,flags,s);
 }
 
@@ -854,6 +1205,7 @@ static void parse_decimal(int sel,int64_t val,char *s)
  * 测试例子
  * 101,100001,208,2008,120000,101101,0.34，0.04
  */
+#if 0
 static int MoneyGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 {
 	ENGLISH_IM *e=&eim_money;
@@ -914,6 +1266,7 @@ static int MoneyGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 	}
 	return 0;
 }
+#endif
 
 static int HexSet(const char *s)
 {
@@ -1115,18 +1468,12 @@ static int DictSet(const char *s)
 	}
 	if(!strncasecmp(s,"key ",4) || !strncasecmp(s,"miyao ",6))
 		return 0;
+#ifndef CFG_XIM_WEBIM
 	if(eim_pipe.Count>0)
 		return 0;
+#endif
 	// 寻找最后一个单词的开始位置
 	p=s;
-#if 0
-	do{
-		t=strchr(p,' ');
-		if(!t)
-			break;
-		p=t+1;
-	}while(1);
-#else
 	t=p+strlen(p)-1;
 	while(t>p)
 	{
@@ -1143,7 +1490,6 @@ static int DictSet(const char *s)
 		}
 		t--;
 	}
-#endif
 	// 检查最后一个字符串是否是纯英文字母组成
 	for(t=p;*t!=0;t++)
 	{
@@ -1198,6 +1544,8 @@ static int DictGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 	return 0;
 }
 
+#ifndef CFG_XIM_WEBIM
+
 typedef struct{
 	bool run;
 	char **result;
@@ -1212,13 +1560,11 @@ static void PipeCb(const char *result,char *code)
 		pp->run=false;
 	if(!cur || !pp)
 	{
-		printf("bad1\n");
 		l_free(code);
 		return;
 	}
 	if(strcmp(cur,code))
 	{
-		printf("bad2 %s %s\n",cur,code);
 		e->Priv1=0;
 		l_free(code);
 		PipeSet(cur);
@@ -1250,7 +1596,7 @@ static void PipeCb(const char *result,char *code)
 static int PipeRun(char **argv,const char *s)
 {
 	char *user=l_strdup(s);
-	int ret=y_im_async_spawn(argv,(void*)PipeCb,user);
+	int ret=y_im_async_spawn(argv,(void*)PipeCb,user,false);
 	l_strfreev(argv);
 	return ret;
 }
@@ -1259,27 +1605,36 @@ static int PipeSet(const char *s)
 {
 	ENGLISH_IM *e=&eim_pipe;
 	char **argv=NULL;
-	if(s[0] && s[1]==' ' && s[2])
+	int len=strlen(s);
+	if(len>1 && s[len-1]=='|')
 	{
-		for(int i=0;i<10;i++)
+		if(s[0] && s[1]==' ' && s[2])
 		{
-			char key[32];
-			sprintf(key,"en_pipe[%d]",i);
-			const char *p=y_im_get_config_data("IM",key);
-			if(p!=NULL && p[0]==s[0])
+			for(int i=0;i<10;i++)
 			{
-				char temp[256];
-				sprintf(temp,"%s %s",p+2,s+2);
-				argv=y_im_parse_argv(temp,-1);
-				break;
+				char key[32];
+				sprintf(key,"en_pipe[%d]",i);
+				const char *p=y_im_get_config_data("IM",key);
+				if(p!=NULL && p[0]==s[0])
+				{
+					char temp[256];
+					len=sprintf(temp,"%s %s",p+2,s+2);
+					temp[len-1]=0;
+					argv=y_im_parse_argv(temp,-1);
+					break;
+				}
 			}
 		}
-	}
-	else if(s[0]=='|')
-	{
-		const char *p=strchr(s,' ');
-		if(p && p[1])
-			argv=y_im_parse_argv(s+1,-1);
+		else if(s[0]=='|')
+		{
+			const char *p=strchr(s,' ');
+			if(p && p[1])
+			{
+				char temp[256];
+				l_strncpy(temp,s+1,len-2);
+				argv=y_im_parse_argv(temp,-1);
+			}
+		}
 	}
 	if(argv==NULL)
 	{
@@ -1366,4 +1721,4 @@ static void PipeReset(void)
 		e->Priv2=0;
 	}
 }
-
+#endif//CFG_XIM_WEBIM

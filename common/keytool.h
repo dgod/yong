@@ -1,11 +1,7 @@
 #pragma once
 
-typedef struct{
-	void *next;
-	int key;
-	char exec[];
-}Y_KEY_TOOL;
+typedef LArray Y_KEY_TOOL2;
+Y_KEY_TOOL2 *y_key_tools2_load(void);
+void y_key_tools2_free(Y_KEY_TOOL2 *kt);
+bool y_key_tools2_run(Y_KEY_TOOL2 *kt,int key);
 
-Y_KEY_TOOL *y_key_tools_load(void);
-void y_key_tools_free(Y_KEY_TOOL *kt);
-int y_key_tools_run(Y_KEY_TOOL *kt,int key);

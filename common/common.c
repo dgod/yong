@@ -75,10 +75,27 @@ static void send_raw_string_async(const char *text,void *unused)
 {
 	if(!text || !text[0])
 		return;
-	if(strlen(text)>MAX_CAND_LEN || strchr(text,'\n'))
-		YongSendClipboard(text);
-	else
-		xim.send_string(text,DONT_ESCAPE);
+	// if(strchr(text,'\n'))
+	// {
+		// YongSendClipboard(text);
+		// return;
+	// }
+	size_t len=strlen(text);
+	while(len>0)
+	{
+		if(len<MAX_CAND_LEN)
+		{
+			xim.send_string(text,DONT_ESCAPE);
+			break;
+		}
+		char temp[256];
+		const char *next=l_gb_offset(text,64);
+		int size=(int)(size_t)(next-text);
+		l_strncpy(temp,text,size);
+		len-=size;
+		text=next;
+		xim.send_string(temp,DONT_ESCAPE);
+	}
 }
 
 static void async_spawn_at_idle(char *s)
@@ -99,22 +116,7 @@ static void async_spawn_at_idle(char *s)
 		l_strfreev(argv);
 		return;
 	}
-#ifdef _WIN64
-	if(!l_file_exists(argv[0]))
-	{
-		char temp[256];
-		sprintf(temp,"%s/%s",y_im_get_path("DATA"),argv[0]);
-		if(l_file_exists(temp))
-		{
-			if(l_fullpath(temp,temp,sizeof(temp)))
-			{
-				l_free(argv[0]);
-				argv[0]=l_strdup(temp);
-			}
-		}
-	}
-#endif
-	y_im_async_spawn(argv,send_raw_string_async,NULL);
+	y_im_async_spawn(argv,send_raw_string_async,NULL,true);
 	l_strfreev(argv);
 #endif
 	return;
@@ -729,7 +731,12 @@ void y_xim_put_connect(CONNECT_ID *id)
 void y_xim_preedit_clear(void)
 {
 	if(xim.preedit_clear)
+	{
+		CONNECT_ID *id=y_xim_get_connect();
+		if(!id || !id->preedit)
+			return;
 		xim.preedit_clear();
+	}
 }
 
 int y_im_last_key(int key)
@@ -741,10 +748,25 @@ int y_im_last_key(int key)
 	return ret;
 }
 
-void y_xim_preedit_draw(char *s,int len)
+void y_xim_preedit_draw(const char *s,int len)
 {
 	if(xim.preedit_draw)
-		xim.preedit_draw(s,len);
+	{
+		if(!s || len==0 || !s[0])
+		{
+			y_xim_preedit_clear();
+		}
+		else
+		{
+			CONNECT_ID *id=y_xim_get_connect();
+			if(!id)
+				return;
+			if(0==xim.preedit_draw(s,len))
+			{
+				id->preedit=1;
+			}
+		}
+	}
 }
 
 void y_xim_enable(int enable)
@@ -839,6 +861,12 @@ int y_im_set_exec(void)
 	if(!tmp)
 		return -1;
 	*tmp=0;
+#ifdef _WIN64
+	tmp=wcsrchr(file,'\\');
+	if(!tmp)
+		return -1;
+	*tmp=0;
+#endif
 	SetCurrentDirectory(file);
 #endif
 	return 0;
@@ -1068,11 +1096,7 @@ const char *y_im_get_path(const char *type)
 		}
 		else
 		{
-#ifdef _WIN64
-			ret="../.yong";
-#else
 			ret="./.yong";
-#endif
 		}
 		if(!l_file_exists(ret))
 			l_mkdir(ret,0700);
@@ -1081,9 +1105,9 @@ const char *y_im_get_path(const char *type)
 	{
 #ifdef _WIN64
 		if(!strcmp(type,"LIB"))
-			ret=".";
+			ret="w64";
 		else
-			ret="..";
+			ret=".";
 #else
 		ret=".";
 #endif
@@ -1717,10 +1741,6 @@ char **y_im_parse_argv(const char *s,int size)
 					l_free(script);
 				}
 #endif
-#ifdef _WIN64
-				if(l_str_has_prefix(temp,"../"))
-					memmove(temp,temp+3,strlen(temp+3)+1);
-#endif
 				l_free(first);
 				l_ptr_array_nth(arr,0)=l_strdup(temp);
 			}
@@ -2275,7 +2295,7 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 		else if(!strncmp(ps,"RIQI",4))
 		{
 			char nl[128];
-			y_im_nl_day(t,nl);
+			y_im_nl_from_time(nl,t);
 			str_replace(ps-1,5,nl);
 		}
 		else if(!strncmp(ps,"LAST",4))
@@ -2837,7 +2857,11 @@ void y_im_setup_config(void)
 	char prog[512];
 
 #ifdef _WIN32
+#ifdef _WIN64
+	char *setup="w64/yong-config.exe";
+#else
 	char *setup="yong-config.exe";
+#endif
 #else
 	char *setup="yong-config";
 #endif
@@ -2959,23 +2983,6 @@ int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*e
 	BOOL ret;
 	int i;
 	WCHAR wprog[MAX_PATH];
-	LPCWSTR lpCurrentDirectory=NULL;
-	
-#ifdef _WIN64
-	int is_setup=0;
-	if(strstr(prog,"yong-config"))
-		is_setup=1;
-	if(!is_setup)
-	{
-		if(!strchr(prog,':') && !l_file_exists(prog))
-		{
-			char *temp=alloca(strlen(prog)+8);
-			sprintf(temp,"..\\%s",prog);
-			prog=temp;
-		}
-		lpCurrentDirectory=L".";
-	}
-#endif
 	
 	for(i=0;i<4;i++)
 	{
@@ -2991,7 +2998,7 @@ int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*e
 	si.wShowWindow = SW_SHOWNORMAL;
 	si.dwFlags = STARTF_USESHOWWINDOW;
 	memset(&pi,0,sizeof(pi));
-	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,lpCurrentDirectory,&si,&pi);
+	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi);
 	if(!ret)
 	{
 		return -2;
@@ -3170,7 +3177,7 @@ int y_im_get_keymap(char *name,int len)
 	return 0;
 }
 
-int y_im_show_keymap(void)
+bool y_im_show_keymap(void)
 {
 	char item[128];
 	char img[128];
@@ -3179,14 +3186,15 @@ int y_im_show_keymap(void)
 	char *p;
 	int ret;
 	if(0!=y_im_get_current(item,sizeof(item)))
-		return -1;
+		return false;
 	p=y_im_get_config_string(item,"keymap");
-	if(!p) return -1;
+	if(!p) return false;
 	ret=l_sscanf(p,"%s %s %d %d",item,img,&top,&tran);
 	l_free(p);
-	if(ret<2) return -1;
+	if(ret<2)
+		return false;
 	y_ui_show_image(item,img,top,tran);
-	return 0;
+	return true;
 }
 
 
@@ -3358,12 +3366,14 @@ int y_im_handle_menu(const char *cmd)
 	{
 		int ret;
 		void *out=NULL;
+		char file[128];
 		ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
 		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
 		if(ret!=0 || !out) return 0;
-		y_im_backup_file(out,".bak");
+		l_gb_to_utf8(out,file,sizeof(file));
+		y_im_backup_file(file,".bak");
 		y_im_run_tool("tool_optimize",0,0);
 		y_ui_show_message(YT("Íê³É"));
 	}
@@ -3371,15 +3381,18 @@ int y_im_handle_menu(const char *cmd)
 	{
 		int ret;
 		void *out=NULL;
+		char file[128];
 		ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
 		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
 		if(ret!=0 || !out) return 0;
-		y_im_backup_file(out,".bak");
+		l_gb_to_utf8(out,file,sizeof(file));
+		y_im_backup_file(file,".bak");
 		ret=y_im_run_tool("tool_get_file","user",&out);
 		if(ret!=0 || !out) return 0;
-		y_im_backup_file(out,".bak");
+		l_gb_to_utf8(out,file,sizeof(file));
+		y_im_backup_file(file,".bak");
 		ret=y_im_run_tool("tool_merge_user",0,0);
 		if(ret!=0) return 0;
 		y_im_remove_file(out);
@@ -3393,6 +3406,7 @@ int y_im_handle_menu(const char *cmd)
 		void *out=NULL;
 		char *ed;
 		char temp[256];
+		char file[128];
 		ed=y_im_get_config_string("table","edit");
 		if(!ed) return 0;
 		ret=y_im_run_tool("tool_get_file","main",&out);
@@ -3401,7 +3415,8 @@ int y_im_handle_menu(const char *cmd)
 			l_free(ed);
 			return 0;
 		}
-		out=y_im_auto_path(out);
+		l_gb_to_utf8(out,file,sizeof(file));
+		out=y_im_auto_path(file);
 		sprintf(temp,"%s %s",ed,(char*)out);
 		y_im_run_helper(temp,out,YongReloadAllTip,NULL);
 		l_free(ed);

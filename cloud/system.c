@@ -597,6 +597,9 @@ void CloudInit(void)
 #endif
 
 	pthread_create(&l_th,0,sg_thread,l_cache);
+#ifdef __linux__
+	pthread_setname_np(l_th,"cloud");
+#endif
 }
 
 void CloudCleanup(void)

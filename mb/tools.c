@@ -271,6 +271,96 @@ static int mb_zi_virt_cmp(const void *p1,const void *p2)
 
 #ifndef CFG_XIM_ANDROID
 
+static void mb_head_dump(struct y_mb *mb,FILE *fp)
+{
+	fprintf(fp,"name=%s\n",mb->name);
+	fprintf(fp,"key=%s\n",mb->key+1);
+	if(mb->key0[0])
+		fprintf(fp,"key0=%s\n",mb->key0);
+	fprintf(fp,"len=%d\n",mb->len);
+	if(mb->push[0])
+		fprintf(fp,"push=%s\n",mb->push);
+	if(mb->pull[0])
+		fprintf(fp,"pull=%s\n",mb->pull);
+	if(mb->suffix>=0)
+	{
+		if(mb->suffix==0)
+			fprintf(fp,"suffix=NONE\n");
+		else
+			fprintf(fp,"suffix=%c\n",mb->suffix);
+	}
+	if(mb->match)
+		fprintf(fp,"match=1\n");
+	if(mb->wildcard_orig)
+		fprintf(fp,"wildcard=%c\n",mb->wildcard);
+	if(mb->dwf)
+		fprintf(fp,"dwf=1\n");
+	if(mb->english)
+		fprintf(fp,"english=1\n");
+	if(mb->simple)
+		fprintf(fp,"simple=%d\n",mb->simple);
+	if(mb->compact)
+		fprintf(fp,"compact=%d\n",mb->compact);
+	if(mb->yong)
+		fprintf(fp,"yong=%d\n",mb->yong);
+	if(mb->pinyin)
+		fprintf(fp,"pinyin=%d\n",mb->pinyin);
+	if(!mb->hint)
+		fprintf(fp,"hint=0\n");
+	if(mb->auto_clear)
+		fprintf(fp,"auto_clear=%d\n",mb->auto_clear);
+	else if(mb->nomove[0])
+		fprintf(fp,"nomove=%s\n",mb->nomove);
+	else if(mb->auto_move)
+		fprintf(fp,"auto_move=%d\n",mb->auto_move);
+	else if(mb->nsort)
+		fprintf(fp,"nsort=1\n");
+	else if(mb->sloop)
+		fprintf(fp,"sloop=%d\n",mb->sloop);
+	else if(mb->split>0 && mb->split<10)
+		fprintf(fp,"split=%d\n",mb->split);
+	else if(mb->split)
+		fprintf(fp,"split=%c\n",mb->split);
+	if(mb->commit_mode || mb->commit_len || mb->commit_which)
+		fprintf(fp,"commit=%d %d %d\n",mb->commit_mode,
+			mb->commit_len,mb->commit_which);
+	if(mb->dicts[0])
+	{
+		int i,len;
+		char temp[1024];
+		len=sprintf(temp,"dicts=");
+		for(i=0;i<10 && mb->dicts[i];i++)
+		{
+			if(i) len+=sprintf(temp+len," ");
+			len+=sprintf(temp+len,"%s",mb->dicts[i]);
+		}
+		fprintf(fp,"%s\n",temp);
+	}
+	if(mb->user && strcmp(mb->user,"user.txt"))
+		fprintf(fp,"user=%s\n",mb->user);
+	if(mb->normal && strcmp(mb->normal,"normal.txt"))
+		fprintf(fp,"normal=%s\n",mb->normal);
+	if(mb->skip[0])
+		fprintf(fp,"skip=%s\n",mb->skip);
+	if(mb->bihua[0])
+		fprintf(fp,"bihua=%s\n",mb->bihua);
+	if(mb->ass_lead && mb->ass_main)
+	{
+		if(!mb->ass_lead0)
+			fprintf(fp,"assist=%c %s\n",mb->ass_lead,mb->ass_main);
+		else
+			fprintf(fp,"assist=%c %s 1\n",mb->ass_lead,mb->ass_main);
+	}
+	else if(mb->ass_main)
+		fprintf(fp,"assist=%s\n",mb->ass_main);
+	if(mb->rule)
+	{
+		mb_rule_dump(mb,fp);
+		fprintf(fp,"code_hint=%d\n",mb->code_hint);
+	}
+	fprintf(fp,"[DATA]\n");
+}
+
 
 
 int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
@@ -282,6 +372,9 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 
 	if(format==MB_FMT_YONG && (option&MB_DUMP_HEAD))
 	{
+#if 1
+		mb_head_dump(mb,fp);
+#else
 		fprintf(fp,"name=%s\n",mb->name);
 		fprintf(fp,"key=%s\n",mb->key+1);
 		if(mb->key0[0])
@@ -304,8 +397,13 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 		}
 		if(mb->pull[0])
 			fprintf(fp,"pull=%s\n",mb->pull);
-		if(mb->suffix[0])
-			fprintf(fp,"suffix=%s\n",mb->suffix);
+		if(mb->suffix>=0)
+		{
+			if(mb->suffix==0)
+				fprintf(fp,"suffix=NONE\n");
+			else
+				fprintf(fp,"suffix=%c\n",mb->suffix);
+		}
 		if(mb->match)
 			fprintf(fp,"match=1\n");
 		if(mb->wildcard_orig)
@@ -375,6 +473,7 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 			fprintf(fp,"code_hint=%d\n",mb->code_hint);
 		}
 		fprintf(fp,"[DATA]\n");
+#endif
 	}
 	for(index=mb->index;index;index=index->next)
 	{

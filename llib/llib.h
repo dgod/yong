@@ -46,3 +46,4 @@
 #include "lcoroutine.h"
 #include "ldlfcn.h"
 #include "ltricky.h"
+#include "lre.h"

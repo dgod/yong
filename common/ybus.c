@@ -184,10 +184,13 @@ YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 		if(app!=NULL && app[0])
 		{
 			conn->app=y_im_get_app_config(app);
-			const char *t=l_key_file_get_data(conn->app,"IM","onspot");
-			if(t)
+			if(conn->app)
 			{
-				conn->onspot=2|atoi(t);
+				const char *t=l_key_file_get_data(conn->app,"IM","onspot");
+				if(t)
+				{
+					conn->onspot=2|atoi(t);
+				}
 			}
 		}
 	}
@@ -429,7 +432,10 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YongShowInput(conn->state);
 	YongShowMain(conn->state);
 	if(client->track)
-		YongMoveInput(client->x,client->y);
+	{
+		int scale=(int)y_ui_get_scale(1);
+		YongMoveInput(client->x/scale,client->y/scale);
+	}
 	ybus_recycle_connect(now);
 	wm_notify_state(NULL);
 	
@@ -451,13 +457,12 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	if(!client) return 0;
 	if(client!=conn->active)
 		return 0;
+	y_xim_preedit_clear();
 	conn_active=NULL;
 	conn->focus=0;
 	conn->active=NULL;
 	YongShowInput(0);
 	YongShowMain(0);
-	if(plugin->preedit_clear)
-		plugin->preedit_clear(conn_id,client_id);
 	wm_notify_state(NULL);
 	return 0;
 }
@@ -504,7 +509,8 @@ int ybus_on_cursor(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int x
 		if(active==client)
 		{
 			//fprintf(stderr,"move %d %d\n",client->x,client->y);
-			YongMoveInput(client->x,client->y);
+			int scale=(int)y_ui_get_scale(1);
+			YongMoveInput(client->x/scale,client->y/scale);
 		}
 	}
 	return 0;
@@ -594,7 +600,6 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 			client->y=client->y-oy+wm_focus.y;
 			YongMoveInput(client->x,client->y);
 		}
-		//fprintf(stderr,"focus %d %d\n",wm_focus.x,wm_focus.y);
 		break;
 	}
 	case YBUS_TOOL_RELOAD_ALL:
@@ -890,34 +895,34 @@ int xim_ybus_preedit_draw(const char *s,int len)
 static void upload_clipboard_cb(int code)
 {
 	if(code==0)
-		y_ui_show_tip(YT("ÉÏ´«³É¹¦"));
+		y_ui_show_tip(YT("ï¿½Ï´ï¿½ï¿½É¹ï¿½"));
 	else
-		y_ui_show_tip(YT("ÉÏ´«Ê§°Ü"));
+		y_ui_show_tip(YT("ï¿½Ï´ï¿½Ê§ï¿½ï¿½"));
 }
 
 /*
 static void download_clipboard_cb(int code)
 {
 	if(code==0)
-		y_ui_show_tip(YT("ÏÂÔØ³É¹¦"));
+		y_ui_show_tip(YT("ï¿½ï¿½ï¿½Ø³É¹ï¿½"));
 	else
-		y_ui_show_tip(YT("ÏÂÔØÊ§°Ü"));
+		y_ui_show_tip(YT("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½"));
 }*/
 static void download_clipboard_cb(const char *text,void *user)
 {
 	(void)user;
 	if(text==NULL)
 	{
-		y_ui_show_tip(YT("ÏÂÔØÊ§°Ü"));
+		y_ui_show_tip(YT("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½"));
 		return;
 	}
 	if(!y_ui.set_select)
 	{
-		y_ui_show_tip("²»Ö§³Ö¼ôÌù°åÕ³Ìù");
+		y_ui_show_tip("ï¿½ï¿½Ö§ï¿½Ö¼ï¿½ï¿½ï¿½ï¿½ï¿½Õ³ï¿½ï¿½");
 		return;
 	}
 	y_ui.set_select(text);
-	y_ui_show_tip(YT("ÏÂÔØ³É¹¦"));
+	y_ui_show_tip(YT("ï¿½ï¿½ï¿½Ø³É¹ï¿½"));
 }
 
 static void xim_action(const char *s)
@@ -929,7 +934,7 @@ static void xim_action(const char *s)
 	else if(!strcmp(s,"pasteCloud"))
 	{
 		char *argv[]={"yong-config","--sync","--download-clipboard",NULL};
-		y_im_async_spawn(argv,download_clipboard_cb,NULL);
+		y_im_async_spawn(argv,download_clipboard_cb,NULL,false);
 		// y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
 	}
 	else if(!strcmp(s,"undo"))

@@ -198,7 +198,7 @@ struct y_mb{
 	char skip[10];
 	char bihua[10];
 	char nomove[4];
-	char suffix[4];
+	int suffix;
 
 	uint8_t match:1;
 	uint8_t simple:2;
@@ -292,7 +292,7 @@ int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,
 int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super);
 int y_mb_get_simple(struct y_mb *mb,char *code,char *data,int p);
 int y_mb_is_key(struct y_mb *mb,int c);
-int y_mb_is_keys(struct y_mb *mb,char *s);
+int y_mb_is_keys(struct y_mb *mb,const char *s);
 int y_mb_is_full(struct y_mb *mb,int len);
 int y_mb_is_stop(struct y_mb *mb,int c,int pos);
 int y_mb_is_pull(struct y_mb *mb,int c);
@@ -352,15 +352,15 @@ bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int cou
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);
 
 extern EXTRA_IM EIM;
-static inline struct y_mb *Y_MB_ACTIVE(struct y_mb *mb)
+
+static inline void y_mb_context_reset(struct y_mb *mb)
 {
-	char *s=EIM.CodeInput,c=s[0];
-	if(!c) return mb;
-	if(mb->ass_mb && c==mb->ass_lead)
-		return mb->ass_mb;
-	if(mb->quick_mb && c==mb->quick_lead)
-		return mb->quick_mb;
-	return mb;
+	if(!mb)
+		return;
+	mb->ctx.input[0]=0;
+	mb->ctx.result_filter_ext=0;
+	mb->ctx.result_match=0;
+	mb->ctx.result_count=0;
 }
 
 #endif/*_MB_H_*/

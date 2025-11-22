@@ -20,7 +20,7 @@ static const unsigned short LunarMonthDay[] = {
     0X4970, 0X64b0, 0X6a50, 0Xea50, 0X6b28, 0X5ac0, 0Xab60, 0X9368, 0X92e0, 0Xc960,   // 2000  
     0Xd4a8, 0Xd4a0, 0Xda50, 0X5aa8, 0X56a0, 0Xaad8, 0X25d0, 0X92d0, 0Xc958, 0Xa950,   // 2010  
     0Xb4a0, 0Xb550, 0Xb550, 0X55a8, 0X4ba0, 0Xa5b0, 0X52b8, 0X52b0, 0Xa930, 0X74a8,   // 2020  
-    0X6aa0, 0Xad50, 0X4da8, 0X4b60, 0X9570, 0Xa4e0, 0Xd260, 0Xe930, 0Xd530, 0X5aa0,   // 2030  
+    0X6aa0, 0Xad50, 0X4da8, 0X4b60, 0Xa570, 0Xa4e0, 0Xd260, 0Xe930, 0Xd530, 0X5aa0,   // 2030  
     0X6b50, 0X96d0, 0X4ae8, 0X4ad0, 0Xa4d0, 0Xd258, 0Xd250, 0Xd520, 0Xdaa0, 0Xb5a0,   // 2040  
     0X56d0, 0X4ad8, 0X49b0, 0Xa4b8, 0Xa4b0, 0Xaa50, 0Xb528, 0X6d20, 0Xada0, 0X55b0,   // 2050  
     0X9370, 0X4978, 0X4970, 0X64b0, 0X6a50, 0Xea50, 0X6b20, 0Xab60, 0Xaae0, 0X92e0,   // 2060  
@@ -164,8 +164,7 @@ static const char *nl_day[]={
 
 static int GetDaysToYear(int year)
 {
-	int LeapYears;
-	LeapYears=(year/400)*(24*4+1) + ((year%400)/100)*24 + ((year%100)/4)*1;
+	int LeapYears=(year/400)*(24*4+1) + ((year%400)/100)*24 + ((year%100)/4)*1;
 	
 	if((year%4==0 && year%100!=0) || year%400==0)
 		LeapYears--;
@@ -177,7 +176,35 @@ static int GetSpanDays(int year,int yday)
 	return GetDaysToYear(1900+year)-GetDaysToYear(1901)+yday;
 }
 
-int y_im_nl_day(int64_t t,char *s)
+static int GetDaysOfYear(int year,int month,int day)
+{
+	const int days[]={31,28,31,30,31,30,31,31,30,31,30,31};
+	bool isLeapYear=(year%4==0 && year%100!=0) || (year%100==0);
+	int result=day;
+	if(isLeapYear && month>2)
+		result++;
+	for(int i=0;i<month-1;i++)
+		result+=days[i];
+	return result;
+}
+
+int y_im_nl_from_day(char *s,int year,int month,int day)
+{
+	if(year>END_YEAR || year<START_YEAR)
+		return -1;
+	if(month<1 || month>12)
+		return -2;
+	if(day<1 || day>31)
+		return -3;
+	int yday=GetDaysOfYear(year,month,day)-1;
+	int iSpanDays=GetSpanDays(year-1900,yday);
+	LunarDay(&year,&month,&day,iSpanDays);
+	if(month>=1 && month<=12 && day>=1 && day<=30)
+		sprintf(s,"%s%s",nl_mon[month-1],nl_day[day-1]);
+	return 0;
+}
+
+int y_im_nl_from_time(char *s,int64_t t)
 {
 	int year,month,day;
 	struct tm *tm;

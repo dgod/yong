@@ -1,13 +1,20 @@
 #include <llib.h>
 #include <math.h>
 #include <assert.h>
+#include <cairo-xlib.h>
 #include "ui-draw.h"
+
+static double get_scale(void *win,void *dc)
+{
+	return 1.0;
+}
 
 void ui_draw_begin(DRAW_CONTEXT1 *ctx,void *win,void *dc)
 {
 	ctx->x=ctx->y=0;
 	ctx->dc=dc;
 	ctx->win=win;
+	ctx->scale=get_scale(win,dc);
 	cairo_set_antialias(dc,CAIRO_ANTIALIAS_NONE);
 }
 
@@ -25,9 +32,11 @@ static void ui_set_source_color(DRAW_CONTEXT1 *ctx,UI_COLOR c)
 	cairo_set_source_rgba(ctx->dc,r,g,b,a);
 }
 
-void ui_draw_line(DRAW_CONTEXT1 *ctx,int x0,int y0,int x1,int y1,UI_COLOR color,double line_width)
+void ui_draw_line(DRAW_CONTEXT1 *ctx,int x0_i,int y0_i,int x1_i,int y1_i,UI_COLOR color,double line_width)
 {
 	cairo_t *dc=ctx->dc;
+	double x0=ctx->scale*x0_i,y0=ctx->scale*y0_i,x1=ctx->scale*x1_i,y1=ctx->scale*y1_i;
+	line_width*=ctx->scale;
 	if(line_width>2) line_width=2;
 	ui_set_source_color(ctx,color);
 	if(line_width==1 || line_width==2)
@@ -59,9 +68,11 @@ void ui_draw_line(DRAW_CONTEXT1 *ctx,int x0,int y0,int x1,int y1,UI_COLOR color,
 	cairo_stroke(dc);
 }
 
-void ui_draw_rect(DRAW_CONTEXT1 *ctx,int x,int y,int w,int h,UI_COLOR color,double line_width)
+void ui_draw_rect(DRAW_CONTEXT1 *ctx,int x_i,int y_i,int w_i,int h_i,UI_COLOR color,double line_width)
 {
 	cairo_t *dc=ctx->dc;
+	double x=ctx->scale*x_i,y=ctx->scale*y_i,w=ctx->scale*w_i,h=ctx->scale*h_i;
+	line_width*=ctx->scale;
 	if(line_width>2) line_width=2;
 	cairo_set_antialias(dc,CAIRO_ANTIALIAS_DEFAULT);
 	ui_set_source_color(ctx,color);
@@ -78,9 +89,12 @@ void ui_fill_rect(DRAW_CONTEXT1 *ctx,int x,int y,int w,int h,UI_COLOR color)
 	cairo_fill(ctx->dc);
 }
 
-void ui_draw_round_rect(DRAW_CONTEXT1 *ctx,int x,int y,int w,int h,int r,UI_COLOR stroke,UI_COLOR fill,double line_width)
+void ui_draw_round_rect(DRAW_CONTEXT1 *ctx,int x_i,int y_i,int w_i,int h_i,int r_i,UI_COLOR stroke,UI_COLOR fill,double line_width)
 {
 	cairo_t *dc=ctx->dc;
+	double x=ctx->scale*x_i,y=ctx->scale*y_i,w=ctx->scale*w_i,h=ctx->scale*h_i,r=ctx->scale*r_i;
+	line_width*=ctx->scale;
+
 	if(line_width>2) line_width=2;
 	cairo_set_antialias(dc,CAIRO_ANTIALIAS_DEFAULT);
 
@@ -120,42 +134,43 @@ int ui_draw_text_end(DRAW_CONTEXT1 *ctx)
 	return 0;
 }
 
-void ui_draw_text(DRAW_CONTEXT1 *ctx,UI_FONT font,int x,int y,const void *text,UI_COLOR color)
+void ui_draw_text(DRAW_CONTEXT1 *ctx,UI_FONT font,int x_i,int y_i,const void *text,UI_COLOR color)
 {
 	cairo_t *dc=ctx->dc;
+	double x=ctx->scale*x_i,y=ctx->scale*y_i;
 	ui_set_source_color(ctx,color);
 	pango_layout_set_text (font->pango, text, -1);
 	cairo_move_to(dc,x,y-font->extraSpaceAbove);
 	pango_cairo_show_layout(dc,font->pango);
 }
 
-void ui_draw_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x,int y)
+void ui_draw_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i)
 {
 	cairo_t *dc=ctx->dc;
+	double x=ctx->scale*x_i,y=ctx->scale*y_i;
 	int w,h;
 	if(!image)
 		return;
-	w=gdk_pixbuf_get_width(image);
-	h=gdk_pixbuf_get_height(image);
+	ui_image_size(image,&w,&h);
 	cairo_rectangle(dc,x,y,w,h);
 	cairo_clip(dc);
-	gdk_cairo_set_source_pixbuf(dc,image,x,y);
+	cairo_set_source_surface(dc,image,x,y);
 	cairo_paint(dc);
 	cairo_reset_clip(dc);
 }
 
-void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x,int y,int w,int h)
+void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x_i,int y_i,int w_i,int h_i)
 {
+	double x=ctx->scale*x_i,y=ctx->scale*y_i,w=ctx->scale*w_i,h=ctx->scale*h_i;
 	cairo_t *dc=ctx->dc;
 	int w0,h0;
 	double sx=1,sy=1;
 	double ox=0,oy=0;
-
+	
 	if(!image)
 		return;
-	
-	w0=gdk_pixbuf_get_width(image);
-	h0=gdk_pixbuf_get_height(image);
+
+	ui_image_size(image,&w0,&h0);
 	if(w!=w0)
 	{
 		sx=(double)(w)/(double)(w0-1);
@@ -166,17 +181,20 @@ void ui_stretch_image(DRAW_CONTEXT1 *ctx,UI_IMAGE image,int x,int y,int w,int h)
 		sy=(double)h/(double)(h0-1);
 		oy=-0.5;
 	}
-	
+#if 1
 	cairo_save(dc);
 	
 	cairo_translate(dc,x,y);
 	cairo_rectangle(dc,0,0,w,h);
 	cairo_clip(dc);
 	cairo_scale(dc,sx,sy);
-	gdk_cairo_set_source_pixbuf(dc,image,ox,oy);
+	cairo_set_source_surface(dc,image,ox,oy);
 	cairo_paint(dc);
 	
 	cairo_restore(dc);
+#else
+	ui_image_draw_full(dc,image,x,y,w,h,0,0,w0,h0);
+#endif
 }
 
 UI_FONT ui_font_parse(void * w,const char *s,double scale)
@@ -265,7 +283,21 @@ static void image_load_cb(GdkPixbufLoader *loader,GdkPixbuf **pixbuf)
 	g_object_ref(*pixbuf);
 }
 
-UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
+static void image_size_cb(GdkPixbufLoader *loader,gint width,gint height,UI_SIZE *sz)
+{
+	if(sz->w>0 && sz->h>0)
+	{
+		gdk_pixbuf_loader_set_size(loader,sz->w,sz->h);
+	}
+	else if(sz->w<-1 && sz->w!=-10000)
+	{
+		width=(gint)round(width*(-sz->w)/10000.0);
+		height=(gint)round(height*(-sz->w)/10000.0);
+		gdk_pixbuf_loader_set_size(loader,width,height);
+	}
+}
+
+GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,int where)
 {
 	char path[256];
 	GdkPixbuf *pixbuf;
@@ -289,6 +321,8 @@ UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
 			return NULL;
 		}
 		load=gdk_pixbuf_loader_new();
+		UI_SIZE size={.w=width,.h=height};
+		g_signal_connect(load,"size-prepared",G_CALLBACK(image_size_cb),&size);
 		if(width>0 && height>0)
 		{
 			gdk_pixbuf_loader_set_size(load,width,height);
@@ -307,14 +341,195 @@ UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
 	return pixbuf;
 }
 
+static inline uint8_t MULT(uint8_t c,uint8_t a)
+{
+	uint32_t t = c * a + 0x80;
+	return ((t >> 8) + t) >> 8;
+}
+
+UI_IMAGE ui_image_load_at_size(const char *file,int width,int height,int where)
+{
+	GdkPixbuf *pixbuf=ui_image_load_pixbuf_at_size(file,width,height,where);
+	if(!pixbuf)
+		return NULL;
+	int n_channels=gdk_pixbuf_get_n_channels(pixbuf);
+	if(n_channels!=3 && n_channels!=4)
+	{
+		fprintf(stderr,"pixbuf channels %d is not supported\n",n_channels);
+		g_object_unref(pixbuf);
+		return NULL;
+	}
+	int format=n_channels==4?CAIRO_FORMAT_ARGB32:CAIRO_FORMAT_RGB24;
+	width=gdk_pixbuf_get_width(pixbuf);
+	height=gdk_pixbuf_get_height(pixbuf);
+	UI_IMAGE r=cairo_image_surface_create(format,width,height);
+	cairo_surface_flush(r);
+	const uint8_t *src=gdk_pixbuf_get_pixels(pixbuf);
+	uint8_t *dst=cairo_image_surface_get_data(r);
+	int stride=gdk_pixbuf_get_rowstride(pixbuf);
+	int rstride=cairo_image_surface_get_stride(r);
+
+	for (int y = 0; y < height; y++)
+	{
+		const uint8_t *p = src + y * stride;
+		uint8_t *q = dst + y * rstride;
+		for(int x=0;x<width;x++)
+		{
+			if(n_channels==3)
+			{
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
+				q[0]=p[2];
+				q[1]=p[1];
+				q[2]=p[0];
+#else
+				q[1]=p[0];
+				q[2]=p[1];
+				q[3]=p[2];
+#endif
+				p+=3;
+				q+=4;
+			}
+			else
+			{
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
+				q[0]=MULT(p[2], p[3]);
+				q[1]=MULT(p[1], p[3]);
+				q[2]=MULT(p[0], p[3]);
+				q[3]=p[3];
+#else
+				q[0]=p[3];
+				q[1]=MULT(p[0], p[3]);
+				q[2]=MULT(p[1], p[3]);
+				q[3]=MULT(p[2], p[3]);
+#endif
+				p+=4;
+				q+=4;
+			}
+		}
+	}
+	cairo_surface_mark_dirty(r); 
+	g_object_unref(pixbuf);
+	return r;
+}
+
 UI_IMAGE ui_image_load(const char *file,int where)
 {
 	return ui_image_load_at_size(file,-1,-1,where);
 }
 
+UI_IMAGE ui_image_part(UI_IMAGE image,int x,int y,int w,int h)
+{
+	cairo_format_t format=cairo_image_surface_get_format(image);
+	if(format!=CAIRO_FORMAT_ARGB32 && format!=CAIRO_FORMAT_RGB24)
+		return NULL;
+	UI_IMAGE r=cairo_image_surface_create(format,w,h);
+	if(!r)
+		return NULL;
+	cairo_surface_flush(r);
+	int stride=cairo_image_surface_get_stride(image);
+	int rstride=cairo_image_surface_get_stride(r);
+	uint8_t *src=cairo_image_surface_get_data(image)+y*stride+x*sizeof(uint32_t);
+	uint8_t *dst=cairo_image_surface_get_data(r);
+	for(int i=0;i<h;i++)
+	{
+		memcpy(dst,src,sizeof(uint32_t)*w);
+		src+=stride;
+		dst+=rstride;
+	}
+	cairo_surface_mark_dirty(r);
+	return r;
+}
+
 void ui_image_free(UI_IMAGE img)
 {
 	if(!img) return;
-	g_object_unref(img);
+	cairo_surface_destroy(img);
+}
+
+int ui_image_size(UI_IMAGE img,int *w,int *h)
+{
+	*w=cairo_image_surface_get_width(img);
+	*h=cairo_image_surface_get_height(img);
+	return 0;
+}
+
+void ui_image_draw(UI_DC dc,UI_IMAGE img,int x,int y)
+{
+	int w,h;
+	if(!img)
+		return;
+	ui_image_size(img,&w,&h);
+	cairo_rectangle(dc,x,y,w,h);
+	cairo_clip(dc);
+	cairo_set_source_surface(dc,img,x,y);
+	cairo_paint(dc);
+	cairo_reset_clip(dc);
+}
+
+void ui_image_draw_full(UI_DC hdc,UI_IMAGE img,
+				int dst_x,int dst_y,int dst_w,int dst_h,
+				int x,int y,int w,int h)
+{
+	cairo_save(hdc);
+	cairo_rectangle(hdc, dst_x, dst_y, dst_w, dst_h);
+	cairo_clip(hdc);
+	double sx = (double)dst_w / w;
+	double sy = (double)dst_h / h;
+	cairo_translate(hdc, dst_x - x * sx, dst_y - y * sy);
+	cairo_scale(hdc, sx, sy);
+	cairo_set_source_surface(hdc, img, 0, 0);
+	cairo_paint(hdc);
+	cairo_restore(hdc);
+}
+
+static uint8_t get_pixel_alpha(cairo_surface_t *surface,int x,int y)
+{
+	const uint8_t *data=cairo_image_surface_get_data(surface);
+	int stride=cairo_image_surface_get_stride(surface);
+#if L_BYTE_ORDER==L_LITTLE_ENDIAN
+	return data[y*stride+4*x+3];
+#else
+	return data[y*stride+4*x];
+#endif
+}
+
+UI_REGION ui_image_region(UI_IMAGE p,double scale)
+{
+	if(cairo_image_surface_get_format(p)!=CAIRO_FORMAT_ARGB32)
+		return NULL;
+	int w=cairo_image_surface_get_width(p)*scale;
+	int h=cairo_image_surface_get_height(p)*scale;
+	UI_REGION rgn=cairo_region_create();
+	for(int j=0;j<h;j++)
+	{
+		GdkRectangle rc={.x=0,.y=j,.width=0,.height=1};
+		for(int i=0;i<w;i++)
+		{
+			uint8_t a=get_pixel_alpha(p,(int)round(i/scale),(int)round(j/scale));
+			if(a<80)
+			{
+				if(rc.width)
+				{
+					cairo_region_union_rectangle(rgn,&rc);
+					rc.width=0;
+				}
+				continue;
+			}
+			if(!rc.width)
+			{
+				rc.x=i;
+				rc.width=1;
+			}
+			else
+			{
+				rc.width++;
+			}
+		}
+		if(rc.width)
+		{
+			cairo_region_union_rectangle(rgn,&rc);
+		}
+	}
+	return rgn;
 }
 

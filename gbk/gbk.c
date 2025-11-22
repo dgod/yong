@@ -443,7 +443,7 @@ static int GbkDoInput(int key)
 		low=CodeInput[2];
 		if(high>=0x81 && high<=0xfe && low>='4' && low<='f')
 		{
-			PhraseListCount=((low=='7' || low=='f')?15:16);;
+			PhraseListCount=((low=='7' || low=='f')?15:16);
 			CandPageCount=PhraseListCount/CandWordMax+((PhraseListCount%CandWordMax)?1:0);
 			GbkGetCandWords(PAGE_FIRST);
 		}

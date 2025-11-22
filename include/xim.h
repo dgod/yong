@@ -24,6 +24,7 @@ typedef struct _CONNECT_ID{
 	unsigned int focus:1;
 	unsigned int lock:1;
 	unsigned int onspot:2;
+	unsigned int preedit:1;			// TODO:
 	int x,y;
 	time_t last_active;
 }CONNECT_ID;
@@ -47,7 +48,6 @@ typedef struct{
 	int (*get_onspot)(void);
 }Y_XIM;
 
-CONNECT_ID *YongGetConnect(void);
 void YongMoveInput(int x,int y);
 void YongShowInput(int show);
 void YongShowMain(int show);
@@ -72,8 +72,6 @@ void YongRecycleConnect(int force);
 void YongEnableIM(int enable);
 int YongTriggerKey(int key);
 int YongOutputSet(int type);
-int YongPreeditClear(void);
-int YongPreeditDraw(const char *s,int len);
 void YongSendFile(const char *fn);
 void YongSendClipboard(const char *s);
 int YongInputKey(int key);

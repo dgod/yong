@@ -6,15 +6,15 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "llib.h"
+
 #include "gbk.h"
 #include "bihua.h"
-#include "mapfile.h"
-
-#include "ltricky.h"
+#include "common.h"
 
 static const char *bihua_key=Y_BIHUA_KEY;
 
-Y_BIHUA_INFO y_bihua_info[32]={
+static const Y_BIHUA_INFO y_bihua_info[32]={
 	{"ɽ","252"},	//a
 	{0,0},			//b
 	{0,0},			//c
@@ -47,10 +47,11 @@ Y_BIHUA_INFO y_bihua_info[32]={
 	{0,0},			//.
 	{0,0},			//
 };
-static Y_BIHUA_INFO *bihua_info=y_bihua_info;
+static const Y_BIHUA_INFO *bihua_info=y_bihua_info;
 
 #define BIHUA_MAX	63
 #define GROUP_MAX	63
+#define BIHUA_VERSION	1
 
 #define TRUNC_COUNT	5
 #define TRUNC_SIZE	sizeof(struct bihua_trunc)
@@ -65,128 +66,156 @@ struct bihua_result{
 	uint32_t orig;
 	uint32_t offset;
 	uint32_t count;
-	char str[10*4+1];
+	uint32_t str[10];
 };
 
-static void *map_file;
-
-static int data_size;
+static uint8_t bihua_version;
 static struct bihua_trunc *trunc;
 static char *base;
-static struct bihua_result res;
+static struct bihua_result res;	
 
-int y_bihua_load(const char *fn)
+static void y_bihua_free(void)
 {
+	if(!trunc)
+		return;
+
+	l_free(trunc);
+	trunc=NULL;
+	base=NULL;
+}
+
+static int y_bihua_load(const char *fn)
+{
+	size_t data_size;
 	y_bihua_free();
-	map_file=y_mmap_new(fn);
-	if(!map_file)
-	{
-		printf("yong: mmap bihua data fail\n");
-		return -1;
-	}
-	data_size=y_mmap_length(map_file);
-	trunc=(struct bihua_trunc*)y_mmap_addr(map_file);
+	trunc=(void*)l_file_get_contents(fn,&data_size,
+#ifndef TOOLS_BIHUA
+			y_im_get_path("HOME"),y_im_get_path("DATA"),
+#endif
+			NULL);
 	if(!trunc || data_size<0x10000)
 	{
-		printf("yong: bihua file bad %s %p %d\n",fn,trunc,data_size);
-		y_mmap_free(map_file);
-		map_file=0;data_size=0;trunc=NULL;
+		printf("yong: bihua file bad %s %p %d\n",fn,trunc,(int)data_size);
+		l_free(trunc);
+		data_size=0;
+		trunc=NULL;
 		return -1;
 	}
 	base=(char*)(trunc+TRUNC_COUNT);
+	bihua_version=trunc->group>>14;
+	trunc->group&=0x3fff;
 
 	return 0;
 }
 
-void y_bihua_free(void)
+static char *bihua_escape(const char *bh,char temp[BIHUA_MAX+1])
 {
-	if(!trunc) return;
-
-	y_mmap_free(map_file);
-	map_file=NULL;
-	trunc=NULL;
-	base=NULL;
-	data_size=0;
-}
-
-static char *bihua_escape(char *bh)
-{
-	static char temp[BIHUA_MAX+1];
 	int i,len,p;
 	char c,*code;
 	for(i=0;(c=*bh++)!=0;)
 	{
 		code=strchr(bihua_key,c);
-		if(!code) return NULL;
+		if(!code)
+			return NULL;
 		p=code-bihua_key;
 		code=bihua_info[p].code;
-		if(!code) return NULL;
+		if(!code)
+			return NULL;
 		len=strlen(code);
-		if(i+len>BIHUA_MAX) return NULL;
+		if(i+len>BIHUA_MAX)
+			return NULL;
 		strcpy(temp+i,code);
 		i+=len;
 	}
-	if(i==0) return NULL;
+	if(i==0)
+		return NULL;
 	temp[i]=0;
 	return temp;
 }
 
-static int bihua_test(char *bh,char *s,int len)
+static int bihua_decompress(const char *bh,int len,char temp[BIHUA_MAX+1])
 {
-	uint16_t code;
-	int bhlen;
-	int ret;
-	bhlen=bh[1];
-	code=GBK_MAKE_CODE(bh[2],bh[3]);
-	if(GBK_IS_VALID(code))
+	int pos=0;
+	for(int i=0;i<len;i++)
 	{
-		bh+=4;
-		bhlen-=4;
+		temp[pos++]='0'+((bh[i]>>4)&0xf);
+		if((bh[i]&0xf)!=0)
+			temp[pos++]='0'+(bh[i]&0xf);
+	}
+	temp[pos]=0;
+	return pos;
+}
+
+static int bihua_test(const char *bh,const char *s,int len)
+{
+	int bhlen;
+	if(bihua_version==0)
+	{
+		bhlen=bh[1];
+		if(gb_is_gbk(bh+2))
+		{
+			bh+=4;
+			bhlen-=4;
+		}
+		else
+		{
+			bh+=6;
+			bhlen-=6;
+		}
 	}
 	else
 	{
-		bh+=6;
-		bhlen-=6;
+		bhlen=bh[0];
+		if(gb_is_gbk(bh+1))
+		{
+			bh+=3;
+			bhlen-=3;
+		}
+		else
+		{
+			bh+=5;
+			bhlen-=5;
+		}
+		char *temp=l_alloca(BIHUA_MAX+1);
+		bhlen=bihua_decompress(bh,bhlen,temp);
+		bh=temp;
 	}
-#if 0
-	char temp[64];
-	strncpy(temp,bh,bhlen);
-	temp[bhlen]=0;
-	printf("%s %s %d\n",temp,s,bhlen);
-#endif
 	if(bhlen<len)
 	{
-		ret=strncmp(bh,s,bhlen);
+		int ret=memcmp(bh,s,bhlen);
 		return (ret<=0)?-1:1;
-		
 	}
 	else
 	{
-		return strncmp(bh,s,len);
+		return memcmp(bh,s,len);
 	}
 }
 
 static inline uint32_t bihua_next(uint32_t offset)
 {
-	return offset+base[offset+1];
+	if(bihua_version==0)
+		return offset+base[offset+1];
+	return offset+base[offset];
 }
 
-static inline uint32_t bihua_prev(uint32_t offset)
+static inline uint32_t group_size(struct bihua_trunc *t,int group)
 {
-	return offset-base[offset];
+	if(group==GROUP_MAX-1)
+		return t->count-(t->group*GROUP_MAX-1);
+	return t->group;
 }
 
-int y_bihua_set(char *s)
+static int y_bihua_set(const char *s)
 {
 	struct bihua_trunc *t;
-	int i,ret,len;
+	int ret;
 	int group[2];
 	uint32_t offset[2];
 	int count;
-	int group_max;
+	char temp[BIHUA_MAX+1];
 
-	s=bihua_escape(s);
-	len=strlen(s);
+	s=bihua_escape(s,temp);
+	int len=strlen(s);
 
 	t=trunc+s[0]-'1';
 	if(!s[1])
@@ -195,10 +224,9 @@ int y_bihua_set(char *s)
 		res.offset=t->offset[0];
 		return res.count;
 	}
-	group_max=t->count/t->group+((t->count%t->group)?1:0);
 	group[0]=0;
-	group[1]=group_max;
-	for(i=1;i<group_max;i++)
+	group[1]=GROUP_MAX;
+	for(int i=0;i<GROUP_MAX;i++)
 	{
 		ret=bihua_test(base+t->offset[i],s,len);
 		if(ret<0)
@@ -212,76 +240,67 @@ int y_bihua_set(char *s)
 			break;
 		}
 	}
-	//printf("%d %d\n",group[0],group[1]);
+	if(group[0]==group[1])
+	{
+		res.count=0;
+		res.offset=0;
+		return res.count;
+	}
+	count=0;
+	for(int i=group[0];i<group[1]-1;i++)
+	{
+		count+=t->group;
+	}
 	offset[0]=t->offset[group[0]];
-	if(group[1]!=group_max)
-	{
-		count=t->group*(group[1]-group[0]);
-		offset[1]=t->offset[group[1]];
-		offset[1]=bihua_prev(offset[1]);
-	}
-	else
-	{
-		uint32_t next;
-		int i;
-		offset[1]=t->offset[group_max-1];
-		count=t->count-t->group*group[0];
-		for(i=0;i<t->group;i++)
-		{
-			next=bihua_next(offset[1]);
-			if(next>=data_size || bihua_prev(next)==next)
-				break;
-			offset[1]=next;
-		}
-	}
-	while(count>0)
+	for(int i=0;i<t->group;i++)
 	{
 		ret=bihua_test(base+offset[0],s,len);
-		if(ret==0) break;
-		if(ret>0) return 0;
-		count--;
+		if(ret==0)
+			break;
+		if(ret>0)
+			return 0;
+		if(count>0)
+			count--;
 		offset[0]=bihua_next(offset[0]);
 	}
-	while(offset[1] && count>0)
+	offset[1]=(group[1]-1>group[0])?t->offset[group[1]-1]:offset[0];
+	int size=group_size(t,group[1]-1);
+	for(int i=0;i<size;i++)
 	{
 		ret=bihua_test(base+offset[1],s,len);
-		if(ret==0) break;
-		if(ret<0) return 0;
-		offset[1]=bihua_prev(offset[1]);
-		count--;
+		if(ret!=0)
+			break;
+		offset[1]=bihua_next(offset[1]);
+		count++;
 	}
 	res.offset=res.orig=offset[0];
 	res.count=count;
 	return res.count;
 }
 
-char *y_bihua_get(int at,int num)
+static uint32_t *y_bihua_get(int at,int num)
 {
-	int i;
-	int len;
 	uint32_t offset;
 	if(!res.count || num>10 || num==0)
 		return NULL;
 	offset=res.offset;
-	for(i=0;i<at;i++)
+	for(int i=0;i<at;i++)
 	{
 		offset=bihua_next(offset);
 	}
-	len=0;
-	for(i=0;i<num;i++)
+	for(int i=0;i<num;i++)
 	{
 		char *t=base+offset;
-		int code=GBK_MAKE_CODE(t[2],t[3]);
-		res.str[len++]=t[2];
-		res.str[len++]=t[3];
-		if(!GBK_IS_VALID(code))
+		if(bihua_version==0)
 		{
-			res.str[len++]=t[4];
-			res.str[len++]=t[5];
+			res.str[i]=l_gb_to_char(t+2);
+		}
+		else
+		{
+			res.str[i]=l_gb_to_char(t+1);
 		}
 		offset=bihua_next(offset);
 	}
-	res.str[len]=0;
 	return res.str;
 }
 
@@ -297,6 +316,7 @@ static char BihuaInput[64];
 
 static int PhraseListCount;
 static int BihuaKey;
+static int cand_a;
 
 static int BihuaInit(const char *arg);
 static void BihuaReset(void);
@@ -327,29 +347,21 @@ int y_bihua_good(void)
 
 static int BihuaInit(const char *arg)
 {
-	char temp[256];
-	const char *data;
-
 	if(arg)
 		bihua_info=(Y_BIHUA_INFO*)arg;
 	else
 		bihua_info=(Y_BIHUA_INFO*)y_bihua_info;
-
-	data=EIM.GetPath("DATA");
-	sprintf(temp,"%s/bihua.bin",data);
-	if(!l_file_exists(temp))
-	{
-		sprintf(temp,"%s/bihua.bin",EIM.GetPath("HOME"));
-	}
-	
+	cand_a=y_im_get_config_int("IM","cand_a");
 	BihuaKey=y_im_get_key("bihua",-1,'`');
-	return y_bihua_load(temp);
+	if(trunc)
+		return 0;
+	return y_bihua_load("bihua.bin");
 }
 
 static int BihuaDestroy(void)
 {
 	bihua_info=y_bihua_info;
-	y_bihua_free();
+	//y_bihua_free();
 	return 0;
 }
 
@@ -376,8 +388,8 @@ static char *BihuaGetCandWord(int index)
 
 static int BihuaGetCandWords(int mode)
 {
-	int i,start,max=EIM.CandWordMax;
-	char *res;
+	int i,start,max=cand_a?cand_a:EIM.CandWordMax;
+	uint32_t *res;
 
 	if(EIM.CandPageCount==0)
 		return IMR_NEXT;
@@ -421,19 +433,8 @@ static int BihuaGetCandWords(int mode)
 		}
 		for(i=0;i<EIM.CandWordCount;i++)
 		{
-			uint16_t code=GBK_MAKE_CODE(res[0],res[1]);
-			EIM.CandTable[i][0]=*res++;
-			EIM.CandTable[i][1]=*res++;
-			if(!GBK_IS_VALID(code))
-			{
-				EIM.CandTable[i][2]=*res++;
-				EIM.CandTable[i][3]=*res++;
-				EIM.CandTable[i][4]=0;
-			}
-			else
-			{
-				EIM.CandTable[i][2]=0;
-			}
+			int len=l_char_to_gb(res[i],EIM.CandTable[i]);
+			EIM.CandTable[i][len]=0;
 		}
 	}while(0);
 	EIM.SelectIndex=0;	//reset the index to default position
@@ -474,6 +475,14 @@ static int BihuaDoInput(int key)
 	
 	if(!trunc)
 		return IMR_NEXT;
+
+	if(EIM.CodeLen==0)
+	{
+		if(im.eim && im.eim->Bihua)
+			bihua_info=(Y_BIHUA_INFO*)im.eim->Bihua;
+		else
+			bihua_info=(Y_BIHUA_INFO*)y_bihua_info;
+	}
 
 	if(key=='\b')
 	{

@@ -111,10 +111,8 @@ static void set_cursor_location_default(YBUS_CONNECT *yconn,YBUS_CLIENT *client)
 		return;
 	
 	dpy=gdk_display_get_default();
-#if GTK_CHECK_VERSION(3,0,0)
 	if(!GDK_IS_X11_DISPLAY(dpy))
 		return;
-#endif
 	xdpy=GDK_DISPLAY_XDISPLAY(dpy);
 	root=DefaultRootWindow(xdpy);
 	Atom a= XInternAtom (xdpy, "_NET_ACTIVE_WINDOW", True);
@@ -377,18 +375,7 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 		if(ret!=0) return -1;
 		l_call_buf_get_val(buf,rel);
 		// fprintf(stderr,"cursor %d %d %d %d %d\n",x,y,w,h,rel);
-#if 0
-		client->track=1;
-		client->x=x+w;
-		client->y=y+h;
-		YBUS_CLIENT *active=NULL;
-		ybus_get_active(NULL,&active);
-		//printf("\t%d %d\n",client->x,client->y);
-		if(active==client)
-			YongMoveInput(client->x,client->y);
-#else
 		ybus_on_cursor(&plugin,(CONN_ID)conn,client_id,x,y+h,rel);
-#endif
 	}
 	else if(!strcmp(name,"input"))
 	{

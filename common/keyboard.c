@@ -17,7 +17,7 @@ void ui_get_workarea(int *x, int *y, int *width, int *height);
 #include <assert.h>
 
 typedef struct{
-	short x,y,w,h;
+	float x,y,w,h;
 }KBD_RECT;
 
 enum{
@@ -174,7 +174,7 @@ static int kbd_select(int8_t pos,int8_t sub)
 	
 	if(pos==kst.cur && sub==kst.sub && kst.layout.name)
 		return 0;
-	scale=y_ui_get_scale();
+	scale=y_ui_get_scale(0);
 	kst.layout.scale=scale;
 	kst.layout.name=NULL;
 	kst.layout.psel=NULL;
@@ -210,8 +210,8 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.scale=scale;
 	int w=l_xml_get_prop_int(layout,"w");
 	int h=l_xml_get_prop_int(layout,"h");
-	kst.layout.main.rc.w=(short)(scale*w);
-	kst.layout.main.rc.h=(short)(scale*h);
+	kst.layout.main.rc.w=(float)round(scale*w);
+	kst.layout.main.rc.h=(float)round(scale*h);
 	kst.layout.main.type=KBT_MAIN;
 	kst.layout.font=ui_font_parse(kst.layout.win,l_xml_get_prop(layout,"font"),scale);
 
@@ -237,8 +237,8 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.shift=NULL;
 	for(LXmlNode *row=rows->child;row!=NULL;row=row->next)
 	{
-		int y=l_xml_get_prop_int(row,"y")*scale;
-		int h=l_xml_get_prop_int(row,"h")*scale;
+		int y=(int)round(l_xml_get_prop_int(row,"y")*scale);
+		int h=(int)round(l_xml_get_prop_int(row,"h")*scale);
 		if(prev && prev->rc.y+prev->rc.h>y+1)
 		{
 			for(KBD_BTN *p=prev;p!=NULL;p=p->next)
@@ -248,11 +248,11 @@ static int kbd_select(int8_t pos,int8_t sub)
 		prev=NULL;
 		for(LXmlNode *key=row->child;key!=NULL;key=key->next)
 		{
-			int x=l_xml_get_prop_int(key,"x")*scale;
-			int w=l_xml_get_prop_int(key,"w")*scale;
+			int x=(int)round(l_xml_get_prop_int(key,"x")*scale);
+			int w=(int)round(l_xml_get_prop_int(key,"w")*scale);
 			KBD_BTN *btn=l_alloc0(sizeof(KBD_BTN));
-			btn->rc.x=(short)x;btn->rc.y=(short)y;
-			btn->rc.w=(short)w;btn->rc.h=(short)h;
+			btn->rc.x=(float)x;btn->rc.y=(float)y;
+			btn->rc.w=(float)w;btn->rc.h=(float)h;
 			if(prev && prev->rc.x+prev->rc.w>x+1)
 			{
 				prev->rc.w=x-prev->rc.x+1;
@@ -392,17 +392,17 @@ static int kbd_select(int8_t pos,int8_t sub)
 
 static void kbd_select_sub(void);
 
-int y_kbd_show(int b)
+bool y_kbd_show(int b)
 {
 	if(!kst.config || !kst.layout.win)
 	{
 		printf("yong: keyboard no config\n");
-		return -1;
+		return false;
 	}
 	if(b==1 && kst.layout.name)
 	{
 		kbd_main_show(b);
-		return 0;
+		return false;
 	}
 	if(b==-1)
 	{
@@ -422,7 +422,7 @@ int y_kbd_show(int b)
 		kbd_select(-1,0);
 	}
 	kst.show=b;
-	return 0;
+	return true;
 }
 
 #ifdef _WIN32
@@ -608,7 +608,7 @@ static int kbd_click(int x,int y,int up)
 					}
 					else if(key && kst.layout.key_mods)
 					{
-						if(key>='a' && key<='A')
+						if(key>='a' && key<='z')
 							key=toupper(key);
 						key|=kst.layout.key_mods;
 						if(kst.layout.shift && kst.layout.shift->rc.w && kst.layout.shift->state==KBTN_SELECT)
@@ -747,12 +747,12 @@ static void kbd_menu_select(int id)
 	}
 }
 
-static void y_kbd_popup_menu_real(int from)
+static bool y_kbd_popup_menu_real(int from)
 {
 	LPtrArray *arr;
 	LXmlNode *data=l_xml_get_child(kst.config->root.child,"data");
 	if(!data || !data->child)
-		return;
+		return false;
 	arr=l_ptr_array_new(10);
 	for(LXmlNode *keyboard=data->child;keyboard!=NULL;keyboard=keyboard->next)
 	{
@@ -765,14 +765,16 @@ static void y_kbd_popup_menu_real(int from)
 	}
 	kbd_popup_menu(arr,kst.cur,kbd_menu_select,from);
 	l_ptr_array_free(arr,NULL);
+	return true;
 }
 
-void y_kbd_popup_menu(void)
+bool y_kbd_popup_menu(void)
 {
 #ifdef _WIN32
 	PostMessage(kst.layout.win,WM_USER,0,0);
+	return true;
 #else
-	y_kbd_popup_menu_real(1);
+	return y_kbd_popup_menu_real(1);
 #endif
 }
 

@@ -23,8 +23,16 @@
   #define container_of(ptr,type,field) ((type*)((char*)ptr-offsetof(type,field)))
 #endif
 
+#ifndef countof
+	#if __STDC_VERSION>=202311L
+		#define countof(arr) _Countof(arr)
+	#else
+		#define countof(arr) (sizeof (arr) / sizeof ((arr)[0]))
+	#endif
+#endif
+	
 #ifndef lengthof
-	#define lengthof(arr) (sizeof (arr) / sizeof ((arr)[0]))
+	#define lengthof(arr) countof(arr)
 #endif
 
 #define L_ARRAY_SIZE(arr) lengthof(arr)

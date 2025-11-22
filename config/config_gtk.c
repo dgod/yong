@@ -122,10 +122,28 @@ int cu_ctrl_init_label(CUCtrl p)
 	return 0;
 }
 
+static void set_tooltip(CUCtrl p)
+{
+	const char *text=l_xml_get_prop(p->node,"tooltip");
+	if(!text || !text[0])
+		return;
+	char *t=cu_translate(text);
+	gtk_widget_set_tooltip_text(p->self,t);
+	l_free(t);
+}
+
 int cu_ctrl_init_edit(CUCtrl p)
 {
 	p->self=gtk_entry_new();
 	cu_ctrl_add_to_parent(p);
+	const char *text=l_xml_get_prop(p->node,"placeholder");
+	if(text && text[0])
+	{
+		char *t=cu_translate(text);
+		gtk_entry_set_placeholder_text(p->self,t);
+		l_free(t);
+	}
+	set_tooltip(p);
 	return 0;
 }
 

@@ -189,6 +189,7 @@ typedef struct _FITEM{
 	char *file;
 	char *md5;
 	uint32_t size;
+	int64_t mtime;
 }FITEM;
 
 typedef struct{
@@ -242,6 +243,7 @@ static FITEM *build_local_file(const char *path,const char *rel,const char *pass
 	it=l_new0(FITEM);
 	it->file=l_strdup(rel);
 	it->md5=md5_file(path,rel,pass,&it->size);
+	it->mtime=l_file_mtime(path);
 	if(!it->md5)
 	{
 		fitem_free(it);
@@ -295,6 +297,8 @@ static int build_local_file_list2(FITEM_LIST *l,const char *base,const char *pat
 		if(!strcmp(name,"desktop.ini"))
 			continue;
 		if(!strcmp(name,"Thumbs.db"))
+			continue;
+		if(!strcmp(name,"clipboard.txt"))
 			continue;
 		temp=l_sprintf("%s/%s",path,name);
 		status("统计本地文件“%s”",temp);
@@ -430,28 +434,33 @@ static void remove_local_file(const char *base,const char *path)
 static FITEM *build_remote_file(LXmlNode *n)
 {
 	FITEM *it;
-	const char *name,*md5,*size;
+	const char *name,*md5,*size,*mtime;
 	name=l_xml_get_prop(n,"name");
 	md5=l_xml_get_prop(n,"md5");
 	size=l_xml_get_prop(n,"size");
-	if(!name || !md5 || !size)
+	mtime=l_xml_get_prop(n,"mtime");
+	if(!name || !md5 || !size || !mtime)
 		return NULL;
 	it=l_new0(FITEM);
 	it->size=atoi(size);
 	it->file=l_strdup(name);
 	it->md5=l_strdup(md5);
+	it->mtime=(int64_t)strtoll(mtime,NULL,10);
 	return it;
 }
+
 static FITEM_LIST *build_remote_file_list(const char *user,const char *sid)
 {
 	HttpSession *ss;
 	char path[256];
+	char user_e[256];
 	char *res;
 	int len;
 	LXml *xml;
 	LXmlNode *n;
 	FITEM_LIST *l;
-	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s",user,sid);
+	encodeURIComponent(user,user_e,sizeof(user_e));
+	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s",user_e,sid);
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
@@ -493,7 +502,10 @@ static int remove_remote_file(const char *user,const char *sid,const char *file)
 	char path[256];
 	char *res;
 	int len;
-	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s&del=1",user,sid,file);
+	char user_e[256],file_e[256];
+	encodeURIComponent(user,user_e,sizeof(user_e));
+	encodeURIComponent(file,file_e,sizeof(file_e));
+	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s&del=1",user_e,sid,file_e);
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
@@ -523,7 +535,12 @@ static int upload_remote_file(const char *user,const char *sid,const char *base,
 		status("打开本地文件“%s”失败",file);
 		return -1;
 	}
-	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s",user,sid,file);
+	int64_t mtime=l_file_mtime(path);
+	char user_e[256],file_e[256];
+	encodeURIComponent(user,user_e,sizeof(user_e));
+	encodeURIComponent(file,file_e,sizeof(file_e));
+	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s&mtime=%"PRId64,
+			user_e,sid,file_e,mtime);
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	res=http_session_get(ss,path,&len,data,(int)length);
@@ -567,13 +584,16 @@ static int mkdir_p(char *path)
 	return 0;
 }
 
-static int download_remote_file(const char *user,const char *sid,const char *base,const char *file,const char *pass)
+static int download_remote_file(const char *user,const char *sid,const char *base,const FITEM *file,const char *pass)
 {
 	HttpSession *ss;
 	char path[256];
 	char *res;
 	int len;
-	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s",user,sid,file);
+	char user_e[256],file_e[256];
+	encodeURIComponent(user,user_e,sizeof(user_e));
+	encodeURIComponent(file->file,file_e,sizeof(file_e));
+	snprintf(path,sizeof(path),"/sync/sync.php?user=%s&sid=%s&file=%s",user_e,sid,file_e);
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	res=http_session_get(ss,path,&len,NULL,0);
@@ -583,13 +603,17 @@ static int download_remote_file(const char *user,const char *sid,const char *bas
 		status("下载文件“%s”失败",file);
 		return -1;
 	}
-	snprintf(path,sizeof(path),"%s%s",base,file);
+	snprintf(path,sizeof(path),"%s%s",base,file->file);
 	if(0!=mkdir_p(path))
 	{
 		status("创建目录“%s”失败",path);
 		return -1;
 	}
-	decrypt_file(path,file,res,len,pass);
+	if(0==decrypt_file(path,file->file,res,len,pass))
+	{
+		if(file->mtime)
+			l_file_touch(path,file->mtime);
+	}
 	l_free(res);
 	return 0;
 }
@@ -801,7 +825,7 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 		{
 			// download file
 			status("下载文件\"%s\"",rit->file);
-			if(cu_quit_ui || 0!=download_remote_file(user,sid,base,rit->file,pass))
+			if(cu_quit_ui || 0!=download_remote_file(user,sid,base,rit,pass))
 			{
 				file_list_free(local);
 				file_list_free(remote);
@@ -1070,7 +1094,11 @@ static int download_clipboard(void)
 	if(!user || !sid || !user[0] || !sid[0])
 		return -1;
 
-	if(0!=download_remote_file(user,sid,y_im_get_path("HOME"),"/clipboard.txt",NULL))
+	FITEM it={
+		.file="/clipboard.txt",
+		.mtime=0,
+	};
+	if(0!=download_remote_file(user,sid,y_im_get_path("HOME"),&it,NULL))
 		return -2;
 
 	char *text=l_file_get_contents("clipboard.txt",NULL,y_im_get_path("HOME"),NULL);
@@ -1104,6 +1132,7 @@ static int get_latest_func(void *unused)
 	char *res;
 	int len;
 	char temp[256];
+	char user_e[256];
 
 	const char *user=l_key_file_get_data(config,"sync","user");
 	const char *sid=l_key_file_get_data(config,"sync","sid");
@@ -1114,8 +1143,8 @@ static int get_latest_func(void *unused)
 		return -1;
 	}
 
-
-	snprintf(temp,sizeof(temp),"/sync/sync.php?latest=1&user=%s&sid=%s",user,sid);
+	encodeURIComponent(user,user_e,sizeof(user_e));
+	snprintf(temp,sizeof(temp),"/sync/sync.php?latest=1&user=%s&sid=%s",user_e,sid);
 	HttpSession *ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
 	res=http_session_get(ss,temp,&len,NULL,0);

@@ -70,6 +70,7 @@ char *http_session_get(HttpSession *ss,const char *path,int *len,const char *pos
 	curl_easy_setopt(curl,CURLOPT_TIMEOUT_MS,ss->timeout);
 	curl_easy_setopt(curl,CURLOPT_ACCEPTTIMEOUT_MS,1000);
 	curl_easy_setopt(curl,CURLOPT_CONNECTTIMEOUT_MS,1000);
+	curl_easy_setopt(curl,CURLOPT_ACCEPT_ENCODING,"gzip");
 	l_string_init(&ss->str,16);
 	if(!strcmp(proto,"https"))
 	{
@@ -107,7 +108,12 @@ int http_session_abort(HttpSession *ss)
 	if(!ss)
 		return -1;
 	ss->abort=1;
-#if LIBCURL_VERSION_NUM>0x074400
+#if 1
+	CURLMcode (*p_curl_multi_wakeup)(CURLM *multi_handle);
+	p_curl_multi_wakeup=dlsym(NULL,"curl_multi_wakeup");
+	if(p_curl_multi_wakeup)
+		p_curl_multi_wakeup(ss->curlm);
+#else
 	curl_multi_wakeup(ss->curlm);
 #endif
 	return 0;

@@ -20,7 +20,7 @@ static inline uint32_t l_read_u32(const void *p)
 	return ((uint8_t*)p)[0]|(((uint8_t*)p)[1]<<8)|
 			(((uint8_t*)p)[2]<<16)|(((uint8_t*)p)[3]<<24);
 #else
-	return ((uint8_t*)p)[4]|(((uint8_t*)p)[2]<<8)|
+	return ((uint8_t*)p)[3]|(((uint8_t*)p)[2]<<8)|
 			(((uint8_t*)p)[1]<<16)|(((uint8_t*)p)[0]<<24);
 #endif
 }
@@ -111,7 +111,7 @@ static inline void l_write_u16le(void *p,uint16_t v)
 	((uint8_t*)p)[1]=v>>8;
 }
 
-static inline void l_write_u32le(void *p,uint16_t v)
+static inline void l_write_u32le(void *p,uint32_t v)
 {
 	((uint8_t*)p)[0]=v;
 	((uint8_t*)p)[1]=v>>8;
@@ -128,3 +128,44 @@ static inline void l_write_u32le(void *p,uint16_t v)
 #define l_bswap32(v) __builtin_bswap32(v)
 #define l_bswap64(v) __builtin_bswap64(v)
 
+#define l_ctz(v) _Generic((v),		\
+	signed char:__builtin_ctz(v),	\
+	char:__builtin_ctz(v),			\
+	short:__builtin_ctz(v),			\
+	int:__builtin_ctz(v),			\
+	long:__builtin_ctzl(v),			\
+	long long:__builtin_ctzll(v),	\
+	unsigned char:__builtin_ctz(v),	\
+	unsigned short:__builtin_ctz(v),\
+	unsigned int:__builtin_ctz(v),	\
+	unsigned long:__builtin_ctzl(v),\
+	unsigned long long:__builtin_ctzll(v)\
+)
+
+#define l_clz(v) _Generic((v),		\
+	signed char:__builtin_clz(v),	\
+	char:__builtin_clz(v),			\
+	short:__builtin_clz(v),			\
+	int:__builtin_clz(v),			\
+	long:__builtin_clzl(v),			\
+	long long:__builtin_clzll(v),	\
+	unsigned char:__builtin_clz(v),	\
+	unsigned short:__builtin_clz(v),\
+	unsigned int:__builtin_clz(v),	\
+	unsigned long:__builtin_clzl(v),\
+	unsigned long long:__builtin_clzll(v)\
+)
+
+#define l_popcount(v) _Generic((v),		\
+	signed char:__builtin_popcount(v),	\
+	char:__builtin_popcount(v),			\
+	short:__builtin_popcount(v),			\
+	int:__builtin_popcount(v),			\
+	long:__builtin_popcountl(v),			\
+	long long:__builtin_popcountll(v),	\
+	unsigned char:__builtin_popcount(v),	\
+	unsigned short:__builtin_popcount(v),\
+	unsigned int:__builtin_popcount(v),	\
+	unsigned long:__builtin_popcountl(v),\
+	unsigned long long:__builtin_popcountll(v)\
+)

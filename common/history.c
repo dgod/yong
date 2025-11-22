@@ -393,6 +393,7 @@ void y_im_history_redirect_free(void)
 	redir_config.auto_run=true;
 	redir_config.pull_is_flush_char=false;
 	l_hash_table_free(redir_config.items,(LFreeFunc)redirect_item_free);
+	redir_config.items=NULL;
 }
 
 void y_im_history_redirect_init(void)

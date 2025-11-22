@@ -30,6 +30,8 @@ typedef struct _FITEM{
 	char *file;
 	char *md5;
 	uint32_t size;
+	int64_t mtime;
+	bool import;
 }FITEM;
 
 static char *md5_file(const char *path,uint32_t *size)
@@ -42,7 +44,11 @@ static char *md5_file(const char *path,uint32_t *size)
 	
 	if(path[0]=='/') path++;	
 	data=l_file_get_contents(path,&length,y_im_get_path("DATA"),NULL);
-	if(!data) return NULL;
+	if(!data)
+	{
+		*size=(uint32_t)-1;
+		return NULL;
+	}
 	l_md5_init(&ctx);
 	l_md5_update(&ctx,data,length);
 	l_md5_final(&ctx);
@@ -75,16 +81,21 @@ static int md5_check(const void *data,size_t length,const char *md5)
 static FITEM *build_remote_file(LXmlNode *n)
 {
 	FITEM *it;
-	const char *name,*md5,*size;
+	const char *name,*md5,*size,*mtime,*import;
 	name=l_xml_get_prop(n,"name");
 	md5=l_xml_get_prop(n,"md5");
 	size=l_xml_get_prop(n,"size");
-	if(!name || !md5 || !size)
+	mtime=l_xml_get_prop(n,"mtime");
+	import=l_xml_get_prop(n,"import");
+	if(!name || !md5 || !size || !mtime)
 		return NULL;
 	it=l_new0(FITEM);
 	it->size=atoi(size);
 	it->file=l_strdup(name);
 	it->md5=l_strdup(md5);
+	it->mtime=(int64_t)strtol(mtime,NULL,10);
+	if(import)
+		it->import=atoi(import)?true:false;
 	return it;
 }
 
@@ -274,13 +285,15 @@ static int download_remote_file(const FITEM *it)
 	if(l_str_has_suffix(file,".txt") || l_str_has_suffix(file,".ini") || l_str_has_suffix(file,".xml"))
 	{
 		sprintf(path,"%s",file);
-		if(allow_update(file) && 0!=l_file_set_contents(path,res,len,y_im_get_path("DATA"),NULL))
+		if((it->import || allow_update(file)) && 0!=l_file_set_contents(path,res,len,y_im_get_path("DATA"),NULL))
 		{
 			status("保存文件“%s”失败",file);
 			l_free(res);
 			return -1;
 		}
 		l_free(res);
+		sprintf(path,"%s/%s",y_im_get_path("DATA"),file);
+		l_file_touch(path,it->mtime);
 	}
 	else
 	{
@@ -314,6 +327,7 @@ static int download_remote_file(const FITEM *it)
 			MoveFileExA(dele,NULL,MOVEFILE_DELAY_UNTIL_REBOOT);
 #endif
 		}
+		l_file_touch(path,it->mtime);
 	}
 	return 0;
 }
@@ -322,15 +336,25 @@ static int CheckWriteAccess(void)
 {
 	char path[256];
 	sprintf(path,"%s/yong.ini",y_im_get_path("DATA"));
-	return access(path,W_OK);
+	if(!l_file_exists(path))
+		return 0;
+	return l_access(path,W_OK);
 }
 
+#if !defined(__x86_64__) && defined(__linux__)
+int UpdateDownload(CUCtrl p,int arc,char **arg)
+{
+	status("当前版本不支持升级功能");
+	return -1;
+}
+#else
 int UpdateDownload(CUCtrl p,int arc,char **arg)
 {
 	LArray *remote;
 	int i;
 	int error=0;
 	int count=0;
+
 	if(CheckWriteAccess()!=0)
 	{
 		if(errno==ENOENT)
@@ -356,14 +380,16 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 		char *md5;
 		uint32_t size;
 		
-		if(!allow_update(it->file))
+		if(!it->import && !allow_update(it->file))
 		{
 			continue;
 		}
 		md5=md5_file(it->file,&size);
 		if(!md5)
 		{
-			continue;
+			if(!it->import)
+				continue;
+			goto DOWNLOAD;
 		}
 		if(size==it->size && !strcmp(md5,it->md5))
 		{
@@ -371,6 +397,7 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 			continue;
 		}
 		l_free(md5);
+DOWNLOAD:
 		if(cu_quit_ui)
 			break;
 		status("下载文件\"%s\"",it->file);
@@ -391,6 +418,7 @@ int UpdateDownload(CUCtrl p,int arc,char **arg)
 	}
 	return 0;
 }
+#endif
 
 static void set_server(void)
 {

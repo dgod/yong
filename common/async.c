@@ -158,6 +158,42 @@ int y_im_async_wait(int timeout)
 	return -1;
 }
 
+#if !defined(CFG_XIM_ANDROID) && !defined(CFG_XIM_NODEJS)
+static void stream_result(void (*cb)(const char *,void*),void *user,const char *str,int size)
+{
+	int len=l_utf8_strlen(str,size);
+	while(len>0)
+	{
+		char temp[512];
+		char gb[256];
+		const char *end;
+		if(len<64)
+		{
+			end=(const void*)l_utf8_offset((const void*)str,len);
+			len=0;
+		}
+		else
+		{
+			end=(const void*)l_utf8_offset((const void*)str,63);
+			len-=63;
+		}
+		int part=(int)(size_t)(end-str);
+		l_strncpy(temp,str,part);
+		str=end;
+		l_utf8_to_gb(temp,gb,sizeof(gb));
+#ifndef _WIN32
+		cb(gb,user);
+#else
+		void **p=l_cnew(3,void*);
+		p[0]=cb;
+		p[1]=l_strdup(gb);
+		p[2]=user;
+		PostMessage(y_ui_main_win(),WM_USER+118,0x7377652e,(LPARAM)p);
+#endif
+	}
+}
+#endif
+
 #if defined(__linux__) && !defined(CFG_XIM_ANDROID) && !defined(CFG_XIM_NODEJS)
 typedef struct {
 	int fd;
@@ -166,6 +202,8 @@ typedef struct {
 	LString *str;
 	void (*cb)(const char *,void*);
 	void *user;
+	bool skip_prefix;
+	bool stream;
 }SPAWN_ARG;
 
 static gboolean cb_stdout(GIOChannel* channel, GIOCondition condition, SPAWN_ARG *arg)
@@ -176,7 +214,28 @@ static gboolean cb_stdout(GIOChannel* channel, GIOCondition condition, SPAWN_ARG
 	GIOStatus status=g_io_channel_read_chars(channel,temp,sizeof(temp),&bytes,NULL);
 	if(status == G_IO_STATUS_NORMAL && bytes>0)
 	{
-		l_string_append(arg->str,temp,bytes);
+		LString *str=arg->str;
+		l_string_append(str,temp,bytes);
+		if(arg->stream && (arg->skip_prefix || str->len>=10))
+		{
+			if(!arg->skip_prefix)
+			{
+				if(l_str_has_prefix(str->str,"yong:text "))
+					l_string_erase(str,0,10);
+				arg->skip_prefix=true;
+				if(str->len==0)
+					return TRUE;
+			}
+			char *end;
+			l_utf8_validate(str->str,str->len,(void**)&end);
+			if(end!=str->str && end[-1]=='\n')
+				end--;
+			if(end==str->str)
+				return TRUE;
+			int size=(int)(size_t)(end-str->str);
+			stream_result(arg->cb,arg->user,str->str,size);
+			l_string_erase(str,0,size);
+		}
 		return TRUE;
 	}
 
@@ -188,11 +247,9 @@ static gboolean cb_stdout(GIOChannel* channel, GIOCondition condition, SPAWN_ARG
 	{
 		char temp[16*1024];
 		l_utf8_to_gb(arg->str->str,temp,sizeof(temp));
-		l_str_trim_right(temp);
-		if(!strcmp(temp,"yong:text"))
-			temp[0]=0;
-		else if(l_str_has_prefix(temp,"yong:text "))
+		if(l_str_has_prefix(temp,"yong:text "))
 			memmove(temp,temp+10,strlen(temp+10)+1);
+		l_str_trim_right(temp);
 		arg->cb(temp,arg->user);
 	}
 	g_io_channel_unref(arg->ch);
@@ -208,7 +265,7 @@ static void child_handler(GPid pid, int status, SPAWN_ARG *arg)
 	g_spawn_close_pid(pid);
 }
 
-int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user)
+int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user,bool stream)
 {
 	gboolean ret;
 	SPAWN_ARG *arg=l_new0(SPAWN_ARG);
@@ -235,6 +292,7 @@ int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *u
 	arg->user=user;
 	arg->str=l_string_new(1024);
 	arg->ch=g_io_channel_unix_new(arg->fd);
+	arg->stream=stream;
 	g_io_channel_set_encoding(arg->ch,NULL,NULL);
 	g_io_add_watch(arg->ch,G_IO_IN | G_IO_ERR | G_IO_HUP,(GIOFunc)cb_stdout , (gpointer)arg);
 	g_child_watch_add(arg->pid , (GChildWatchFunc)child_handler, arg);
@@ -249,15 +307,19 @@ typedef struct {
 	LString *str;
 	void (*cb)(const char *text,void *user);
 	void *user;
+	bool skip_prefix;
+	bool stream;
 }SPAWN_ARG;
 
 static void spawn_arg_cb(SPAWN_ARG *arg,char *text)
 {
 	void **p=l_cnew(3,void*);
 	if(text!=NULL)
+	{
+		if(l_str_has_prefix(text,"yong:text "))
+			memmove(text,text+10,strlen(text+10)+1);
 		l_str_trim_right(text);
-	if(text!=NULL && l_str_has_prefix(text,"yong:text "))
-		memmove(text,text+10,strlen(text+10)+1);
+	}
 	p[0]=arg->cb;
 	p[1]=text;
 	p[2]=arg->user;
@@ -270,7 +332,7 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 	PROCESS_INFORMATION pi={0};
 	SECURITY_ATTRIBUTES sa={.nLength=sizeof(sa),.bInheritHandle=TRUE};
 	WCHAR temp[16*1024];
-	int is_node=l_str_has_prefix(arg->str->str,"node ");
+	int is_utf8=l_str_has_prefix(arg->str->str,"node ");
 	l_utf8_to_utf16(arg->str->str,temp,sizeof(temp));
 	arg->str->str[0]=0;
 	arg->str->len=0;
@@ -287,12 +349,7 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 	}
 	si.hStdOutput=writePipe;
 	si.hStdError=writePipe;
-#ifdef _WIN64
-	LPCTSTR cwd=_T("..");
-#else
-	LPCTSTR cwd=NULL;
-#endif
-	BOOL ret=CreateProcess(NULL,temp,NULL,NULL,TRUE,0,NULL,cwd,&si,&pi);
+	BOOL ret=CreateProcess(NULL,temp,NULL,NULL,TRUE,0,NULL,NULL,&si,&pi);
 	CloseHandle(writePipe);
 	if(ret!=TRUE)
 	{
@@ -313,7 +370,28 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 			//printf("Read: %lu %d\n",GetLastError(),arg->str->len);
 			break;
 		}
-		l_string_append(arg->str,temp,bytes);
+		LString *str=arg->str;
+		l_string_append(str,temp,bytes);
+		if(is_utf8 && arg->stream && (arg->skip_prefix || str->len>=10))
+		{
+			if(!arg->skip_prefix)
+			{
+				if(l_str_has_prefix(str->str,"yong:text "))
+					l_string_erase(str,0,10);
+				arg->skip_prefix=true;
+				if(str->len==0)
+					return TRUE;
+			}
+			char *end;
+			l_utf8_validate(str->str,str->len,(void**)&end);
+			if(end!=str->str && end[-1]=='\n')
+				end--;
+			if(end==str->str)
+				return TRUE;
+			int size=(int)(size_t)(end-str->str);
+			stream_result(arg->cb,arg->user,str->str,size);
+			l_string_erase(str,0,size);
+		}
 	}
 	CloseHandle(readPipe);
 	CloseHandle(pi.hProcess);
@@ -325,7 +403,7 @@ static DWORD WINAPI spawn_thread(SPAWN_ARG *arg)
 	else
 	{
 		UINT acp=GetACP();
-		if(is_node)
+		if(is_utf8)
 		{
 			l_utf8_to_gb(arg->str->str,(void*)temp,sizeof(temp));
 			arg->str->len=0;
@@ -378,7 +456,7 @@ static LString *cmdline_from_argv(char **argv)
 	return s;
 }
 
-int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user)
+int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *user,bool stream)
 {
 	SPAWN_ARG *arg=l_new0(SPAWN_ARG);
 	arg->str=cmdline_from_argv(argv);
@@ -389,6 +467,7 @@ int y_im_async_spawn(char **argv,void (*cb)(const char *text,void *user),void *u
 	}
 	arg->user=user;
 	arg->cb=cb;
+	arg->stream=stream;
 	HANDLE thread=CreateThread(NULL,0,(void*)spawn_thread,arg,0,NULL);
 	if(thread==NULL)
 	{

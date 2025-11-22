@@ -1,6 +1,8 @@
 #include "ltypes.h"
 #include "lgb.h"
 
+#include <string.h>
+
 #define UTF8_LENGTH(c)				\
   ((c) < 0x80 ? 1 :					\
    ((c) < 0x800 ? 2 :				\
@@ -146,6 +148,65 @@ const uint8_t *l_utf8_next_char(const uint8_t *s)
 	{
 		return 0;
 	}
+}
+
+bool l_utf8_validate(const void *s,int len,void **end)
+{
+	const uint8_t *p=s;
+	if(len<0)
+		len=(int)strlen(s);
+	while(len>0)
+	{
+		uint8_t c=*p;
+		if(!c)
+			break;
+		if(c<=0x7f)
+		{
+			p++;
+			len--;
+		}
+		else if(c>=0xc0 && c<=0xdf)
+		{
+			if(len<2)
+				break;
+			if((p[1]&0xc0)!=0x80)
+				break;
+			len-=2;
+			p+=2;
+		}
+		else if(c>=0xe0 && c<=0xef)
+		{
+			if(len<3)
+				break;
+			if((p[1]&0xc0)!=0x80)
+				break;
+			if((p[2]&0xc0)!=0x80)
+				break;
+			len-=3;
+			p+=3;
+		}
+		else if(c>=0xf0 && c<=0xf7)
+		{
+			if(len<=4)
+				break;
+			if((p[1]&0xc0)!=0x80)
+				break;
+			if((p[2]&0xc0)!=0x80)
+				break;
+			if((p[3]&0xc0)!=0x80)
+				break;
+			len-=4;
+			p+=4;
+		}
+		else
+		{
+			break;
+		}
+			
+	}
+	if(end)
+		*end=(void*)p;
+	return len==0;
 }
 
 uint8_t *l_utf8_strncpy(uint8_t *dst,const uint8_t *src,size_t n)

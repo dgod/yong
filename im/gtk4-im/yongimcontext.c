@@ -292,6 +292,7 @@ static gboolean _set_cursor_location_internal(YongIMContext *ctx)
 	gtk_widget_translate_coordinates(ctx->client_widget,GTK_WIDGET(root),area.x,area.y,&px,&py);
 	area.x=px;area.y=py;
 	native=gtk_widget_get_native(GTK_WIDGET(root));
+	
 	if(native)
 	{
 		double offsetX = 0, offsetY = 0;
@@ -813,5 +814,5 @@ static void ForwardKey(YongIMContext *ctx,int key,int repeat)
 
 
 /* TODO
-  转发按键功能没有实现
+  转锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷没锟斤拷实锟斤拷
  */

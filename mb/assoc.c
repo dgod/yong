@@ -16,29 +16,23 @@ typedef struct{
 extern EXTRA_IM EIM;
 
 void *y_assoc_new(const char *file,int save)
-{
-	ASSOC *p;
-	FILE *fp;
-	const uint8_t *s;
-	int prev=0;
-	ssize_t size;
-	
+{	
 	if(!EIM.OpenFile)
 	{
 		return 0;
 	}
-	fp=EIM.OpenFile(file,"rb");
+	FILE *fp=EIM.OpenFile(file,"rb");
 	if(!fp)
 	{
 		return NULL;
 	}
-	size=l_filep_size(fp);
+	ssize_t size=l_filep_size(fp);
 	if(size > 0x800000 || size<2)
 	{
 		fclose(fp);
 		return NULL;
 	}
-	p=l_new0(ASSOC);
+	ASSOC *p=l_new0(ASSOC);
 	if(save)
 		p->file=l_strdup(file);
 	p->size=size;
@@ -48,7 +42,8 @@ void *y_assoc_new(const char *file,int save)
 	p->data[8+size]=0;
 	fclose(fp);
 
-	s=p->data+8;
+	const uint8_t *s=p->data+8;
+	int prev=0;
 	while(*s!=0)
 	{
 		if((s[0] & 0x80) && (s[1] >=0x40))
@@ -70,10 +65,9 @@ next_line:
 
 static int y_assoc_save(ASSOC *p)
 {
-	FILE *fp;
 	if(!p || !p->dirty || !p->file)
 		return 0;
-	fp=EIM.OpenFile(p->file,"wb");
+	FILE *fp=EIM.OpenFile(p->file,"wb");
 	if(!fp) return -1;
 	fwrite(p->data+8,p->size,1,fp);
 	fclose(fp);
@@ -98,6 +92,20 @@ void y_assoc_reset(void *handle)
 	p->src[0]=0;
 }
 
+static int y_assoc_src_match(const uint8_t *s,const uint8_t *src,int len)
+{
+	int pos=0;
+	for(int i=0;i<len;i++)
+	{
+		if(s[pos]==',')
+			pos++;
+		if(s[pos]!=src[i])
+			return 0;
+		pos++;
+	}
+	return pos;
+}
+
 int y_assoc_get(void *handle,const char *src,int slen,
                 int dlen,char calc[][MAX_CAND_LEN+1],int max)
 {
@@ -119,10 +127,11 @@ int y_assoc_get(void *handle,const char *src,int slen,
 
 	while(s && (!end || s<end))
 	{
-		if(slen==0 || !memcmp(s,src,slen))
+		int match=0;
+		if(slen==0 || (match=y_assoc_src_match(s,(const uint8_t*)src,slen))>0)
 		{
 			char *to=calc[count];
-			const char *from=(const char*)s+slen;
+			const char *from=(const char*)s+match;
 			int i,c;
 			if(from[0]==',') from++;
 			for(i=0;(c=from[i])!=0 && i<MAX_CAND_LEN+1;i++)
