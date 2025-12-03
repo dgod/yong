@@ -71,10 +71,12 @@ typedef struct{
 }CI_FREQ_ITEM;
 #endif
 
+#pragma pack(1)
 typedef struct{
 	char ci[12];
 	uint32_t freq;
 }CI_FREQ_ITEM_S;
+#pragma pack()
 
 
 

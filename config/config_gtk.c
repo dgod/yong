@@ -144,6 +144,11 @@ int cu_ctrl_init_edit(CUCtrl p)
 		l_free(t);
 	}
 	set_tooltip(p);
+	text=l_xml_get_prop(p->node,"readonly");
+	if(text && text[0]=='1')
+	{
+		gtk_editable_set_editable(GTK_EDITABLE(p->self),FALSE);
+	}
 	return 0;
 }
 
@@ -182,6 +187,7 @@ int cu_ctrl_init_list(CUCtrl p)
 		}
 	}
 	g_signal_connect(p->self,"changed",G_CALLBACK(list_changed),p);
+	set_tooltip(p);
 	return 0;
 }
 
@@ -210,6 +216,7 @@ int cu_ctrl_init_combo(CUCtrl p)
 #endif
 		}
 	}
+	set_tooltip(p);
 	
 	return 0;
 }

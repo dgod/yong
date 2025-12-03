@@ -355,12 +355,6 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		}
 	}
 #endif
-	int scale_factor=1;
-	if(MainWin && my_widget_get_scale_factor)
-	{
-		scale_factor=my_widget_get_scale_factor(MainWin);
-	}
-	
 	*x = 0;
 	*y = 0;
 	*width = gdk_screen_width();
@@ -371,12 +365,13 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		// wayland本身无法获取工作区域，用x11来获取
 		void ybus_xim_get_workarea(int *x, int *y, int *width, int *height);
 		ybus_xim_get_workarea(x,y,width,height);
-		*x/=scale_factor;
-		*y/=scale_factor;
-		*width/=scale_factor;
-		*height/=scale_factor;
 		// printf("%d %d %d %d\n",*x,*y,*width,*height);
 		return;
+	}
+	int scale_factor=1;
+	if(MainWin && my_widget_get_scale_factor)
+	{
+		scale_factor=my_widget_get_scale_factor(MainWin);
 	}
 
 	GdkAtom net_current_desktop_atom = gdk_atom_intern ("_NET_CURRENT_DESKTOP", TRUE);;
@@ -715,16 +710,20 @@ void ui_set_css(GtkWidget *widget,const gchar *data)
 	g_object_unref(provider);
 }
 
+static guint screen_changed_timer=0;
 static gboolean on_screen_size_changed_next(gpointer unused)
 {
+	screen_changed_timer=0;
 	calc_ui_scale();
 	y_ui_reload_all();
 	return FALSE;
 }
 
-static void on_screen_size_changed(GdkScreen *screen)
+static void on_screen_size_changed(void *unused)
 {
-	g_timeout_add(100,on_screen_size_changed_next,NULL);
+	if(screen_changed_timer)
+		g_source_remove(screen_changed_timer);
+	screen_changed_timer=g_timeout_add(100,on_screen_size_changed_next,NULL);
 }
 
 int ui_main_update(UI_MAIN *param)
@@ -771,6 +770,9 @@ int ui_main_update(UI_MAIN *param)
 		
 		g_signal_connect(G_OBJECT(screen),"size-changed",
 			G_CALLBACK(on_screen_size_changed),NULL);
+		g_signal_connect(G_OBJECT(screen),"notify::resolution",
+			G_CALLBACK(on_screen_size_changed),NULL);
+
 
 		ui_set_css(GTK_WIDGET(MainWin),"window{background-color:transparent}\n");
 	}
@@ -1929,6 +1931,7 @@ int ui_main_show(int show)
 		// ui_win_show(MainWin,0);
 		ui_timer_add(50,ui_main_win_hide_timer,NULL);
 	}
+	// printf("MainWin show at %d,%d\n",MainWin_X,MainWin_Y);
 	return 0;
 }
 
@@ -2602,33 +2605,6 @@ static void do_edit_main(void)
 }
 #endif
 
-#if 0
-static const char *get_gb18030_support()
-{
-	char temp[8];
-	temp[0]=0;
-	l_gb_to_utf8("\x98\x39\x9f\x38",temp,sizeof(temp));
-	if(temp[0])
-		return "GB18030";
-	l_gb_to_utf8("\x98\x35\xf7\x38",temp,sizeof(temp));
-	if(temp[0])
-		return "CJK-C";
-	l_gb_to_utf8("\x95\x32\x82\x36",temp,sizeof(temp));
-	if(temp[0])
-		return "CJK-B";
-	l_gb_to_utf8("\x81\x30\x81\x30",temp,sizeof(temp));
-	if(temp[0])
-		return "CJK-A";
-	l_gb_to_utf8("镕",temp,sizeof(temp));
-	if(temp[0])
-		return "GBK";
-	l_gb_to_utf8("的",temp,sizeof(temp));
-	if(temp[0])
-		return "GB2312";
-	return "NOTHING";
-}
-#endif
-
 static void show_system_info(void)
 {
 	char temp[1024];
@@ -2643,9 +2619,8 @@ static void show_system_info(void)
 	p=getenv("GTK_IM_MODULE");if(!p) p="";
 	pos+=sprintf(temp+pos,"GTK_IM_MODULE=%s\n",p);
 	p=getenv("QT_IM_MODULE");if(!p) p="";
-	/*pos+=*/sprintf(temp+pos,"QT_IM_MODULE=%s\n",p);
-	//p=get_gb18030_support();
-	//pos+=sprintf(temp+pos,"SUPPORT=%s\n",p);
+	pos+=sprintf(temp+pos,"QT_IM_MODULE=%s\n",p);
+	sprintf(temp+pos,"SCALE=%.2f\n",ui_scale);
 	ui_show_message(temp);
 }
 
@@ -3205,6 +3180,8 @@ static bool ui_get_dark(void)
 	bool is_dark=false;
 	if(!gsettings)
 	{
+		GSettingsSchemaSource *src=g_settings_schema_source_get_default();
+		if(!src) goto fallback;
 		gsettings = g_settings_new("org.gnome.desktop.interface");
 		if(gsettings)
 		{

@@ -540,9 +540,9 @@ int get_input_strip(void)
 			pre=1;
 		}
 		if(pre<0 || pre>32) pre=1;
-		if(suf>32 || suf<3) suf=9;
+		if(suf>32 || suf<0) suf=9;
 		if(spre<0 || spre>32) spre=MAX(2,pre);
-		if(ssuf>32 || ssuf<3) ssuf=MAX(14,suf);
+		if(ssuf>32 || ssuf<1) ssuf=MAX(14,suf);
 		return (ssuf<<24)|(spre<<16)|(suf<<8)|pre;
 	}
 	return 9;
@@ -1086,8 +1086,16 @@ void update_im(void)
 	eim=y_im_get_config_string("input","select");
 	if(eim && eim[0])
 	{
-		sym_select=l_strsplit(eim,' ');
-		sym_select_count=l_strv_length(sym_select);
+		if(strcmp(eim,"NONE"))
+		{
+			sym_select=l_strsplit(eim,' ');
+			sym_select_count=l_strv_length(sym_select);
+		}
+		else
+		{
+			sym_select=l_strsplit("",' ');
+			sym_select_count=1;
+		}
 	}
 	l_free(eim);
 	

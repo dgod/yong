@@ -2318,12 +2318,14 @@ int y_mb_error_del(struct y_mb *mb,const char *phrase)
 static int mb_add_phrase_qp(struct y_mb *mb,const char *code,const char *phrase,int pos)
 {
 	struct y_mb_ci *c;
-	char temp[64];
+	char temp[Y_MB_KEY_SIZE+1];
 	int i;
 	for(i=0;*code!=0;code++)
 	{
 		if(*code==mb->split)
 			continue;
+		if(i==Y_MB_KEY_SIZE)
+			return -1;
 		temp[i++]=*code;
 	}
 	temp[i]=0;
@@ -2629,7 +2631,7 @@ int mb_load_english(struct y_mb *mb,FILE *fp)
 	
 	for(;(len=l_get_line(line,sizeof(line),fp))>=0;)
 	{
-		if(len==0 || line[0]=='#')
+		if(len==0 || len>Y_MB_KEY_SIZE || line[0]=='#')
 			continue;
 		if(isupper(line[0])) //only detect the first
 		{
@@ -5999,22 +6001,8 @@ out:
 	return count;
 }
 
-static int mb_super_test(struct y_mb *mb,struct y_mb_ci *c,char super)
+static int _mb_super_test(struct y_mb *mb,const uint8_t *s,char super)
 {
-	uint8_t *s;
-	struct y_mb_zi *z;
-	struct y_mb_code *p;
-	if(c->zi || c->len<2 || !mb->zi)
-		return 0;
-	s=c->data;
-	if(mb->yong==1)
-	{
-		s+=c->len-2;
-		if(c->len>=4 && s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30)
-		{
-			s-=2;
-		}
-	}
 	if(mb->ass_mb && !mb->ass_lead)		// use extern assist code instead
 	{
 		mb=mb->ass_mb;
@@ -6022,26 +6010,49 @@ static int mb_super_test(struct y_mb *mb,struct y_mb_ci *c,char super)
 		super=mb->map[(int)key];
 		if(!super)
 			return 0;
-		z=mb_find_zi(mb,(const char*)s);
+		struct y_mb_zi *z=mb_find_zi(mb,(const char*)s);
 		if(!z)
 			return 0;
-		for(p=z->code;p;p=p->next)
+		for(struct y_mb_code *p=z->code;p;p=p->next)
 		{
 			if(super==((p->val>>8)&0x3f))
 			return 1;
 		}
 		return 0;
 	}
-	z=mb_find_zi(mb,(const char*)s);
+	struct y_mb_zi *z=mb_find_zi(mb,(const char*)s);
 	if(!z)
 		return 0;
-	for(p=z->code;p;p=p->next)
+	for(struct y_mb_code *p=z->code;p;p=p->next)
 	{
 		if(p->virt || p->len<3) continue;
 		if(super==((p->val>>20)&0x3f))
 			return 1;
 	}
 	return 0;
+}
+
+static int mb_super_test(struct y_mb *mb,struct y_mb_ci *c,char super)
+{
+	if(c->zi || c->len<2 || !mb->zi)
+		return 0;
+	const uint8_t *s=c->data;
+	if((mb->yong&0x02))
+	{
+		if(_mb_super_test(mb,s,super))
+			return 1;
+		if(c->zi)
+			return 0;
+	}
+	if((mb->yong&0x01))
+	{
+		s+=c->len-2;
+		if(c->len>=4 && s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30)
+		{
+			s-=2;
+		}
+	}
+	return _mb_super_test(mb,s,super);
 }
 
 int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super)

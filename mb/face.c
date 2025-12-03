@@ -383,7 +383,10 @@ static int TableInitReal(const char *arg)
 	if(TableGetConfigInt("table","adict",0))
 		mb_flag|=MB_FLAG_ADICT;
 
-	zi_mode=TableGetConfigInt("table","zi_mode",0);
+	if(EIM.GetConfig(NULL,"zi_mode"))
+		zi_mode=TableGetConfigInt("table","zi_mode",0);
+	else
+		zi_mode=TableGetConfigInt("table","zi_mode",0);
 
 	y_mb_init();
 	memset(&mb_arg,0,sizeof(mb_arg));
@@ -929,7 +932,7 @@ static int TableGetCandWords(int mode)
 	if(active==mb->ass_mb || active==mb->quick_mb)
 		EIM.WorkMode=EIM_WM_ASSIST;
 	max=EIM.CandWordMax;
-	if((mb->ass_mb==active || mb->quick_mb) && cand_a)
+	if((mb->ass_mb==active || mb->quick_mb==active) && cand_a)
 		max=cand_a;
 	EIM.CandWordMaxReal=max;
 	if(mode==PAGE_FIRST)
@@ -3974,7 +3977,7 @@ static int PinyinDoInput(int key)
 				)
 			))
 	{
-		if(CodeGetLen+EIM.CodeLen>=54)
+		if(CodeGetLen+EIM.CodeLen>=64)
 			return IMR_BLOCK;
 		if(key==mb->wildcard)
 			return IMR_NEXT;

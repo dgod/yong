@@ -189,7 +189,7 @@ CUCtrl cu_ctrl_from_group(CUCtrl root,const char *group)
 
 char *cu_translate(const char *s)
 {
-	char temp[256];
+	char temp[2048];
 	const char *res;
 	if(!s)
 		return NULL;
