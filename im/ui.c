@@ -3181,7 +3181,10 @@ static bool ui_get_dark(void)
 	if(!gsettings)
 	{
 		GSettingsSchemaSource *src=g_settings_schema_source_get_default();
-		if(!src) goto fallback;
+		if(!src)
+			goto fallback;
+		if(!g_settings_schema_source_lookup(src,"org.gnome.desktop.interface",FALSE))
+			goto fallback;
 		gsettings = g_settings_new("org.gnome.desktop.interface");
 		if(gsettings)
 		{
