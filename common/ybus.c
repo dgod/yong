@@ -629,6 +629,11 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 		res=y_im_input_key(param);
 		break;
 	}
+	case YBUS_TOOL_GET_INDEX:
+	{
+		res=im.Index;
+		break;
+	}
 	default:
 		break;
 	}
@@ -895,34 +900,26 @@ int xim_ybus_preedit_draw(const char *s,int len)
 static void upload_clipboard_cb(int code)
 {
 	if(code==0)
-		y_ui_show_tip(YT("ï¿½Ï´ï¿½ï¿½É¹ï¿½"));
+		y_ui_show_tip(YT("ÉÏ´«³É¹¦"));
 	else
-		y_ui_show_tip(YT("ï¿½Ï´ï¿½Ê§ï¿½ï¿½"));
+		y_ui_show_tip(YT("ÉÏ´«Ê§°Ü"));
 }
 
-/*
-static void download_clipboard_cb(int code)
-{
-	if(code==0)
-		y_ui_show_tip(YT("ï¿½ï¿½ï¿½Ø³É¹ï¿½"));
-	else
-		y_ui_show_tip(YT("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½"));
-}*/
 static void download_clipboard_cb(const char *text,void *user)
 {
 	(void)user;
 	if(text==NULL)
 	{
-		y_ui_show_tip(YT("ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½"));
+		y_ui_show_tip(YT("ÏÂÔØÊ§°Ü"));
 		return;
 	}
 	if(!y_ui.set_select)
 	{
-		y_ui_show_tip("ï¿½ï¿½Ö§ï¿½Ö¼ï¿½ï¿½ï¿½ï¿½ï¿½Õ³ï¿½ï¿½");
+		y_ui_show_tip("µ±Ç°½Ó¿Ú²»Ö§³Ö¼ôÌù°å");
 		return;
 	}
 	y_ui.set_select(text);
-	y_ui_show_tip(YT("ï¿½ï¿½ï¿½Ø³É¹ï¿½"));
+	y_ui_show_tip(YT("ÏÂÔØÊ§°Ü"));
 }
 
 static void xim_action(const char *s)

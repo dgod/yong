@@ -224,11 +224,13 @@ static int y_bihua_set(const char *s)
 		res.offset=t->offset[0];
 		return res.count;
 	}
+	int group_max=t->count/t->group+((t->count%t->group)?1:0);
 	group[0]=0;
-	group[1]=GROUP_MAX;
-	for(int i=0;i<GROUP_MAX;i++)
+	group[1]=group_max;
+	for(int i=0;i<group_max;i++)
 	{
 		ret=bihua_test(base+t->offset[i],s,len);
+		// printf("test %d %d count %d\n",i,ret,t->count);
 		if(ret<0)
 		{
 			group[0]=i;

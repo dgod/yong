@@ -20,6 +20,7 @@ void *l_hash_table_replace(LHashTable *h,void *item);
 void *l_hash_table_remove(LHashTable *h,void *item);
 void *l_hash_table_del(LHashTable *h,const void *key);
 int l_hash_table_size(LHashTable *h);
+void *l_hash_table_rand(LHashTable *h);
 
 void l_hash_iter_init(LHashIter *iter,LHashTable *h);
 void *l_hash_iter_next(LHashIter *iter);

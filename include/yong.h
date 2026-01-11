@@ -10,7 +10,6 @@
 #define PAGE_NEXT		1
 #define PAGE_PREV		2
 #define PAGE_REFRESH	3
-//#define PAGE_LEGEND		4
 #define PAGE_ASSOC		4
 
 /* block key */

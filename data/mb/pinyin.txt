@@ -76,6 +76,7 @@ aijia 爱家 哀家 挨家
 aijiaaihu 挨家挨户
 aikan 爱看
 aikexue 爱科学
+aikou 隘口
 ailaodong 爱劳动
 aile 爱了 挨了 矮了
 ailian 爱恋
@@ -157,6 +158,7 @@ anaerhan 阿娜尔汗
 anan 暗暗
 ananjingjing 安安静静
 ananwenwen 安安稳稳
+ananxinxin 安安心心
 anbao 安保
 anbian 岸边
 anbili 按比例
@@ -265,6 +267,7 @@ anpei 安培
 anpinledao 安贫乐道
 anqi 按期 暗器
 anqianmahou 鞍前马后
+anqier 安琪儿
 anqing 案情
 anquan 安全
 anquandai 安全带
@@ -317,6 +320,7 @@ anxufenpei 按需分配
 anxun 按旬
 anya 按压
 anyang 安阳
+anye 暗夜
 anyi 安逸
 anyingzhazhai 安营扎寨
 anyou 案由
@@ -390,6 +394,7 @@ aoyuan 澳元
 aoyun 奥运
 aoyunhui 奥运会
 aozhan 鏖战
+aozhi 熬制
 aozhou 澳洲
 aozuwei 奥组委
 apo 阿婆
@@ -469,6 +474,7 @@ baibai 白白 拜拜
 baibaijingjing 白白净净
 baiban 百般
 baibaonang 百宝囊
+baibaoxiang 百宝箱
 baibashi 百八十
 baibei 百倍 败北
 baibi 败笔
@@ -486,6 +492,7 @@ baichigantou 百尺竿头
 baichu 摆出
 baichuan 百川
 baichuanguihai 百川归海
+baicu 白醋
 baida 百搭 白搭
 baidagua 白大褂
 baidai 白带
@@ -678,6 +685,7 @@ baiwuyiyong 百无一用
 baiwuyiyongshishusheng 百无一用是书生
 baixi 白皙
 baixiangguo 百香果
+baixiaosheng 百晓生
 baixiazhenlai 败下阵来
 baixie 拜谢
 baixing 百姓
@@ -692,6 +700,7 @@ baiyangdian 白洋淀
 baiyangzi 摆样子
 baiyangzuo 白羊座
 baiyanlang 白眼狼
+baiyao 白药
 baiye 百叶 拜谒
 baiyechuang 百叶窗
 baiyexiaohe 败也萧何
@@ -700,6 +709,7 @@ baiyibaishun 百依百顺
 baiyidujiang 白衣渡江
 baiyin 白银
 baiyoulu 柏油路
+baiyoushou 白幼瘦
 baiyu 白玉
 baiyuan 百元
 baiyun 白云
@@ -736,6 +746,7 @@ bajiaoxing 八角形
 bajie 巴结 八戒 拔节
 bajinzhi 八进制
 bajisitan 巴基斯坦
+bajiu 八九
 bajiubulishi 八九不离十
 bajiudianzhong 八九点钟
 bajiushi 八九十
@@ -982,6 +993,7 @@ banxian 半仙
 banxiang 半箱 扮相
 banxiaoshi 半小时
 banxinbanyi 半信半疑
+banxingbanmeng 半醒半梦
 banxue 办学
 banyan 扮演
 banyanbanlu 半掩半露
@@ -1066,7 +1078,7 @@ baofa 爆发
 baofahu 暴发户
 baofali 爆发力
 baofang 包房
-baofei 报废
+baofei 报废 保费
 baofeng 暴风
 baofengxue 暴风雪
 baofengyu 暴风雨
@@ -1098,7 +1110,7 @@ baohuo 爆火
 baohuqu 保护区
 baohusan 保护伞
 baohuse 保护色
-baoji 保级 宝鸡
+baoji 保级 宝鸡 暴击
 baojia 报价 保驾
 baojialiya 保加利亚
 baojian 保健 包间 保荐 宝剑
@@ -1124,7 +1136,7 @@ baokuan 爆款
 baokuo 包括
 baolan 包揽
 baole 饱了
-baolei 堡垒
+baolei 堡垒 爆雷
 baoleng 爆冷
 baolengmen 爆冷门
 baoli 暴力 暴利
@@ -1168,7 +1180,7 @@ baoshanqu 宝山区
 baoshe 报社
 baoshen 报审
 baoshengong 包身工
-baoshi 宝石 报时 保释
+baoshi 宝石 报时 保释 保湿
 baoshijie 保时捷
 baoshou 保守 饱受
 baoshoudang 保守党
@@ -1285,6 +1297,7 @@ bashidiyu 巴士底狱
 bashijiu 八十九
 bashiniandai 八十年代
 bashiwu 八十五
+bashiyi 八十一
 bashou 把手 把守 罢手
 bashu 巴蜀
 bashuijiaohun 把水搅浑
@@ -1305,7 +1318,7 @@ bawojiyu 把握机遇
 bawu 八五
 baxi 巴西 把戏
 baxia 八下 拔下 霸下
-baxiang 八项
+baxiang 八项 靶向
 baxianguohai 八仙过海
 baxianzhuo 八仙桌
 baxiaoshi 八小时
@@ -1410,6 +1423,7 @@ beihou 背后
 beihuan 悲欢
 beihuanlihe 悲欢离合
 beihuiguixian 北回归线
+beihuo 备货
 beiji 北极
 beijia 倍加
 beijiaerhu 贝加尔湖
@@ -1522,6 +1536,7 @@ beiyong 备用
 beiyou 备有
 beiyu 倍于
 beiyue 北约
+beiyun 背运
 beiyuwei 被誉为
 beizeng 倍增
 beizhan 备战 北站
@@ -1608,6 +1623,7 @@ benlun 本轮
 benmang 奔忙
 benming 本名 本命 奔命
 benmingnian 本命年
+benmo 本末
 benmodaozhi 本末倒置
 benneng 本能
 bennian 本年
@@ -1737,7 +1753,7 @@ bianjie 便捷 边界 变节 辩解
 bianjiema 编解码
 bianjiexian 边界线
 bianjing 边境
-bianju 编剧
+bianju 编剧 变局
 biankan 边看
 bianke 便可
 biankuai 变快
@@ -2015,6 +2031,7 @@ biexiang 别想
 biexin 别信
 bieyang 别样
 bieyong 别用
+bieyoudongtian 别有洞天
 bieyoufengwei 别有风味
 bieyoutiandi 别有天地
 bieyouyongxin 别有用心
@@ -2033,6 +2050,7 @@ bifen 比分
 bifeng 避风 笔锋
 bifenggang 避风港
 bifengtou 避风头
+bigan 笔杆
 biganzi 笔杆子
 bige 逼格
 bigengbuchuo 笔耕不辍
@@ -2469,6 +2487,7 @@ boke 博客
 bokeli 伯克利
 bokeqiang 驳壳枪
 bokuan 拨款
+bolai 舶来
 bolaipin 舶来品
 bolan 博览 波澜 波兰
 bolanbujing 波澜不惊
@@ -2782,6 +2801,7 @@ bujueyutu 不绝于途
 bujun 不均
 bujuxiaojie 不拘小节
 bujuyige 不拘一格
+bukai 不开 补开
 bukan 不看 不堪
 bukanhao 不看好
 bukanruer 不堪入耳
@@ -2840,6 +2860,7 @@ buliao 不了 不料 布料
 buliaojie 不了解
 buliaoliaozhi 不了了之
 bulie 捕猎
+buliedian 不列颠
 bulin 不吝 卟啉
 buling 不灵
 buliu 不留
@@ -2869,6 +2890,7 @@ buming 不明
 bumingbubai 不明不白
 bumingjiuli 不明就里
 bumingjueli 不明觉厉
+bumingyiwen 不名一文
 bumouerhe 不谋而合
 bumouqizheng 不谋其政
 bumousili 不谋私利
@@ -2993,6 +3015,7 @@ butongxunchang 不同寻常
 butongyi 不同意
 butongyu 不同于
 butu 不图
+butui 不退
 butuo 不妥
 buwai 不外
 buwaihu 不外乎
@@ -3275,6 +3298,7 @@ caiqu 采取
 caiquan 猜拳
 caiquanxingling 猜拳行令
 caise 彩色 菜色
+caisha 采砂
 caishen 财神
 caishenye 财神爷
 caishi 才是 才使
@@ -3372,6 +3396,7 @@ cangku 仓库
 canglang 沧浪 苍狼
 canglao 苍老
 cangliang 苍凉
+canglin 仓廪
 canglongwohu 藏龙卧虎
 cangmang 苍茫
 cangmen 舱门
@@ -3441,6 +3466,7 @@ canru 掺入
 canruofanxing 灿若繁星
 cansai 参赛
 cansaizhe 参赛者
+cansang 蚕桑
 cansha 残杀
 cansheng 残生
 canshi 蚕食 参事
@@ -3473,6 +3499,7 @@ canzhaoshixing 参照实行
 canzhaowu 参照物
 canzheng 参政
 canzhengyizheng 参政议政
+canzhi 残值
 canzhong 惨重
 canzhuang 惨状
 canzhuo 餐桌
@@ -3554,6 +3581,7 @@ caxi 擦洗
 ce 策 测 侧 厕 册 恻
 cechu 测出
 ceding 测定
+cedong 策动
 ceduo 测度
 ceer 侧耳
 cefan 策反 侧翻
@@ -3588,6 +3616,7 @@ cengdao 曾到
 cengdie 层叠
 cengdui 曾对
 cengfan 蹭饭
+cenggao 层高
 cengji 层级
 cengjiheshi 曾几何时
 cengjing 曾经
@@ -3712,6 +3741,7 @@ chakao 查考
 chakedahun 插科打诨
 chakou 岔口 茬口
 chale 差了
+chali 查理
 chalou 茶楼
 chalu 岔路
 chamagudao 茶马古道
@@ -3752,6 +3782,7 @@ changdao 倡导 尝到
 changdaozhe 倡导者
 changde 唱的 长的
 changdege 唱的歌
+changdeng 长凳
 changdi 场地
 changdu 长度
 changduan 长短
@@ -3798,6 +3829,7 @@ changkong 长空
 changkou 敞口
 changku 长裤
 changkuai 畅快
+changkuan 长宽
 changkuang 猖狂 厂矿
 changlai 常来
 changlang 长廊
@@ -3895,8 +3927,10 @@ changyou 常有 畅游
 changyu 长于
 changyuan 长远
 changyuanliyi 长远利益
+changyue 长约
 changzai 常在
 changzhai 偿债 长债
+changzhan 场站
 changzhang 厂长 场长
 changzhe 唱着
 changzheng 长征
@@ -4095,6 +4129,7 @@ chawuciren 查无此人
 chawushiju 查无实据
 chaxiangfangfo 差相仿佛
 chaxie 茶歇 差些
+chaxin 查新
 chaxu 插叙
 chaxun 查询
 chayan 查验 插言
@@ -4151,11 +4186,13 @@ chehuang 扯谎
 chehui 撤回
 chehuirenwang 车毁人亡
 chehuo 车祸
+chejia 车架
 chejian 车间
 cheju 车距
 chejun 撤军
 cheku 车库
 chekuang 车况
+chelaichewang 车来车往
 chele 撤了
 cheli 车里 撤离
 cheliang 车辆
@@ -4170,6 +4207,7 @@ chen 陈 尘 晨 沉 称 臣 趁 衬 辰 郴 谶 琛 忱 嗔 伧 抻 谌 宸 榇 龀 碜 瞋
 chenai 尘埃
 chenbao 晨报
 chenchen 沉沉
+chenchenxiangyin 陈陈相因
 chenchuan 沉船
 chenci 趁此
 chencilandiao 陈词滥调
@@ -4214,7 +4252,7 @@ chengdu 程度 成都
 chengdui 成对 成堆 承兑
 chengdushi 成都市
 chengfa 惩罚 乘法
-chengfang 乘方
+chengfang 乘方 城防
 chengfen 成分
 chengfeng 成风
 chengfengpolang 乘风破浪
@@ -4372,7 +4410,7 @@ chengzheng 诚征
 chengzhengbi 成正比
 chengzhenhua 城镇化
 chengzhi 诚挚 惩治 橙汁
-chengzhong 城中
+chengzhong 称重 城中 承重
 chengzhongcun 城中村
 chengzhu 撑住
 chengzhuhuaikong 成住坏空
@@ -4438,6 +4476,7 @@ chenxinjingqi 沉心静气
 chenxuerru 趁虚而入
 chenyi 衬衣
 chenyin 沉吟
+chenyu 沉郁
 chenyuan 尘缘 沉冤
 chenyuduncuo 沉郁顿挫
 chenyuluoyan 沉鱼落雁
@@ -4470,6 +4509,7 @@ chetouchewei 彻头彻尾
 chetui 撤退
 chewan 撤完
 chewei 车位
+chexi 车系
 chexia 撤下
 chexian 扯闲
 chexiang 车厢
@@ -4489,6 +4529,7 @@ chezou 撤走
 chi 吃 持 迟 尺 赤 斥 池 痴 齿 驰 耻 翅 侈 哧 嗤 啻 弛 蚩 炽 笞 敕 叱 饬 踟 鸱 褫 豉 墀 茌 篪 傺 媸 螭 彳 眵 魑 瘛 呎 搋 眙 匙
 chibang 翅膀
 chibao 吃饱
+chibaochuannuan 吃饱穿暖
 chibaohezu 吃饱喝足
 chibaolechengde 吃饱了撑的
 chibi 赤壁
@@ -4682,7 +4723,7 @@ chongji 冲击 冲剂 充饥
 chongjian 重建
 chongjiantianri 重见天日
 chongjili 冲击力
-chongjin 冲进
+chongjin 冲进 冲劲 重进
 chongjing 憧憬 崇敬
 chongjun 充军
 chongkao 重考
@@ -4732,6 +4773,7 @@ chongwei 重围
 chongwen 重温 崇文
 chongwenjiumeng 重温旧梦
 chongwenmen 崇文门
+chongwenqu 崇文区
 chongwo 冲我
 chongwu 宠物
 chongxi 冲洗
@@ -4750,6 +4792,7 @@ chongyang 重阳
 chongyangjie 重阳节
 chongyangmeiwai 崇洋媚外
 chongyaotiaojian 充要条件
+chongyi 充溢
 chongyichong 冲一冲
 chongyin 重印
 chongying 充盈
@@ -5035,6 +5078,7 @@ chuanyang 传扬
 chuanyi 穿衣 传艺
 chuanyinrumi 传音入密
 chuanyong 船用
+chuanyu 川渝
 chuanyuan 船员
 chuanyue 穿越 传阅
 chuanzai 穿在
@@ -5124,6 +5168,7 @@ chuhu 出乎
 chuhun 初婚
 chuhuo 出货
 chui 吹 垂 炊 捶 锤 陲 槌 棰 椎
+chuibei 捶背
 chuibian 吹遍
 chuichui 吹吹 捶捶 锤锤 垂垂
 chuichuidada 吹吹打打
@@ -5249,6 +5294,7 @@ chuncai 蠢才
 chuncan 春蚕
 chuncha 春茶
 chunchao 春潮
+chunchi 唇齿
 chunchiliuxiang 唇齿留香
 chunchixiangyi 唇齿相依
 chunchun 纯纯
@@ -5390,6 +5436,7 @@ chushu 出书 除数
 chushuangrudui 出双入对
 chushui 出水
 chusi 处死 初四
+chusu 初速
 chusuo 处所
 chutai 出台
 chutan 初探
@@ -5759,6 +5806,7 @@ cuimian 催眠
 cuimianqu 催眠曲
 cuimianshu 催眠术
 cuiming 催命
+cuinen 脆嫩
 cuiqing 催情 翠青
 cuiqu 萃取
 cuiren 催人
@@ -5839,7 +5887,7 @@ cunxin 存心 寸心
 cunxu 存续
 cunyang 存样
 cunye 村野
-cunyi 存疑
+cunyi 存疑 村医
 cunyou 存有
 cunyousuochang 寸有所长
 cunzai 存在
@@ -5984,6 +6032,7 @@ dacaodaban 大操大办
 dacaojingshe 打草惊蛇
 dacaoyuan 大草原
 dacha 打岔
+dachai 打柴
 dachang 大厂 大肠
 dachangganjun 大肠杆菌
 dachao 大潮
@@ -6076,6 +6125,7 @@ dage 大哥 打嗝
 dageche 打个车
 dageda 大哥大
 dageming 大革命
+dageng 打更
 dagezi 大个子
 dagong 打工 大功 大公
 dagonggaocheng 大功告成
@@ -6235,6 +6285,7 @@ daiyi 歹意
 daiyong 代用
 daiyou 带有
 daiyu 待遇
+daiyun 代孕
 daizai 呆在
 daizhang 呆账
 daizhe 带着 戴着
@@ -6500,6 +6551,7 @@ dangtou 当头
 dangtoubanghe 当头棒喝
 dangtoupao 当头炮
 dangtouyibang 当头一棒
+dangtu 当涂
 dangtuan 党团
 danguchun 胆固醇
 dangwai 党外
@@ -6561,6 +6613,7 @@ danjinliangjue 弹尽粮绝
 danjiu 但就
 danju 单据
 danjuan 蛋卷
+danjue 旦角
 dankao 单靠
 danke 单科 蛋壳 弹壳
 dankeyi 但可以
@@ -6571,8 +6624,10 @@ danlei 蛋类
 danli 胆力
 danlian 单恋
 danliang 胆量
+danlie 单列
 danlue 胆略
 danlun 单论
+danlv 淡绿
 danlvse 淡绿色
 danmai 丹麦
 danmaxi 淡马锡
@@ -6627,7 +6682,7 @@ danwo 但我
 danwu 耽误
 danwuxufa 弹无虚发
 danxi 旦夕
-danxia 丹霞
+danxia 丹霞 弹匣
 danxian 单线
 danxiancheng 单线程
 danxiang 单项 单向
@@ -6644,7 +6699,7 @@ danyanghuawu 氮氧化物
 danyanpi 单眼皮
 danyao 但要 弹药
 danye 但也
-danyi 单一 但已
+danyi 单一 但已 单衣
 danyin 但因
 danying 但应
 danyou 担忧 但又
@@ -6734,6 +6789,7 @@ daoju 道具
 daokan 导刊
 daoke 刀客
 daokou 刀口 道口 倒扣
+daoku 倒库
 daolai 到来
 daole 到了
 daolebabeizimei 倒了八辈子霉
@@ -6792,6 +6848,7 @@ daoxia 倒下
 daoxian 导线
 daoxiang 导向
 daoxiao 到校
+daoxiaomian 刀削面
 daoxie 道谢
 daoxin 道心
 daoxingnishi 倒行逆施
@@ -6941,6 +6998,7 @@ dawu 大雾
 dawuwei 大无畏
 daxi 大喜
 daxia 打下 大侠
+daxian 大仙
 daxiang 大象 打响
 daxiangjingting 大相径庭
 daxianshenshou 大显身手
@@ -7204,6 +7262,7 @@ deyiyu 得益于
 deyizhi 德意志
 deyizhiqing 得意之情
 deyu 德育 德语 的雨 的鱼
+deyushi 得与失
 dezhi 得知
 dezhitimei 德智体美
 dezhitimeilao 德智体美劳
@@ -7462,10 +7521,12 @@ diaoshan 吊扇
 diaosi 屌丝 吊死
 diaosu 雕塑
 diaosujia 雕塑家
+diaosuo 吊索
 diaotou 掉头
 diaowang 调往
 diaowei 凋萎
 diaoxia 掉下
+diaoxian 掉线
 diaoxiang 雕像
 diaoxiao 吊销
 diaoxie 凋谢
@@ -7543,6 +7604,7 @@ diediebuxiu 喋喋不休
 diediezhuangzhuang 跌跌撞撞
 diefen 跌份
 diefu 跌幅
+dieji 碟机
 diejia 叠加
 diejiao 跌跤
 diele 跌了
@@ -7860,6 +7922,7 @@ diudiao 丢掉
 diugei 丢给
 diuguan 丢官
 diuguang 丢光
+diujian 丢件
 diukai 丢开
 diukuiqijia 丢盔弃甲
 diule 丢了
@@ -8075,6 +8138,7 @@ dongqiangxiruo 东强西弱
 dongqianhu 东钱湖
 dongqing 动情
 dongqishoulai 动起手来
+dongqiu 懂球
 dongquchunlai 冬去春来
 dongren 动人
 dongrenxinxian 动人心弦
@@ -8259,6 +8323,7 @@ duandang 断档
 duandao 短刀
 duande 短的 断的
 duandian 断电 断点
+duandiao 断掉
 duanding 断定
 duanduan 短短
 duanduanxuxu 断断续续
@@ -8378,6 +8443,7 @@ duer 毒饵
 dufan 毒贩
 dufu 杜甫
 dufuzuoyong 毒副作用
+duge 读个 镀铬
 dugu 独孤
 dugui 赌鬼
 duguo 度过 渡过
@@ -8438,6 +8504,7 @@ duikang 对抗
 duikangsai 对抗赛
 duikangxing 对抗性
 duikou 对口
+doukouxing 对口型
 duile 对了
 duilei 对垒
 duili 对立
@@ -8460,6 +8527,7 @@ duishibuduiren 对事不对人
 duishou 对手
 duishouxi 对手戏
 duishu 对数
+duishui 兑水
 duitai 对台
 duitaixi 对台戏
 duitou 对头
@@ -8516,6 +8584,7 @@ dula 毒辣
 dulaiduwang 独来独往
 dulan 独揽
 dulang 独狼
+dule 读了
 dulengding 杜冷丁
 duli 独立
 duliang 度量
@@ -8540,6 +8609,7 @@ dun 顿 盾 吨 敦 蹲 钝 炖 遁 盹 沌 囤 墩 趸 镦 礅 砘 惇 楯 蹾
 dunai 毒奶
 dunang 嘟囔
 duncu 敦促
+duncuo 顿挫
 dundian 蹲点
 dungan 顿感
 dungouji 盾构机
@@ -8792,7 +8862,7 @@ duziyiren 独自一人
 duzou 独奏
 duzun 独尊
 duzuo 读作
-e 恶 额 饿 俄 鹅 扼 愕 遏 噩 娥 峨 呃 厄 鄂 鳄 婀 蛾 轭 颚 讹 锷 谔 屙 锇 垩 腭 苊 鹗 萼 莪 啊 曷 阿 阏
+e 恶 额 饿 俄 鹅 扼 愕 遏 噩 娥 峨 呃 厄 鄂 鳄 婀 蛾 轭 颚 讹 锷 谔 屙 锇 垩 腭 苊 鹗 萼 莪 曷 阿 阏
 eba 恶霸
 echou 恶臭
 econgxintouqi 恶从心头起
@@ -8889,6 +8959,7 @@ erdai 二代
 erdeng 二等
 erdenggong 二等功
 erdengjiang 二等奖
+erdi 二弟
 erdian 二点
 erding 耳钉
 erdong 耳洞 而动
@@ -8934,6 +9005,7 @@ erli 而立
 erliang 二两
 erlianhaote 二连浩特
 erliao 饵料
+erlingerliu 二零二六 二〇二六
 erlingerwu 二零二五 二〇二五
 erlinglingsan 二零零三 二〇〇三
 erlinglingliu 二零零六 二〇〇六
@@ -9051,6 +9123,7 @@ esu 恶俗
 etou 额头
 ewai 额外
 ewaifudan 额外负担
+ewan 扼腕
 ewantanxi 扼腕叹息
 ewen 俄文
 ewenke 鄂温克
@@ -9108,6 +9181,7 @@ fadong 发动
 fadongji 发动机
 fadou 发抖
 fadu 法度
+faduan 发端
 faduanyu 发端于
 fafang 发放
 fafanqili 发凡起例
@@ -9147,6 +9221,7 @@ fajiazhifu 发家致富
 fajin 罚金
 fajiu 罚酒
 fajue 发觉 发掘
+faka 发卡
 fakuan 罚款
 fakuang 发狂
 falali 法拉利
@@ -9204,6 +9279,7 @@ fancuo 犯错
 fancuowu 犯错误
 fandang 反党
 fandao 反倒 翻到
+fandezhao 犯得着
 fandi 翻地
 fandian 饭店
 fandianfu 反颠覆
@@ -9297,6 +9373,7 @@ fanggai 房改
 fangge 方格
 fanggezi 放鸽子
 fanggu 仿古
+fangguan 房管
 fangguang 放光
 fangguo 放过
 fanghai 妨害
@@ -9619,6 +9696,7 @@ farenshensi 发人深思
 farenshenxing 发人深省
 faruan 发软
 fasan 发散
+fasang 发丧
 fashankechen 乏善可陈
 fashao 发烧
 fashaoyou 发烧友
@@ -9750,10 +9828,12 @@ feimei 肥美
 feimo 飞沫
 feinan 非难
 feiniao 飞鸟
+feiniji 腓尼基
 feinimoshu 非你莫属
 feipang 肥胖
 feipangzhe 肥胖者
 feipin 废品 妃嫔
+feipu 飞扑 飞瀑
 feiqi 废弃 废气
 feiqian 费钱
 feiqinfeigu 非亲非故
@@ -10046,8 +10126,10 @@ fengtian 丰田
 fengtianchengyun 奉天承运
 fengtiao 封条
 fengtiaoyushun 风调雨顺
+fengting 封停
 fengtou 风头
 fengtu 风土
+fengtun 丰臀
 fenguan 分管
 fengwei 风味
 fengweiguinie 奉为圭臬
@@ -10144,6 +10226,7 @@ fenmodengchang 粉墨登场
 fenmu 坟墓 分母
 fennei 分内
 fennen 粉嫩
+fennie 分蘖
 fennu 愤怒
 fenpai 分派
 fenpei 分配
@@ -10225,6 +10308,7 @@ foguang 佛光
 fojia 佛家
 fojiao 佛教
 fojing 佛经
+foli 佛理
 foluolida 佛罗里达
 foluolidazhou 佛罗里达州
 fomen 佛门
@@ -10426,7 +10510,7 @@ fusheng 浮生
 fushengji 副省级
 fushengruomeng 浮生若梦
 fushengzhang 副省长
-fushi 服饰 腐蚀 副食 俯视 服侍 复式
+fushi 服饰 腐蚀 副食 俯视 服侍 复式 复试
 fushikang 富士康
 fushishan 富士山
 fushitong 富士通
@@ -10551,6 +10635,7 @@ fuzhuxi 副主席
 fuzhuyiju 付诸一炬
 fuzi 父子 斧子 夫子
 fuzimiao 夫子庙
+fuzong 副总
 fuzongjingli 副总经理
 fuzongli 副总理
 fuzongtong 副总统
@@ -10566,6 +10651,7 @@ gaga 嘎嘎
 gai 该 改 概 钙 盖 丐 赅 溉 垓 陔 戤 胲 芥
 gaian 该案
 gaiban 改版
+gaibang 丐帮
 gaibian 改变 改编
 gaibu 改不 概不 盖布 该部
 gaibugai 该不该 改不改
@@ -10578,6 +10664,7 @@ gaide 改的
 gaidian 该店
 gaidiao 改掉
 gaidong 改动
+gaidui 该对 该队 改对
 gaifangzi 盖房子
 gaige 改革
 gaiguan 改观
@@ -10676,6 +10763,7 @@ ganchao 赶超
 gancheng 干成
 ganchengshi 干成事
 ganchu 感触 赶出
+ganchuang 敢闯
 gancui 干脆
 ganda 敢打
 gandaganpin 敢打敢拼
@@ -10986,6 +11074,7 @@ gaoji 高级 告急
 gaojia 高价
 gaojian 稿件 高见
 gaojiao 高教 高脚
+gaojiasuo 高加索
 gaojie 告诫 告捷 高阶
 gaojing 告警
 gaojingjian 高精尖
@@ -11025,6 +11114,7 @@ gaopengmanzuo 高朋满座
 gaopin 高频
 gaopinzhi 高品质
 gaoqi 搞起
+gaoqiang 高强
 gaoqiangdu 高强度
 gaoqiao 高桥 高跷
 gaoqing 搞清 高清
@@ -11569,7 +11659,7 @@ gongke 功课 工科 攻克
 gongkong 工控
 gongkongji 工控机
 gongkuan 公款
-gongkuang 工矿
+gongkuang 工矿 工况
 gongkuangqiye 工矿企业
 gongkuiyikui 功亏一篑
 gonglao 功劳
@@ -11580,6 +11670,7 @@ gonglu 公路
 gonglue 攻略
 gonglun 公论
 gonglv 功率
+gongma 弓马
 gongmao 工贸
 gongmaxianshu 弓马娴熟
 gongmen 拱门 宫门
@@ -11942,7 +12033,7 @@ guangbozhan 广播站
 guangcai 光彩
 guangchang 广场
 guangda 广大
-guangdang 咣当
+guangdang 咣当 逛荡
 guangdao 广岛
 guangdian 广电 光电
 guangdianzi 光电子
@@ -11989,6 +12080,7 @@ guanglin 光临
 guangliuliu 光溜溜
 guangmang 光芒
 guangmao 广袤
+guangmin 光敏
 guangming 光明
 guangmingleiluo 光明磊落
 guangmingribao 光明日报
@@ -12233,6 +12325,7 @@ gufenzhi 股份制
 gufu 辜负
 gugai 股改
 gugan 骨干
+gugao 孤高
 guge 谷歌 骨骼
 gugong 故宫 雇工 股肱
 gugou 股沟
@@ -12243,6 +12336,7 @@ gugualaoren 孤寡老人
 gugunangnang 鼓鼓囊囊
 guguo 故国 古国
 guguzhuidi 呱呱坠地
+guhai 股海 骨骸
 guhua 古话
 guhui 骨灰
 guhunyegui 孤魂野鬼
@@ -12433,6 +12527,7 @@ gunbang 棍棒
 gundan 滚蛋
 gundaorou 滚刀肉
 gundong 滚动
+guneng 故能
 gunfan 滚翻
 gungualanshu 滚瓜烂熟
 gungun 滚滚
@@ -12551,6 +12646,7 @@ guoku 国库
 guokuai 过快
 guokuquan 国库券
 guolai 过来
+guolan 果篮
 guolao 过劳
 guolaosi 过劳死
 guole 过了
@@ -12676,6 +12772,7 @@ gupanzixiong 顾盼自雄
 gupen 骨盆
 gupi 孤僻
 gupiao 股票
+guping 股评
 gupu 古朴
 guqi 鼓起 骨气
 guqie 姑且
@@ -12731,6 +12828,7 @@ guyou 固有
 guyu 古语 谷雨
 guyuan 雇员
 guyue 鼓乐
+guzai 股灾
 guzao 鼓噪
 guzhang 故障 鼓掌 股长
 guzhangnanming 孤掌难鸣
@@ -12748,6 +12846,7 @@ guzu 鼓足
 guzuo 故作
 h 和 会 好 很 还
 ha 哈 蛤 铪
+habusibao 哈布斯堡
 hada 哈达
 haerbin 哈尔滨
 haerbinshi 哈尔滨市
@@ -12799,12 +12898,14 @@ haihao 还好
 haihe 海河
 haihen 还很
 haihui 还会
+haihunhou 海昏侯
 haijiang 还将 海疆
 haijiaotianya 海角天涯
 haijing 海景 海警
 haijun 海军
 haikeneng 还可能
 haikeyi 还可以
+kaikong 海空
 haikou 海口
 haikoushi 海口市
 haikuang 海况
@@ -12829,6 +12930,7 @@ haimi 海米
 haimian 海面 海绵
 haimianti 海绵体
 haimianzhuang 海绵状
+haimingwei 海明威
 hainabaichuan 海纳百川
 hainan 海南 海难
 hainandao 海南岛
@@ -12855,6 +12957,7 @@ haisao 害臊
 haishang 海上
 haishen 海参 海神
 haisheng 还剩
+haishenwai 海参崴
 haishi 还是
 haishishanmeng 海誓山盟
 haishishenlou 海市蜃楼
@@ -12863,6 +12966,7 @@ haishuo 还说
 haishuqu 海曙区
 haisi 害死
 haisuan 还算
+haitai 海苔
 haitan 海滩
 haitang 海棠
 haiti 孩提
@@ -12937,6 +13041,7 @@ hancheng 汉城
 hanchou 汗臭
 hanchu 喊出
 hanchuang 寒窗
+hanchudangfeng 汗出当风
 handahansha 喊打喊杀
 handai 汉代 寒带
 handan 邯郸
@@ -12985,6 +13090,7 @@ hangtang 行唐
 hangtian 航天
 hangtianqi 航天器
 hangtianyuan 航天员
+hangtu 夯土
 hanguang 寒光
 hanguguan 函谷关
 hanguo 韩国
@@ -13030,6 +13136,7 @@ hanliu 寒流
 hanliujiabei 汗流浃背
 hanliumanmian 汗流满面
 hanlu 寒露
+hanma 悍马
 hanmagonglao 汗马功劳
 hanmao 汗毛
 hanmei 寒梅 韩媒 韩美
@@ -13044,6 +13151,7 @@ hanqing 旱情 汗青
 hanqingmomo 含情脉脉
 hanran 悍然 酣然
 hanren 汉人 喊人
+hanri 韩日
 hanruyuxia 汗如雨下
 hanshan 汗衫
 hanshasheying 含沙射影
@@ -13366,6 +13474,7 @@ hegu 河谷 何故
 heguang 喝光
 heguangtongchen 和光同尘
 hegui 合规
+heguo 喝过
 hehao 和好
 hehe 呵呵
 hehemeimei 和和美美
@@ -13418,6 +13527,7 @@ heipan 黑盘
 heipao 黑袍
 heiqi 黑气
 heiqian 黑钱
+heiqiqi 黑漆漆
 heiren 黑人
 heise 黑色
 heisesu 黑色素
@@ -13799,6 +13909,7 @@ honglingjin 红领巾
 hongliu 洪流
 honglong 轰隆
 honglonglong 轰隆隆
+hongloumeng 红楼梦
 honglun 宏论
 honglvdeng 红绿灯
 honglvlan 红绿蓝
@@ -14052,7 +14163,7 @@ huafanweijian 化繁为简
 huafei 花费 化肥 话费
 huafen 划分 花粉
 huafeng 画风
-huafu 华府
+huafu 华府 画符
 huagai 华盖
 huagangeweiyubo 化干戈为玉帛
 huagangyan 花岗岩
@@ -14067,6 +14178,7 @@ huahe 化合
 huahen 划痕
 huaheshang 花和尚
 huahewu 化合物
+huahong 花红
 huahongliulv 花红柳绿
 huahou 话后
 huahua 画画
@@ -14325,7 +14437,7 @@ huangyan 谎言
 huangye 荒野
 huangyin 荒淫
 huangyinwudu 荒淫无度
-huangyou 黄油
+huangyou 黄油 晃悠
 huangyu 黄鱼
 huangyuan 荒原
 huangzhang 慌张
@@ -14541,7 +14653,7 @@ huazhongyouhua 话中有话
 huazhongyoushi 画中有诗
 huazhou 化州
 huazhuan 划转
-huazhuang 化妆
+huazhuang 化妆 化装
 huazhuangpin 化妆品
 huazhuangshi 化妆师
 huazuo 化作
@@ -14579,6 +14691,7 @@ hufu 护肤
 hufupin 护肤品
 hufuqishe 胡服骑射
 hufuwuquanzi 虎父无犬子
+hugaohudi 忽高忽低
 hugong 护工
 hugu 虎骨
 huguan 壶关
@@ -14636,6 +14749,7 @@ huidao 回到 挥刀
 huidaozhi 会导致
 huidazhe 回答者
 huidechangziduyaoqingle 悔得肠子都要青了
+huidian 回电 会点
 huidiao 毁掉
 huidong 挥动
 huidu 灰度 会读
@@ -14658,7 +14772,7 @@ huigu 回顾 惠顾
 huiguangfanzhao 回光返照
 huigui 回归
 huiguniang 灰姑娘
-huiguo 回国 悔过
+huiguo 回国 悔过 回过
 huiguorou 回锅肉
 huiguoshenlai 回过神来
 huiguotoulai 回过头来
@@ -14673,9 +14787,11 @@ huihen 会很 悔恨
 huihezhi 回合制
 huihong 恢弘
 huihou 会后
+huihu 回鹘
 huihua 绘画 会话 回话
 huihuai 毁坏
 huihuang 辉煌
+huihui 回回 会徽
 huihuishou 挥挥手
 huihuo 挥霍
 huihuowudu 挥霍无度
@@ -14687,6 +14803,7 @@ huijijiyi 讳疾忌医
 huijin 灰烬
 huijing 回敬
 huijinrutu 挥金如土
+huijiu 会就 绘就
 huiju 汇聚
 huijue 回绝
 huijun 挥军
@@ -14764,6 +14881,7 @@ huitoushian 回头是岸
 huitoutulian 灰头土脸
 huitu 绘图 秽土
 huitui 回退
+huiwan 会玩
 huiwang 回望 会忘
 huiwei 回味
 huiweiwuqiong 回味无穷
@@ -14999,6 +15117,7 @@ huogai 活该
 huogen 祸根
 huogewoci 霍格沃茨
 huoguang 火光
+huogui 货柜
 huoguo 火锅
 huoguodian 火锅店
 huoguoyangmin 祸国殃民
@@ -15015,7 +15134,7 @@ huoji 伙计 活计
 huojia 货架
 huojian 火箭
 huojiandui 火箭队
-huojiang 获奖
+huojiang 获奖 或将
 huojiangui 活见鬼
 huojiangzhe 获奖者
 huojianpao 火箭炮
@@ -15030,7 +15149,7 @@ huokong 火控
 huokou 活口
 huokuan 货款
 huola 火辣
-huole 活了
+huole 活了 火了
 huoli 活力 获利 火力
 huoliang 豁亮
 huolidian 火力点
@@ -15191,8 +15310,9 @@ huxing 户型
 huxu 胡须
 huxue 虎穴
 huya 虎牙
-huyan 胡言
+huyan 胡言 护眼
 huyanluanyu 胡言乱语
+huyao 护腰
 huyi 狐疑
 huying 呼应
 huyou 忽悠
@@ -15592,6 +15712,7 @@ jiangtan 讲坛
 jiangtang 讲堂 姜汤
 jiangtong 将同
 jiangtu 疆土
+jiangtun 江豚
 jiangu 坚固 兼顾
 jianguai 见怪
 jianguan 监管 见惯 兼管
@@ -15712,6 +15833,7 @@ jianlou 简陋 箭楼
 jianlu 检录
 jianlue 简略
 jianlun 简论
+jianlvshangdian 剑履上殿
 jianma 简码
 jianmai 贱卖
 jianman 减慢
@@ -16054,6 +16176,7 @@ jiaonang 胶囊
 jiaonen 娇嫩
 jiaoni 叫你 教你 胶泥
 jiaopai 教派
+jiaopan 绞盘
 jiaopei 交配
 jiaopengyou 交朋友
 jiaopian 胶片
@@ -16762,6 +16885,7 @@ jifenbang 积分榜
 jifeng 讥讽 疾风 季风
 jifengsaoluoye 疾风扫落叶
 jifengzhijincao 疾风知劲草
+jifengzhouyu 疾风骤雨
 jifenzhong 几分钟
 jifu 肌肤 计付 继父 给付 基辅
 jigai 技改
@@ -16832,6 +16956,7 @@ jijin 基金 激进 挤进 集锦 急进 饥馑 几近
 jijing 寂静 几经 机警 机井 即景
 jijingfanfu 几经反复
 jijingzhouzhe 几经周折
+jijinhudao 技近乎道
 jijinhui 基金会
 jijinpai 激进派
 jijinzuzhi 基金组织
@@ -17076,6 +17201,7 @@ jinghuaqu 精华区
 jinghuashuiyue 镜花水月
 jinghuayuan 镜花缘
 jinghuhui 经互会
+jinghui 竟会
 jinghun 惊魂
 jingji 经济 经纪 竞技 荆棘 静寂
 jingjia 竞价 井架 镜架
@@ -17146,6 +17272,7 @@ jingming 精明
 jingmingqianggan 精明强干
 jingmo 静默
 jingmu 敬慕
+jingnan 靖难
 jingnanzhiyi 靖难之役
 jingnei 境内
 jingneiwai 境内外
@@ -17497,6 +17624,7 @@ jinshijidi 进士及第
 jinshiweikai 金石为开
 jinshiyan 近视眼
 jinshou 尽收 禁受 禁售
+jinshouzhi 金手指
 jinshu 金属 禁书 尽数
 jinshucailiao 金属材料
 jinshui 进水
@@ -18369,6 +18497,7 @@ julu 巨鹿
 julun 巨轮
 juluo 聚落
 julvyixi 聚氯乙烯
+jumang 巨蟒
 jumian 局面
 jumin 居民
 jumindian 居民点
@@ -18457,6 +18586,7 @@ junshijia 军事家
 junshitandingbao 君士坦丁堡
 junshou 均受 郡守 军售
 junshu 均属 军属
+junsi 菌丝
 junsu 菌素 均速
 juntan 均摊
 juntong 军统
@@ -18525,6 +18655,7 @@ juren 巨人 举人
 jurenqianli 拒人千里
 jurenyuqianlizhiwai 拒人于千里之外
 jurong 句容
+jusan 聚散
 jusang 沮丧
 juse 橘色
 jushachengta 聚沙成塔
@@ -18808,6 +18939,7 @@ kaishishixing 开始实行
 kaishishiyong 开始使用
 kaishou 开售
 kaishu 楷书
+kaishuan 开涮
 kaishui 开水
 kaisu 开速
 kaisuo 开锁
@@ -19218,6 +19350,7 @@ kechixiachang 可耻下场
 kechixu 可持续
 kechu 课处
 kechuan 客船 客串
+kechuang 科创
 kecong 可从
 keda 可达
 kede 可得 课的
@@ -19327,6 +19460,7 @@ kelimiya 克里米亚
 kelimulingong 克里姆林宫
 kelin 科林
 kelindun 克林顿
+kelisi 克里斯
 kelisiting 克里斯汀 克莉丝汀
 kelisitingna 克里斯汀娜 克莉丝汀娜
 kelisituofu 克里斯托弗
@@ -19536,6 +19670,7 @@ kongbuzhuyi 恐怖主义
 kongbuzuzhi 恐怖组织
 kongcang 空仓
 kongchao 空巢
+kongche 空车
 kongcheng 空城
 kongchengji 空城计
 kongchuangqi 空窗期
@@ -19738,6 +19873,7 @@ kouxiang 叩响
 kouxiangtang 口香糖
 kouxie 叩谢
 kouxin 口信
+kouxing 口型
 kouya 扣押
 kouyi 口译
 kouyin 口音
@@ -19915,6 +20051,7 @@ kuangmai 矿脉
 kuangman 狂满
 kuangmian 矿棉
 kuangmo 狂魔
+kuangnan 矿难
 kuangnei 矿内
 kuangnu 狂怒
 kuangpen 狂喷
@@ -20008,7 +20145,7 @@ kuazan 夸赞
 kuazhang 夸张
 kuba 哭吧
 kubi 苦逼 酷毙
-kubile 酷弊了
+kubile 酷毙了
 kubizi 哭鼻子
 kubukanyan 苦不堪言
 kucang 库藏
@@ -20146,6 +20283,7 @@ kunshilan 昆士兰
 kunshou 困守
 kunshouyoudou 困兽犹斗
 kunue 酷虐
+kunyi 困意
 kunyou 困囿
 kunyu 困于
 kunza 捆扎
@@ -20329,6 +20467,7 @@ laijing 来京
 laijiu 来就
 laikan 来看
 laike 来客
+lailaihuihui 来来回回
 lailaiwangwang 来来往往
 laile 来了
 laili 来历
@@ -20513,7 +20652,7 @@ lanniao 蓝鸟
 lannifubushangqiang 烂泥扶不上墙
 lannitan 烂泥潭
 lanpian 烂片
-lanping 兰坪
+lanping 蓝屏 兰坪
 lanpishu 蓝皮书
 lanqiao 蓝桥
 lanqiu 篮球
@@ -20815,7 +20954,7 @@ laoyousuoyang 老有所养
 laoyu 牢狱 老妪
 laoyuan 老远
 laoyushigu 老于世故
-laozai 涝灾
+laozai 老在 涝灾
 laozao 老早 醪糟
 laozhai 老宅
 laozhang 老张 老丈
@@ -21253,7 +21392,7 @@ liangshanpo 梁山泊
 liangshen 量身 两身
 liangsheng 两声 两省
 liangshenzhongshenzhi 两审终审制
-liangshi 粮食 良师
+liangshi 粮食 良师 两市
 liangshiju 粮食局
 liangshiyiyou 良师益友
 liangshou 两手
@@ -21931,6 +22070,7 @@ lingjuli 零距离
 lingjun 领军
 lingkai 另开
 lingkong 凌空 领空
+lingkongdaoxu 凌空蹈虚
 lingkou 领口
 lingkuan 领款
 linglang 令郎
@@ -22239,7 +22379,7 @@ liu 流 六 柳 留 刘 溜 瘤 榴 浏 硫 琉 陆 遛 馏 镏 骝 绺 锍 旒 熘 鎏 鹨 镠
 liuanhuaming 柳暗花明
 liuanhuamingyouyicun 柳暗花明又一村
 liuba 留坝
-liubai 六百
+liubai 六百 留白
 liubaiwan 六百万
 liubang 刘邦
 liubei 刘备
@@ -22629,6 +22769,7 @@ louji 漏计 漏记
 loujia 漏加
 loujian 漏减
 loujiao 漏缴
+louke 镂刻
 loukong 镂空
 loukou 漏扣
 louli 楼里
@@ -22726,6 +22867,7 @@ luantong 娈童
 luanxiang 乱想 乱象 乱响 乱像
 luanxing 卵形
 luanyong 乱用
+luanyunfeidu 乱云飞渡
 luanzaozao 乱糟糟
 luanzhang 乱涨 乱账
 luanzhangengdi 乱占耕地
@@ -22742,6 +22884,7 @@ lubei 路北
 lubi 卢比
 lubian 路边 炉边
 lubiao 路标
+lubote 鲁伯特
 lubu 卢布
 lubushiyi 路不拾遗
 lucai 卤菜 鲁菜
@@ -22751,6 +22894,7 @@ luchengqu 鹿城区
 luchi 路痴 露齿
 luchierxiao 露齿而笑
 luchu 露出
+luci 鸬鹚
 ludaofu 鲁道夫
 ludeng 路灯
 ludi 陆地
@@ -23031,6 +23175,7 @@ luoti 裸体
 luotian 罗田
 luotuo 骆驼
 luowang 落网 罗网
+luowei 落位
 luowen 螺纹
 luowu 落伍
 luoxi 罗西
@@ -23247,6 +23392,7 @@ lvxingyiwu 履行义务
 lvxingzhe 旅行者
 lvxingzhipiao 旅行支票
 lvye 绿叶
+lvyi 绿意
 lvyiangran 绿意盎然
 lvyin 绿茵 绿荫
 lvying 绿营
@@ -23528,6 +23674,7 @@ mangdebukekaijiao 忙得不可开交
 mangdebuyilehu 忙得不亦乐乎
 mangdian 盲点
 mangdong 盲动
+mange 满格
 mangguo 芒果
 manghe 盲盒
 manghuo 忙活
@@ -23641,6 +23788,7 @@ mantou 馒头 满头
 mantuntun 慢吞吞
 mantuoluo 曼陀罗
 manwen 满文
+manwu 满屋
 manwubianji 漫无边际
 manwumudi 漫无目的
 manxin 满心
@@ -23726,6 +23874,7 @@ maolinxiuzhu 茂林修竹
 maoliqiusi 毛里求斯
 maolitaniya 毛里塔尼亚
 maolv 毛驴
+maomao 毛毛
 maomaochong 毛毛虫
 maomaoran 贸贸然
 maomaoyu 毛毛雨
@@ -24179,6 +24328,7 @@ mendong 门洞
 mener 门儿
 menfa 门阀
 menfang 门房
+menfei 门扉
 menfeng 门缝
 meng 梦 蒙 猛 孟 盟 朦 氓 萌 勐 懵 檬 蠓 瞢 甍 礞 蜢 虻 艋 艨 锰 幪 獴 濛 黾
 mengang 门岗
@@ -24230,6 +24380,7 @@ menglong 朦胧 猛龙
 menglu 梦露
 mengma 猛犸
 mengmai 孟买
+mengmei 萌妹 梦寐 蒙昧
 mengmeiyiqiu 梦寐以求
 mengmeng 朦朦
 mengmengdongdong 懵懵懂懂
@@ -24366,7 +24517,7 @@ mianchang 绵长
 mianchao 面朝
 mianchen 面陈
 mianchenrushui 面沉如水
-mianchi 免持
+mianchi 免持 渑池
 mianchu 免除
 miandai 面带
 miandan 免单
@@ -24456,6 +24607,7 @@ mianshiguan 面试官
 mianshou 面授 免收 免受
 mianshoujiyi 面授机宜
 mianshu 面熟
+mianshuang 面霜
 mianshui 免税
 miansi 棉丝
 miansu 免俗
@@ -24779,6 +24931,7 @@ mingqianganjian 明枪暗箭
 mingqiangyiduo 明枪易躲
 mingqing 明清
 mingqu 名曲
+mingquan 名犬
 mingque 明确
 mingren 名人 明人
 mingrenbushuoanhua 明人不说暗话
@@ -24792,7 +24945,7 @@ mingshao 鸣哨
 mingsheng 名声 名胜
 mingshenganjiang 明升暗降
 mingshengguji 名胜古迹
-mingshi 名师 明示
+mingshi 名师 明示 名士
 mingshizhicai 命世之才
 mingshou 名手
 mingshui 明水
@@ -24808,7 +24961,7 @@ minguo 民国
 mingguwu 名古屋
 mingwan 明晚
 mingwanbuhua 冥顽不化
-mingwang 名望
+mingwang 名望 冥王
 mingwei 名为
 mingwen 明文 铭文
 mingwenguiding 明文规定
@@ -25029,6 +25182,7 @@ mocali 摩擦力
 moce 莫测
 mocegaoshen 莫测高深
 moceng 磨蹭
+mocha 抹茶
 mochibuwang 没齿不忘
 mochinanwang 没齿难忘
 mochu 摸出
@@ -25201,6 +25355,7 @@ moushizairen 谋事在人
 mousi 谋私
 moutian 某天
 mouwei 某位
+mouwu 某物
 mouxian 某县
 mouxiang 某项
 mouxie 某些
@@ -25422,6 +25577,7 @@ nagai 那该
 nage 那个 哪个
 nagei 拿给
 nagejimaodanglingjian 拿个鸡毛当令箭
+nagen 那根 那跟
 nagong 纳贡
 nagu 那股
 naguo 拿过
@@ -25524,6 +25680,7 @@ namen 纳闷
 namener 纳闷儿
 namexie 那么些
 nameyang 那么样
+namenzi 哪门子
 nami 纳米
 namiao 纳秒
 namibiya 纳米比亚
@@ -26010,6 +26167,8 @@ neizhong 内中
 neizhuang 内装
 neizi 内资
 nen 嫩 恁 媆 嫰 枘 腝 臑
+nenbai 嫩白
+nenfu 嫩肤
 neng 能 竜 螚
 nengba 能把
 nengbuneng 能不能
@@ -26078,6 +26237,7 @@ ni 你 泥 拟 腻 尼 逆 倪 匿 妮 霓 昵 溺 旎 睨 鲵 坭 猊 呢 怩 伲 祢 慝 铌
 niai 溺爱
 nian 年 念 廿 粘 碾 捻 蔫 撵 拈 黏 鲶 鲇 辇 埝 辗
 nianba 蔫巴
+nianbai 念白
 nianbao 年报
 nianbiao 年表
 nianchan 年产
@@ -26221,6 +26381,7 @@ nianzhongfenpei 年终分配
 nianzhongjiang 年终奖
 nianzhongpingbi 年终评比
 nianzhongzongjie 年终总结
+nianzhu 黏住 念珠
 nianzi 年资
 nianzizaizi 念兹在兹
 nianzou 撵走
@@ -26546,6 +26707,7 @@ niupi 牛皮
 niupiqi 牛脾气
 niupitang 牛皮糖
 niupixuan 牛皮癣
+niupizhi 牛皮纸
 niuqi 牛气
 niuqu 扭曲
 niurou 牛肉
@@ -26643,6 +26805,7 @@ nongdeqing 弄得清
 nongdian 农电
 nongdong 弄懂
 nongdu 浓度
+nongfahang 农发行
 nongfu 农夫 农妇
 nongfuchanpin 农副产品
 nongge 弄个
@@ -26936,6 +27099,7 @@ ouhe 耦合 偶合 藕合
 ouhuang 欧皇
 oujilide 欧几里得
 oujinsai 欧锦赛
+oulaiya 欧莱雅
 oumei 欧美
 oumeng 欧盟
 oumu 欧姆
@@ -27269,6 +27433,7 @@ paomian 泡面
 paomo 泡沫
 paomogu 泡蘑菇
 paoniu 泡妞
+paopan 抛盘
 paopao 泡泡
 paopaotiaotiao 跑跑跳跳
 paoqi 抛弃
@@ -27296,7 +27461,7 @@ paoxia 抛下
 paoxiang 跑向
 paoxiao 咆哮
 paoyipao 泡一泡
-paoying 泡影
+paoying 泡影 跑赢
 paozai 泡在
 paoze 袍泽
 paozhe 跑着
@@ -27363,6 +27528,7 @@ peihe 配合
 peihemoqi 配合默契
 peihu 陪护
 peihua 佩花
+peihuo 配货
 peijia 陪嫁
 peijian 配件
 peijiu 陪酒
@@ -27650,6 +27816,7 @@ piaodong 飘动
 piaoe 票额
 piaofang 票房
 piaofanzi 票贩子
+piaofei 飘飞
 piaofu 漂浮 飘浮
 piaogen 票根
 piaoguo 飘过 漂过
@@ -27774,6 +27941,7 @@ piliang 批量
 piliangshengchan 批量生产
 piliao 坯料
 pilin 毗邻
+piling 批零
 pilipala 噼里啪啦
 pilou 纰漏
 pilu 披露
@@ -27781,7 +27949,7 @@ pimadaixiao 披麻戴孝
 pimao 皮毛
 pimei 媲美
 pimi 披靡
-pimian 皮棉
+pimian 皮面 皮棉
 pimianerlai 劈面而来
 pin 品 贫 聘 拼 频 嫔 榀 姘 牝 颦 匕 嚬 娉 嬪 拚 朩 汖 玭 琕 矉 砏 礗 穦 薲 蘋 貧 頻 顰 馪 驞
 pinang 皮囊
@@ -27949,6 +28117,7 @@ pingtan 平坦
 pingtang 平躺
 pingti 平替
 pingtian 平添
+pingting 娉婷
 pingtou 平头
 pingtoulunzu 评头论足
 pinguan 品管
@@ -28091,6 +28260,7 @@ pisan 披散
 pishan 皮山
 pishang 披上 皮上
 pishi 批示 屁事 皮试 皮实
+pishou 劈手
 pishuai 痞帅
 pishuang 砒霜
 pita 疲沓
@@ -28117,7 +28287,7 @@ pixiu 貔貅
 pixu 脾虚
 pixue 皮靴
 piya 匹亚
-piyan 屁眼
+piyan 屁眼 皮炎
 piyao 辟谣
 piyi 皮衣
 piyingxi 皮影戏
@@ -28602,6 +28772,7 @@ qiangxie 枪械
 qiangxing 强行
 qiangxingtanpai 强行摊派
 qiangxinji 强心剂
+qiangxinzhen 强心针
 qiangxiu 抢修
 qiangya 强压
 qiangyan 抢眼
@@ -28632,6 +28803,7 @@ qiangzou 抢走
 qiangzu 羌族
 qiangzuo 强作
 qianhai 浅海
+qianhangbaiye 千行百业
 qianhao 堑壕
 qianhe 谦和
 qianhou 前后
@@ -29016,6 +29188,7 @@ qibuchengsheng 泣不成声
 qibuchuan 气不喘
 qibudayichulai 气不打一处来
 qibuguaizai 岂不怪哉
+qibujia 起步价
 qibushi 岂不是
 qibuwen 岂不闻
 qibuzou 齐步走
@@ -29347,6 +29520,7 @@ qingchenbonu 轻嗔薄怒
 qingcheng 倾城 青城
 qingchengshan 青城山
 qingcheshulu 轻车熟路
+qingchou 情仇
 qingchu 清楚 清除
 qingchuan 青川 晴川
 qingchun 青春 清纯
@@ -29872,6 +30046,7 @@ qipei 汽配
 qipian 欺骗
 qipianxing 欺骗性
 qipinbacou 七拼八凑
+qipingfen 起评分
 qipo 气魄
 qipu 棋谱
 qiqi 漆器 起讫
@@ -30296,7 +30471,7 @@ quanpanxihua 全盘西化
 quanpian 全篇 全片
 quanpiao 全票
 quanpin 全拼
-quanping 全凭
+quanping 全凭 全屏
 quanqian 圈钱
 quanqianjiaoyi 权钱交易
 quanqin 全勤
@@ -30394,6 +30569,7 @@ qubulikou 曲不离口
 qucai 取材 屈才
 quchangbuduan 取长补短
 quche 驱车
+quchenshi 屈臣氏
 quchi 去吃 龋齿 驱驰
 quchong 驱虫
 quchu 取出 去处 驱除 去除
@@ -30450,6 +30626,7 @@ queqiao 鹊桥
 queqie 确切
 queqin 缺勤
 quequan 确权
+quequeshishi 确确实实
 querang 却让
 querdaizhi 取而代之
 queren 确认
@@ -30562,6 +30739,7 @@ qunian 去年
 qunjia 群架
 qunju 群居
 qunlang 群狼
+qunli 群里
 qunliao 群聊
 qunlongwushou 群龙无首
 qunlou 裙楼
@@ -30629,7 +30807,7 @@ quwucunjing 去芜存菁
 quwuzong 去无踪
 quxi 屈膝
 quxia 取下
-quxian 曲线 区县
+quxian 曲线 区县 取现
 quxiang 去想 去向 取向 趋向
 quxiangbuming 去向不明
 quxiao 取消 取笑
@@ -30738,6 +30916,8 @@ raoquanzi 绕圈子
 raorang 饶让 扰嚷
 raoshe 饶舌
 raoshu 饶恕
+raowan 绕弯
+raowanzi 绕弯子
 raoxing 绕行
 raoyang 饶阳
 raoyou 饶有
@@ -30790,6 +30970,7 @@ remao 惹毛
 remen 热门
 remenhuati 热门话题
 remenhuo 热门货
+remin 热敏
 ren 人 任 认 忍 仁 韧 刃 纫 饪 壬 仞 稔 葚 荏 妊 轫 衽 亻 纴
 renai 仁爱
 renao 热闹 惹恼
@@ -31215,6 +31396,7 @@ reshen 热身
 reshensai 热身赛
 reshi 惹事
 reshifei 惹是非
+reshiguang 热释光
 reshishengfei 惹是生非
 reshui 热水
 reshuiqi 热水器
@@ -31422,6 +31604,7 @@ rouchangbaizhuan 柔肠百转
 rouchangcunduan 柔肠寸断
 rouchu 肉畜
 rouchuan 肉串
+roucongrong 肉苁蓉
 roucuo 揉搓
 roudan 肉蛋
 roudao 柔道
@@ -31542,6 +31725,7 @@ ruce 如厕
 ruchang 入场 如常
 ruchangquan 入场券
 ruchao 如潮 入朝 入超
+ruchaobuqu 入朝不趋
 rucheng 入城 汝城
 ruchiruzui 如痴如醉
 ruchong 蠕虫
@@ -31826,6 +32010,7 @@ sahala 撒哈拉
 sahuan 撒欢
 sahuang 撒谎
 sai 赛 塞 腮 鳃 噻 僿 嗮 嘥 愢 揌 毢 毸 簑 簺 賽 顋 鰓
+saibandao 塞班岛
 saibang 腮帮
 saibei 塞北
 saichang 赛场
@@ -31905,6 +32090,7 @@ sanbu 散步 散布 三步
 sanbuqu 三部曲
 sanbuzhan 三不沾
 sancan 三餐
+sanceng 三层
 sancha 三叉 三岔
 sanchaji 三叉戟
 sanchalukou 三叉路口
@@ -31928,6 +32114,7 @@ sandazuofeng 三大作风
 sandeng 三等
 sandenggong 三等功
 sandengjiang 三等奖
+sandi 三地 三弟
 sandian 三点
 sandianshi 三点式
 sandieji 三叠纪
@@ -32320,6 +32507,7 @@ shadu 杀毒
 shae 沙俄
 shafa 沙发 杀伐
 shafeikuxin 煞费苦心
+shafuzhichou 杀父之仇
 shagua 傻瓜
 shaguan 纱管
 shaguang 杀光
@@ -32602,6 +32790,7 @@ shangshan 上山
 shangshanfae 赏善罚恶
 shangshang 上上
 shangshanruoshui 上善若水
+shangshangxiaxia 上上下下
 shangshanxiaxiang 上山下乡
 shangshe 商社
 shangshen 上身 伤神
@@ -32867,6 +33056,7 @@ shaoduo 稍多
 shaoer 少儿
 shaoerjing 少而精
 shaofa 少发
+shaofan 烧饭
 shaofei 烧沸
 shaofen 少分
 shaofu 少妇
@@ -33334,6 +33524,7 @@ shenglixue 生理学
 shengliyongpin 生理用品
 shenglizaiwang 胜利在望
 shenglizhe 胜利者
+shenglonghuohu 生龙活虎
 shenglu 生路
 shenglue 省略
 shengluyisi 圣路易斯
@@ -33726,6 +33917,7 @@ shenzhang 伸张
 shenzhangzhengyi 伸张正义
 shenzhe 伸着
 shenzhen 深圳
+shenzheng 深证
 shenzhengbupayingzixie 身正不怕影子斜
 shenzhenshi 深圳市
 shenzhi 甚至 深知 神智 神志 伸直
@@ -33746,6 +33938,7 @@ shenzu 神族
 shenzuo 神作 神座
 shepi 蛇皮
 shepin 射频
+sheping 社评
 shepinwuqi 射频武器
 sheqi 舍弃
 sheqia 设卡
@@ -34046,6 +34239,7 @@ shijian 时间 事件 实践 世间
 shijianbiao 时间表
 shijiancha 时间差
 shijianchuo 时间戳
+shijianduan 时间段
 shijiang 是将 石匠
 shijianjingyan 实践经验
 shijiankuadu 时间跨度
@@ -34670,6 +34864,7 @@ shouhongbao 收红包
 shouhou 售后 守候
 shouhoufuwu 售后服务
 shouhu 守护
+shouhua 手滑
 shouhuan 手环
 shouhui 收回 受惠 受贿
 shouhuian 受贿案
@@ -34948,6 +35143,7 @@ shuaimai 甩卖
 shuaipo 摔破
 shuaiqi 帅气
 shuairuo 衰弱
+shuaishang 摔伤
 shuaishou 甩手
 shuaishoushiren 率兽食人
 shuaisi 摔死
@@ -35054,6 +35250,7 @@ shuangxing 双星 双性
 shuangxingxian 双行线
 shuangxiu 双休
 shuangxiuri 双休日
+shuangxue 霜雪
 shuangyan 双眼
 shuangyang 双氧
 shuangyi 双翼
@@ -35289,6 +35486,7 @@ shuipingzuo 水瓶座
 shuiqi 水气 水汽
 shuiqian 睡前 税前
 shuiqiang 水枪
+shuiqin 水禽
 shuiqing 水清 谁请 水情
 shuiqiu 水球
 shuiqu 水渠 水区
@@ -35422,6 +35620,7 @@ shulian 熟练
 shuliang 数量
 shuliangji 数量级
 shuliangongren 熟练工人
+shuliao 熟料
 shulie 数列
 shulihua 数理化
 shulijingji 数理经济
@@ -35750,7 +35949,7 @@ sibaozhebufang 死抱着不放
 sibei 四倍
 siben 私奔
 sibi 四壁 撕逼
-sibian 四边 思辩
+sibian 四边 思辨
 sibianxing 四边形
 sibie 死别
 sibudaizou 死不带走
@@ -35952,6 +36151,7 @@ sishe 四射 私设
 sishen 死神
 sisheng 四声 私生 丝绳
 sishenghuo 私生活
+sishengnv 私生女
 sishengzi 私生子
 sishewuru 四舍五入
 sishi 四十 四时 死尸 私事
@@ -36029,11 +36229,12 @@ sixuwanqian 思绪万千
 siya 嘶哑
 siyan 私盐
 siyang 饲养
+siyangbacha 四仰八叉
 siyangyuan 饲养员
 siyao 撕咬 死要 私钥
 siye 死也 四爷 四野
 siyecao 四叶草
-siyi 肆意 四亿 司仪
+siyi 肆意 四亿 司仪 四夷
 siyin 死因 私印
 siying 私营 死硬
 siyingpai 死硬派
@@ -36255,6 +36456,7 @@ suanyisuan 算一算
 suanyu 酸雨
 suanzhang 算账 酸胀
 suanzhimu 酸枝木
+suanzi 算子
 suanzuo 算作
 subei 苏北 肃北
 subianjiaoyi 诉辩交易
@@ -36396,6 +36598,7 @@ suiyue 岁月
 suiyuejinghao 岁月静好
 suiyueran 随遇而安
 suiyuerusuo 岁月如梭
+suizang 随葬
 suizangpin 随葬品
 suize 虽则
 suizhe 随着
@@ -36503,7 +36706,10 @@ suokou 所扣
 suole 缩了
 suoli 所里 所立
 suolian 锁链
+suoliang 缩量
+suoliao 所料
 suolie 所列
+suolue 缩略
 suoluetu 缩略图
 suolueyu 缩略语
 suoluomenqundao 所罗门群岛
@@ -36594,6 +36800,7 @@ suranqijing 肃然起敬
 suren 俗人 素人
 suri 苏日
 suruan 酥软
+suse 素色
 susha 肃杀
 sushan 苏珊
 sushanna 苏珊娜
@@ -36745,6 +36952,7 @@ taikuai 太快
 taikuaile 太快了
 taikuan 太宽
 tailan 太烂
+tailang 太郎
 taile 泰勒 抬了
 tailei 太累
 taileng 太冷
@@ -36936,6 +37144,7 @@ tangfa 烫发
 tangfang 堂房
 tangfen 糖分
 tanggaozu 唐高祖
+tangge 堂哥
 tanggu 塘沽
 tanggulashan 唐古拉山
 tanggulashanmai 唐古拉山脉
@@ -37554,6 +37763,7 @@ tianlan 天蓝
 tianlangqiqing 天朗气清
 tianlao 天牢
 tianle 填了 天了 添了 舔了
+tianlei 天雷
 tianleng 天冷
 tianletian 舔了舔
 tianli 天理 田里
@@ -37643,6 +37853,7 @@ tiantian 天天 甜甜
 tiantianmimi 甜甜蜜蜜
 tiantianquan 甜甜圈
 tiantianxiangshang 天天向上
+tiantiao 天条
 tianting 天庭
 tiantongyuan 天通苑
 tiantou 甜头 田头
@@ -38532,6 +38743,7 @@ tongxunshe 通讯社
 tongxunyuan 通讯员
 tongyang 同样 痛痒
 tongyangxi 童养媳
+tongyanjuru 童颜巨乳
 tongyanwuji 童言无忌
 tongyao 童谣
 tongye 同业 通夜
@@ -38616,6 +38828,7 @@ touchu 透出 投出
 toucun 头寸
 touda 头大
 toudai 头戴
+toudan 投弹
 toudao 偷盗
 toudeng 头等
 toudengdashi 头等大事
@@ -38715,6 +38928,7 @@ toutai 投胎
 toutao 偷逃
 toutaobaoli 投桃报李
 touteng 头疼
+toutengnaore 头疼脑热
 touti 透题
 toutian 头天
 toutianhuanri 偷天换日
@@ -38750,6 +38964,7 @@ touyun 头晕 偷运
 touzhe 透着
 touzhele 偷着乐
 touzhi 透支 投掷
+touzhong 投中
 touzhongjiaoqing 头重脚轻
 touzhu 投注
 touzhuzhan 投注站
@@ -39028,6 +39243,7 @@ tule 吐了 涂了
 tuli 图例 土里
 tuliao 涂料
 tulie 图列
+tuling 图灵
 tulituqi 土里土气
 tulong 屠龙
 tulu 吐露
@@ -39303,6 +39519,7 @@ wachu 挖出
 wadang 瓦当
 wadi 洼地 挖地
 wadilei 挖地雷
+wadong 挖洞
 waer 娃儿
 wafang 瓦房
 wagong 瓦工
@@ -39404,6 +39621,7 @@ waimaonicha 外贸逆差
 waimen 外门
 waimenxiedao 歪门邪道
 waimian 外面
+waipai 外派
 waipi 外皮
 waipo 外婆
 waiqi 外企
@@ -39481,6 +39699,7 @@ wakong 挖空 挖孔
 wakongxinsi 挖空心思
 waku 挖苦
 wakuang 挖矿
+wala 哇啦 瓦剌
 wale 挖了
 wali 瓦砾
 wamei 挖煤
@@ -39872,7 +40091,7 @@ wanxing 万幸
 wanyan 蜿蜒 晚宴 婉言
 wanyanxiejue 婉言谢绝
 wanyao 弯腰
-wanyi 万一 玩意
+wanyi 万一 玩意 万亿
 wanyier 玩意儿
 wanyiwan 玩一玩
 wanyixie 晚一些
@@ -40790,6 +41009,7 @@ wubu 无不 无补 舞步
 wucai 五彩
 wucaibinfen 五彩缤纷
 wucan 午餐 误餐
+wuceng 五层
 wucha 误差
 wuchan 物产 无产
 wuchang 无偿 无常 武昌 五常 误场
@@ -40806,6 +41026,7 @@ wuchi 无耻 舞池
 wuchizhitu 无耻之徒
 wuchu 无处 悟出
 wuchuan 误传
+wuchuangtianjia 误闯天家
 wuchubuzai 无处不在
 wuchuqiyou 无出其右
 wuci 无此 五次
@@ -40926,6 +41147,7 @@ wuhuan 五环
 wuhuarou 五花肉
 wuhuatianbao 物华天宝
 wuhui 误会 污秽 无悔 舞会
+wuhujiang 五虎将
 wuhuo 无货 武火
 wuhushi 芜湖市
 wuhusihai 五湖四海
@@ -41496,7 +41718,7 @@ xianao 瞎闹
 xianba 先把
 xianbai 显摆
 xianban 县办
-xianbao 献宝
+xianbao 献宝 线报
 xianbei 先辈 现被
 xianbie 先别
 xianbing 馅饼 宪兵
@@ -42019,6 +42241,7 @@ xianxia 线下 闲暇 仙侠
 xianxian 显现
 xianxiang 现象 先向 显像 县乡 险象
 xianxianghuansheng 险象环生
+xianxiao 显效
 xianxiashouweiqiang 先下手为强
 xianxie 险些 先写
 xianxin 闲心
@@ -42207,6 +42430,7 @@ xiaohaobiaozhun 消耗标准
 xiaohaoliang 消耗量
 xiaohe 小河
 xiaohehe 笑呵呵
+xiaohong 
 xiaohongmao 小红帽
 xiaohu 小户 销户
 xiaohua 笑话 消化 小花 校花
@@ -42572,6 +42796,7 @@ xiazhe 吓着
 xiazhi 下肢 下至 夏至
 xiazhihui 瞎指挥
 xiazhong 下种 夏种
+xiazhongshou 下重手
 xiazhou 下周
 xiazhu 下注
 xiazhua 瞎抓
@@ -42581,6 +42806,7 @@ xiazhui 下坠
 xiazi 瞎子 匣子
 xiazichengxi 下自成蹊
 xiazimoxiang 瞎子摸象
+xiazu 吓阻 下组 下足
 xiazuo 下作
 xibai 洗白 惜败
 xibaipo 西柏坡
@@ -42765,6 +42991,7 @@ xiexie 谢谢 写写
 xiexieni 谢谢你
 xiexin 写信
 xiexingwenzi 楔形文字
+xiexiu 邪修
 xiexu 些许
 xieyang 斜阳
 xieye 歇业
@@ -43401,6 +43628,7 @@ xinpianzhang 新篇章
 xinpin 新品
 xinping 新平
 xinpingqihe 心平气和
+xinpingzhuangjiujiu 新瓶装旧酒
 xinpinzhong 新品种
 xinpo 心魄
 xinqi 新奇 心气
@@ -43436,6 +43664,7 @@ xinruzhishui 心如止水
 xinshang 欣赏 心上 信上
 xinshangren 心上人
 xinshao 新邵
+xinshe 新设
 xinshen 心神
 xinshenbuan 心神不安
 xinsheng 新生 心声
@@ -43720,6 +43949,7 @@ xirao 袭扰
 xire 吸热
 xiren 喜人
 xiri 昔日
+xirong 西戎
 xirou 息肉
 xiru 吸入
 xiruan 细软
@@ -43837,7 +44067,7 @@ xiumu 朽木
 xiunan 羞赧
 xiunao 羞恼
 xiuning 休宁
-xiunv 修女
+xiunv 修女 秀女
 xiupei 修配
 xiuqi 秀气 休憩 修起 修葺
 xiuqiao 修桥
@@ -43855,6 +44085,7 @@ xiushi 修饰 锈蚀
 xiushou 袖手
 xiushoupangguan 袖手旁观
 xiushui 修水
+xiushuijie 秀水街
 xiusidun 休斯敦
 xiutan 嗅探
 xiuwaihuizhong 秀外慧中
@@ -43871,6 +44102,7 @@ xiuxingzhe 修行者
 xiuxinyangxing 修心养性
 xiuxiri 休息日
 xiuxishi 休息室
+xiuxiu 秀秀
 xiuxiububu 修修补补
 xiuxiudada 羞羞答答
 xiuxue 休学
@@ -43945,6 +44177,7 @@ xiying 喜迎
 xiyinli 吸引力
 xiyinren 吸引人
 xiyiweichang 习以为常
+xiyixi 洗一洗 吸一吸
 xiyong 习用 袭用
 xiyou 稀有 西游 悉由 系由
 xiyouji 西游记
@@ -43964,6 +44197,7 @@ xizhao 夕照
 xizhe 吸着 系着
 xizhi 细致 锡纸 系指
 xizhilang 喜之郎
+xizhimen 西直门
 xizhimojie 细枝末节
 xizhong 戏中
 xizhou 西周
@@ -44165,10 +44399,12 @@ xuedui 雪堆
 xueer 雪儿
 xueerbuyan 学而不厌
 xueeryouzeshi 学而优则仕
+xuefan 削藩
 xuefang 血防
 xuefei 学费
 xuefen 学分
 xuefeng 学风
+xuefengtiangu 削峰填谷
 xuefenzhi 学分制
 xuefolai 雪佛兰
 xuefu 学府
@@ -44234,6 +44470,7 @@ xuenongyushui 血浓于水
 xuepai 学派
 xuependakou 血盆大口
 xuepian 雪片
+xuepin 血拼
 xueping 削平
 xuepo 血泊
 xueqi 学期 血气
@@ -44620,7 +44857,7 @@ yaji 压机 牙祭
 yajia 压价
 yajiada 雅加达
 yajian 雅间 压减 牙尖
-yajiang 雅江
+yajiang 压降 雅江
 yajianzuili 牙尖嘴利
 yajiao 压脚
 yajie 押解
@@ -44672,6 +44909,7 @@ yanbing 眼病
 yanbixin 言必信
 yanbiyouzhong 言必有中
 yanbo 烟波 演播
+yanboshi 演播室
 yanboting 演播厅
 yanbu 眼部
 yanbujianweijing 眼不见为净
@@ -44804,6 +45042,7 @@ yangjingxurui 养精蓄锐
 yangjiu 洋酒
 yangju 阳具
 yangkaihui 杨开慧
+yangkouzizhong 养寇自重
 yangkuan 样款
 yanglai 仰赖
 yanglao 养老
@@ -44856,6 +45095,7 @@ yangsan 阳伞
 yangsen 杨森
 yangshan 阳山
 yangshang 养伤 养上
+yangshao 仰韶
 yangshaowenhua 仰韶文化
 yangshen 养神
 yangsheng 养生 扬声
@@ -44916,6 +45156,7 @@ yangzhe 养着
 yangzhi 养殖
 yangzhibaiyu 羊脂白玉
 yangzhichang 养殖场
+yangzhihu 养殖户
 yangzhimianji 养殖面积
 yangzhimigao 仰之弥高
 yangzhiye 养殖业
@@ -45348,7 +45589,7 @@ yaoyaohuanghuang 摇摇晃晃
 yaoyaolingxian 遥遥领先
 yaoyaomingming 杳杳冥冥
 yaoyaotou 摇摇头
-yaoyaoya 呀咬牙
+yaoyaoya 咬咬牙
 yaoyaoyuzhui 摇摇欲坠
 yaoyaqiechi 咬牙切齿
 yaoye 药业 摇曳 妖冶
@@ -45627,6 +45868,7 @@ yeyushijian 业余时间
 yezai 也在
 yezhan 野战 夜战 也占
 yezhe 业者 噎着 掖着
+yezhen 也真
 yezheng 也正
 yezhi 也指
 yezhong 野种
@@ -45761,6 +46003,7 @@ yiciyouyici 一次又一次
 yicong 已从 依从
 yicuerjiu 一蹴而就
 yicun 依存
+yicuozaicuo 一错再错
 yida 一大 一打 已达 医大 一沓
 yidaban 一大半
 yidabang 一大帮
@@ -45846,6 +46089,7 @@ yifanchangtai 一反常态
 yifanfengshun 一帆风顺
 yifang 一方 以防 乙方
 yifangbuce 以防不测
+yifangda 易方达
 yifangmian 一方面
 yifangwanyi 以防万一
 yifangyounanbafangzhiyuan 一方有难八方支援
@@ -45906,6 +46150,7 @@ yiguanzhi 一贯制
 yigui 衣柜 移归
 yigunaoer 一股脑儿
 yiguo 一过 一国 异国 一锅
+yiguoduan 一锅端
 yiguofengguang 异国风光
 yiguoliangzhi 一国两制
 yiguoqingqu 异国情趣
@@ -45978,6 +46223,7 @@ yijiaren 一家人
 yijiayi 一加一
 yijiazhizhu 一家之主
 yijiazi 一家子 一甲子
+yijibiua 一击必杀
 yijidu 一季度
 yijiduoren 以己度人
 yijie 一届 艺界 一节
@@ -46005,6 +46251,7 @@ yijiuliujiu 一九六九
 yijiuliusan 一九六三
 yijiuqiba 一九七八
 yijiusanba 一九三八
+yijiusanling 一九三零
 yijiusanqi 一九三七
 yijiusier 一九四二
 yijiusijiu 一九四九
@@ -46184,6 +46431,7 @@ yinbingjieliang 阴兵借粮
 yinbo 音波
 yincaishijiao 因材施教
 yincang 隐藏
+yincao 阴曹
 yincaodifu 阴曹地府
 yincece 阴恻恻
 yincha 饮茶
@@ -46628,6 +46876,7 @@ yinse 银色 音色 印色
 yinsen 阴森
 yinsensen 阴森森
 yinshan 阴山
+yinshang 殷商
 yinshe 银蛇 隐射
 yinshechudong 引蛇出洞
 yinshen 隐身 引申
@@ -46667,6 +46916,7 @@ yinu 易怒 一怒
 yinuoqianjin 一诺千金
 yinuzhixia 一怒之下
 yinv 一女
+yinverjia 一女二嫁
 yinwa 淫娃
 yinwei 因为 淫威 淫猥
 yinwen 引文
@@ -46871,6 +47121,7 @@ yishixingtai 意识形态
 yishiyaren 以势压人
 yishiyike 一时一刻
 yishiyishi 一时一事
+yishiyiyou 亦师亦友
 yishizhijian 一时之间
 yishizhixuan 一时之选
 yishizhuxing 衣食住行
@@ -47094,6 +47345,7 @@ yiyingruci 亦应如此
 yiyinyizhuo 一饮一啄
 yiyishenghui 熠熠生辉
 yiyixibie 依依惜别
+yiyiyaya 咿咿呀呀
 yiyizhiyi 以夷制夷
 yiyong 易用 医用 已用
 yiyongerru 一拥而入
@@ -47176,6 +47428,7 @@ yizhiwuxiao 医治无效
 yizhixing 一致性
 yizhiyijian 一致意见
 yizhiyu 以至于
+yizhizhi 一只只
 yizhong 一种 倚重 一盅 一中
 yizhongren 意中人
 yizhou 一周
@@ -47260,6 +47513,7 @@ yonghou 用后
 yonghu 用户 拥护
 yonghui 用汇
 yonghuming 用户名
+yonghuo 用火
 yonghuqu 用户区
 yonghuyijian 用户意见
 yonghuzhe 拥护者
@@ -47357,6 +47611,7 @@ yongzheng 雍正
 yongzhengaimin 拥政爱民
 yongzhibuwang 永志不忘
 yongzhisufen 庸脂俗粉
+yongzhiyu 用之于
 yongzhong 臃肿
 yongzhou 永州
 yongzhu 永驻
@@ -47771,9 +48026,11 @@ youtoufenmian 油头粉面
 youtouyoulian 有头有脸
 youtouyouwei 有头有尾
 youtu 有图
+youtui 右腿
 youtuo 幼托
 youwan 游玩
 youwang 有望
+youwanmeiwan 有完没完
 youwei 尤为 又为 有位 有为 有味
 youwenbida 有问必答
 youwenhua 有文化
@@ -47978,6 +48235,7 @@ yuandufushu 愿赌服输
 yuandui 院队 怨怼
 yuandun 远遁
 yuanfang 远方 院方 远房
+yuanfaxing 原发性
 yuanfei 远非
 yuanfen 缘分 怨愤
 yuanfeng 原封
@@ -48026,6 +48284,7 @@ yuanjuli 远距离
 yuanjun 援军
 yuankan 远看
 yuanke 远客
+yuankong 圆孔
 yuankuan 原款
 yuankuang 原矿
 yuanlai 原来
@@ -48338,6 +48597,7 @@ yueliang 月亮
 yuelue 约略
 yueluoxingchen 月落星沉
 yuelushan 岳麓山
+yuelushuyuan 岳麓书院
 yueman 越慢
 yuemayangbian 跃马扬鞭
 yuemi 乐迷
@@ -48423,6 +48683,7 @@ yufa 语法 愈发
 yufang 预防
 yufangweizhu 预防为主
 yufangzhen 预防针
+yufawuju 于法无据
 yufei 育肥
 yufen 预分 鱼粉
 yufou 与否
@@ -49071,6 +49332,7 @@ zalv 杂铝
 zamu 杂木
 zan 咱 赞 暂 攒 簪 糌 瓒 拶 昝 趱 錾
 zanan 暂按
+zanbaibuming 赞拜不名
 zanbifengmang 暂避锋芒
 zanbiya 赞比亚
 zanbu 暂不
@@ -49245,6 +49507,7 @@ zaotian 造田
 zaotui 早退
 zaowan 早晚
 zaowu 造物
+zaowuzhu 造物主
 zaoxian 早先
 zaoxie 早些 早泄
 zaoxieshihou 早些时候
@@ -49500,6 +49763,7 @@ zhacheng 炸成
 zhadan 炸弹
 zhadao 铡刀
 zhade 乍得
+zhadiao 炸掉
 zhaduan 炸断
 zhadui 扎堆
 zhafa 闸阀
@@ -49889,6 +50153,7 @@ zhanxiaohui 展销会
 zhanxiaopin 展销品
 zhanxie 毡鞋
 zhanxin 崭新
+zhanxing 占星
 zhanxingxue 占星学
 zhanxue 毡靴
 zhanya 占压
@@ -49961,7 +50226,6 @@ zhaodezhe 找得着
 zhaodian 找点
 zhaodianhuogan 找点活干
 zhaodianshigan 找点事干
-zhaodiao 炸掉
 zhaodong 肇东
 zhaofa 照发
 zhaofangzhuayao 照方抓药
@@ -49976,6 +50240,7 @@ zhaogongzuo 找工作
 zhaogu 照顾 招股
 zhaoguan 照管
 zhaoguo 找过
+zhaohang 招行
 zhaohe 兆赫
 zhaohu 招呼
 zhaohua 朝华
@@ -50173,7 +50438,7 @@ zheergen 折耳根
 zhefan 这番 折返 谪凡
 zhefanhua 这番话
 zhefen 这份
-zhefeng 这封
+zhefeng 这封 这风 遮风
 zhefu 折服 蛰伏 这幅 这副
 zhegai 遮盖
 zhege 这个
@@ -50979,7 +51244,7 @@ zhigao 之高 至高 职高
 zhigaodian 制高点
 zhigaoqiyang 趾高气扬
 zhige 之歌 制革 之隔
-zhigei 支给
+zhigei 只给 指给 支给
 zhigen 只跟 植根
 zhigenyu 植根于
 zhigenzhidi 知根知底
@@ -51091,6 +51356,7 @@ zhiliu 直流 支流 之流 滞留 只留
 zhiliyu 致力于
 zhilou 纸篓
 zhilu 之路 支路
+zhiluan 治乱 之乱
 zhiluweima 指鹿为马
 zhilv 之旅
 zhima 芝麻
@@ -51380,6 +51646,8 @@ zhizuozhe 制作者
 zhizuzhechangle 知足者常乐
 zhong 中 种 重 众 终 钟 忠 衷 肿 仲 锺 踵 盅 冢 忪 舯 螽 塚
 zhongai 钟爱
+zhongan 重案
+zhonganzu 重案组
 zhongba 中巴
 zhongbaguanxi 中巴关系
 zhongbai 钟摆
@@ -51516,6 +51784,7 @@ zhonghuaminguo 中华民国
 zhonghuaminzu 中华民族
 zhonghuan 中环
 zhonghuarenmingongheguo 中华人民共和国
+zhonghuaxun 中华鲟
 zhonghui 中会
 zhonghun 忠魂
 zhonghuo 重活
@@ -51658,6 +51927,7 @@ zhongsuozhumu 众所瞩目
 zhongta 中他
 zhongteda 重特大
 zhongtian 种田
+zhongtie 中铁
 zhongting 中听 中厅
 zhongtong 中统
 zhongtou 钟头 重头
@@ -51783,6 +52053,7 @@ zhoubao 周报
 zhoubian 周边 骤变
 zhoubianshebei 周边设备
 zhouchang 周长
+zhouchao 周朝
 zhouche 舟车
 zhoucheng 轴承
 zhoudai 周代
@@ -51993,6 +52264,7 @@ zhuangshiduanwan 壮士断腕
 zhuangshipin 装饰品
 zhuangshiwu 装饰物
 zhuangshu 装束
+zhuangshui 装睡 装水
 zhuangshuo 壮硕
 zhuangsi 撞死
 zhuangsuan 装蒜
@@ -52249,6 +52521,7 @@ zhudaodiwei 主导地位
 zhude 住的 朱德
 zhudi 驻地 朱棣
 zhudian 住店
+zhudiao 主调
 zhuding 注定
 zhudong 主动
 zhudongmai 主动脉
@@ -52300,6 +52573,7 @@ zhuhuadashi 驻华大使
 zhuhuadashiguan 驻华大使馆
 zhuhuashijie 驻华使节
 zhuhun 主婚
+zhuhuo 烛火
 zhui 追 坠 缀 椎 锥 赘 隹 惴 骓 缒 槌
 zhuibensuyuan 追本溯源
 zhuibi 追逼
@@ -52307,6 +52581,7 @@ zhuibing 追兵
 zhuibu 追捕 追补
 zhuibuhuilai 追不回来
 zhuicha 追查
+zhuichang 追偿
 zhuida 追打
 zhuidao 追到 追悼
 zhuidaohui 追悼会
@@ -52479,6 +52754,7 @@ zhuodao 捉刀
 zhuodeng 桌灯
 zhuoding 酌定
 zhuodou 桌斗
+zhuoerbufan 卓尔不凡
 zhuoerbuqun 卓尔不群
 zhuojia 桌架 酌加
 zhuojian 捉奸 拙见
@@ -52625,7 +52901,7 @@ zhuyaorenyuan 主要人员
 zhuyaoyuanyin 主要原因
 zhuye 主页 主业 逐页 竹叶
 zhuyeqing 竹叶青
-zhuyi 注意 主意 主义 逐一
+zhuyi 注意 主意 主义 逐一 属意
 zhuyili 注意力
 zhuyin 注音
 zhuying 主营
@@ -52760,6 +53036,7 @@ zigengnong 自耕农
 zigezheng 资格证
 zigong 子宫 自供
 zigongbuzhiriqi 自公布之日起
+zigongjiliu 子宫肌瘤
 zigongjing 子宫颈
 zigongjingai 子宫颈癌
 zigongsi 子公司
@@ -52813,6 +53090,7 @@ zikua 自夸
 zikuiburu 自愧不如
 zilai 自来
 zilaishui 自来水
+zilei 子类
 zili 自理 资历 籽粒 自立
 zilian 自恋
 ziliang 自量
@@ -53383,6 +53661,7 @@ zuanyan 钻研
 zuanying 钻营
 zuanzhe 攥着
 zuanzhichengquan 攥指成拳
+zuanzhu 攥住
 zubei 祖辈
 zubu 足部
 zubuchuhu 足不出户
@@ -53562,6 +53841,7 @@ zujizhan 阻击战
 zukang 阻抗
 zuke 足可
 zukeyi 足可以
+zulai 租来
 zulan 阻拦
 zuli 阻力
 zulian 足联
@@ -53621,6 +53901,7 @@ zuobiaozhou 坐标轴
 zuobie 作别
 zuobishangguan 作壁上观
 zuobuzhu 坐不住
+zuocai 做菜
 zuocan 柞蚕
 zuocang 座舱
 zuocao 做操
@@ -53878,7 +54159,6 @@ zuzi 卒子
 zuzong 祖宗
 zuzu 足足
 zuzubeibei 祖祖辈辈
-datan 打探
 date $yyyy年$mon月$day日 $YYYY0年$MON月$DAY日 农历$RIQI
 time $hour点$min分 $HOUR点$MIN分
 ^a 啊

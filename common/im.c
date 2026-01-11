@@ -170,7 +170,7 @@ int y_im_load_extra(IM *im,const char *name)
 	{
 		im->eim->Destroy();
 		im->eim=NULL;
-		y_im_module_close(im->handle);
+		l_dlclose(im->handle);
 		im->handle=NULL;
 	}
 	im->handle=y_im_module_open(p);
@@ -180,11 +180,11 @@ int y_im_load_extra(IM *im,const char *name)
 		y_ui_show_tip(YT("¼ÓÔØ¶¯Ì¬¿â%sÊ§°Ü"),p);
 		return -1;
 	}
-	if(!(eim=y_im_module_symbol(im->handle,"EIM")) ||
+	if(!(eim=l_dlsym(im->handle,"EIM")) ||
 		!eim || !eim->Init)
 	{
 		printf("eim: bad im\n");
-		y_im_module_close(im->handle);
+		l_dlclose(im->handle);
 		im->handle=NULL;
 		return -1;
 	}
@@ -194,7 +194,7 @@ int y_im_load_extra(IM *im,const char *name)
 	p=y_im_get_config_data(name,"arg");
 	if(InitExtraIM(im,eim,p))
 	{
-		y_im_module_close(im->handle);
+		l_dlclose(im->handle);
 		im->handle=NULL;
 		im->eim=NULL;
 		return -1;

@@ -62,6 +62,7 @@ typedef struct _cset{
 	CSET_GROUP_ARRAY array;
 
 	LHashTable *assoc;
+	LHashTable *assoc_reset;
 	short assoc_adjust;
 	short assoc_adjust_add;
 }CSET;
@@ -94,7 +95,7 @@ void cset_mb_group_set(CSET *cs,struct y_mb *mb,int count);
 CSET_GROUP_ARRAY *cset_array_group_new(CSET *cs);
 int cset_array_group_append(CSET_GROUP_ARRAY *g,const char *cand,const char *codetip);
 
-void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count);
+int cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count);
 int cset_has_assoc(CSET *cs,const char *code);
 void cset_apply_assoc(CSET *cs);
 

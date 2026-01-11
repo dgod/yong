@@ -85,7 +85,7 @@ static int code_index_del_item(ITEM *p)
 	return 0;
 }
 
-static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count,struct y_mb *mb,char super)
+static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count,struct y_mb *mb,int super)
 {
 	CODE_INDEX *ci=code_index_get(code,false);
 	if(!ci)
@@ -110,12 +110,8 @@ static LPtrArray *code_index_get_item(const char *code,LPtrArray *res,int count,
 			int cand_len=strlen(it->cand);
 			if(cand_len>=4)
 			{
-				const uint8_t *s=(const uint8_t*)it->cand+cand_len-2;
-				if(s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30)
-				{
-					s-=2;
-				}
-				if(!y_mb_assist_test_hz(mb,(const char*)s,super))
+				uint32_t last_hz=l_gb_last_char(it->cand);
+				if(!y_mb_assist_test_hz(mb,last_hz,(char*)&super))
 					continue;
 			}
 		}

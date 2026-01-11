@@ -153,7 +153,7 @@ static int process_key(int keyval,int modifiers,int down)
 	CONNECT_ID *id=CurrentID;
 	int key;
 	static int last_press;
-	static uint32_t last_press_time;
+	static uint64_t last_press_time;
 	
 	//fb_debug("process %x %x %d\n",modifiers,keyval,down);
 	
@@ -165,14 +165,14 @@ static int process_key(int keyval,int modifiers,int down)
 	if(down)
 	{
 		if(!last_press)
-			last_press_time=y_im_tick();
+			last_press_time=l_ticks();
         last_press=key;
 	}
 	if(key>=YK_LSHIFT && key<=YK_RALT)
 	{
 		if(down)
 			return FALSE;
-		if(key!=last_press || y_im_tick()-last_press_time>300)
+		if(key!=last_press || l_ticks()-last_press_time>300)
 		{
 			last_press=0;
 			return FALSE;

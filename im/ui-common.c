@@ -222,6 +222,7 @@ struct{
 	int Height,Width;
 	int mWidth,mHeight;
 	int RealHeight,RealWidth;
+	int Middle;
 	int Left,Right;
 	int Top,Bottom;
 	int WorkLeft,WorkRight,WorkBottom;
@@ -512,8 +513,7 @@ static int ui_button_label(int id,const char *text)
 
 static void ui_skin_path(const char *p)
 {
-	strncpy(skin_path,p,63);
-	skin_path[63]=0;
+	l_strcpy(skin_path,sizeof(skin_path),p);
 }
 
 static void ui_draw_main_win(DRAW_CONTEXT1 *ctx)
@@ -645,8 +645,17 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 	if(InputTheme.line!=1 && InputTheme.sep.a!=0)
 	{
 		double w=InputTheme.RealWidth;
-		double h=InputTheme.Height;
-		ui_draw_line(ctx,4,h/2-1,w-5,h/2-1,InputTheme.sep,InputTheme.line_width*scale);
+		double m=InputTheme.Middle;
+		if(!InputTheme.bg[1])
+		{
+			ui_draw_line(ctx,4,m-1,w-5,m-1,InputTheme.sep,InputTheme.line_width*scale);
+		}
+		else
+		{
+			double l=InputTheme.WorkLeft;
+			double r=InputTheme.WorkRight;
+			ui_draw_line(ctx,l,m-1,w-r,m-1,InputTheme.sep,InputTheme.line_width*scale);
+		}
 	}
 	
 	if(InputTheme.caret && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
@@ -695,9 +704,9 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 			h-=border-y;
 			y=border;
 		}
-		if(InputTheme.line!=1 && y<InputTheme.Height/2-1+border)
+		if(InputTheme.line!=1 && y<InputTheme.Middle-1+border)
 		{
-			double t=InputTheme.Height/2-1+border;
+			double t=InputTheme.Middle-1+border;
 			h-=t-y;
 			y=t;
 		}
@@ -714,7 +723,6 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 	{
 		ui_draw_text(ctx,InputTheme.layout,im.CodePos[0],InputTheme.CodeY,
 			im.StringGet,InputTheme.text[6]);
-
 	}
 	if(im.CodeInput[0] && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
 	{

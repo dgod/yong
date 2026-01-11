@@ -24,31 +24,11 @@ struct phrase_item{
 	void *head;
 };
 
-static unsigned pinyin_item_hash(struct pinyin_item *p)
-{
-	return l_str_hash(p->pinyin);
-}
-
-static int pinyin_item_cmp(struct pinyin_item *p1,struct pinyin_item *p2)
-{
-	return strcmp(p1->pinyin,p2->pinyin);
-}
-
 static void pinyin_item_free(struct pinyin_item *item)
 {
 	if(!item) return;
 	l_string_free(item->list);
 	l_free(item);
-}
-
-static unsigned phrase_item_hash(struct phrase_item *p)
-{
-	return l_str_hash(p->pinyin);
-}
-
-static int  phrase_item_cmp(struct phrase_item *p1,struct phrase_item *p2)
-{
-	return strcmp(p1->pinyin,p2->pinyin);
 }
 
 static void data_item_free(struct data_item *item)
@@ -78,11 +58,7 @@ void local_load_pinyin(const char *fn)
 	fp=EIM.OpenFile(fn,"rb");
 	if(!fp) return;
 	
-	l_chars_pinyin=l_hash_table_new(
-			(LHashFunc)pinyin_item_hash,
-			(LCmpFunc)pinyin_item_cmp,
-			7001,0
-			);
+	l_chars_pinyin=L_HASH_TABLE_STRING(struct pinyin_item,pinyin,7001);
 	
 	while(1)
 	{
@@ -111,9 +87,8 @@ void local_load_pinyin(const char *fn)
 		if(len>1 && strlen(list[0])<13)
 		{
 			int i;
-			struct pinyin_item *item,key;
-			strcpy(key.pinyin,list[0]);
-			item=l_hash_table_find(l_chars_pinyin,&key);
+			struct pinyin_item *item;
+			item=l_hash_table_lookup(l_chars_pinyin,list[0]);
 			for(i=1;i<len;i++)
 			{
 				char *p=list[i];
@@ -204,9 +179,6 @@ void local_load_assist(const char *fn,int pos)
 				else assist[1]=key;
 				
 				l_assist_key[key]=1;
-				
-				//char temp[32];
-				//l_gb_to_utf8(p,temp,8);
 			}
 		}
 		l_strfreev(list);
@@ -245,11 +217,10 @@ bool local_is_assist_key(int key)
 
 const char *local_pinyin_get(const char *pinyin)
 {
-	struct pinyin_item *item,key;
+	struct pinyin_item *item;
 	if(!l_chars_pinyin || !pinyin[0])
 		return NULL;
-	snprintf(key.pinyin,15,"%s",pinyin);
-	item=l_hash_table_find(l_chars_pinyin,&key);
+	item=l_hash_table_lookup(l_chars_pinyin,pinyin);
 	if(item) return item->list->str;
 	if(!pinyin[1]) switch(pinyin[0]){
 	case 'b':pinyin="bu";break;
@@ -282,8 +253,7 @@ const char *local_pinyin_get(const char *pinyin)
 	{
 		return NULL;
 	}
-	snprintf(key.pinyin,15,"%s",pinyin);
-	item=l_hash_table_find(l_chars_pinyin,&key);
+	item=l_hash_table_lookup(l_chars_pinyin,pinyin);
 	if(!item) return NULL;
 	return item->list->str;
 }
@@ -297,10 +267,7 @@ void local_load_user(const char *fn)
 	fp=EIM.OpenFile(fn,"rb");
 	if(!fp) return;
 	
-	l_user=l_hash_table_new(
-			(LHashFunc)phrase_item_hash,
-			(LCmpFunc)phrase_item_cmp,
-			7001,0);
+	l_user=L_HASH_TABLE_STRING(struct phrase_item,pinyin,7001);
 	
 	while(1)
 	{
@@ -366,13 +333,12 @@ void local_load_user(const char *fn)
 
 const void *local_phrase_set(const char *pinyin)
 {
-	struct phrase_item *item,key;
+	struct phrase_item *item;
 	if(!pinyin || !pinyin[0] || strlen(pinyin)>7)
 		return NULL;
 	if(!l_user)
 		return NULL;
-	strcpy(key.pinyin,pinyin);
-	item=l_hash_table_find(l_user,&key);
+	item=l_hash_table_find(l_user,pinyin);
 	return item;
 }
 

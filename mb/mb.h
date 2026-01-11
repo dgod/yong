@@ -330,7 +330,7 @@ struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
 struct y_mb_ci *y_mb_get_first_zi(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c);
 int y_mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end);
-int y_mb_assist_test_hz(struct y_mb *mb,const char *s,char super);
+bool y_mb_assist_test_hz(struct y_mb *mb,uint32_t hz,char super[2]);
 struct y_mb_ci *y_mb_check_assist(struct y_mb *mb,const char *s,int len,char super,int end);
 int y_mb_is_assist_key(struct y_mb *mb,int key);
 int y_mb_load_quick(struct y_mb *mb,const char *quick);

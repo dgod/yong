@@ -69,5 +69,51 @@ int l_uint64_equal(const void *p1,const void *p2)
 		return -1;
 }
 
-
+int l_rand(int min,int max)
+{
+    static bool init=false;
+    if(min>max || min<0)
+        return -1;
+    if(min==max)
+        return min;
+#ifdef __ANDROID__
+    if(!init)
+    {
+        srand48((long int)time(NULL));
+        init=true;
+    }
+    if(min==0 && max==INT_MAX)
+        return lrand48();
+    return min+lrand48()%(max-min+1);
+#else
+    if(!init)
+    {
+        srand((unsigned int)time(NULL));
+        init=true;
+    }
+#if RAND_MAX==INT_MAX
+    if(min==0 && max==INT_MAX)
+        return rand();
+    return min+rand()%(max-min+1);
+#elif RAND_MAX==0x7fff
+    if(max-min+1<=0x7fff)
+        return min+rand()%(max-min+1);
+    if(max-min+1<=0x3fffffff)
+    {
+        int r=(rand()<<15)|rand();
+        return min+r%(max-min+1);
+    }
+    else
+    {
+        int r0=rand(),r1=rand(),r2=rand();
+        int r=(r0<<16)|(r1<<1)|(r2&1);
+        if(min==0 && max==INT_MAX)
+            return r;
+        return min+r%(max-min+1);
+    }
+#else
+    #error "RAND_MAX is not supported"
+#endif
+#endif
+}
 

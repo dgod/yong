@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdbool.h>
-
+#include <limits.h>
 #include <assert.h>
 
 #include "lconfig.h"

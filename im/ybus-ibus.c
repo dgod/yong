@@ -109,7 +109,7 @@ struct _IBusYongEngine {
 	IBusEngine parent;
 
 	int last_press;
-	uint32_t last_press_time;
+	uint64_t last_press_time;
 	uint8_t first;
 };
  
@@ -229,14 +229,14 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 	if(!(modifiers & IBUS_RELEASE_MASK))
 	{
 		if(!yong->last_press)
-			yong->last_press_time=y_im_tick();
+			yong->last_press_time=l_ticks();
 		yong->last_press=key;
 	}
 	if(key>=YK_LSHIFT && key<=YK_RWIN)
 	{
 		if(!(modifiers & IBUS_RELEASE_MASK))
 			return FALSE;
-		if(key!=yong->last_press || y_im_tick()-yong->last_press_time>300)
+		if(key!=yong->last_press || l_ticks()-yong->last_press_time>300)
 		{
 			yong->last_press=0;
 			return FALSE;

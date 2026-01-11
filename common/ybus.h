@@ -80,6 +80,7 @@ enum{
 	YBUS_TOOL_EXIT,
 	YBUS_TOOL_STATUS_POS,
 	YBUS_TOOL_IMKEY,
+	YBUS_TOOL_GET_INDEX,
 };
 
 int ybus_init(void);

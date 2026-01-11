@@ -24,10 +24,9 @@ typedef struct{
 }sg_cookie_t;
 
 typedef struct{
-	sg_res_t *t[SG_CACHE_SIZE];
+	LHashTable *t;
 	sg_res_t *l,*l_old;
-	int c;
-	int abort;
+	volatile int abort;
 	int ready;
 	char req[128];
 	
@@ -58,7 +57,7 @@ extern struct cloud_api *sg_cur_api;
 void sg_cookie_free(sg_cookie_t *cookie);
 void sg_recc(sg_cache_t *c,int rec);
 void sg_cache_add(sg_cache_t *c,sg_res_t *r);
-sg_res_t *sg_cache_get(sg_cache_t *c,char *s,int l);
+sg_res_t *sg_cache_get(sg_cache_t *c,const char *s);
 sg_res_t *sg_local(sg_res_t *r,const char *p,bool strict);
 sg_res_t *sg_parse(sg_cache_t *c,char *s);
 

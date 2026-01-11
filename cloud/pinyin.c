@@ -957,8 +957,7 @@ int py_parse_string(const char *input,py_item_t *token,int caret)
 				{
 					p=*pp;
 					s=(char*)&token[count];
-					strncpy(s,input+i,2);
-					s[2]=0;
+					l_strncpy(s,input+i,2);
 					i+=2;
 					count++;
 					continue;
@@ -1008,8 +1007,7 @@ int py_parse_string(const char *input,py_item_t *token,int caret)
 			}
 			else
 			{
-				strncpy(p,input+i,py_split);
-				p[py_split]=0;
+				l_strncpy(p,input+i,py_split);
 				i+=py_split;
 			}
 			count++;

@@ -2503,7 +2503,7 @@ void YongDestroyIM(void)
 	{
 		im.eim->Destroy();
 		im.eim=NULL;
-		y_im_module_close(im.handle);
+		l_dlclose(im.handle);
 		im.handle=0;
 	}
 	y_im_speed_save();
@@ -2784,16 +2784,16 @@ int main(int arc,char *arg[])
 		{
 			return EXIT_FAILURE;
 		}
-		tool_main=(void*)y_im_module_symbol(handle,"tool_main");
+		tool_main=l_dlsym(handle,"tool_main");
 		if(!tool_main)
 		{
-			y_im_module_close(handle);
+			l_dlclose(handle);
 			return EXIT_FAILURE;
 		}
-		EXTRA_IM *eim=y_im_module_symbol(handle,"EIM");
+		EXTRA_IM *eim=l_dlsym(handle,"EIM");
 		eim->OpenFile=(void*)y_im_open_file;
 		ret=tool_main(arc,arg);
-		y_im_module_close(handle);
+		l_dlclose(handle);
 		return ret;
 	}
 	

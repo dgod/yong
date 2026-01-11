@@ -3222,6 +3222,7 @@ int y_mb_load_quick(struct y_mb *mb,const char *quick)
 		return -1;
 	l_strtok0(file,',',files,lengthof(files));
 	mb->quick_mb=y_mb_new();
+	mb->quick_mb->hint=1;
 	strcpy(mb->quick_mb->key+1,"abcdefghijklmnopqrstuvwxyz");
 	mb->quick_mb->len=Y_MB_KEY_SIZE;
 	y_mb_key_map_init(mb->quick_mb->key,0,mb->quick_mb->map);
@@ -4850,14 +4851,17 @@ static LArray *add_fuzzy_phrase(LArray *head,struct y_mb *mb,struct y_mb_context
 		const char*p;
 		int i;
 		sep=strchr(s,'\'');
-		if(sep) sep++;
-		for(p=s,i=0;p<s+len;p++)
+		if(sep)
 		{
-			if(*p=='\'') continue;
-			temp[i++]=*p;
+			sep++;
+			for(p=s,i=0;p<s+len;p++)
+			{
+				if(*p=='\'') continue;
+				temp[i++]=*p;
+			}
+			temp[i]=0;len=i;
+			s=temp;
 		}
-		temp[i]=0;len=i;
-		s=temp;
 		extern_match=mb_match_quanpin;
 	}
 	
@@ -5066,29 +5070,31 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 	{
 		return y_mb_set_fuzzy(mb,s,len,filter);
 	}
-	// int assist_mode=(s[0]==mb->ass_lead && mb->ass_mb)||(s[0]==mb->quick_lead && mb->quick_mb);
 	
 	if(mb->pinyin==1 && mb->split=='\'')
 	{
-		char *temp=alloca(len+1);
-		const char*p;
-		int i;
 		sep=strchr(s,'\'');
-		if(sep) sep++;
-		for(p=s,i=0;p<s+len;p++)
+		if(sep)
 		{
-			if(*p=='\'') continue;
-			temp[i++]=*p;
+			const char*p;
+			int i;
+			sep++;
+			char *temp=alloca(len);
+			for(p=s,i=0;p<s+len;p++)
+			{
+				if(*p=='\'') continue;
+				temp[i++]=*p;
+			}
+			temp[i]=0;len=i;
+			s=temp;
 		}
-		temp[i]=0;len=i;
-		s=temp;
 		extern_match=mb_match_quanpin;
 	}
 
 	wildcard=y_mb_has_wildcard(mb,s);
 	index_val=mb_ci_index_wildcard(mb,s,len,mb->wildcard,&key);
 	left=mb_key_len(key);
-	if(/*!assist_mode && */(mb->match || mb->ctx.result_match) && mb_ci_index_code_len(index_val)+left!=len)
+	if((mb->match || mb->ctx.result_match) && mb_ci_index_code_len(index_val)+left!=len)
 	{
 		return 0;
 	}
@@ -5156,7 +5162,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 				if(ret>0) continue;
 				if(mb->nsort && ret<0) continue;
 				if(ret<0) break;
-				
+	
 				clen=mb_key_len(p->code)+base;
 				for(c=p->phrase;c;c=c->next)
 				{
@@ -5164,6 +5170,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 					if(filter && c->zi && c->ext) continue;
 					if(c->zi && (mb->simple==1 || mb->simple==2) && c->simp) continue;
 					if(extern_match && !extern_match(mb,c,len,sep)) continue;
+					
 					if(!item)
 					{
 						item=p;
@@ -5174,10 +5181,21 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 						ctx->result_has_next=1;
 						continue;
 					}
-					if(!c->zi && mb->compact && clen>len+mb->compact-1)
+					if(mb->compact==1 || mb->compact==2)
 					{
-						ctx->result_has_next=1;
-						continue;
+						if(!c->zi && clen>len+mb->compact-1)
+						{
+							ctx->result_has_next=1;
+							continue;
+						}
+					}
+					else if(mb->compact==3)
+					{
+						if(clen>len+1)
+						{
+							ctx->result_has_next=1;
+							continue;
+						}
 					}
 					count++;
 					if(c->zi)
@@ -5365,18 +5383,21 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 	
 	if(mb->pinyin==1 && mb->split=='\'')
 	{
-		char *temp=alloca(len+1);
-		const char*p;
-		int i;
 		sep=strchr(s,'\'');
-		if(sep) sep++;
-		for(p=s,i=0;p<s+len;p++)
+		if(sep)
 		{
-			if(*p=='\'') continue;
-			temp[i++]=*p;
+			char *temp=alloca(len+1);
+			const char*p;
+			int i;
+			sep++;
+			for(p=s,i=0;p<s+len;p++)
+			{
+				if(*p=='\'') continue;
+				temp[i++]=*p;
+			}
+			temp[i]=0;len=i;
+			s=temp;
 		}
-		temp[i]=0;len=i;
-		s=temp;
 		extern_match=mb_match_quanpin;
 	}
 	
@@ -5525,7 +5546,8 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 					if(ctx->result_compact==0)
 					{
 						if(c->zi && mb->compact && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;
-						if(!c->zi && mb->compact && clen>len+mb->compact-1) continue;
+						if(!c->zi && (mb->compact==1 || mb->compact==2) && clen>len+mb->compact-1) continue;
+						if(mb->compact==3 && clen>len+1) continue;
 					}
 					/* 跳过不需要取的部分 */
 					if(skip<at)
@@ -6106,10 +6128,10 @@ int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char supe
 	return count;
 }
 
-static int mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end)
+static bool mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end)
 {
 	if(c->len<2 || !mb->zi || !super)
-		return 0;
+		return false;
 	const char *s=y_mb_ci_string(c);
 	uint32_t hz;
 	if(end!=0)
@@ -6119,17 +6141,17 @@ static int mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
 	if(!z)
 	{
-		return 0;
+		return false;
 	}
 	for(struct y_mb_code *p=z->code;p;p=p->next)
 	{
 		if(p->virt) continue;
 		if(super==mb->map[(int)y_mb_code_n_key(mb,p,n)])
 		{
-			return 1;
+			return true;
 		}
 	}
-	return 0;
+	return false;
 }
 
 int y_mb_is_assist_key(struct y_mb *mb,int key)
@@ -6159,38 +6181,41 @@ int y_mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end)
 	}
 }
 
-int y_mb_assist_test_hz(struct y_mb *mb,const char *s,char super)
+bool y_mb_assist_test_hz(struct y_mb *mb,uint32_t hz,char super[2])
 {
+	char super_code[2];
 	int n;
 
 	if(mb->yong && !mb->ass_mb)
 	{
-		super=mb->map[(int)super];
+		super_code[0]=mb->map[(int)super[0]];
+		super_code[1]=super[1]?mb->map[(int)super[1]]:0;
 		n=2;
 	}
 	else
 	{
 		if(!mb->ass_mb) return 0;
 		mb=mb->ass_mb;
-		super=mb->map[(int)super];
+		super_code[0]=mb->map[(int)super[0]];
+		super_code[1]=super[1]?mb->map[(int)super[1]]:0;
 		n=0;
 	}
 
-	uint32_t hz=l_gb_to_char(s);
 	struct y_mb_zi *z=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
 	if(!z)
 	{
-		return 0;
+		return false;
 	}
 	for(struct y_mb_code *p=z->code;p;p=p->next)
 	{
 		if(p->virt) continue;
-		if(super==mb->map[(int)y_mb_code_n_key(mb,p,n)])
+		if(super_code[0]==mb->map[(int)y_mb_code_n_key(mb,p,n)])
 		{
-			return 1;
+			if(!super_code[1] || super_code[1]==mb->map[(int)y_mb_code_n_key(mb,p,n+1)])
+				return true;
 		}
 	}
-	return 0;
+	return false;
 }
 
 int y_mb_assist_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super,int end)

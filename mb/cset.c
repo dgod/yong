@@ -64,13 +64,26 @@ void cset_reset(CSET *cs)
 	l_slist_free(cs->list,(LFreeFunc)cset_group_free);
 	cs->list=NULL;
 
-	l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
-	cs->assoc=NULL;
+	if(cs->assoc_reset)
+	{
+		if(cs->assoc) // should never happen
+			l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
+		cs->assoc=cs->assoc_reset;
+		cs->assoc_reset=NULL;
+	}
+	else
+	{
+		l_hash_table_clear(cs->assoc,(LFreeFunc)assoc_item_free);
+	}
 }
 
 void cset_destroy(CSET *cs)
 {
 	cset_reset(cs);
+	l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
+	cs->assoc=NULL;
+	l_hash_table_free(cs->assoc_reset,(LFreeFunc)assoc_item_free);
+	cs->assoc_reset=NULL;
 	l_array_free(cs->array.array,NULL);
 	cs->array.array=NULL;
 	l_free(cs->calc.phrase);
@@ -392,39 +405,35 @@ void cset_array_group_sort(CSET_GROUP_ARRAY *g,LCmpDataFunc cmp,void *arg)
 	l_array_sort_r(g->array,cmp,arg);
 }
 
-void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
+int cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 {
+	LHashTable *assoc;
+	if(cs->assoc_reset)
+	{
+		if(cs->assoc)
+			l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
+		cs->assoc=cs->assoc_reset;
+		cs->assoc_reset=NULL;
+	}
 	if(cs->assoc)
 	{
-		l_hash_table_free(cs->assoc,(LFreeFunc)assoc_item_free);
-		cs->assoc=NULL;
+		l_hash_table_clear(cs->assoc,(LFreeFunc)assoc_item_free);
+		assoc=cs->assoc;
+	}
+	else
+	{
+		cs->assoc=assoc=L_HASH_TABLE_STRING(ASSOC_ITEM,phrase,0);
 	}
 	if(count<=0)
-		return;
-	LHashTable *assoc=L_HASH_TABLE_STRING(ASSOC_ITEM,phrase,0);
-	int i,j;
-	for(i=0;i<count;i++)
+		return 0;
+	int first_code=-1;
+	for(int i=0;i<count;i++)
 	{
 		char *p=CalcPhrase[i];
-		int len;
-		for(len=0;p[len]!=0;)
+		int len=gb_strbrk((const uint8_t*)p);
+		for(int j=(gb_is_gb18030_ext((const uint8_t*)p)?4:2);j<=len;j+=(gb_is_gb18030_ext((const uint8_t*)p+j)?4:2))
 		{
-			if(gb_is_gb18030_ext((const uint8_t*)(p+len)))
-			{
-				len+=4;
-			}
-			else if(((uint8_t*)p)[len]<0x80)
-			{
-				break;
-			}
-			else
-			{
-				len+=2;
-			}
-		}
-		for(j=(gb_is_gb18030_ext((const uint8_t*)p)?4:2);j<=len;j+=(gb_is_gb18030_ext((const uint8_t*)p+j)?4:2))
-		{
-			if(cs->assoc_adjust==2 && j!=len)
+			if((cs->assoc_adjust==2 || p[len]) && j!=len)
 				continue;
 			ASSOC_ITEM *it=l_new(ASSOC_ITEM);
 			it->phrase=l_strndup(p,j);
@@ -432,6 +441,8 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 			it->index=i;
 			if(j==len && p[len])
 			{
+				if(first_code==-1)
+					first_code=i;
 				it->code=l_strdup(p+len);
 				p[len]=0;
 				if(l_hash_table_find(assoc,it)!=NULL)
@@ -454,12 +465,12 @@ void cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count)
 				assoc_item_free(it);
 		}
 	}
-	cs->assoc=assoc;
+	return first_code==-1?count:first_code;
 }
 
 int cset_has_assoc(CSET *cs,const char *code)
 {
-	if(!cs || !cs->assoc || !code)
+	if(!cs || !cs->assoc || !code || !l_hash_table_size(cs->assoc))
 		return 0;
 	ASSOC_ITEM *it=l_hash_table_lookup(cs->assoc,code);
 	if(!it)
@@ -481,7 +492,11 @@ void *cset_get_group_by_type(CSET *cs,int type)
 static int cmp_with_assoc(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,LHashTable *assoc)
 {
 	ASSOC_ITEM *it1=l_hash_table_lookup(assoc,(void*)s1->cand);
+	if(it1 && it1->code && strcmp(it1->code,EIM.CodeInput))
+		it1=NULL;
 	ASSOC_ITEM *it2=l_hash_table_lookup(assoc,(void*)s2->cand);
+	if(it2 && it2->code && strcmp(it2->code,EIM.CodeInput))
+		it2=NULL;
 	if(!it1)
 	{
 		if(!it2)

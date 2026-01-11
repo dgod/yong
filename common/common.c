@@ -2325,9 +2325,7 @@ void y_im_disp_cand(const char *gb,char *out,int pre,int suf,const char *code,co
 	int skip=y_im_str_desc(s,NULL);
 	if(skip>0)
 	{
-		int ret=skip-3;
-		memmove(s,s+2,ret);
-		s[ret]=0;
+		l_strncpy(s,s+2,skip-3);
 		y_im_expand_with(s,s,sizeof(temp),EXPAND_DESC);
 	}
 
@@ -2728,17 +2726,6 @@ void *y_im_module_open(const char *path)
 	return ret;
 }
 
-void *y_im_module_symbol(void *mod,char *name)
-{
-	void *ret=l_dlsym(mod,name);
-	return ret;
-}
-
-void y_im_module_close(void *mod)
-{
-	l_dlclose(mod);
-}
-
 int y_im_run_tool(char *func,void *arg,void **out)
 {
 	int (*tool)(void *,void **);
@@ -2749,7 +2736,7 @@ int y_im_run_tool(char *func,void *arg,void **out)
 		return -1;
 	}
 	
-	tool=y_im_module_symbol(im.handle,func);
+	tool=l_dlsym(im.handle,func);
 	if(!tool)
 	{
 		printf("yong: this module don't have such tool\n");
@@ -2912,16 +2899,6 @@ void y_im_setup_config(void)
 }
 
 #if !defined(CFG_NO_HELPER)
-uint32_t y_im_tick(void)
-{
-#ifdef _WIN32
-	return GetTickCount();
-#else
-	struct timeval tv;
-	gettimeofday(&tv,0);
-	return (uint32_t)(tv.tv_sec*1000+tv.tv_usec/1000);
-#endif
-}
 
 struct im_helper{
 #ifdef _WIN32
@@ -3160,10 +3137,24 @@ int y_im_get_keymap(char *name,int len)
 		return -1;
 	p=y_im_get_config_string(item,"keymap");
 	if(!p) return -1;
+	l_str_trim(p);
+	if(!p[0])
+	{
+		l_free(p);
+		return -1;
+	}
 	ps=strchr(p,' ');
 	if(!ps)
 	{
 		l_free(p);
+		p=y_im_get_config_string(item,"name");
+		if(p)
+		{
+			char keymap[64];
+			l_gb_to_utf8(YT("×Ö¸ùÍ¼"),keymap,sizeof(keymap));
+			snprintf(name,len,"%s%s",p,keymap);
+			return 0;
+		}
 		return -1;
 	}
 	*ps=0;
@@ -3172,7 +3163,7 @@ int y_im_get_keymap(char *name,int len)
 		l_free(p);
 		return -1;
 	}
-	strcpy(name,p);
+	l_strcpy(name,len,p);
 	l_free(p);
 	return 0;
 }
@@ -3192,7 +3183,15 @@ bool y_im_show_keymap(void)
 	ret=l_sscanf(p,"%s %s %d %d",item,img,&top,&tran);
 	l_free(p);
 	if(ret<2)
+	{
+		strcpy(img,item);
+		if(ret==1 && y_im_get_keymap(item,sizeof(item))==0)
+		{
+			y_ui_show_image(item,img,top,tran);
+			return true;
+		}
 		return false;
+	}
 	y_ui_show_image(item,img,top,tran);
 	return true;
 }

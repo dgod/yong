@@ -957,7 +957,7 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 					if(s)
 					{
 						y_xim_send_string(s2t_conv(s));
-						//if(event->button==1)
+						if(event->button==1)
 							YongResetIM();
 					}
 					else
@@ -1090,6 +1090,16 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 
 	ui_image_free(bg);
 	return res;
+}
+
+static int get_input_text_height(void)
+{
+	char temp[8];
+	int cy;
+	int get_text_width(const char *s,UI_FONT layout,int *height);
+	y_im_str_encode("²â",temp,0);
+	get_text_width(temp,InputTheme.layout,&cy);
+	return cy;
 }
 
 int ui_input_update(UI_INPUT *param)
@@ -1398,11 +1408,7 @@ int ui_input_update(UI_INPUT *param)
 		
 	if(!InputTheme.bg[1])
 	{
-		char temp[8];
-		int cy;
-		int get_text_width(const char *s,UI_FONT layout,int *height);
-		y_im_str_encode("²â",temp,0);
-		get_text_width(temp,InputTheme.layout,&cy);
+		int cy=get_input_text_height();
 		if(InputTheme.line==0 || InputTheme.line==2)
 		{
 			int pad=InputTheme.CandY-InputTheme.Height/2;
@@ -1417,6 +1423,7 @@ int ui_input_update(UI_INPUT *param)
 				InputTheme.Height=InputTheme.CandY+cy+InputTheme.CodeY;
 				InputTheme.RealHeight=InputTheme.Height;
 			}
+			InputTheme.Middle=InputTheme.Height/2;
 		}
 		else if(InputTheme.line==1)
 		{
@@ -1425,6 +1432,15 @@ int ui_input_update(UI_INPUT *param)
 				InputTheme.Height=2*InputTheme.CodeY+cy;
 				InputTheme.RealHeight=InputTheme.Height;
 			}
+		}
+	}
+	else
+	{
+		if(InputTheme.line==0 || InputTheme.line==2)
+		{
+			int cy=get_input_text_height();
+			int pad=(InputTheme.CandY-InputTheme.CodeY-cy)/2;
+			InputTheme.Middle=InputTheme.CandY-pad;
 		}
 	}
 	ui_win_tran(InputWin,param->tran);
@@ -1504,14 +1520,14 @@ int ui_input_move(int off,int *x,int *y)
 	return 0;
 }
 
-int get_text_width(const char *s,UI_FONT layout,int *height)
+static int get_text_width(const char *s,UI_FONT layout,int *height)
 {
 	if(!layout)
 		layout=InputTheme.layout;
 	return ui_text_size(NULL,layout,s,NULL,height);
 }
 
-int YongCodeWidth(void)
+static int YongCodeWidth(void)
 {
 	EXTRA_IM *eim=CURRENT_EIM();
 	int ret;
@@ -1547,10 +1563,11 @@ int YongCodeWidth(void)
 		im.CodePos[2]=get_text_width(im.CodeInput,InputTheme.layout,NULL)+im.CodePos[1];
 		im.CodeInput[CaretPos]=tmp;
 	}
-	return (int)im.CodePos[3]+InputTheme.CodeX-InputTheme.WorkLeft;
+	// return (int)im.CodePos[3]+InputTheme.CodeX-InputTheme.WorkLeft;
+	return (int)im.CodePos[3];
 }
 
-int YongPageWidth(void)
+static int YongPageWidth(void)
 {
 	EXTRA_IM *eim=CURRENT_EIM();
 	int ret=0;
@@ -1595,7 +1612,7 @@ int YongPageWidth(void)
 	return ret;
 }
 
-int YongCandWidth(void)
+static int YongCandWidth(void)
 {
 	EXTRA_IM *eim=CURRENT_EIM();
 	int i,count;

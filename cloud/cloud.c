@@ -42,15 +42,6 @@ static char *u2gb(char *u)
 	return l_strdup(data);
 }
 
-static int sg_hash(const char *s,int l)
-{
-	unsigned int sum=0;
-	int i;
-	for(i=0;s[i] && i<l;i++)
-		sum=sum*33+s[i];
-	return sum%10001;
-}
-
 void sg_cookie_free(sg_cookie_t *cookie)
 {
 	if(!cookie) return;
@@ -72,48 +63,22 @@ static void sg_res_free(sg_res_t *r)
 
 void sg_recc(sg_cache_t *c,int rec)
 {
-	int i,pos;
-	if(c->c<SG_CACHE_SIZE-rec)
-		return;
-restart:
-	pos=rand()%SG_CACHE_SIZE;
-	for(i=0;i<SG_CACHE_SIZE;i++,pos=(pos+1)%SG_CACHE_SIZE)
+	for(int i=0;i<4 && l_hash_table_size(c->t)>10001;i++)
 	{
-		sg_res_t *p,*pp;
-		for(pp=p=c->t[pos];p;pp=p,p=p->n)
-		{
-			if(p==c->l || p==c->l_old) continue;	/* locked */
-			if(p->l<=2) continue;	/* always high freq */
-			if(pp==p)				/* delete the first */
-				c->t[pos]=p->n;
-			else
-				pp->n=p->n;
-			c->c--;
-			sg_res_free(p);
-			rec--;
-			if(rec>0) goto restart;
-			return;
-		}
+		sg_res_t *p=l_hash_table_rand(c->t);
+		if(p==c->l || p==c->l_old) continue;	/* locked */
+		if(p->l<=2) continue;	/* always high freq */
+		l_hash_table_remove(c->t,p);
+		sg_res_free(p);
 	}
 }
 
 void sg_cache_add(sg_cache_t *c,sg_res_t *r)
 {
-	int pos;
-	sg_res_t *p;
-	
-	pos=sg_hash(r->q,r->l);		/* add to tail */
-	r->n=0;
-	p=c->t[pos];
-	
-	if(!p)
+	sg_res_t *p=l_hash_table_replace(c->t,r);
+	if(p!=NULL && p!=r)
 	{
-		c->t[pos]=r;
-	}
-	else
-	{
-		while(p->n) p=p->n;
-		p->n=r;
+		sg_res_free(p);
 	}
 }
 
@@ -191,22 +156,14 @@ static sg_cache_t *sg_cache_new(void)
 {
 	sg_cache_t *c;
 	c=l_new0(sg_cache_t);
+	c->t=L_HASH_TABLE_STRING(sg_res_t,q,SG_CACHE_SIZE);
 	return c;
 }
 
 static void sg_cache_free(sg_cache_t *c)
 {
-	int i;
 	if(!c) return;
-	for(i=0;i<SG_CACHE_SIZE;i++)
-	{
-		sg_res_t *p,*n;
-		for(p=c->t[i];p;p=n)
-		{
-			n=p->n;
-			sg_res_free(p);
-		}
-	}
+	l_hash_table_free(c->t,(LFreeFunc)sg_res_free);
 	l_slist_free(c->cookie,(LFreeFunc)sg_cookie_free);
 	l_free(c->format);
 	l_free(c->proxy);
@@ -215,23 +172,9 @@ static void sg_cache_free(sg_cache_t *c)
 	free(c);
 }
 
-sg_res_t *sg_cache_get(sg_cache_t *c,char *s,int l)
+sg_res_t *sg_cache_get(sg_cache_t *c,const char *s)
 {
-	int pos;
-	sg_res_t *p;
-
-	if(l<0) l=strlen(s);
-	pos=sg_hash(s,l);
-	
-	for(p=c->t[pos];p;p=p->n)
-	{
-		if(p->l!=l) continue;
-		if(!memcmp(p->q,s,l))
-		{
-			return p;
-		}
-	}
-	return 0;
+	return l_hash_table_lookup(c->t,s);
 }
 
 static char *url_get_auth(const char *url)
@@ -385,103 +328,32 @@ static sg_res_t* gg_parse_res(sg_cache_t *c,char *s)
 {
 	char key[64],cand[512],*res[20];
 	sg_res_t *r;
-	int ret,i,n,count,code[20];
-	if(!strstr(s,"_callbacks_._19glbuaa5f("))
+	int ret;
+	s=strchr(s,'[');if(!s) return NULL;s++;
+	if(strncmp(s,"\"SUCCESS\"",9))
 		return NULL;
-	s=strchr(s,'[');if(!s) return NULL;s++;
-	s=strchr(s,'[');if(!s) return NULL;s++;
-	ret=l_sscanf(s," \"%64[^\"]",key);
+	s=strstr(s,"[[");if(!s) return NULL;s+=2;
+	ret=l_sscanf(s,"\"%64[^\"]",key);
 	if(ret!=1)
 	{
 		return NULL;
 	}
 	s=strchr(s,'[');if(!s) return NULL;s++;
-	for(i=0;i<20;i++)
+	ret=l_sscanf(s,"\"%512[^\"]\"",cand);
+	if(ret!=1)
 	{
-		ret=l_sscanf(s," \"%512[^\"]\"%n",cand,&n);
-		if(ret!=1)
-		{
-			for(n=0;n<i;n++)
-				l_free(res[n]);
-			return NULL;
-		}
-		res[i]=hu2gb(cand);
-		if(!res[i])
-		{
-			for(n=0;n<i;n++)
-				l_free(res[n]);
-			return NULL;
-		}
-		s+=n;
-		while(isspace(s[0])) s++;
-		if(s[0]==']')
-		{
-			s++;
-			break;
-		}
-		if(s[0]!=',')
-		{
-			for(n=0;n<i;n++)
-				l_free(res[n]);
-			return NULL;
-		}
-		s++;
-		while(isspace(s[0])) s++;
-		if(s[0]==']')
-		{
-			s++;
-			break;
-		}
+		return NULL;
 	}
-	count=i;
-	s=strchr(s,'[');
-	if(!s)
+	res[0]=hu2gb(cand);
+	if(!res[0])
 	{
-		int len=strlen(key);
-		for(i=0;i<count;i++)
-			code[i]=len;
-	}
-	else
-	{
-		s++;
-		for(i=0;i<count;i++)
-		{
-			ret=l_sscanf(s," %d%n",&code[i],&n);
-			if(ret!=1)
-			{
-				for(i=0;i<count;i++)
-					l_free(res[i]);
-				return NULL;
-			}
-			s+=n;
-			if(s[0]==']')
-			{
-				s++;
-				break;
-			}
-			if(s[0]!=',')
-			{
-				for(n=0;n<i;n++)
-					l_free(res[n]);
-				return NULL;
-			}
-			s++;
-			while(isspace(s[0])) s++;
-			if(s[0]==']')
-			{
-				s++;
-				break;
-			}
-		}
+		return NULL;
 	}
 	r=l_new0(sg_res_t);
-	r->c=i;
+	r->c=1;
 	r->cs=l_cnew0(r->c,sg_cand_t);
-	for(i=0;i<r->c;i++)
-	{
-		r->cs[i].l=code[i];
-		r->cs[i].s=res[i];
-	}
+	r->cs[0].l=strlen(key);
+	r->cs[0].s=res[0];
 	r->q=l_strdup(key);
 	r->l=(unsigned short)strlen(key);
 	return r;
@@ -532,9 +404,9 @@ struct cloud_api sg_apis[]={
 #else
 	{
 		.name="google",
-		.host="yong.dgod.net",
+		.host="www.google.cn",
 		.query_key=NULL,
-		.query_res="/webim/proxy.php?url=http%%3A%%2F%%2Fwww.google.com%%2Ftransliterate%%3Ftext%%3D%s%%26langpair%%3Den%%257Czh%%26tlqt%%3D1%%26version%%3D2%%26num%%3D20%%26tl_app%%3D3%%26uv%%3Db%%253B0%%253B0%%26jsonp%%3D_callbacks_._19glbuaa5f",
+		.query_res="/inputtools/request?ime=pinyin&text=%s",
 		.key_parse=NULL,
 		.res_parse=gg_parse_res
 	},
@@ -568,7 +440,6 @@ static void sg_select_api(const char *name)
 sg_res_t *sg_parse(sg_cache_t *c,char *s)
 {
 	sg_res_t *r;
-
 	r=sg_cur_api->res_parse(c,s);
 	if(!r)
 		return NULL;
@@ -710,7 +581,7 @@ static void SGY_Reset(void)
 	AssistMode=0;
 	CloudLock();
 	l_cache->req[0]=0;
-	l_cache->l=0;
+	l_cache->l=NULL;
 	CloudUnlock();
 }
 
@@ -730,7 +601,7 @@ static int PinyinDoSearch()
 		p=quan;
 	}
 	CloudLock();
-	l_res=sg_cache_get(l_cache,p,-1);
+	l_res=sg_cache_get(l_cache,p);
 	if(!l_res)
 	{
 		strcpy(l_cache->req,p);

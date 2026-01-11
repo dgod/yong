@@ -832,9 +832,23 @@ static void draw_button(DRAW_CONTEXT1 *ctx,KBD_BTN *btn,int which)
 	{
 		UI_FONT font=kst.layout.font;
 		if(btn->data)
-			y_im_disp_cand(btn->data,(char*)temp,8,0,NULL,NULL);
+		{
+			int skip=y_im_str_desc(btn->data,NULL);
+			if(skip>0)
+			{
+				char str[skip];
+				l_strncpy(str,btn->data+2,skip-3);
+				y_im_str_encode(str,temp,DONT_ESCAPE);
+			}
+			else
+			{
+				y_im_str_encode(btn->data,temp,DONT_ESCAPE);
+			}
+		}
 		else
+		{
 			temp[0]=0;
+		}
 		ui_text_size(ctx->dc,font,temp,&w,&h);
 		x=btn->rc.x+(btn->rc.w-w)/2;
 		y=btn->rc.y+(btn->rc.h-h)/2;

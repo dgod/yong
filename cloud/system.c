@@ -1,8 +1,3 @@
-#include "cloud.h"
-#include "yong.h"
-
-extern EXTRA_IM EIM;
-
 #ifndef EMSCRIPTEN
 
 #ifdef __linux__
@@ -17,10 +12,6 @@ extern EXTRA_IM EIM;
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#if defined(CFG_XIM_ANDROID) && L_WORD_SIZE==32
-#define rand() (int)lrand48()
-#endif
-
 #define WAKEUP_SIGNAL		SIGUSR2
 
 typedef int SOCKET;
@@ -31,20 +22,6 @@ typedef int SOCKET;
 #define WSAEWOULDBLOCK EWOULDBLOCK
 #define WSAGetLastError() errno
 
-static void WaitSignal(int ms)
-{
-	struct timespec ts={.tv_sec=ms/1000,.tv_nsec=(ms%1000)*1000000};
-	int ret=nanosleep(&ts,NULL);
-	if(ret==-1 && errno==EINTR)
-	{
-	}
-}
-
-static void SetSignal(pthread_t th)
-{
-	pthread_kill(th,WAKEUP_SIGNAL);
-}
-
 static void setnonblock(SOCKET s)
 {
 	int f_old;
@@ -54,42 +31,10 @@ static void setnonblock(SOCKET s)
 	fcntl(s,F_SETFL,f_old);
 }
 
-static pthread_mutex_t l_mut;
-static void sg_lock(int b)
-{
-	if(b)
-		pthread_mutex_lock(&l_mut);
-	else
-		pthread_mutex_unlock(&l_mut);
-}
-
 #endif
 
 #ifdef _WIN32
 #include <winsock2.h>
-
-typedef HANDLE pthread_t;
-#define pthread_create(a,b,c,d) \
-	(*a)=CreateThread(NULL,0,(c),(d),0,0)
-#define pthread_join(a,b) \
-	do{\
-		WaitForSingleObject(a,INFINITE);\
-		CloseHandle(a);\
-	}while(0)
-
-static void WaitSignal(int ms)
-{
-	SleepEx(TRUE,ms);
-}
-
-static void CALLBACK abort_apc(ULONG_PTR param)
-{
-}
-
-static void SetSignal(pthread_t th)
-{
-	QueueUserAPC(abort_apc,th,0);
-}
 
 static void setnonblock(SOCKET s)
 {
@@ -97,15 +42,36 @@ static void setnonblock(SOCKET s)
 	ioctlsocket(s,FIONBIO,&b);
 }
 
-static CRITICAL_SECTION l_mut;
-static void sg_lock(int b)
+#endif
+
+#include "llib.h"
+
+static l_mtx_t l_mut;
+static l_cnd_t l_cnd;
+static void sg_lock(bool b)
 {
 	if(b)
-		EnterCriticalSection(&l_mut);
+		l_mtx_lock(&l_mut);
 	else
-		LeaveCriticalSection(&l_mut);
+		l_mtx_unlock(&l_mut);
 }
-#endif
+
+static void WaitSignal(int ms)
+{
+	l_mtx_lock(&l_mut);
+	l_cnd_timedwait_ms(&l_cnd,&l_mut,ms);
+	l_mtx_unlock(&l_mut);
+}
+
+static void SetSignal(void)
+{
+	l_cnd_signal(&l_cnd);
+}
+
+#include "cloud.h"
+#include "yong.h"
+
+extern EXTRA_IM EIM;
 
 static int url_get_port(char *url)
 {
@@ -251,9 +217,8 @@ static int sg_conn_req(sg_cache_t *c,SOCKET s,const char *req)
 					c->option?c->option:"");
 		if(c->proxy_auth)
 			len+=sprintf(c->format+len,"Proxy-Authenticate: Basic %s\r\n",c->proxy_auth);
+		len+=sprintf(c->format+len,"UserAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0\r\n");
 		len+=sprintf(c->format+len,"Host: %s\r\n",sg_cur_api->host);
-		len+=sprintf(c->format+len,"User-Agent: Mozilla/5.0 (X11; Linux i686; rv:5.0) Gecko/20100101 Firefox/5.0\r\n");
-		/*len+=*/sprintf(c->format+len,"Referer: http://www.qq.com/\r\n");
 	}
 	
 	if(!c->key || !c->key[0])
@@ -395,7 +360,10 @@ static char *sg_conn_res(sg_cache_t *c,SOCKET s)
 			if(c->abort)
 				return NULL;
 			if(ret<0)
-				return NULL;
+			{
+				i--;
+				continue;
+			}
 			if(ret==1) break;
 		}
 		if(ret==max) return NULL;
@@ -419,9 +387,11 @@ static char *sg_conn_res(sg_cache_t *c,SOCKET s)
 			if(size>4000 || sg_conn_size(temp)<=size)
 				break;
 		}
+		if(size>7 && !memcmp(temp+size-7,"\r\n0\r\n\r\n",7))
+			break;
 	}
 	p=strstr(temp,"\r\n\r\n");
-	if(!p) return 0;
+	if(!p) return NULL;
 	sg_conn_set_cookie(c,temp,(int)(size_t)(p-temp));
 	p=strdup(p+4);
 	return p;
@@ -472,22 +442,10 @@ static void sg_conn_key(sg_cache_t *c)
 	free(res);
 }
 
-#ifdef __linux
-static void sig_handler(int sig)
+static int sg_thread(sg_cache_t *c)
 {
-}
-static void *sg_thread(void *param)
-{
-	sg_cache_t *c=param;
-	signal(WAKEUP_SIGNAL,sig_handler);
-
-#else
-static DWORD WINAPI sg_thread(void *param)
-{
-	sg_cache_t *c=param;
-#endif
+	SOCKET s=INVALID_SOCKET;
 	c->ready=1;
-
 	while(!c->abort)
 	{
 		sg_res_t *r;
@@ -500,7 +458,7 @@ static DWORD WINAPI sg_thread(void *param)
 		if(c->abort) break;
 		if(!c->req[0]) continue;
 		sg_lock(1);
-		r=sg_cache_get(c,c->req,strlen(c->req));
+		r=sg_cache_get(c,c->req);
 		if(r)
 		{
 			c->req[0]=0;
@@ -529,14 +487,15 @@ static DWORD WINAPI sg_thread(void *param)
 		{
 			char req[128];
 			int ret;
-			char *res;
-			SOCKET s;
-			s=sg_conn_init(c,sg_cur_api->host);
 			if(s==INVALID_SOCKET)
 			{
-				//printf("connect fail\n");
-				WaitSignal(1000);
-				continue;
+				s=sg_conn_init(c,sg_cur_api->host);
+				if(s==INVALID_SOCKET)
+				{
+					// printf("connect fail %s\n",sg_cur_api->host);
+					WaitSignal(1000);
+					continue;
+				}
 			}
 			sg_lock(1);
 			strcpy(req,c->req);
@@ -544,28 +503,34 @@ static DWORD WINAPI sg_thread(void *param)
 			if(!req[0])
 			{
 				closesocket(s);
+				s=INVALID_SOCKET;
 				continue;
 			}
 			ret=sg_conn_req(c,s,req);
 			if(ret!=0)
 			{
 				closesocket(s);
+				s=INVALID_SOCKET;
 				continue;
 			}
-			res=sg_conn_res(c,s);
-			closesocket(s);
+			char *res=sg_conn_res(c,s);
 			if(res)
 			{
 				r=sg_parse(c,res);
 				free(res);
 				sg_lock(1);
 				/* 这里我们同时检查两次，返回的可能不是我们请求的 */
-				if(r && !strcmp(c->req,req) && !strcmp(r->q,req))
+				if(!strcmp(c->req,req) && (!r || !strcmp(r->q,req)))
 				{
 					c->req[0]=0;
 					refresh=1;
 				}
 				sg_lock(0);
+			}
+			else
+			{
+				closesocket(s);
+				s=INVALID_SOCKET;
 			}
 		}
 		if(r && refresh)
@@ -580,23 +545,23 @@ static DWORD WINAPI sg_thread(void *param)
 			}
 		}
 	}
+	if(s!=INVALID_SOCKET)
+		closesocket(s);
 	return 0;
 }
 
-static pthread_t l_th;
+static l_thrd_t l_th;
 
 void CloudInit(void)
 {
-#ifdef __linux__
-	pthread_mutex_init(&l_mut,0);
-#endif
+	l_mtx_init(&l_mut,l_mtx_plain);
+	l_cnd_init(&l_cnd);
 #ifdef _WIN32
 	WSADATA wsaData;
 	WSAStartup(0x0202,&wsaData);
-	InitializeCriticalSection(&l_mut);
 #endif
 
-	pthread_create(&l_th,0,sg_thread,l_cache);
+	l_thrd_create(&l_th,(l_thrd_start_t)sg_thread,l_cache);
 #ifdef __linux__
 	pthread_setname_np(l_th,"cloud");
 #endif
@@ -605,28 +570,26 @@ void CloudInit(void)
 void CloudCleanup(void)
 {
 	l_cache->abort=1;
-	SetSignal(l_th);
-	pthread_join(l_th,0);
+	SetSignal();
+	l_thrd_join(l_th,NULL);
 	l_th=0;
 
-#ifdef __linux__
-	pthread_mutex_destroy(&l_mut);
-#endif
+	l_mtx_destroy(&l_mut);
+	l_cnd_destroy(&l_cnd);
 #ifdef _WIN32
 	WSACleanup();
-	DeleteCriticalSection(&l_mut);
 #endif
 }
 
 void CloudWaitReady(void)
 {
 	while(!l_cache->ready)
-		WaitSignal(10);
+		l_thrd_sleep_ms(10);
 }
 
 void CloudSetSignal(void)
 {
-	SetSignal(l_th);
+	SetSignal();
 }
 
 void CloudLock(void)

@@ -2,6 +2,7 @@
 #include "lslist.h"
 #include "lmem.h"
 #include "lhashtable.h"
+#include "lfuncs.h"
 
 #include <assert.h>
 
@@ -53,32 +54,6 @@ LHashTable *l_hash_table_new(LHashFunc hash,LCmpFunc cmp,int size,int offset)
 	h->count=0;
 	return h;
 }
-#if 0
-LHashTable *l_hash_table_new(int size,LHashFunc hash,LCmpFunc cmp)
-{
-	LHashTable *h;
-	h=l_new(struct _lhashtable);
-	if(size<0)
-	{
-		size=-size;
-		h->size=251;
-		h->offset=size&~L_HASH_DEREF_MARKER;
-		h->deref=(size&L_HASH_DEREF_MARKER)?1:0;
-		assert(h->offset>=sizeof(void*));
-	}
-	else
-	{
-		h->size=get_real_size(size);
-		h->offset=0;
-		h->deref=0;
-	}
-	h->hash=hash;
-	h->cmp=cmp;
-	h->array=l_cnew0(h->size,void*);
-	h->count=0;
-	return h;	
-}
-#endif
 
 void l_hash_table_free(LHashTable *h,LFreeFunc func)
 {
@@ -240,6 +215,28 @@ void *l_hash_table_del(LHashTable *h,const void *key)
 	h->array[index]=l_slist_remove(h->array[index],item);
 	h->count--;
 	return item;
+}
+
+void *l_hash_table_rand(LHashTable *h)
+{
+	const int pos=l_rand(0,h->size-1);
+	for(int i=pos;;)
+	{
+		LSList *p=h->array[i];
+		if(p==NULL)
+		{
+			i=(i+1)%h->size;
+			if(i==pos)
+				break;
+			continue;
+		}
+		if(!p->next)
+			return p;
+		int count=l_slist_length(p);
+		i=l_rand(0,count-1);
+		return l_slist_nth(p,i);
+	}
+	return NULL;
 }
 
 int l_hash_table_size(LHashTable *h)

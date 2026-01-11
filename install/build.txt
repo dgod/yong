@@ -15,7 +15,6 @@ function copy_data(){
 	cp('../data/bihua.bin','yong/');
 	cp('../data/normal.txt','yong/');
 	cp('../data/mb/wbx.txt','yong/mb/');
-	cp('../data/mb/wbx.ini','yong/mb/');
 	cp('../data/mb/wbpy.ini','yong/mb/');
 	cp('../data/mb/erbi.txt','yong/mb/');
 	cp('../data/mb/zhengma.txt','yong/mb/');
