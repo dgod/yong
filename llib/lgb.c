@@ -6728,6 +6728,7 @@ uint32_t l_gb_to_char(const void *p)
 	}
 	return r;
 }
+
 uint32_t l_gb_last_char(const void *p)
 {
 	if(!p)
@@ -6760,6 +6761,22 @@ int l_char_to_gb(uint32_t c,void *outbuf)
 		return 4;
 	}
 }
+
+int l_char_to_gb0(uint32_t c,void *outbuf)
+{
+	uint8_t *s=outbuf;
+	int len=l_char_to_gb(c,s);
+	s[len]=0;
+	return 0;
+}
+
+int l_unichar_to_gb0(uint32_t c,void *outbuf)
+{
+	uint8_t *s=outbuf;
+	int len=l_unichar_to_gb(c,s);
+	s[len]=0;
+	return 0;
+}	
 
 const void *l_gb_strchr(const void *p,uint32_t c)
 {

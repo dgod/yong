@@ -11,6 +11,8 @@ void *l_pthread_wrapper(void *param);
 
 int l_int_equal(const void *v1,const void *v2);
 int l_int_equal_r(const void *v1,const void *v2);
+int l_uint16_equal(const void *p1,const void *p2);
+int l_uint32_equal(const void *p1,const void *p2);
 int l_uint64_equal(const void *v1,const void *v2);
 
 int l_rand(int min,int max);

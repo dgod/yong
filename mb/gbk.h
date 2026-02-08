@@ -9,6 +9,7 @@
 #include "lmem.h"
 #include "lgb.h"
 
+#if 0
 #define GBK_BEGIN	0x8140
 #define GBK_END		0xFEFE
 #define GBK_WIDTH	(254-64+1)
@@ -39,61 +40,7 @@
 				((b)[2]=0))
 
 #define GBK_IS_ASCII(a) ((a) && !((a)&0x80))
-
-static inline int gb_is_ascii(const uint8_t *s)
-{
-	return s[0] && !(s[0]&0x80);
-}
-
-static inline int gb_is_gb2312(const uint8_t *s)
-{
-	return s[0]<=0xFE && s[0]>=0xA1 && s[1]<=0xFE && s[1]>=0xA1;
-}
-
-static inline int gb_is_hz(const uint8_t *s)
-{
-	return s[0]<=0xF7 && s[0]>=0xB0 && s[1]<=0xFE && s[1]>=0xA1;
-}
-
-static inline int gb_is_hz1(const uint8_t *s)
-{
-	return s[0]<=0xD7 && s[0]>=0xB0 && s[1]<=0xFE && s[1]>=0xA1;
-}
-
-static inline int gb_is_hz2(const uint8_t *s)
-{
-	return s[0]<=0xF7 && s[0]>=0xD8 && s[1]<=0xFE && s[1]>=0xA1;
-}
-
-static inline int gb_is_biaodian(const uint8_t *s)
-{
-	return s[0]>=0xA1 && s[0]<=0xA3 && s[1]<=0xFE && s[1]>=0xA1;
-}
-
-static inline int gb_is_gbk(const void *p)
-{
-	const uint8_t *s=p;
-	return (s[0]<=0xFE && s[0]>=0x81 && s[1]<=0xFE && s[1]>=0x40 && s[1]!=0x7F);
-}
-
-static inline int gb_is_gb18030_ext(const void *p)
-{
-	const uint8_t *s=p;
-	return s[0]<=0xFE && s[0]>=0x81 && s[1]<=0x39 && s[1]>=0x30 &&
-		s[2]<=0xFE && s[2]>=0x81 && s[3]<=0x39 && s[3]>=0x30;
-}
-
-static inline int gb_is_gb18030(const void *s)
-{
-	return gb_is_gbk(s) || gb_is_gb18030_ext(s);
-}
-
-static inline const void *gb_next_be(const void *p,uint32_t *hz)
-{
-	if(hz)
-		*hz=l_gb_to_char(p);
-	return l_gb_next_char(p);
-}
+#endif
 
 static inline int gb_strbrk(const uint8_t *s)
 {
@@ -198,8 +145,9 @@ static int gb_load_normal(FILE *fp)
 
 #endif
 
-static inline int gb_is_normal(const uint8_t *s)
+static inline int gb_is_normal(const void *p)
 {
+	const uint8_t *s=p;
 	if(!gb_is_gbk(s))
 	{
 		if(gb_is_gb18030_ext(s))

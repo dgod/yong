@@ -1,5 +1,5 @@
-const int t2s_num=2900;
-const unsigned short t2s[][2]={
+const uint16_t t2s_num=2900;
+const uint16_t t2s[][2]={
 	{0x8147, 0xb6aa},
 	{0x814b, 0xb2a2},
 	{0x8153, 0xbeae},
@@ -2902,7 +2902,7 @@ const unsigned short t2s[][2]={
 	{0xfe96, 0xfe92},
 };
 
-const unsigned short t2s_m_2[][2]={
+const uint16_t t2s_m_2[][2]={
 	{0xb56f, 0xb56f},
 	{0xbe80, 0xc089},
 	{0xc7ac, 0xc7ac},
@@ -2914,5 +2914,13 @@ const unsigned short t2s_m_2[][2]={
 	{0xf04e, 0xe2c5},
 };
 
-const int t2s_num_m[]={2900,9};
+const uint16_t t2s_num_m[]={2900,9};
 const void *t2s_m[]={t2s,t2s_m_2};
+
+const uint16_t t2se_num=3;
+const uint32_t t2se[][2]={
+	{0x81308534, 0x0000a1a5},
+	{0x8136a634, 0x0000a1a4},
+	{0x81379830, 0x0000a3df},
+};
+

@@ -10,15 +10,13 @@
 // 递归添加模糊码，把to的目标编码添加到item的目标中去
 static void fuzzy_recursive(FUZZY_TABLE *ft,FUZZY_ITEM *item,const char *to)
 {
-	FUZZY_ITEM *next;
-	int i,j;
-	next=l_hash_table_lookup(ft,to);
+	FUZZY_ITEM *next=l_hash_table_lookup(ft,to);
 	if(!next)
 	{
 		// 现在的to没有模糊，所以直接返回
 		return;
 	}
-	for(i=0;i<4;i++)
+	for(int i=0;i<4;i++)
 	{
 		FUZZY_TO *pto=next->to+i;
 		const char *s=pto->code;
@@ -33,7 +31,7 @@ static void fuzzy_recursive(FUZZY_TABLE *ft,FUZZY_ITEM *item,const char *to)
 			continue;
 		}
 		// 找一个空的位置进行添加
-		for(j=0;j<4;j++)
+		for(int j=0;j<4;j++)
 		{
 			char *t=item->to[j].code;
 			if(!t[0])
@@ -41,7 +39,8 @@ static void fuzzy_recursive(FUZZY_TABLE *ft,FUZZY_ITEM *item,const char *to)
 				strcpy(t,s);
 				break;
 			}
-			if(!strcmp(s,t)) break;
+			if(!strcmp(s,t))
+				break;
 		}
 	}
 }
@@ -89,8 +88,6 @@ static void fuzzy_table_insert(FUZZY_TABLE *ft,const char *from,const char *to,i
 
 FUZZY_TABLE *fuzzy_table_load(const char *file)
 {
-	FILE *fp;
-	LHashTable *ft;
 	char line[1024];
 	char **prefix=NULL;
 	char **suffix=NULL;
@@ -99,14 +96,13 @@ FUZZY_TABLE *fuzzy_table_load(const char *file)
 		return NULL;
 	
 #ifdef FUZZY_TEST
-	fp=fopen(file,"rb");
+	FILE *fp=fopen(file,"rb");
 #else
-	fp=y_mb_open_file(file,"rb");
+	FILE *fp=y_mb_open_file(file,"rb");
 #endif
 	if(!fp)
 		return NULL;
-	// ft=l_hash_table_new((LHashFunc)fuzzy_hash,(LCmpFunc)fuzzy_cmp,401,0);
-	ft=L_HASH_TABLE_STRING(FUZZY_ITEM,from,401);
+	LHashTable *ft=L_HASH_TABLE_STRING(FUZZY_ITEM,from,401);
 	while(l_get_line(line,sizeof(line),fp)>=0)
 	{
 		if(line[0]=='#') continue;
@@ -285,7 +281,7 @@ static void fuzzy_enum_key(FUZZY_LIST *fl,const char *prev,py_item_t *input,int 
 	}
 }
 
-LArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
+LPtrArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 {
 	LArray *list;
 	FUZZY_ITEM *it;

@@ -20,7 +20,6 @@
 #include "ybus.h"
 #include "im.h"
 #include "common.h"
-#include "gbk.h"
 
 static int xim_getpid(CONN_ID conn_id);
 static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...);

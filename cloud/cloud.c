@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "gbk.h"
 #include "pinyin.h"
 #include "llib.h"
 #include "local.h"

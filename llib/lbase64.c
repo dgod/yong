@@ -40,11 +40,11 @@ static const uint8_t b64_index[128] = {
 	41,42,43,44, 45,46,47,48, 49,50,51,XX, XX,XX,XX,XX,
 };
 
-#define DEC(c) (((c)>0 && (c)<128)?b64_index[c]:XX)
+#define DEC(c) (((c)<128)?b64_index[c]:XX)
 int l_base64_decode(uint8_t *out, const char *in)
 {
 	int len = 0;
-	register uint8_t d1, d2, d3, d4;
+	uint8_t d1, d2, d3, d4;
 	do {
 		d1 = in[0];
 		if(DEC(d1) == XX) return -1;

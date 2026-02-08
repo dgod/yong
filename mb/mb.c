@@ -128,7 +128,7 @@ static int mb_slist_pos_custom(mb_slist_t h,mb_slist_t n,bool (*cb)(void *))
 	return -1;
 }
 
-static void mb_slist_foreach(mb_slist_t h,void (*cb)(void *,void *),void *user)
+static void mb_slist_foreach(mb_slist_t h,LEnumFunc cb,void *user)
 {
 	void *p=h;
 	
@@ -850,8 +850,8 @@ int y_mb_code_by_rule(struct y_mb *mb,const char *s,int len,char *outs[],char hi
 	/* find hz info */
 	for(i=0;i<len;i++)
 	{
-		uint32_t hz;
-		s=gb_next_be(s,&hz);
+		uint32_t hz=l_gb_to_char(s);
+		s=l_gb_next_char(s);
 		if(!s)
 		{
 			// printf("not pure gb18030 string %d/%d\n",i,len);
@@ -1292,13 +1292,14 @@ const char *y_mb_skip_display(const char *s,int len)
 	int surround=1;
 	while(1)
 	{
-		uint32_t hz;
-		end=gb_next_be(end,&hz);
+		uint32_t hz=l_gb_to_char(end);
+		end=l_gb_next_char(end);
 		if(!end || hz==' ')
 			return s;
 		if(hz=='$')
 		{
-			end=gb_next_be(end,&hz);
+			hz=l_gb_to_char(end);
+			end=l_gb_next_char(end);
 			if(!end)
 				return s;
 			if(hz=='[' || hz==']')
@@ -2245,6 +2246,7 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 		//printf("add code %s fail\n",code);
 		return NULL;
 	}
+
 	ci=mb_add_one_ci(mb,index,it,code,clen,data,dlen,pos,dic,revert);
 	if(mb->trie)
 	{
@@ -2259,6 +2261,10 @@ static struct y_mb_ci *mb_add_one(struct y_mb *mb,const char *code,int clen,cons
 		else
 		{
 			ret=py_conv_to_sp2(code,y_mb_skip_display(data,-1),temp,(void*)py_first_code,mb);
+			if(ret==-1 && clen<=2)
+			{
+				ret=py_conv_to_sp3(code,temp);
+			}
 		}
 		if(ret>=0)
 		{
@@ -4348,8 +4354,6 @@ static int y_mb_max_match_qp(struct y_mb *mb,const char *s,int len,int dlen,
 			n=trie_iter_path_next(&iter);
 			continue;
 		}
-		char out[65];
-		trie_iter_get_path(&iter,out);
 		if(n->leaf)
 		{
 			struct y_mb_item *item;
@@ -4359,8 +4363,9 @@ static int y_mb_max_match_qp(struct y_mb *mb,const char *s,int len,int dlen,
 			for(;c!=NULL;c=c->next)
 			{
 				if(c->del) continue;
-				if(dlen>0 && c->len!=dlen*2) continue;
+				if(dlen>0 && l_gb_strlen(c->data,c->len)!=dlen) continue;
 				if(filter && c->zi && c->ext) continue;
+				// if(mb->ctx.sp && c->zi && len>2 && 
 				if(cur<sp_len && cur>=exact)
 				{
 					exact_l=exact;
@@ -4396,7 +4401,7 @@ static int y_mb_max_match_qp(struct y_mb *mb,const char *s,int len,int dlen,
 int y_mb_max_match_fuzzy(struct y_mb *mb,const char *s,int len,int dlen,
 		int filter,int *good,int *less)
 {
-	LArray *list;
+	LPtrArray *list;
 	FUZZY_TABLE *ft=mb->fuzzy;
 	int ret;
 	assert(ft!=NULL);
@@ -4498,21 +4503,20 @@ int y_mb_max_match(struct y_mb *mb,const char *s,int len,int dlen,
 			break;
 		for(item=index->item;item;item=item->next)
 		{
-			char *key;
 			int i;
-			struct y_mb_ci *c;
-			key=mb_key_conv_r(mb,0,item->code);
+			char *key=mb_key_conv_r(mb,0,item->code);
 			for(i=0;i<left && key[i];i++)
 			{
 				if(s[i]!=key[i]) break;
 			}
 			if((key[i]==0 && i+base>exact) || i+base>match)
 			{
-				for(c=item->phrase;c;c=c->next)
+				for(struct y_mb_ci *c=item->phrase;c;c=c->next)
 				{
 					if(c->del) continue;
 					if(dlen>0 && l_gb_strlen(c->data,c->len)!=dlen) continue;
 					if(filter && c->zi && c->ext) continue;
+					if(mb->ctx.sp && c->zi && key[i]!=0) continue;
 					if(key[i]==0 && i+base>exact)
 					{
 						exact_l=exact;
@@ -4713,8 +4717,8 @@ bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s)
 		return true;
 	for(int i=0;i<count;i++)
 	{
-		uint32_t hz;
-		s=gb_next_be(s,&hz);
+		uint32_t hz=l_gb_to_char(s);
+		s=l_gb_next_char(s);
 		if(!s)
 			return false;
 		struct y_mb_zi *zi=L_HASH_TABLE_LOOKUP_INT(mb->zi,hz);
@@ -5079,7 +5083,7 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 			const char*p;
 			int i;
 			sep++;
-			char *temp=alloca(len);
+			char *temp=l_alloca(len);
 			for(p=s,i=0;p<s+len;p++)
 			{
 				if(*p=='\'') continue;
@@ -5156,20 +5160,20 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter)
 			}
 			for(/*p=index->item*/;p;p=p->next)
 			{
-				int clen;
 				struct y_mb_ci *c;
 				ret=mb_key_cmp_direct(key,p->code,(ctx->result_match?Y_MB_KEY_SIZE:left));
 				if(ret>0) continue;
 				if(mb->nsort && ret<0) continue;
 				if(ret<0) break;
 	
-				clen=mb_key_len(p->code)+base;
+				int clen=mb_key_len(p->code)+base;
 				for(c=p->phrase;c;c=c->next)
 				{
 					if(c->del) continue;
 					if(filter && c->zi && c->ext) continue;
 					if(c->zi && (mb->simple==1 || mb->simple==2) && c->simp) continue;
 					if(extern_match && !extern_match(mb,c,len,sep)) continue;
+					if(mb->ctx.sp && c->zi && len>2 && clen!=len) continue;
 					
 					if(!item)
 					{
@@ -5543,6 +5547,7 @@ int y_mb_get(struct y_mb *mb,int at,int num,
 					/* 只要非常用汉字，而当前非字或者是常用汉字 */
 					if(filter_ext && c->zi && !c->ext) continue;
 					if(extern_match && !extern_match(mb,c,len,sep)) continue;
+					if(mb->ctx.sp && c->zi && len>2 && clen!=len) continue;
 					if(ctx->result_compact==0)
 					{
 						if(c->zi && mb->compact && c->simp && clen>len && mb_simple_exist(mb,s,len,c)) continue;

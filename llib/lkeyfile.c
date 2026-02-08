@@ -23,8 +23,8 @@ typedef struct _keyvalue{
 
 struct _lkeyfile{
 	char *file;
-	int utf8;
-	int dirty;
+	bool utf8;
+	bool dirty;
 	char inherit;
 	KeyValue *line;
 	struct _lkeyfile *overlay;
@@ -48,7 +48,7 @@ LKeyFile *l_key_file_open(const char *file,int create,...)
 	else if(create!=0)
 	{
 		key_file=l_new0(LKeyFile);
-		key_file->utf8=1;
+		key_file->utf8=true;
 		key_file->file=l_strdup(file);
 	}
 	return key_file;
@@ -67,7 +67,7 @@ LKeyFile *l_key_file_load(const char *data,ssize_t length)
 	end=data+length;
 	
 	key_file=l_new0(LKeyFile);
-	key_file->utf8=1;
+	key_file->utf8=true;
 	key_file->file=NULL;
 		
 	for(count=0;data<end;count++)
@@ -91,7 +91,7 @@ LKeyFile *l_key_file_load(const char *data,ssize_t length)
 		{
 			int len=i-3+1;
 			memmove(line,line+3,len);
-			key_file->utf8=1;
+			key_file->utf8=true;
 		}
 		for(p=line;isspace(*p);p++);
 		if(p[0]=='[')
@@ -175,7 +175,7 @@ int l_key_file_save(LKeyFile *key_file,const char *path)
 			fprintf(fp,"%s=%s\n",p->key,p->value);
 	}
 	fclose(fp);
-	key_file->dirty=0;
+	key_file->dirty=false;
 	return 0;
 }
 
@@ -327,7 +327,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 		}
 		key_file->line=l_slist_remove(key_file->line,g);
 		l_keyvalue_free(g);
-		key_file->dirty++;
+		key_file->dirty=true;
 		return 0;
 	}
 	if(!g)
@@ -337,7 +337,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 		g->value=NULL;
 		g->key=l_strdup(group);
 		key_file->line=l_slist_append(key_file->line,g);
-		key_file->dirty++;
+		key_file->dirty=true;
 	}
 
 	for(p=g,prev=NULL;p->next!=NULL;prev=p,p=p->next)
@@ -353,7 +353,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 				{
 					l_free(p->value);
 					p->value=l_strdup(value);
-					key_file->dirty++;
+					key_file->dirty=true;
 				}
 			}
 			else
@@ -361,7 +361,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 				g=p->next;
 				p->next=g->next;
 				l_keyvalue_free(g);
-				key_file->dirty++;
+				key_file->dirty=true;
 			}
 			return 0;
 		}
@@ -375,7 +375,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 		g->value=l_strdup(value);
 		g->next=p->next;
 		p->next=g;
-		key_file->dirty++;
+		key_file->dirty=true;
 	}	
 
 	return 0;
@@ -457,9 +457,7 @@ const char *l_key_file_get_start_group(LKeyFile *key_file)
 char **l_key_file_get_groups(LKeyFile *key_file)
 {
 	LPtrArray list=L_PTR_ARRAY_INIT;
-	KeyValue *p;
-	
-	for(p=key_file->line;p!=NULL;p=p->next)
+	for(KeyValue *p=key_file->line;p!=NULL;p=p->next)
 	{
 		if(p->value) continue;
 		if(!p->key) continue;

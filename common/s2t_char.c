@@ -1,5 +1,5 @@
-const int s2t_num=2706;
-const unsigned short s2t[][2]={
+const uint16_t s2t_num=2706;
+const uint16_t s2t[][2]={
 	{0x8449, 0xcc8e},
 	{0x8469, 0x847d},
 	{0x8491, 0x849e},
@@ -2708,7 +2708,7 @@ const unsigned short s2t[][2]={
 	{0xfe9f, 0xfd8c},
 };
 
-const unsigned short s2t_m_2[][2]={
+const uint16_t s2t_m_2[][2]={
 	{0x9b56, 0x9db7},
 	{0xab6f, 0xab6f},
 	{0xb0a6, 0x9a47},
@@ -3070,7 +3070,7 @@ const unsigned short s2t_m_2[][2]={
 	{0xf7e1, 0xfc4e},
 };
 
-const unsigned short s2t_m_3[][2]={
+const uint16_t s2t_m_3[][2]={
 	{0xb2a2, 0x81e3},
 	{0xb2c9, 0x8c75},
 	{0xb3a2, 0x879f},
@@ -3114,7 +3114,7 @@ const unsigned short s2t_m_3[][2]={
 	{0xf4c1, 0x8bd8},
 };
 
-const unsigned short s2t_m_4[][2]={
+const uint16_t s2t_m_4[][2]={
 	{0xb2a2, 0xb870},
 	{0xb2c9, 0x92f1},
 	{0xb3a7, 0x8594},
@@ -3128,10 +3128,16 @@ const unsigned short s2t_m_4[][2]={
 	{0xcca8, 0x969f},
 };
 
-const unsigned short s2t_m_5[][2]={
+const uint16_t s2t_m_5[][2]={
 	{0xb6b7, 0xf461},
 	{0xcca8, 0xef55},
 };
 
-const int s2t_num_m[]={2706,359,41,11,2};
+const uint16_t s2t_num_m[]={2706,359,41,11,2};
 const void *s2t_m[]={s2t,s2t_m_2,s2t_m_3,s2t_m_4,s2t_m_5};
+
+const uint16_t s2te_num=1;
+const uint32_t s2te[][2]={
+	{0x0000a1a4, 0x8136a634},
+};
+

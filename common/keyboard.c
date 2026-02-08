@@ -670,10 +670,14 @@ static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int from)
 			uFlags|=TPM_TOPALIGN;
 		}
 	}
-
+	ShowWindow(kst.layout.win,SW_HIDE);
 	SetForegroundWindow(kst.layout.win);
 	int id=TrackPopupMenu(MainMenu,uFlags,pos.x,pos.y,
 		0,kst.layout.win,NULL);
+	DestroyMenu(MainMenu);
+	MainMenu=NULL;
+	PostMessage(kst.layout.win,WM_NULL,0,0);
+	ShowWindow(kst.layout.win,SW_SHOW);
 	SetForegroundWindow(hWnd);
 	if(id>0)
 		cb(id-IDC_KEYBOARD);

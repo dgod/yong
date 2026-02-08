@@ -1,7 +1,6 @@
 #include "common.h"
 #include "yong.h"
 #include "xim.h"
-#include "gbk.h"
 #include "im.h"
 #include "ui.h"
 #include "llib.h"
@@ -2039,13 +2038,14 @@ int y_im_str_desc(const char *s,void *out)
 	int surround=1;
 	while(1)
 	{
-		uint32_t hz;
-		end=gb_next_be(end,&hz);
+		uint32_t hz=l_gb_to_char(end);
+		end=l_gb_next_char(end);
 		if(!end)
 			return 0;
 		if(hz=='$')
 		{
-			end=gb_next_be(end,&hz);
+			hz=l_gb_to_char(end);
+			end=l_gb_next_char(end);
 			if(!end)
 				return 0;
 			if(hz=='[' || hz==']')

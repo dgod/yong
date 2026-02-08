@@ -1,5 +1,4 @@
 #include "llib.h"
-#include "gbk.h"
 #include "yong.h"
 
 extern EXTRA_IM EIM;
@@ -171,7 +170,7 @@ void local_load_assist(const char *fn,int pos)
 					continue;
 				if(!gb_is_gbk((uint8_t*)p))
 					continue;
-				hz=GBK_MAKE_CODE(p[0],p[1]);
+				hz=l_gb_to_char(p);
 				
 				int key=list[0][pos];
 				assist=&l_chars_assist[GBK_OFFSET(hz)][0];
@@ -200,9 +199,9 @@ bool local_assist_match(const char *p,int c)
 	char temp[256];
 	char *assist;
 	uint16_t hz;
-	if(!gb_is_gbk((uint8_t*)p))
+	if(!gb_is_gbk(p))
 		return false;
-	hz=GBK_MAKE_CODE(p[0],p[1]);
+	hz=l_gb_to_char(p);
 	assist=&l_chars_assist[GBK_OFFSET(hz)][0];
 	l_gb_to_utf8(p,temp,sizeof(temp));
 	return (c==assist[0] || c==assist[1]);
@@ -305,7 +304,6 @@ void local_load_user(const char *fn)
 			struct data_item *data;
 			strcpy(key.pinyin,list[0]);
 			item=l_hash_table_find(l_user,&key);
-			//printf("%s %p\n",list[0],item);
 			for(i=1;i<len;i++)
 			{
 				char *p=list[i];
@@ -338,7 +336,7 @@ const void *local_phrase_set(const char *pinyin)
 		return NULL;
 	if(!l_user)
 		return NULL;
-	item=l_hash_table_find(l_user,pinyin);
+	item=l_hash_table_lookup(l_user,pinyin);
 	return item;
 }
 

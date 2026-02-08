@@ -65,6 +65,7 @@ typedef struct _cset{
 	LHashTable *assoc_reset;
 	short assoc_adjust;
 	short assoc_adjust_add;
+	short assoc_adjust_code;
 }CSET;
 
 void cset_init(CSET *cs);

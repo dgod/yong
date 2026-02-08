@@ -82,22 +82,22 @@ typedef struct{
 
 
 typedef struct learn_data{
-	struct y_mb *mb;				// 对应的码表
-	uint32_t all_freq;				// 词频之和，unigram计算时用
-	uint32_t hz_freq[GB_HZ_SIZE];	// 字频表
-	int ci_count;					// 词频数量
-	CI_FREQ_ITEM_S *ci_flat;		// 使用线性数组的词频表
-	int it_count;					// 总的语料数量
-	int it_phrase;					// 三元组语料数量
-	LArray *it_data;				// 语料指针
-	int raw_size;					// 字词等数据大大小
-	uint8_t *raw_data;				// 字词数据
+	struct y_mb *mb;					// 对应的码表
+	uint32_t all_freq;					// 词频之和，unigram计算时用
+	uint32_t hz_freq[GB2312_HZ_SIZE];	// 字频表
+	int ci_count;						// 词频数量
+	CI_FREQ_ITEM_S *ci_flat;			// 使用线性数组的词频表
+	int it_count;						// 总的语料数量
+	int it_phrase;						// 三元组语料数量
+	LArray *it_data;					// 语料指针
+	int raw_size;						// 字词等数据大大小
+	uint8_t *raw_data;					// 字词数据
 	LEARN_ITEM key;
 	void *user;
-	int32_t jp_index[26][26][2];	// 简码首字母索引
+	int32_t jp_index[26][26][2];		// 简码首字母索引
 #ifdef TOOLS_LEARN
-	LHashTable *ci_index;			// 所有词的哈希索引，只在创建语料库时用
-	LHashTable *ci_freq;			// 词频表
+	LHashTable *ci_index;				// 所有词的哈希索引，只在创建语料库时用
+	LHashTable *ci_freq;				// 词频表
 	CODE_CACHE *code_cache;
 	int raw_offset;
 #endif
@@ -543,7 +543,6 @@ static int mmseg_exist(MMSEG *mm,py_item_t *input,int count)
 		trie_tree_t *t=mm->mb->trie;
 		trie_node_t *n;
 		int len=py_build_sp_string(code,input,count);
-		// int len=py_prepare_string(code,code,0);
 		n=trie_tree_get_leaf(t,code,len);
 
 		// 找不到拼音时，简单的选择单字简拼
@@ -718,7 +717,7 @@ static int mmseg_logcf(MMSEG *mm,int pos,int len,struct y_mb_ci **ci)
 			if(y_mb_is_good_code(mm->mb,code,s))
 			{			
 				if(gb_is_hz((uint8_t*)s))
-					freq=l_predict_data->hz_freq[GB_HZ_OFFSET(s)];
+					freq=l_predict_data->hz_freq[GB2312_HZ_OFFSET(s)];
 				if(pos==0 && mm->setence_begin)
 					freq=freq&1023;
 				else if(end && mm->setence_end)
@@ -2617,8 +2616,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 		len=0;
 	}
 	if(mm.count>0)
-		return mm.count;
-	
+		return mm.count;	
 	return len>0?1:0;
 }
 

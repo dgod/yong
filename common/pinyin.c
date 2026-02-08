@@ -7,7 +7,6 @@
 #include "trie.h"
 #include "ltricky.h"
 #include "llib.h"
-#include "gbk.h"
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -1683,7 +1682,8 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 	struct py_item *it;
 	
 	/* 跳过第一个字 */
-	zi=gb_next_be((const uint8_t*)zi,&hz);
+	hz=l_gb_to_char(zi);
+	zi=l_gb_next_char(zi);
 	if(!zi || hz<0x80)
 	{
 		return -1;
@@ -1691,7 +1691,8 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=gb_next_be((const uint8_t*)zi,&hz);
+		hz=l_gb_to_char(zi);
+		zi=l_gb_next_char(zi);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{
@@ -1768,7 +1769,8 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 	int count;
 	struct py_item *it;
 
-	zi=gb_next_be((const uint8_t*)zi,&hz);
+	hz=l_gb_to_char(zi);
+	zi=l_gb_next_char(zi);
 	if(!zi || hz<0x80)
 	{
 		return -1;
@@ -1776,7 +1778,8 @@ int py_conv_to_sp2(const char *s,const char *zi,char *out,int (*first_code)(uint
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=gb_next_be((const uint8_t*)zi,&hz);
+		hz=l_gb_to_char(zi);
+		zi=l_gb_next_char(zi);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{
@@ -1890,7 +1893,8 @@ int py_jp_from_qp(const char *s,const char *zi,char *out)
 		
 	while(s[0]!=0 && zi!=NULL)
 	{
-		zi=gb_next_be((const uint8_t*)zi,&hz);
+		hz=l_gb_to_char(zi);
+		zi=l_gb_next_char(zi);
 		if(!zi || hz<0x80)
 			return -1;
 		count=py_tree_get(&py_index,s,py);

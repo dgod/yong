@@ -11,7 +11,6 @@
 
 #include <sys/stat.h>
 
-#include "gbk.h"
 #include "common.h"
 #include "xim.h"
 #include "im.h"
@@ -1664,8 +1663,8 @@ static void word_to_ch_select(const char *s)
 	uint32_t temp[size];
 	while(1)
 	{
-		uint32_t hz;
-		s=gb_next_be(s,&hz);
+		uint32_t hz=l_gb_to_char(s);
+		s=l_gb_next_char(s);
 		if(!s)
 			break;
 		if(array_includes(temp,count,hz))
@@ -1969,6 +1968,8 @@ IMR_TEST:
 				if(eim->CurCandPage>=eim->CandPageCount-1)
 					return 1;
 				ret=eim->GetCandWords(PAGE_NEXT);
+				if(ret==IMR_DISPLAY && im.InAssoc && assoc_hide)
+					y_ui_timer_add(assoc_hide,(void*)YongResetIM,NULL);
 				goto IMR_TEST;
 			}
 			else if(key==key_pageup)
@@ -1976,6 +1977,8 @@ IMR_TEST:
 				if(eim->CandPageCount==0)
 					return 1;
 				ret=eim->GetCandWords(PAGE_PREV);
+				if(ret==IMR_DISPLAY && im.InAssoc && assoc_hide)
+					y_ui_timer_add(assoc_hide,(void*)YongResetIM,NULL);
 				goto IMR_TEST;
 			}
 			else if(key==key_stop && !im.StopInput)
@@ -2207,6 +2210,8 @@ IMR_TEST:
 					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
+				if(im.InAssoc && assoc_hide)
+					y_ui_timer_add(assoc_hide,(void*)YongResetIM,NULL);
 				return 1;
 			}
 			else if(key==YK_DOWN)
@@ -2224,7 +2229,8 @@ IMR_TEST:
 					YongUpdateInputDesc(eim);
 					y_ui_input_draw();
 				}
-			
+				if(im.InAssoc && assoc_hide)
+					y_ui_timer_add(assoc_hide,(void*)YongResetIM,NULL);
 				return 1;
 			}
 			else if(im.SelectMode)

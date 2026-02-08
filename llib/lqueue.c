@@ -59,16 +59,6 @@ void *l_queue_pop_head(LQueue *q)
 	return res;
 }
 
-void *l_queue_peek_head(LQueue *q)
-{
-	return q->head;
-}
-
-int l_queue_length(LQueue *q)
-{
-	return q->length;
-}
-
 void l_queue_remove(LQueue *q,void *data)
 {
 	if(data==q->tail)

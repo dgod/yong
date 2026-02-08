@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 #include "common.h"
 #include "im.h"
-#include "gbk.h"
 #include "translate.h"
 #include "ui.h"
 

@@ -57,6 +57,30 @@ int l_int_equal_r(const void *p1,const void *p2)
 		return -1;
 }
 
+int l_uint16_equal(const void *p1,const void *p2)
+{
+	uint16_t v1=*(const uint16_t*)p1;
+	uint16_t v2=*(const uint16_t*)p2;
+	if(v1>v2)
+		return 1;
+	else if(v1==v2)
+		return 0;
+	else
+		return -1;
+}
+
+int l_uint32_equal(const void *p1,const void *p2)
+{
+	uint32_t v1=*(const uint32_t*)p1;
+	uint32_t v2=*(const uint32_t*)p2;
+	if(v1>v2)
+		return 1;
+	else if(v1==v2)
+		return 0;
+	else
+		return -1;
+}
+
 int l_uint64_equal(const void *p1,const void *p2)
 {
 	uint64_t v1=*(const uint64_t*)p1;

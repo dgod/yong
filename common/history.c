@@ -1,5 +1,4 @@
 #include "common.h"
-#include "gbk.h"
 
 #include <assert.h>
 

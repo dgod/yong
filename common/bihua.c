@@ -8,7 +8,6 @@
 
 #include "llib.h"
 
-#include "gbk.h"
 #include "bihua.h"
 #include "common.h"
 

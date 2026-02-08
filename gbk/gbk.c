@@ -4,7 +4,6 @@
 
 #define YONG_IM_ENGINE
 #include "yong.h"
-#include "gbk.h"
 #include "llib.h"
 
 #define PhraseListCount EIM.CandWordTotal
@@ -361,8 +360,7 @@ static int GbkDoInput(int key)
 			uint32_t c=strtoul(CodeInput+1,0,16);
 			if(c>=0x20 && c<0x10FFFF)
 			{
-				int len=l_unichar_to_gb(c,(uint8_t*)CandTable[0]);
-				CandTable[0][len]=0;
+				l_unichar_to_gb0(c,(uint8_t*)CandTable[0]);
 				if(CandTable[0][0])
 				{
 					PhraseListCount=1;
@@ -417,7 +415,7 @@ static int GbkDoInput(int key)
 	else if(CodeLen==4)
 	{
 		long code=strtol(CodeInput,0,16);
-		unsigned char high=code>>8&0xff,low=code&0xff;
+		uint8_t high=code>>8&0xff,low=code&0xff;
 		if(high>=0x81 && high<=0xfe && high!=0x7f && 
 				low>=0x40 && low<=0xfe && low!=0x7f)
 		{
@@ -435,12 +433,10 @@ static int GbkDoInput(int key)
 	}
 	else if(CodeLen==3)
 	{
-		unsigned char high;
-		char low;
 		char tmp[3];
 		tmp[0]=CodeInput[0];tmp[1]=CodeInput[1];tmp[2]=0;
-		high=(unsigned char)strtol(tmp,0,16);
-		low=CodeInput[2];
+		uint8_t high=(uint8_t)strtol(tmp,0,16);
+		uint8_t low=CodeInput[2];
 		if(high>=0x81 && high<=0xfe && low>='4' && low<='f')
 		{
 			PhraseListCount=((low=='7' || low=='f')?15:16);

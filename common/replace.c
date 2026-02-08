@@ -1,7 +1,6 @@
 #ifndef DCFG_NO_REPLACE
 
 #include "llib.h"
-#include "gbk.h"
 #include "common.h"
 #include "translate.h"
 

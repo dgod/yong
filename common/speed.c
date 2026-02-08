@@ -1,6 +1,5 @@
 #include "common.h"
 #include "translate.h"
-#include "gbk.h"
 #include <inttypes.h>
 
 static struct y_im_speed speed_all;

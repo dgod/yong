@@ -374,6 +374,7 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 	{
 		mb_head_dump(mb,fp);
 	}
+	int has_space=y_mb_is_key(mb,' ');
 	for(index=mb->index;index;index=index->next)
 	{
 		struct y_mb_item *it=index->item;
@@ -383,6 +384,14 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 			char *data;
 			struct y_mb_ci *cp;
 			code=mb_key_conv_r(mb,index->index,it->code);
+			if(has_space)
+			{
+				for(int j=0;code[j]!=0;j++)
+				{
+					if(code[j]==' ')
+						code[j]='_';
+				}
+			}
 			cp=it->phrase;
 			if(!cp)
 			{

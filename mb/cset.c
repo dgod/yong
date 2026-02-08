@@ -40,6 +40,11 @@ void cset_init(CSET *cs)
 				cs->assoc_adjust_add=(short)atoi(s);
 			}
 			cs->calc.size=128;
+			s=EIM.GetConfig(NULL,"assoc_adjust_code");
+			if(s!=NULL)
+			{
+				cs->assoc_adjust_code=(short)atoi(s);
+			}
 		}
 	}
 	cs->calc.phrase=l_calloc(cs->calc.size,MAX_CAND_LEN+1);
@@ -489,12 +494,16 @@ void *cset_get_group_by_type(CSET *cs,int type)
 	return NULL;
 }
 
-static int cmp_with_assoc(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,LHashTable *assoc)
+static int cmp_with_assoc(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,CSET *cs)
 {
-	ASSOC_ITEM *it1=l_hash_table_lookup(assoc,(void*)s1->cand);
+	ASSOC_ITEM *it1=l_hash_table_lookup(cs->assoc,(void*)s1->cand);
+	if(it1 && !it1->code && cs->assoc_adjust_code)
+		it1=NULL;
 	if(it1 && it1->code && strcmp(it1->code,EIM.CodeInput))
 		it1=NULL;
-	ASSOC_ITEM *it2=l_hash_table_lookup(assoc,(void*)s2->cand);
+	ASSOC_ITEM *it2=l_hash_table_lookup(cs->assoc,(void*)s2->cand);
+	if(it2 && !it2->code && cs->assoc_adjust_code)
+		it2=NULL;
 	if(it2 && it2->code && strcmp(it2->code,EIM.CodeInput))
 		it2=NULL;
 	if(!it1)
@@ -560,7 +569,7 @@ out:
 	}
 	else
 	{
-		cset_array_group_sort(ga,(LCmpDataFunc)cmp_with_assoc,cs->assoc);
+		cset_array_group_sort(ga,(LCmpDataFunc)cmp_with_assoc,cs);
 		cset_group_offset((CSET_GROUP*)gmb,ga->count);
 	}
 	if(gmb && gmb->mb && cs->assoc_adjust_add!=0)

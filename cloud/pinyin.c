@@ -6,7 +6,6 @@
 #include "pinyin.h"
 #include "trie.h"
 #include "ltricky.h"
-#include "gbk.h"
 #include "llib.h"
 
 #ifndef MIN
@@ -1433,21 +1432,6 @@ int py_sp_has_semi(void)
 	return sp_semicolon;
 }
 
-static inline const char *hz_goto_next(const char *s,int *hz)
-{
-	if(gb_is_gbk((const uint8_t*)s))
-	{
-		*hz=GBK_MAKE_CODE(s[0],s[1]);
-		return s+2;
-	}
-	else if(gb_is_gb18030_ext((const uint8_t*)s))
-	{
-		*hz=0;
-		return s+4;
-	}
-	return 0;
-}
-
 static inline int hz_get_first_code(int hz)
 {
 	static const uint16_t range[]={
@@ -1481,13 +1465,14 @@ static inline int hz_get_first_code(int hz)
 
 int py_conv_to_sp(const char *s,const char *zi,char *out)
 {
-	int hz;
+	uint32_t hz;
 	int py[6];
 	int count;
 	struct py_item *it;
 	
 	/* 跳过第一个字 */
-	zi=hz_goto_next(zi,&hz);
+	hz=l_gb_to_char(zi);
+	zi=l_gb_next_char(zi);
 	if(!zi)
 	{
 		return -1;
@@ -1495,7 +1480,8 @@ int py_conv_to_sp(const char *s,const char *zi,char *out)
 	while(s[0]!=0 && zi!=NULL)
 	{
 		const char *prev=zi;
-		zi=hz_goto_next(zi,&hz);
+		hz=l_gb_to_char(zi);
+		zi=l_gb_next_char(zi);
 		count=py_tree_get(&py_index,s,py);
 		if(count<=0)
 		{

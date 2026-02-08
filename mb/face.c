@@ -905,7 +905,7 @@ static int TableUpdateAssoc(int *mode)
 	}
 	if(!g->count)
 	{
-		if(cs.assoc)
+		if(cs.assoc && mode)
 		{
 			// let assoc take effect after first reset
 			cs.assoc_reset=cs.assoc;
@@ -2900,7 +2900,8 @@ static int SPDoSearch(int adjust)
 			{
 				code[--clen]=0;
 			}
-			CodeMatch=y_mb_max_match(mb,code,clen,-1,hz_filter_temp,&good,NULL);
+			int dlen=(len==2 && !strchr(code,'\''))?1:-1;
+			CodeMatch=y_mb_max_match(mb,code,clen,dlen,hz_filter_temp,&good,NULL);
 			if(len==0) CodeMatch=0;
 			GoodMatch=py_pos_of_sp(temp,good);
 			if(CodeMatch==clen)
@@ -3917,7 +3918,10 @@ static int PinyinDoInput(int key)
 		if(EIM.CodeLen==0)
 			return IMR_NEXT;
 		if(InsertMode || CodeGetLen>0 || CodeMatch!=EIM.CodeLen)
+		{
+			EIM.ShowTip("当前处在不能删词的状态");
 			return IMR_BLOCK;
+		}
 		if(SP)
 		{
 			py_conv_from_sp(EIM.CodeInput,code,sizeof(code),0);
@@ -3930,7 +3934,10 @@ static int PinyinDoInput(int key)
 		}
 		ret=y_mb_del_phrase(mb,code,EIM.CandTable[EIM.SelectIndex]);
 		if(ret==-1)
+		{
+			EIM.ShowTip("删除失败");
 			return IMR_BLOCK;
+		}
 		TableReset();
 		return IMR_CLEAN;
 	}

@@ -1,5 +1,4 @@
 #include "common.h"
-#include "gbk.h"
 
 struct desc_item{
 	int pos;
