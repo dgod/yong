@@ -4,6 +4,14 @@ void l_noop(void)
 {
 }
 
+LWideFunc l_wide_func_new(void *func,void *context)
+{
+	LWideFunc r=malloc(sizeof(*r));
+	r->func=func;
+	r->context=context;
+	return r;
+}
+
 #if !L_USE_C11_THREADS
 
 #include "lthreads.h"
@@ -28,6 +36,13 @@ void *l_pthread_wrapper(void *param)
 	void *arg = ((void**)arr)[1];
 	l_free(param);
 	return (void*)(size_t)func(arg);
+}
+
+uint64_t l_ticks(void)
+{
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC,&t);
+	return t.tv_sec*1000+t.tv_nsec/1000000;
 }
 
 #endif

@@ -23,6 +23,7 @@
 #endif
 
 const char *y_im_get_path(const char *type);
+int y_run_tool(int t,int p,bool wait);
 
 static char server_host[32]="yong.dgod.net";
 static int server_port=443;
@@ -35,7 +36,6 @@ typedef struct{
 	int64_t res1;
 }ENC_HDR;
 
-static void status(const char *fmt,...);
 static int get_pass(char key[64]);
 
 static void pw_to_ckey(const char *pass,uint8_t ckey[16],const char *name,int size)
@@ -220,7 +220,6 @@ static char *md5_file(const char *path,const char *rel,const char *pass,uint32_t
 	void *data;
 	size_t length;
 	char temp[64];
-	int i;
 	
 	data=encrypt_file(path,rel,&length,pass);
 	if(data==NULL)
@@ -229,10 +228,7 @@ static char *md5_file(const char *path,const char *rel,const char *pass,uint32_t
 	l_md5_update(&ctx,data,length);
 	l_md5_final(&ctx);
 	l_free(data);
-	for(i=0;i<16;i++)
-	{
-		sprintf((char*)temp+i*2,"%02x",ctx.digest[i]);
-	}
+	l_bin2hex(temp,ctx.digest,sizeof(ctx.digest));
 	*size=(uint32_t)length;
 	return l_strdup((char*)temp);
 }
@@ -773,6 +769,7 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 	LHashIter iter;
 	const char *base=y_im_get_path("HOME");
 	char pass[64];
+	int sync_count=0;
 	
 	if(in_sync) return -1;
 	in_sync=1;
@@ -801,6 +798,9 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 		in_sync=0;
 		return -1;
 	}
+#if !defined(CFG_XIM_ANDROID)
+	y_run_tool(13,0,false);
+#endif
 	l_hash_iter_init(&iter,local->list);
 	while(1)
 	{
@@ -812,6 +812,7 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 		{
 			remove_local_file(base,lit->file);
 			status("删除文件\"%s\"",lit->file);
+			sync_count++;
 		}
 	}
 	l_hash_iter_init(&iter,remote->list);
@@ -830,17 +831,32 @@ int SyncDownload(CUCtrl p,int arc,char **arg)
 				file_list_free(local);
 				file_list_free(remote);
 				in_sync=0;
+#if !defined(CFG_XIM_ANDROID)
+				y_run_tool(13,1,false);
+#endif
+
 				return -1;
 			}
+			sync_count++;
 		}
 	}
 	file_list_free(local);
 	file_list_free(remote);
 	remove_empty_dir(base);
-	status("下载完成");
+#if !defined(CFG_XIM_ANDROID)
+	y_run_tool(13,sync_count?2:1,false);
+#endif
+	if(sync_count==0)
+	{
+		status("没有需要同步的文件");
+	}
+	else
+	{
+		status("同步完成");
+	}
 	in_sync=0;
 	cu_notify_reload();
-	return 0;
+	return sync_count;
 }
 
 static void set_server(void)
@@ -849,40 +865,12 @@ static void set_server(void)
 	t=l_key_file_get_data(config,"sync","server");
 	if(!t)
 		return;
-	sscanf(t,"%31s %d",server_host,&server_port);
+	l_sscanf(t,"%31s %d",server_host,&server_port);
 }
 
 #ifndef CFG_XIM_ANDROID
 
 #include "custom_sync.c"
-
-static void status(const char *fmt,...)
-{
-	CUCtrl list,p;
-	char temp[256];
-	va_list ap;
-	char *fmt2;
-	list=cu_ctrl_list_from_type(CU_LABEL);
-	for(p=list;p!=NULL;p=p->tlist)
-	{
-		if(strcmp("status",p->group))
-		{
-			continue;
-		}
-		break;
-	}
-	if(p==NULL)
-	{
-		return;
-	}
-	fmt2=cu_translate(fmt);
-	va_start(ap,fmt);
-	vsnprintf(temp,sizeof(temp),fmt2,ap);
-	va_end(ap);
-	cu_ctrl_set_self(p,temp);
-	l_free(fmt2);
-	cu_step();
-}
 
 static int get_pass(char key[64])
 {
@@ -1107,9 +1095,7 @@ static int download_clipboard(void)
 #ifdef __linux__
 	if(strlen(text)>=2*1024)
 		return -4;
-	char temp[8192];
-	l_gb_to_utf8(text,temp,sizeof(temp));
-	printf("%s",temp);
+	printf("%s",text);
 #else
 	if(0!=set_clipboard_text(text))
 	{

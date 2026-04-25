@@ -28,9 +28,8 @@ LArray *l_array_new(int count,int size)
 
 void l_array_free(LArray *array,LFreeFunc func)
 {
-	int i;
 	if(!array) return;
-	if(func && array->data) for(i=0;i<array->len;i++)
+	if(func && array->data) for(int i=0;i<array->len;i++)
 	{
 		func(array->data+i*array->size);
 	}

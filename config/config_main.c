@@ -16,6 +16,7 @@
 #include "custom.c"
 #include "sync.h"
 #include "update.h"
+#include "dict.h"
 
 LKeyFile *config;
 LXml *custom;
@@ -45,10 +46,27 @@ const char *y_im_get_path(const char *type)
 	if(!strcmp(type,"HOME"))
 	{
 		static char path[256];
-		sprintf(path,"%s/.yong",getenv("HOME"));
+		if(!path[0])
+		{
+			const char *config_home=getenv("XDG_CONFIG_HOME");
+			if(config_home==NULL)
+			{
+				sprintf(path,"%s/.config",getenv("HOME"));
+				config_home=l_strdupa(path);
+			}
+			sprintf(path,"%s/yong",config_home);
+			if(l_file_exists(path))
+			{
+				return path;
+			}
+			const char *home=getenv("HOME");
+			sprintf(path,"%s/.yong",home);
+			if(l_file_exists(path))
+				return path;
+			sprintf(path,"%s/yong",config_home);
+			l_mkdir(path,0700);
+		}
 		ret=path;
-		if(!l_file_exists(ret))
-			l_mkdir(ret,0700);
 	}
 	else
 	{
@@ -130,6 +148,8 @@ void y_im_backup_file(char *path,char *suffix)
 
 void y_im_save_config(LKeyFile *cfg,char *file)
 {
+	if(!l_key_file_get_dirty(cfg))
+		return;
 	y_im_backup_file(file,".old");	
 	l_key_file_save(cfg,y_im_get_path("HOME"));
 }
@@ -435,6 +455,11 @@ int main(int arc,char *arg[])
 		{
 			return GetSetConfigMain(arc-1,arg+1);
 		}
+		else if(!strcmp(arg[i],"--dict"))
+		{
+			i++;
+			return DictMain(arc-i,arg+i);
+		}
 	}
 	
 	temp=l_key_file_get_string(config,"main","config");
@@ -448,7 +473,12 @@ int main(int arc,char *arg[])
 		if(!custom) return -1;
 	}
 	else
-		custom=l_xml_load((const char*)config_custom);
+	{
+		char temp[20*1024];
+		int len=l_zlib_decode(temp,sizeof(temp),config_custom,sizeof(config_custom),0);
+		temp[len]=0;
+		custom=l_xml_load(temp);
+	}
 	l_free(temp);
 	
 	temp=l_key_file_get_string(config,"main","translate");

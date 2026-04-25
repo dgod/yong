@@ -22,6 +22,7 @@ enum{
 	CU_IMAGE,
 	CU_SEPARATOR,
 	CU_LINK,
+	CU_TEXTAREA,
 };
 
 typedef struct{
@@ -90,6 +91,9 @@ struct _CUMenu{
 struct _CULoopArg{
 	LXml *custom;
 	const char *app_id;
+	int argc;
+	char **argv;
+	void (*cmdline)(struct _CULoopArg *arg);
 	CUCtrl win;
 	void *priv;
 };
@@ -110,7 +114,7 @@ int cu_ctrl_init_done(CUCtrl p);
 void cu_ctrl_destroy_self(CUCtrl p);
 int cu_ctrl_show_self(CUCtrl p,int b);
 int cu_ctrl_set_self(CUCtrl p,const char *s);
-int cu_ctrl_set_prop(CUCtrl p,const char *prop);
+int cu_ctrl_set_disabled(CUCtrl p,bool disabled);
 char *cu_ctrl_get_self(CUCtrl p);
 
 void cu_config_save(void);
@@ -154,5 +158,7 @@ int cu_screen_dpi(void);
 void cu_init_all(CUCtrl ctrl,void *user);
 
 extern double CU_SCALE;
+
+void status(const char *fmt,...);
 
 #endif/*_CONFIG_UI_H_*/

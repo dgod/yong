@@ -306,13 +306,19 @@ GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,in
 		return 0;
 	}
 	{
+		char *contents;
+		size_t length;
+		if(file[0]=='<')
+		{
+			contents=l_strdup(file);
+			length=strlen(contents);
+			goto LOAD_BUF;
+		}
 		if(!ui_image_path(file,path,where))
 		{
 			// printf("get image path fail %s\n",file);
 			return NULL;
 		}
-		char *contents;
-		size_t length;
 		GdkPixbufLoader *load;
 		contents=l_file_get_contents(path,&length,NULL);
 		if(!contents)
@@ -320,6 +326,7 @@ GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,in
 			// fprintf(stderr,"load %s contents fail\n",file);
 			return NULL;
 		}
+LOAD_BUF:
 		load=gdk_pixbuf_loader_new();
 		UI_SIZE size={.w=width,.h=height};
 		g_signal_connect(load,"size-prepared",G_CALLBACK(image_size_cb),&size);
@@ -448,8 +455,8 @@ void ui_image_free(UI_IMAGE img)
 
 int ui_image_size(UI_IMAGE img,int *w,int *h)
 {
-	*w=cairo_image_surface_get_width(img);
-	*h=cairo_image_surface_get_height(img);
+	if(w) *w=cairo_image_surface_get_width(img);
+	if(h) *h=cairo_image_surface_get_height(img);
 	return 0;
 }
 

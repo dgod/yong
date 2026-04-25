@@ -9,7 +9,7 @@ const char *ui_menu_default=
 
 "[tools]\n"
 "name=工具\n"
-"child=stat sys update keymap mbo mbm mbe\n"
+"child=stat sys keymap mbo mbm mbe\n"
 
 "[stat]\n"
 "name=输入统计\n"
@@ -18,10 +18,6 @@ const char *ui_menu_default=
 "[sys]\n"
 "name=系统信息\n"
 "exec=$SYSINFO\n"
-
-"[update]\n"
-"name=软件更新\n"
-"exec=$GO(yong-config --update)\n"
 
 "[keymap]\n"
 "exec=$KEYMAP\n"
@@ -48,7 +44,7 @@ const char *ui_menu_default=
 
 "[help]\n"
 "name=帮助\n"
-"child=help0 help1 about\n"
+"child=help0 help1 about update\n"
 
 "[help0]\n"
 "exec=$HELP(main)\n"
@@ -59,6 +55,10 @@ const char *ui_menu_default=
 "[about]\n"
 "name=关于\n"
 "exec=$ABOUT\n"
+
+"[update]\n"
+"name=更新\n"
+"exec=$GO(yong-config --update)\n"
 
 "[exit]\n"
 "name=退出\n"

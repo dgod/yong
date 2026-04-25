@@ -4,8 +4,7 @@
 
 #define mb_hash_find(h,v) l_hash_table_find((h),(v))
 
-char *mb_data_conv_r(uint32_t in);
-char *mb_key_conv_r(struct y_mb *mb,uint16_t index,uintptr_t in);
+char *mb_key_conv2_r(struct y_mb *mb,uint16_t index,uint8_t *in);
 void mb_rule_dump(struct y_mb *mb,FILE *fp);
 int mb_load_data(struct y_mb *mb,FILE *fp,int dic);
 
@@ -15,16 +14,16 @@ int y_mb_pick(struct y_mb *mb,FILE *fp,int option,int clen,int dlen,int filter,c
 
 	if(!mb)
 		return 0;
-	for(index=mb->index;index;index=index->next)
+	for(index=mb->index;index;index=L_CPTR(index->next))
 	{
-		struct y_mb_item *it=index->item;
+		struct y_mb_item *it=L_CPTR(index->item);
 		while(it)
 		{
 			char *code;
 			char *data;
 			struct y_mb_ci *cp;
-			code=mb_key_conv_r(mb,index->index,it->code);				
-			cp=it->phrase;
+			code=mb_key_conv2_r(mb,index->index,it->code);				
+			cp=L_CPTR(it->phrase);
 			if(clen && clen!=strlen(code))
 			{
 			}
@@ -67,10 +66,10 @@ int y_mb_pick(struct y_mb *mb,FILE *fp,int option,int clen,int dlen,int filter,c
 					if(pre) fprintf(fp,"%s",pre);
 					fprintf(fp,"%s %s\n",code,y_mb_ci_string(cp));
 dump_next:
-					cp=cp->next;
+					cp=L_CPTR(cp->next);
 				}
 			}
-			it=it->next;
+			it=L_CPTR(it->next);
 		}
 	}
 	return 0;
@@ -101,45 +100,6 @@ int y_mb_encode(struct y_mb *mb,FILE *fp,char *fn)
 		{
 			char *codes[]={code,NULL};
 			if(0==y_mb_code_by_rule(mb,line,strlen(line),codes,NULL))
-			{
-				fprintf(fp,"%s %s\n",code,line);
-			}
-		}
-	}
-	if(in!=stdin)
-		fclose(in);
-	return 0;
-}
-
-int y_mb_encode_py(struct y_mb *mb,FILE *fp,char *fn)
-{
-	FILE *in;
-	char line[Y_MB_DATA_SIZE+1];
-	char code[Y_MB_KEY_SIZE+1];
-	int len;
-	char *p;
-	
-	if(!strcmp(fn,"-"))
-		in=stdin;
-	else
-		in=fopen(fn,"r");
-	if(!in)
-		return -1;
-	for(;(len=l_get_line(line,sizeof(line),in))>=0;)
-	{
-		/* if it is null line */
-		if(len==0 || line[0]==0)
-			continue;
-		/* skip space and english */
-		p=line;	while(p[0] && !(p[0]&0x80)) p++;
-		if(y_mb_get_exist_code(mb,p,code) && strlen(code)<=11)
-		{
-			fprintf(fp,"%s %s\n",code,line);
-		}
-		else
-		{
-			char *codes[]={code,NULL};
-			if(0==y_mb_code_by_rule(mb,p,strlen(line),codes,NULL))
 			{
 				fprintf(fp,"%s %s\n",code,line);
 			}
@@ -244,31 +204,6 @@ int main(int arc,char *arg[])
 }
 #endif
 
-static void mb_zi_virt_count(struct y_mb_zi *z,int *count)
-{
-	/* don't dump virt code of not main */
-	if(!z->code)
-		return;
-	if(z->code->virt && z->code->main)
-		(*count)++;
-}
-
-static void mb_zi_virt_store(struct y_mb_zi *z,struct y_mb_zi ***pz)
-{
-	/* is z removed or moved z->code will be 0 */
-	if(!z->code || !z->code->virt || !z->code->main)
-		return;
-	**pz=z;
-	*pz=(*pz)+1;
-}
-
-static int mb_zi_virt_cmp(const void *p1,const void *p2)
-{
-	struct y_mb_zi *z1=*(struct y_mb_zi**)p1;
-	struct y_mb_zi *z2=*(struct y_mb_zi**)p2;
-	return y_mb_code_cmp(z1->code,z2->code,Y_MB_KEY_SIZE);
-}
-
 #ifndef CFG_XIM_ANDROID
 
 static void mb_head_dump(struct y_mb *mb,FILE *fp)
@@ -361,6 +296,28 @@ static void mb_head_dump(struct y_mb *mb,FILE *fp)
 	fprintf(fp,"[DATA]\n");
 }
 
+static int mb_zi_virt_cmp_ptr(const struct y_mb_zi *z1,const struct y_mb_zi *z2)
+{
+	return y_mb_code_cmp(L_CPTR(z1->code),L_CPTR(z2->code),Y_MB_KEY_SIZE);
+}
+
+static LPtrArray *collect_adjust_zi(LHashTable *zi)
+{
+	LPtrArray *arr=l_ptr_array_new(101);
+	LHashIter iter;
+	struct y_mb_zi *data;
+	l_hash_iter_init(&iter,zi);
+	while((data=l_hash_iter_next(&iter))!=NULL)
+	{
+		struct y_mb_code *c=L_CPTR(data->code);
+		if(!c->virt)
+			continue;
+		l_ptr_array_append(arr,data);
+	}
+	l_ptr_array_sort(arr,(LCmpFunc)mb_zi_virt_cmp_ptr);
+	return arr;
+}
+
 
 
 int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
@@ -375,15 +332,15 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 		mb_head_dump(mb,fp);
 	}
 	int has_space=y_mb_is_key(mb,' ');
-	for(index=mb->index;index;index=index->next)
+	for(index=mb->index;index;index=L_CPTR(index->next))
 	{
-		struct y_mb_item *it=index->item;
+		struct y_mb_item *it=L_CPTR(index->item);
 		while(it)
 		{
 			char *code;
 			char *data;
 			struct y_mb_ci *cp;
-			code=mb_key_conv_r(mb,index->index,it->code);
+			code=mb_key_conv2_r(mb,index->index,it->code);
 			if(has_space)
 			{
 				for(int j=0;code[j]!=0;j++)
@@ -392,7 +349,7 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 						code[j]='_';
 				}
 			}
-			cp=it->phrase;
+			cp=L_CPTR(it->phrase);
 			if(!cp)
 			{
 				//fprintf(fp,"%s\n",code);
@@ -405,7 +362,7 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 			{
 				struct y_mb_ci *h=cp;
 				int has_zi=0,has_ci=0,cped=0;
-				for(;cp!=NULL;cp=cp->next)
+				for(;cp!=NULL;cp=L_CPTR(cp->next))
 				{
 					if(cp->del)
 						continue;
@@ -449,7 +406,7 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 				{
 					cped=0;
 					int pos=0;
-					for(cp=h;cp!=NULL;cp=cp->next,pos++)
+					for(cp=h;cp!=NULL;cp=L_CPTR(cp->next),pos++)
 					{
 						if(cp->del)
 							continue;
@@ -540,59 +497,33 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre)
 						else
 							fprintf(fp," %s",data);
 					}
-					else if(format==MB_FMT_WIN)
-					{
-						if(pre) fprintf(fp,"%s",pre);
-						fprintf(fp,"%s%s\n",y_mb_ci_string(cp),code);
-					}
-					else if(format==MB_FMT_FCITX)
-					{
-						if(pre) fprintf(fp,"%s",pre);
-						fprintf(fp,"%s %s\n",code,y_mb_ci_string(cp));
-					}
-					else if(format==MB_FMT_SCIM)
-					{
-						if(pre) fprintf(fp,"%s",pre);
-						fprintf(fp,"%s\t%s\t0\n",code,y_mb_ci_string(cp));
-					}
 dump_next:
-					cp=cp->next;
+					cp=L_CPTR(cp->next);
 				}
 				if(cped && format==MB_FMT_YONG)
 					fprintf(fp,"\n");
 			}
-			it=it->next;
+			it=L_CPTR(it->next);
 		}
 	}
 	if(format==MB_FMT_YONG && (option&MB_DUMP_ADJUST) && mb->zi)
 	{
-		int count=0;
-		mb_hash_foreach(mb->zi,(LEnumFunc)mb_zi_virt_count,&count);
-		if(count>0)
+		LPtrArray *arr=collect_adjust_zi(mb->zi);
+		for(int i=0;i<l_ptr_array_length(arr);i++)
 		{
-			struct y_mb_zi **list,**p;
-			int i;
-			p=list=calloc(count,sizeof(struct y_mb_zi*));
-			mb_hash_foreach(mb->zi,(LEnumFunc)mb_zi_virt_store,&p);
-			qsort(list,count,sizeof(struct y_mb_zi*),mb_zi_virt_cmp);
-			for(i=0;i<count;i++)
-			{
-				struct y_mb_zi *z=list[i];
-				char code[Y_MB_KEY_SIZE+1],data[8];
-				y_mb_code_get_string(mb,z->code,code);
-				int len=l_char_to_gb(z->data,data);
-				data[len]=0;
-				fprintf(fp,"^%s %s\n",code,data);
-			}
-			free(list);
+			struct y_mb_zi *z=l_ptr_array_nth(arr,i);
+			char code[Y_MB_KEY_SIZE+1],data[8];
+			y_mb_code_get_string(mb,L_CPTR(z->code),code);
+			l_char_to_gb0(z->data,data);
+			fprintf(fp,"^%s %s\n",code,data);
 		}
+		l_ptr_array_free(arr,NULL);
 	}
 	return 0;
 }
 
 int y_mb_pick(struct y_mb *mb,FILE *fp,int option,int clen,int dlen,int filter,char *pre);
 int y_mb_encode(struct y_mb *mb,FILE *fp,char *fn);
-int y_mb_encode_py(struct y_mb *mb,FILE *fp,char *fn);
 int y_mb_diff(struct y_mb *mb,FILE *fp,char *fn,int strict);
 
 static inline char y_mb_code_n_key(struct y_mb *mb,struct y_mb_code *c,int i)
@@ -616,7 +547,7 @@ static int mb_code_least(struct y_mb *mb,struct y_mb_zi *z,char *code)
 	int len;
 	int ret=Y_MB_KEY_SIZE;
 	int key;
-	for(c=z->code;c;c=c->next)
+	for(c=L_CPTR(z->code);c;c=L_CPTR_NEXT(c))
 	{
 		int space=1;
 		if(c->virt) continue;
@@ -652,17 +583,15 @@ struct mb_stat{
 
 static void mb_stat_cb(struct y_mb_zi *z,struct mb_stat *st)
 {
-	char *s;
-	int len;
-	
-	s=mb_data_conv_r(z->data);
+	char s[8];
+	l_char_to_gb(z->data,s);
 	if(gb_is_biaodian((uint8_t*)s))
 		return;
 	if(st->level && !gb_is_hz((uint8_t*)s))
 		return;
 	if(st->level==1 && !gb_is_hz1((uint8_t*)s))
 		return;
-	len=mb_code_least(st->mb,z,0);
+	int len=mb_code_least(st->mb,z,0);
 	if(len<=3)
 		st->count[len-1]++;
 }
@@ -859,18 +788,7 @@ L_EXPORT(int tool_main(int arc,char **arg))
 		char *pre=NULL;
 		for(i=3;i<arc;i++)
 		{
-			if(!strncmp(arg[i],"--format=",9))
-			{
-				if(!strcmp(arg[i]+9,"win"))
-					format=MB_FMT_WIN;
-				else if(!strcmp(arg[i]+9,"fcitx"))
-					format=MB_FMT_FCITX;
-				else if(!strcmp(arg[i]+9,"scim"))
-					format=MB_FMT_SCIM;
-				else if(!strcmp(arg[i]+9,"yong"))
-					format=MB_FMT_YONG;
-			}
-			else if(!strncmp(arg[i],"--option=",9))
+			if(!strncmp(arg[i],"--option=",9))
 			{
 				char **list;
 				int j;
@@ -959,13 +877,6 @@ L_EXPORT(int tool_main(int arc,char **arg))
 		}
 		//printf("%x %d %d\n",option,clen,dlen);
 		y_mb_pick(mb,fp,option,clen,dlen,filter,pre);
-	}
-	else if(!strcmp(arg[2],"encode_py"))
-	{
-		for(i=3;i<arc;i++)
-		{
-			y_mb_encode_py(mb,fp,arg[i]);
-		}
 	}
 	else if(!strcmp(arg[2],"encode"))
 	{

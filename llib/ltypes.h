@@ -39,10 +39,22 @@
 
 typedef void (*LEnumFunc)(void *data,void *user);
 typedef void (*LFreeFunc)(void *data);
+typedef void (*LUserFunc)(void *data);
 typedef int (*LCmpFunc)(const void *p1,const void *p2);
 typedef int (*LCmpDataFunc)(const void *p1,const void *p2,void *user);
 typedef unsigned (*LHashFunc)(const void *key);
 typedef LCmpFunc LEqualFunc;
+
+typedef struct{
+	void (*func)(void *,...);
+	void *context;
+}*LWideFunc;
+LWideFunc l_wide_func_new(void *func,void *context);
+#define l_wide_func_call(_func_type,_func,...)								\
+({																			\
+ 	LWideFunc func=(LWideFunc)_func;										\
+ 	((_func_type)(func->func))(__VA_ARGS__ __VA_OPT__(,) func->context);	\
+})
 
 enum{
 	L_TYPE_VOID=0,
@@ -60,7 +72,10 @@ typedef struct{
 		long v_int;
 		double v_float;
 		void *v_pointer;
-		int v_op;
+		struct{
+			int v_op;
+			int v_info;
+		};
 	};
 }LVariant;
 
@@ -72,7 +87,8 @@ typedef struct{
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #endif
 
-#define LPTR_TO_INT(p) ((int)(size_t)(p))
+#define LPTR_TO_INT(p) ((int32_t)(size_t)(p))
+#define LPTR_TO_UINT(p) ((uint32_t)(size_t)(p))
 #define LINT_TO_PTR(i) ((void*)(size_t)(i))
 
 #define L_LITTLE_ENDIAN		1234

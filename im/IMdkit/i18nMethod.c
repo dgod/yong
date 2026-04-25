@@ -89,7 +89,7 @@ TransportSW _TransR[] =
 #ifdef DNETCONN
     {"decnet",          6, _Xi18nCheckTransAddress},
 #endif
-    {(char *) NULL,     0, (Bool (*) ()) NULL}
+    {(char *) NULL,     0, (Bool (*) (Xi18n, TransportSW *, char *)) NULL}
 };
 
 static Bool GetInputStyles (Xi18n i18n_core, XIMStyles **p_style)

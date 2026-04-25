@@ -44,9 +44,11 @@ int y_im_load_app_config(void)
 		l_key_file_free(key_file);
 		return 0;
 	}
-	app=L_HASH_TABLE_STRING(struct app_item,exe,0);
-	int i;
-	for(i=0;i<count;i++)
+	if(app)
+		l_hash_table_clear(app,(LFreeFunc)app_item_free);
+	else
+		app=L_HASH_TABLE_STRING(struct app_item,exe,0);
+	for(int i=0;i<count;i++)
 	{
 		const char *group,*exe,*val;
 		LKeyFile *config=NULL;
@@ -100,6 +102,7 @@ int y_im_load_app_config(void)
 void y_im_free_app_config(void)
 {
 	l_hash_table_free(app,(LFreeFunc)app_item_free);
+	app=NULL;
 }
 
 LKeyFile *y_im_get_app_config(const char *exe)

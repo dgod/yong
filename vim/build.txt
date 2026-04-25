@@ -1,4 +1,4 @@
-var SRCS=['vim.c'];
+var SRCS=['vim.c','tools.c'];
 var OBJS=wildcard(SRCS,function(input){
 		return input.replace(/\.c$/,'.o');
 	});

@@ -26,6 +26,8 @@ if(target=="clean"){
 	rmdir(DIRS,'*');
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
+} else if(target=="test"){
+	exec("install l64/libgbk.so ../install/yong/l64/");
 } else {
 	run(target);
 }

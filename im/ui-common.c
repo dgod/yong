@@ -137,6 +137,18 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 	return p;
 }
 
+UI_IMAGE ui_image_load_page(int size,UI_COLOR color,bool up)
+{
+	static const char *path_up="M 56.1875 5.953125 L 56.1875 -54.203125 L 4.09375 -24.125 Z M 56.1875 5.953125 ";
+	static const char *path_down="M 7.8125 5.953125 L 59.90625 -24.125 L 7.8125 -54.203125 Z M 7.8125 5.953125 ";
+	char svg[1024];
+	int pos=sprintf(svg,"<svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">");
+	pos+=sprintf(svg+pos,"<path fill=\"#%02x%02x%02x\" fill-opacity=\"1\" transform=\"translate(0,56.240234)\" d=\"%s\"/>",
+			color.r,color.g,color.b,(up?path_up:path_down));
+	pos+=sprintf(svg+pos,"</svg>");
+	return ui_image_load_at_size(svg,size,size,0);
+}
+
 #ifdef _WIN32
 
 
@@ -256,6 +268,9 @@ struct{
 		double scale;
 		UI_FONT layout;
 		UI_COLOR color;
+		UI_IMAGE up[2];
+		UI_IMAGE down[2];
+		int space;
 	}page;
 }InputTheme;
 
@@ -360,7 +375,7 @@ static int ui_button_event(UI_WINDOW win,UI_EVENT *event,UI_BTN_REAL **under)
 			if(cur==btns+UI_BTN_MENU)
 				ui_popup_menu(event);
 			else if(cur==btns+UI_BTN_KEYBOARD)
-				y_kbd_popup_menu();
+				y_kbd_popup_menu(1);
 		}
 		break;
 	case UI_EVENT_MOVE:
@@ -717,6 +732,21 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 		ui_fill_rect(ctx,x,y,w,h,color);
 	}
 
+	if(/*!im.EnglishMode && */eim && eim->CandPageCount>1 && InputTheme.page.show)
+	{
+		if(InputTheme.page.text[0]==1 && InputTheme.page.up[0])
+		{
+			double pos_x,pos_y;
+			pos_x=im.PagePosX;
+			pos_y=im.PagePosY;
+			UI_IMAGE up=eim->CurCandPage>0?InputTheme.page.up[0]:InputTheme.page.up[1];
+			ui_draw_image(ctx,up,pos_x,pos_y);
+			UI_IMAGE down=eim->CurCandPage<eim->CandPageCount-1?InputTheme.page.down[0]:InputTheme.page.down[1];
+			ui_draw_image(ctx,down,pos_x+im.PageLen[0]+im.PageLen[1],pos_y);
+		}
+	}
+
+
 	ui_draw_text_begin(ctx);
 
 	if(eim && eim->StringGet[0] && !(y_xim_get_onspot() && InputTheme.line==1 && im.Preedit==1))
@@ -735,7 +765,7 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 		pos_x=im.PagePosX;
 		pos_y=im.PagePosY;
 		UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
-		if(InputTheme.page.text[0])
+		if(InputTheme.page.text[0]>1)
 		{
 #ifdef _WIN32
 			WCHAR temp[8];
@@ -761,6 +791,9 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 			color=eim->CurCandPage<eim->CandPageCount-1?InputTheme.text[4]:InputTheme.page.color;
 			ui_draw_text(ctx,font,pos_x+im.PageLen[0]+im.PageLen[1],pos_y,temp,color);
 		}
+		else if(InputTheme.page.text[0]==1 && InputTheme.page.up[0])
+		{
+		}
 		else
 		{
 			ui_draw_text(ctx,font,pos_x,pos_y,im.Page,InputTheme.text[4]);
@@ -772,9 +805,11 @@ static void ui_draw_input_win(DRAW_CONTEXT1 *ctx)
 		double *posx=im.CandPosX+3*i;
 		double *posy=im.CandPosY+3*i;
 
-		if(InputTheme.no==0)
+		if(InputTheme.no==0 || InputTheme.no==2)
 		{
 			color=InputTheme.text[0];
+			if(i==eim->SelectIndex && InputTheme.no==2)
+				color=InputTheme.text[1];
 			if(i==eim->SelectIndex && InputTheme.bg_first.a!=0)
 				color=InputTheme.text[1];
 			ui_draw_text(ctx,InputTheme.layout,posx[0],posy[0],YongGetSelectNumber(i),color);

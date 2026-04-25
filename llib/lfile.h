@@ -23,7 +23,7 @@ int l_remove(const char *name);
 bool l_file_is_dir(const char *path);
 int l_access(const char *path,int mode);
 bool l_file_exists(const char *path);
-time_t l_file_mtime(const char *path);
+int64_t l_file_mtime(const char *path);
 ssize_t l_file_size(const char *path);
 ssize_t l_filep_size(FILE *fp);
 int l_file_touch(const char *path,int64_t mtime);
@@ -35,5 +35,9 @@ int l_get_line(char *line, size_t n, FILE *fp);
 char *l_fullpath(char *abs,const char *rel,size_t size);
 char *l_getcwd(void);
 char *l_path_resolve(const char *path);
+const char *l_path_extname(const char *path);
+
+#define L_WATCH_SUBTREE		1
+bool l_path_watch(const char *path,void (*cb)(const char *name),int flags);
 
 #endif/*_LFILE_H_*/

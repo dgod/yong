@@ -4,40 +4,42 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#include "ltypes.h"
-#include "lmem.h"
-#include "lkeyfile.h"
-#include "lslist.h"
-#include "lfile.h"
-#include "lmacros.h"
-#include "larray.h"
-#include "lstring.h"
-#include "lconv.h"
-#include "ltricky.h"
+#include "llib.h"
 
 typedef struct _keyvalue{
 	struct _keyvalue *next;
-	char *key;
 	char *value;
+	char key[];
 }KeyValue;
+static_assert(sizeof(KeyValue)==2*sizeof(void*),"KeyValue size not compacted");
 
 struct _lkeyfile{
 	char *file;
-	bool utf8;
 	bool dirty;
 	char inherit;
 	KeyValue *line;
 	struct _lkeyfile *overlay;
 };
 
+static KeyValue *kv_create(const char *key,const char *value)
+{
+	int key_len=key?strlen(key):0;
+	KeyValue *kv=l_alloc(sizeof(KeyValue)+key_len+1);
+	kv->value=value?l_strdup(value):NULL;
+	if(key)
+		strcpy(kv->key,key);
+	else
+		kv->key[0]=0;
+	return kv;
+}
+
 LKeyFile *l_key_file_open(const char *file,int create,...)
 {
 	LKeyFile *key_file=NULL;
-	char *data;
 	size_t length;
 	va_list ap;
 	va_start(ap,create);
-	data=l_file_vget_contents(file,&length,ap);
+	char *data=l_file_vget_contents(file,&length,ap);
 	va_end(ap);
 	if(data!=NULL)
 	{
@@ -48,7 +50,6 @@ LKeyFile *l_key_file_open(const char *file,int create,...)
 	else if(create!=0)
 	{
 		key_file=l_new0(LKeyFile);
-		key_file->utf8=true;
 		key_file->file=l_strdup(file);
 	}
 	return key_file;
@@ -56,70 +57,43 @@ LKeyFile *l_key_file_open(const char *file,int create,...)
 
 LKeyFile *l_key_file_load(const char *data,ssize_t length)
 {
-	LKeyFile *key_file;
-	KeyValue *kv;
-	const char *end=data;
-	char line[1024];
-	int count;
-	
 	if(length==-1)
 		length=strlen(data);
-	end=data+length;
-	
-	key_file=l_new0(LKeyFile);
-	key_file->utf8=true;
-	key_file->file=NULL;
-		
-	for(count=0;data<end;count++)
+	const char *end=data+length;
+	if(length>=3 && !memcmp(data,"\xef\xbb\xbf",3))
+		data+=3;
+	LKeyFile *key_file=l_new0(LKeyFile);		
+	while(data<end)
 	{
+		char line[1024];
 		int i;
-		char *p;
-
 		for(i=0;i<sizeof(line)-1 && data<end;)
 		{
 			int c=*data++;
 			if(c=='\r') continue;
-			if(c=='\n')
-			{
-				break;
-			}
+			if(c=='\n')	break;
 			line[i++]=c;
 		}
 		line[i]=0;
-		l_str_trim_right(line);
-		if(count==0 && !memcmp(line,"\xef\xbb\xbf",3))
-		{
-			int len=i-3+1;
-			memmove(line,line+3,len);
-			key_file->utf8=true;
-		}
-		for(p=line;isspace(*p);p++);
+		char *p=l_str_trim(line);
+		KeyValue *kv;
 		if(p[0]=='[')
 		{
 			char *d=strchr(p+1,']');
 			if(!d) continue;
 			*d=0;
-			kv=l_new0(KeyValue);
-			kv->key=l_strdup(p+1);
+			kv=kv_create(p+1,NULL);
 		}
 		else if(p[0]=='#' || p[0]==';' || !p[0])
 		{
-			kv=l_new0(KeyValue);
-			kv->value=l_strdup(p);
+			kv=kv_create(NULL,p);
 		}
 		else
 		{
 			char *d=strchr(p,'=');
-			if(!d) continue;
+			if(!d || d==p) continue;
 			*d++=0;
-			kv=l_new(KeyValue);
-			kv->key=l_strdup(p);
-			for(p=kv->key;*p && !isspace(*p);p++)
-			{
-			}
-			*p=0;
-			for(p=d;!(*p&0x80) && isspace(*p);p++);
-			kv->value=l_strdup(p);
+			kv=kv_create(l_str_trim_right(p),l_str_trim_left(d));
 		}
 		key_file->line=l_slist_append(key_file->line,kv);
 	}
@@ -128,7 +102,6 @@ LKeyFile *l_key_file_load(const char *data,ssize_t length)
 
 static void l_keyvalue_free(KeyValue *k)
 {
-	l_free(k->key);
 	l_free(k->value);
 	l_free(k);
 }
@@ -143,33 +116,27 @@ void l_key_file_free(LKeyFile *key_file)
 
 int l_key_file_save(LKeyFile *key_file,const char *path)
 {
-	FILE *fp;
-	KeyValue *p;
 	if(!key_file || !key_file->file)
 	{
-		printf("bad key file\n");
+		// printf("bad key file\n");
 		return -1;
 	}
 	if(!key_file->dirty)
 	{
-		//printf("not dirty\n");
 		return 0;
 	}
-	fp=l_file_open(key_file->file,"w",path,0);
+	FILE *fp=l_file_open(key_file->file,"w",path,0);
 	if(!fp)
 	{
-		printf("open key file fail\n");
+		// printf("open key file fail: %s\n",key_file->file);
 		return -1;
 	}
-	if(key_file->utf8)
-	{
-		fprintf(fp,"\xef\xbb\xbf");
-	}
-	for(p=key_file->line;p!=NULL;p=p->next)
+	fprintf(fp,"\xef\xbb\xbf");
+	for(KeyValue *p=key_file->line;p!=NULL;p=p->next)
 	{
 		if(!p->value)
 			fprintf(fp,"[%s]\n",p->key);
-		else if(!p->key)
+		else if(!p->key[0])
 			fprintf(fp,"%s\n",p->value);
 		else
 			fprintf(fp,"%s=%s\n",p->key,p->value);
@@ -179,10 +146,24 @@ int l_key_file_save(LKeyFile *key_file,const char *path)
 	return 0;
 }
 
+static KeyValue *get_group(LKeyFile *key_file,const char *group)
+{
+	for(KeyValue *p=key_file->line;p!=NULL;p=p->next)
+	{
+		if(p->value) continue;
+		if(!strcmp(p->key,group))
+			return p;
+	}
+	return NULL;
+}
+
 const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char *key)
 {
 	KeyValue *p;
 	KeyValue *g=NULL;
+
+	if(!key_file || !group || !key)
+		return NULL;
 
 	if(key_file->overlay)
 	{
@@ -192,24 +173,15 @@ const char *l_key_file_get_data(LKeyFile *key_file,const char *group,const char 
 	}
 
 PARENT:
-	for(p=key_file->line;p!=NULL;p=p->next)
-	{
-		if(p->value) continue;
-		if(!strcmp(p->key,group))
-		{
-			g=p;
-			break;
-		}
-	}
+	g=get_group(key_file,group);
 	if(!g)
 	{
 		return NULL;
 	}
 
-	for(p=p->next;p!=NULL;p=p->next)
+	for(p=g->next;p!=NULL;p=p->next)
 	{
 		if(!p->value) break;
-		if(!p->key) continue;
 		if(!strcmp(p->key,key))
 		{
 			return p->value;
@@ -283,7 +255,7 @@ char *l_key_file_get_string_gb(LKeyFile *key_file,const char *group,const char *
 	char *s=l_key_file_get_string(key_file,group,key);
 	if(!s)
 		return NULL;
-	if(!key_file->utf8)
+	if(l_str_is_ascii(s))
 		return s;
 	char temp[256];
 	l_utf8_to_gb(s,temp,sizeof(temp));
@@ -302,20 +274,11 @@ int l_key_file_get_int(LKeyFile *key_file,const char *group,const char *key)
 int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,const char *value)
 {
 	KeyValue *p;
-	KeyValue *g=NULL;
 	KeyValue *prev;
 	
 	if(!group)
 		return -1;
-	for(p=key_file->line;p!=NULL;p=p->next)
-	{
-		if(p->value) continue;
-		if(!strcmp(p->key,group))
-		{
-			g=p;
-			break;
-		}
-	}
+	KeyValue *g=get_group(key_file,group);
 	if(unlikely(!key))
 	{
 		if(!g) return 0;
@@ -333,9 +296,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 	if(!g)
 	{
 		if(!key) return 0;
-		g=l_new(KeyValue);
-		g->value=NULL;
-		g->key=l_strdup(group);
+		g=kv_create(group,NULL);
 		key_file->line=l_slist_append(key_file->line,g);
 		key_file->dirty=true;
 	}
@@ -343,7 +304,7 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 	for(p=g,prev=NULL;p->next!=NULL;prev=p,p=p->next)
 	{
 		if(!p->next->value) break;
-		if(!p->next->key) continue;
+		if(!p->next->key[0]) continue;
 		if(!strcmp(p->next->key,key))
 		{
 			if(value)
@@ -368,11 +329,9 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 	}
 	if(value)
 	{
-		if(prev && !p->key)
+		if(prev && !p->key[0])
 			p=prev;
-		g=l_new(KeyValue);
-		g->key=l_strdup(key);
-		g->value=l_strdup(value);
+		g=kv_create(key,value);
 		g->next=p->next;
 		p->next=g;
 		key_file->dirty=true;
@@ -428,25 +387,23 @@ int l_key_file_set_int(LKeyFile *key_file,const char *group,const char *key,int 
 
 void l_key_file_set_dirty(LKeyFile *key_file)
 {
-	key_file->dirty=1;
+	key_file->dirty=true;
+}
+
+bool l_key_file_get_dirty(LKeyFile *key_file)
+{
+	return key_file->dirty;
 }
 
 bool l_key_file_has_group(LKeyFile *key_file,const char *group)
 {
-	KeyValue *g;
-	for(g=key_file->line;g!=NULL;g=g->next)
-	{
-		if(g->value) continue;
-		if(!strcmp(g->key,group))
-			return true;
-	}
-	return false;
+	KeyValue *g=get_group(key_file,group);
+	return g!=NULL;
 }
 
 const char *l_key_file_get_start_group(LKeyFile *key_file)
 {
-	KeyValue *g;
-	for(g=key_file->line;g!=NULL;g=g->next)
+	for(KeyValue *g=key_file->line;g!=NULL;g=g->next)
 	{
 		if(g->value) continue;
 		return g->key;
@@ -457,10 +414,12 @@ const char *l_key_file_get_start_group(LKeyFile *key_file)
 char **l_key_file_get_groups(LKeyFile *key_file)
 {
 	LPtrArray list=L_PTR_ARRAY_INIT;
-	for(KeyValue *p=key_file->line;p!=NULL;p=p->next)
+	KeyValue *p;
+	
+	for(p=key_file->line;p!=NULL;p=p->next)
 	{
 		if(p->value) continue;
-		if(!p->key) continue;
+		if(!p->key[0]) continue;
 		l_ptr_array_append(&list,l_strdup(p->key));
 	}
 	l_ptr_array_append(&list,NULL);
@@ -469,22 +428,13 @@ char **l_key_file_get_groups(LKeyFile *key_file)
 
 char **l_key_file_get_keys(LKeyFile *key_file,const char *group)
 {
-	KeyValue *p;
-
-	for(p=key_file->line;p!=NULL;p=p->next)
-	{
-		if(p->value) continue;
-		if(!strcmp(p->key,group))
-		{
-			break;
-		}
-	}
+	KeyValue *p=get_group(key_file,group);
 	if(!p) return NULL;
 	LPtrArray list=L_PTR_ARRAY_INIT;
 	for(p=p->next;p!=NULL;p=p->next)
 	{
 		if(!p->value) break;
-		if(!p->key) continue;
+		if(!p->key[0]) continue;
 		l_ptr_array_append(&list,l_strdup(p->key));
 	}
 	l_ptr_array_append(&list,NULL);

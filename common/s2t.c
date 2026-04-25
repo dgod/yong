@@ -11,6 +11,8 @@
 #include "common.h"
 #include "xim.h"
 
+#define USE_HASH_PHRASE	0
+
 #include "s2t_char.c"
 #include "s2t_phrase.c"
 #include "t2s_char.c"
@@ -49,6 +51,7 @@ int s2t_is_enable(void)
 	return s2t_open;
 }
 
+#if USE_HASH_PHRASE
 static unsigned hash_func(const char *in,int len)
 {
 	unsigned int ha=0;
@@ -56,23 +59,80 @@ static unsigned hash_func(const char *in,int len)
 		ha=ha*33+*(unsigned char*)in++;
 	return ha;
 }
+#else
+static bool replace_s2t_phrase(char *in,int len,const uint16_t *base,int nmemb,const char *data)
+{
+	if(len>8)
+		return false;
+	const char *p=NULL;
+	{
+		int b=0,e=nmemb,h,r;
+		while(b<e)
+		{
+			h=b+(e-b)/2;
+			const char *t=data+base[h];
+			{
+				int l2=t[0]&0xf;
+				if(len<l2)
+					r=-1;
+				if(len>l2)
+					r=1;
+				else
+					r=memcmp(in,t+1,len);
+			}
+			if(r>0)
+			{
+				b=h+1;
+			}
+			else if(r<0)
+			{
+				e=h;
+			}
+			else
+			{
+				p=t;
+				break;
+			}
+		}
+	}
+	if(!p)
+		return false;
+	uint8_t offset=l_read_u8(p)>>4;
+	p+=1+len;
+	if(offset)
+	{
+		offset=(offset-1)*2;
+		in[offset]=p[0];
+		in[offset+1]=p[1];
+	}
+	else
+	{
+		memcpy(in,p,len);
+	}
+	return true;
+}
+#endif
 
 static int adjust_phrase_s2t_ext(char *in,int len)
 {
-	int pos;
-	char *p;
 	if(len<=3)
 		return 0;
+#if USE_HASH_PHRASE
+	int pos;
 	unsigned int ha=hash_func(in,len);
 	for(int i=ha%S2T_PHRASE_NUM;(pos=s2t_phrase[i])!=0xffff;i=(i+1)%S2T_PHRASE_NUM)
 	{
-		p=(char*)s2t_data+pos;
+		const char *p=(const char*)s2t_data+pos;
 		if(*p!=(char)len) continue;
 		p+=1;
 		if(memcmp(in,p,len)) continue;
 		memcpy(in,p+len,len);
 		return 1;
 	}
+#else
+	if(replace_s2t_phrase(in,len,s2t_phrase,S2T_PHRASE_NUM,s2t_data))
+		return 1;
+#endif
 	if(len>4)
 	{
 		if(adjust_phrase_s2t_ext(in,4))
@@ -85,20 +145,24 @@ static int adjust_phrase_s2t_ext(char *in,int len)
 
 static int adjust_phrase_t2s_ext(char *in,int len)
 {
-	int pos;
-	char *p;
 	if(len<=3)
 		return 0;
+#if USE_HASH_PHRASE
+	int pos;
 	unsigned int ha=hash_func(in,len);
 	for(int i=ha%T2S_PHRASE_NUM;(pos=t2s_phrase[i])!=0xffff;i=(i+1)%T2S_PHRASE_NUM)
 	{
-		p=(char*)t2s_data+pos;
+		const char *p=(const char*)t2s_data+pos;
 		if(*p!=(char)len) continue;
 		p+=1;
 		if(memcmp(in,p,len)) continue;
 		memcpy(in,p+len,len);
 		return 1;
 	}
+#else
+	if(replace_s2t_phrase(in,len,t2s_phrase,T2S_PHRASE_NUM,t2s_data))
+		return 1;
+#endif
 	if(len>4)
 	{
 		if(adjust_phrase_t2s_ext(in,4))

@@ -6,6 +6,7 @@
 #include "common.h"
 #include "english.h"
 #include "translate.h"
+#include "llineedit.h"
 
 static int EnglishInit(const char *arg);
 static void EnglishReset(void);
@@ -20,6 +21,8 @@ static int key_temp_english;
 static int en_commit_select;
 static int en_degrade;
 static char num_formats[16];
+static LLineEdit line;
+static bool from_cnen;
 
 static EXTRA_IM EIM={
 	.Name			=	"english",
@@ -52,12 +55,6 @@ static ENGLISH_IM eim_url={.Set=UrlSet,.Get=UrlGet};
 static int BdSet(const char *s);
 static int BdGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
 static ENGLISH_IM eim_bd={.Set=BdSet,.Get=BdGet};
-
-#if 0
-static int MoneySet(const char *s);
-static int MoneyGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
-static ENGLISH_IM eim_money={.Set=MoneySet,.Get=MoneyGet};
-#endif
 
 static int HexSet(const char *s);
 static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count);
@@ -110,14 +107,24 @@ static int EnglishInit(const char *arg)
 		l_strcpy(num_formats,sizeof(num_formats),temp);
 	EnglishReset();
 	DictLoad();
+
+	l_line_edit_set_allow(&line,"\x20-\x7e",true);
+	l_line_edit_set_first(&line,key_temp_english,false);
+	l_line_edit_set_max(&line,MAX_CODE_LEN);
+	l_line_edit_set_nav(&line,YK_LEFT,YK_RIGHT,YK_HOME,YK_END);
+
 	return 0;
 }
 
 static void EnglishReset(void)
 {
 	int i;
+
+	l_line_edit_clear(&line);
 	
 	PhraseListCount=0;
+	from_cnen=false;
+	line.first=key_temp_english;
 	EIM.CandWordTotal=0;
 	EIM.CaretPos=0;
 	EIM.CodeInput[0]=0;
@@ -260,25 +267,22 @@ static int EnglishDestroy(void)
 
 static int EnglishDoSearch(void)
 {
-	int i,max;
-	char *s=EIM.CodeInput;
+	const char *s=EIM.CodeInput;
 	
 	PhraseListCount=0;
 	EIM.CandWordTotal=0;
-	if(EIM.CodeInput[0]==key_temp_english)
+	if(!y_english_from_cnen())
 		s++;
-	for(i=0;i<ENIM_COUNT;i++)
+	for(int i=0;i<ENIM_COUNT;i++)
 	{
 		ENGLISH_IM *e=enim[i];
 		e->Set(s);
 		PhraseListCount+=e->Count;
 	}
 	EIM.CandWordTotal=PhraseListCount;
-	max=EIM.CandWordMax;
+	int max=EIM.CandWordMax;
 	EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
 	EnglishGetCandWords(PAGE_FIRST);
-	if(!key_temp_english || ((EIM.CodeInput[0]&0x7f)!=key_temp_english))
-		strcpy(EIM.StringGet,"> ");
 	return PhraseListCount;
 }
 
@@ -289,8 +293,6 @@ static inline int key_is_select(int key)
 
 static int EnglishDoInput(int key)
 {
-	int i;
-	
 	key&=~KEYM_BING;
 	if(key==YK_SPACE)
 	{
@@ -299,98 +301,42 @@ static int EnglishDoInput(int key)
 		if(EIM.CandWordCount && !AutoCompleteByDict(YK_SPACE))
 			return IMR_NEXT;
 	}
-	if(key==YK_BACKSPACE)
+	if(en_degrade && EIM.CodeLen>0 && key_is_select(key))
+		return IMR_NEXT;
+	if(en_degrade==2 && key>='0' && key<='9')
+		return IMR_NEXT;
+	int ret=l_line_edit_push(&line,key);
+	if(ret==1)
 	{
-		if(EIM.CodeLen==0)
-			return IMR_CLEAN_PASS;
-		if(EIM.CaretPos==0)
-			return IMR_BLOCK;
-		for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
-			EIM.CodeInput[i-1]=EIM.CodeInput[i];
-		EIM.CodeLen--;
-		EIM.CaretPos--;
-		EIM.CodeInput[EIM.CodeLen]=0;
+		EIM.CodeLen=l_line_edit_copy(&line,EIM.CodeInput,-1,&EIM.CaretPos);
 		if(EIM.CodeLen==0)
 			return IMR_CLEAN;
 	}
-	else if(key==YK_DELETE)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		if(EIM.CodeLen!=EIM.CaretPos)
-		{
-			for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
-				EIM.CodeInput[i]=EIM.CodeInput[i+1];
-			EIM.CodeLen--;
-			EIM.CodeInput[EIM.CodeLen]=0;
-			if(EIM.CodeLen==0)
-				return IMR_CLEAN;
-		}
-	}
-	else if(key==YK_HOME)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		EIM.CaretPos=(EIM.CodeInput[0]==key_temp_english)?1:0;
-	}
-	else if(key==YK_END)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		EIM.CaretPos=EIM.CodeLen;
-	}
-	else if(key==YK_LEFT)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		if(EIM.CaretPos==0)
-			return IMR_DISPLAY;
-		if(EIM.CaretPos>1 || (EIM.CaretPos==1 && EIM.CodeInput[EIM.CaretPos-1]!=key_temp_english))
-			EIM.CaretPos--;
-	}
-	else if(key==YK_RIGHT)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		if(EIM.CaretPos<EIM.CodeLen)
-			EIM.CaretPos++;
-	}
-	else if(key>=0x20 && key<0x80)
-	{
-		if(en_degrade && EIM.CodeLen>0 && key_is_select(key))
-			return IMR_NEXT;
-		if(en_degrade==2 && key>='0' && key<='9')
-			return IMR_NEXT;
-		if(EIM.CodeLen>=MAX_CODE_LEN)
-			return IMR_BLOCK;
-		if(EIM.CodeLen==0)
-		{
-			EIM.CaretPos=0;
-			EIM.StringGet[0]=0;
-			EIM.SelectIndex=0;
-		}
-		for(i=EIM.CodeLen-1;i>=EIM.CaretPos;i--)
-			EIM.CodeInput[i+1]=EIM.CodeInput[i];
-		EIM.CodeInput[EIM.CaretPos]=key;
-		EIM.CodeLen++;
-		EIM.CaretPos++;
-		EIM.CodeInput[EIM.CodeLen]=0;
-	}
-	else if(key==SHIFT_ENTER)
-	{
-		int start=EIM.CaretPos=(EIM.CodeInput[0]==key_temp_english)?1:0;
-		int c=EIM.CodeInput[start];
-		if(c>='a' && c<='z')
-			EIM.StringGet[0]=c-'a'+'A';
-		strcpy(EIM.StringGet+1,EIM.CodeInput+start+1);
-		return IMR_COMMIT;
-	}
-	else if(key==YK_VIRT_REFRESH)
-	{
-	}
 	else
 	{
-		return IMR_NEXT;
+		if(key==YK_VIRT_CNEN)
+		{
+			l_line_edit_set_text(&line,EIM.CodeInput);
+			from_cnen=true;
+			strcpy(EIM.StringGet,"> ");
+			line.first=0;
+		}
+		else if(key==YK_VIRT_REFRESH)
+		{
+		}
+		else if(key==SHIFT_ENTER)
+		{
+			int start=EIM.CaretPos=(EIM.CodeInput[0]==key_temp_english)?1:0;
+			int c=EIM.CodeInput[start];
+			if(c>='a' && c<='z')
+				EIM.StringGet[0]=c-'a'+'A';
+			strcpy(EIM.StringGet+1,EIM.CodeInput+start+1);
+			return IMR_COMMIT;
+		}
+		else
+		{
+			return IMR_NEXT;
+		}
 	}
 	EnglishDoSearch();
 	return IMR_DISPLAY;
@@ -407,6 +353,11 @@ void y_english_destroy(void)
 void *y_english_eim(void)
 {
 	return &EIM;
+}
+
+bool y_english_from_cnen(void)
+{
+	return from_cnen;
 }
 
 /*
@@ -474,239 +425,12 @@ do{	\
 		goto out;	\
 }while(0)
 	
-#if 0
-static int n_is_date(const char *s,int len)
-{
-	int ret=0;
-	if(len<5)
-		goto out;
-
-	NEED_INT(1000,2999);
-	NEED_CH('.');
-	if(strspn(s-1,"0123456789.")==strlen(s-1) && s[0]!='.' && n_spec_count(s,'.')<=1)
-	{
-		int month=0,day=0;
-		int count=sscanf(s,"%d.%d",&month,&day);
-		if(count>=1 && (month<1 || month>12))
-		{
-			goto out;
-		}
-		if(count==2 && (day<1 || day>31))
-		{
-			goto out;
-		}
-		ret=1;
-	}
-out:
-	return ret;
-}
-
-static int n_is_time(const char *s,int len)
-{
-	int ret=0;
-	if(len<4)
-		goto out;
-	if(!isdigit(s[0]))
-		goto out;
-	NEED_INT(0,24);
-	NEED_CH(':');
-	NEED_INT(0,59);
-	if(s[0])
-	{
-		if(s[0]!=':')
-			return 0;
-		s++;
-		if(s[0])
-			NEED_INT(0,59);
-		if(s[0])
-			return 0;
-	}
-	ret=1;
-out:
-	return ret;
-}
-#endif
-
 static void parse_decimal(int sel,int64_t val,char *s);
-#if 0
-static int NumSet(const char *s)
-{
-	ENGLISH_IM *e=&eim_num;
-	int len;
-	
-	e->Priv2=(uintptr_t)s;	
-	e->Count=0;
-	e->Priv1=0;
-	
-	len=strlen(s);
-	if(!len)
-	{
-		return 0;
-	}
-	
-	if(!strcmp(s,"0"))
-	{
-		e->Count=2;
-		e->Priv1=3;
-	}
-	else if(n_is_digit(s,len))
-	{
-		e->Count=2;
-		e->Priv1=0;
-		if(len>1)
-			e->Count++;
-	}
-	else if(n_is_date(s,len))
-	{
-		int year=atoi(s);
-		e->Count=2;
-		e->Priv1=1;
-		if(year>1901 && year<2100)
-		{
-			int year,month,day;
-			char c1,c2;
-			if(5==sscanf(s,"%d%c%d%c%d",&year,&c1,&month,&c2,&day) &&
-					month>=1 && month<=12 && day>=1 && day<=31)
-				e->Count=3;
-		}
-	}
-	else if(n_is_time(s,len))
-	{
-		e->Count=2;
-		e->Priv1=2;
-	}
-	// printf("%ld %d\n",e->Priv1,e->Count);
-	return e->Count;
-}
-
-static int NumGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
-{
-	ENGLISH_IM *e=&eim_num;
-	if(e->Priv1==3)
-	{
-		for(int i=0;i<count;i++)
-		{
-			int which=pos+i;
-			if(which==0)
-				l_int_to_str(0,NULL,L_INT2STR_HZ|L_INT2STR_ZERO0,cand[i]);
-			else
-				l_int_to_str(0,NULL,L_INT2STR_HZ,cand[i]);
-		}
-		return 0;
-	}
-	if(e->Priv1==0)
-	{
-		const char *s=(const char*)e->Priv2;
-		int len=strlen(s);
-		int64_t val=strtoll(s,NULL,10);
-		char format[16];
-		sprintf(format,"%%0%d"PRId64,len);
-		for(int i=0;i<count;i++)
-		{
-			int which=pos+i;
-			if(which==0)
-			{
-				l_int_to_str(val,format,L_INT2STR_HZ,cand[i]);
-			}
-			else if(which==1)
-			{
-				int trad=im.Trad?L_INT2STR_TRAD:0;
-				l_int_to_str(val,format,L_INT2STR_HZ|L_INT2STR_BIG|trad,cand[i]);
-			}
-			else
-			{
-				int trad=im.Trad?L_INT2STR_TRAD:0;
-				l_int_to_str(val,NULL,L_INT2STR_INDIRECT|trad,cand[i]);
-			}
-		}
-		return 0;
-	}
-	if(e->Priv1==1)
-	{
-		const char *s=(const char*)e->Priv2;
-		int year,month,day;
-		int len=sscanf(s,"%d.%d.%d",&year,&month,&day);
-		for(int i=0;i<count;i++)
-		{
-			int which=pos+i;
-			if(which==0 || which==1)
-			{
-				int pos=l_int_to_str(year,NULL,(which?0:L_INT2STR_HZ|L_INT2STR_ZERO0),cand[i]);
-				strcpy(cand[i]+pos,"年");pos+=2;
-				if(len>1)
-				{
-					pos+=l_int_to_str(month,NULL,(which?0:L_INT2STR_INDIRECT),cand[i]+pos);
-					strcpy(cand[i]+pos,"月");pos+=2;
-					if(len>2)
-					{
-						pos+=l_int_to_str(day,NULL,(which?0:L_INT2STR_INDIRECT),cand[i]+pos);
-						strcpy(cand[i]+pos,"日");pos+=2;
-					}
-				}
-			}
-			else
-			{
-				strcpy(cand[i],"农历");
-				if(3==len)
-				{
-					int ret=y_im_nl_from_day(cand[i]+strlen(cand[i]),year,month,day);
-					if(ret!=0)
-					{
-						strcat(cand[i],YT("范围超限"));
-					}
-				}
-			}
-		}
-		return 0;
-	}
-	if(e->Priv1==2)
-	{
-		const char *s=(const char *)e->Priv2;
-		int h,m,sec;
-		int len=sscanf(s,"%d:%d:%d",&h,&m,&sec);
-		for(int i=0;i<count;i++)
-		{
-			int which=pos+i;
-			if(which==0)
-			{
-				int pos=0;
-				pos=l_int_to_str(h,NULL,L_INT2STR_INDIRECT,cand[i]);
-				strcpy(cand[i]+pos,"点");
-				pos+=2;
-				pos+=l_int_to_str(m,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,cand[i]+pos);
-				strcpy(cand[i]+pos,"分");
-				pos+=2;
-				if(len==3)
-				{
-					pos+=l_int_to_str(sec,NULL,L_INT2STR_HZ|L_INT2STR_MINSEC,cand[i]+pos);
-					strcpy(cand[i]+pos,"秒");
-				}
-			}
-			else
-			{
-				int pos=0;
-				pos=l_int_to_str(h,"%d",0,cand[i]);
-				strcpy(cand[i]+pos,"点");
-				pos+=2;
-				pos+=l_int_to_str(m,"%d",0,cand[i]+pos);
-				strcpy(cand[i]+pos,"分");
-				pos+=2;
-				if(len==3)
-				{
-					pos+=l_int_to_str(sec,"%02d",0,cand[i]+pos);
-					strcpy(cand[i]+pos,"秒");
-				}
-			}
-		}
-	}
-	return 0;
-}
-#endif
 
 static int date_is_valid(const char *s)
 {
 	int year,month,day;
-	int ret=sscanf(s,"%d.%d.%d",&year,&month,&day);
+	int ret=l_sscanf(s,"%d.%d.%d",&year,&month,&day);
 	if(ret<1)
 		return 0;
 	if(year<1000 || year>2999)
@@ -725,7 +449,7 @@ static int date_is_valid(const char *s)
 static int time_is_valid(const char *s)
 {
 	int ret,hour,minute,second;
-	ret=sscanf(s,"%d:%d:%d",&hour,&minute,&second);
+	ret=l_sscanf(s,"%d:%d:%d",&hour,&minute,&second);
 	if(ret<1)
 		return 0;
 	if(hour>24)
@@ -860,7 +584,7 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			{
 				int which=format=='y';
 				int year,month,day;
-				int ret=sscanf(s,"%d.%d.%d",&year,&month,&day);
+				int ret=l_sscanf(s,"%d.%d.%d",&year,&month,&day);
 				int len=l_int_to_str(year,NULL,(which?0:L_INT2STR_HZ|L_INT2STR_ZERO0),o);
 				strcpy(o+len,"年");len+=2;
 				if(ret>1)
@@ -878,7 +602,7 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			case 'n':
 			{
 				int year,month,day;
-				sscanf(s,"%d.%d.%d",&year,&month,&day);
+				l_sscanf(s,"%d.%d.%d",&year,&month,&day);
 				int len=sprintf(o,"%s","农历");
 				int ret=y_im_nl_from_day(o+len,year,month,day);
 				if(ret!=0)
@@ -890,7 +614,7 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			case ':':
 			{
 				int ret,len,h,m,sec;
-				ret=sscanf(s,"%d:%d:%d",&h,&m,&sec);
+				ret=l_sscanf(s,"%d:%d:%d",&h,&m,&sec);
 				len=l_int_to_str(h,NULL,L_INT2STR_INDIRECT,o);
 				strcpy(o+len,"点");
 				len+=2;
@@ -911,7 +635,7 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			{
 				int ret,len,p0;
 				char p1[8];
-				ret=sscanf(s,"%d.%7[^%]",&p0,p1);
+				ret=l_sscanf(s,"%d.%7[^%]",&p0,p1);
 				len=sprintf(o,"%s","百分之");
 				len+=l_int_to_str(p0,NULL,L_INT2STR_INDIRECT,o+len);
 				if(ret>1)
@@ -952,7 +676,6 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 			}
 			case '0':
 			{
-				printf("here\n");
 				l_int_to_str(0,NULL,L_INT2STR_HZ|L_INT2STR_ZERO0,o);
 				break;
 			}
@@ -961,7 +684,7 @@ static int Num2Get(char cand[][MAX_CAND_LEN+1],int pos,int count)
 				/* 测试例子 101,100001,208,2008,120000,101101,0.34，0.04 */
 				int64_t yuan=0;
 				uint8_t jiao=0,fen=0;
-				sscanf(s,"%"PRId64".%c%c",&yuan,&jiao,&fen);
+				l_sscanf(s,"%"PRId64".%c%c",&yuan,&jiao,&fen);
 				if(jiao)
 					jiao-='0';
 				if(fen)
@@ -1115,6 +838,8 @@ static int BdSet(const char *s)
 	e->Count=0;
 	if(!id || strlen(s)!=0)
 		return 0;
+	if(y_english_from_cnen())
+		return 0;
 	if(id->biaodian==LANG_CN)
 	{
 		const char *p1;
@@ -1156,40 +881,6 @@ static int BdGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 
 	return 0;
 }
-
-#if 0
-static int MoneySet(const char *s)
-{
-	ENGLISH_IM *e=&eim_money;
-	int ret,pos=0;
-	int64_t n1;
-	uint8_t n2=10,n3=10;
-	e->Count=0;
-	ret=l_sscanf(s,"%"PRId64".%c%c%n",&n1,&n2,&n3,&pos);
-	if(ret<1 || (ret==3 && s[pos]) ||
-			n_spec_count(s,'.')>1 ||
-			strspn(s,"01234567890.")!=strlen(s))
-	{
-		return 0;
-	}
-	if(ret==1 && n1==0)
-	{
-		return 0;
-	}
-	if(n1<0)
-	{
-		return 0;
-	}
-	if(isdigit(n2))
-		n2-='0';
-	if(isdigit(n3))
-		n3-='0';
-	e->Priv1=n1;
-	e->Priv2=n2<<8|n3;
-	e->Count=1;
-	return e->Count;
-}
-#endif
 
 static void parse_decimal(int sel,int64_t val,char *s)
 {
@@ -1319,7 +1010,7 @@ static int HexGet(char cand[][MAX_CAND_LEN+1],int pos,int count)
 void y_english_key_desc(const char *code,char *res)
 {
 	int ipos=0,opos=0;
-	if(key_temp_english && code[0]==key_temp_english)
+	if(key_temp_english && code[0]==key_temp_english && !from_cnen)
 	{
 		y_im_key_desc_first(key_temp_english,1,res,16);
 		opos=strlen(res);

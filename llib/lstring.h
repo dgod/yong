@@ -5,6 +5,7 @@ char *l_sprintf(const char *fmt,...);
 char **l_strsplit(const char *str,int delimiter);
 char *l_strjoinv(const char *sep,char **list);
 void l_strfreev(char **list);
+char **l_strdupv(char **list);
 int l_strv_length(char **list);
 bool l_str_has_prefix(const char *str,const char *prefix);
 bool l_str_has_suffix(const char *str,const char *suffix);
@@ -16,10 +17,14 @@ int l_str_replace(char *s,int from,int to);
 bool l_str_is_ascii(const char *s);
 
 typedef struct{
-	char *str;
+	union{
+		uint8_t *data;
+		char *str;
+	};
 	int len;
 	int size;
 }LString;
+typedef LString LBuffer;
 
 #define L_STRING_INIT (LString){.size=0}
 
@@ -32,6 +37,16 @@ void l_string_append_c(LString *string,int c);
 char *l_string_steal(LString *string);
 void l_string_clear(LString *string);
 void l_string_erase(LString *string,int pos,int len);
+
+#define L_BUFFER_INIT (LBuffer){.size=0}
+#define l_buffer_new(size) l_string_new(size)
+#define l_buffer_free(buf) l_string_free(buf)
+#define l_buffer_expand(buf,len) l_string_expand((buf),(len))
+#define l_buffer_append(buf,val,len) l_string_append((buf),(const char*)(val),(len))
+#define l_buffer_append_b(buf,b) l_string_append((buf),(b))
+#define l_buffer_steal(buf) (void*)l_string_steal(buf)
+#define l_buffer_clear(buf) l_string_clear(buf)
+#define l_buffer_erase(buf,pos,len) l_string_erase((buf),(pos),(len))
 
 void l_strup(char *s);
 void l_strdown(char *s);
@@ -67,6 +82,16 @@ int l_int_to_str(int64_t n,const char *format,int flags,char *out);
 
 int l_strtok(const char *str,int delim,const char *res[],int limit);
 int l_strtok0(char *str,int delim,char *res[],int limit);
+
+static inline void l_mstr_init(char *s)
+{
+	s[0]=s[1]=0;
+}
+
+const char *l_mstr_nth(const char *s,int n);
+const char *l_mstr_next(const char *s);
+char *l_mstr_append(char *s,const char *p,const char *buf_end);
+int l_mstr_count(const char *s);
 
 #endif/*_LSTRING_H_*/
 

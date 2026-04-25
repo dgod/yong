@@ -42,6 +42,26 @@ static gboolean on_window_del(GtkWidget *widget,GdkEvent  *event,CUCtrl p)
 }
 #endif
 
+static void ui_set_global_css(void)
+{
+	const char *data="button{padding:1px;}\n";
+	GtkCssProvider *provider=gtk_css_provider_new();
+#if GTK_CHECK_VERSION(4,0,0)
+	gtk_css_provider_load_from_data(provider, data, -1);
+	GdkDisplay *display = gdk_display_get_default();
+	gtk_style_context_add_provider_for_display(display,
+    	GTK_STYLE_PROVIDER(provider),
+   		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+#else
+	gtk_css_provider_load_from_data(provider,data,-1,NULL);
+	GdkScreen *screen = gdk_screen_get_default();
+	gtk_style_context_add_provider_for_screen(screen,
+			GTK_STYLE_PROVIDER(provider),
+			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+#endif
+	g_object_unref(provider);
+}
+
 #if GTK_CHECK_VERSION(4,0,0)
 
 int cu_ctrl_init_window(CUCtrl p)
@@ -51,6 +71,15 @@ int cu_ctrl_init_window(CUCtrl p)
 	gtk_window_set_title(GTK_WINDOW(w),p->text);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
 	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
+
+#if !GTK_CHECK_VERSION(4,0,0)
+	const char *text=l_xml_get_prop(p->node,"topmost");
+	if(text && text[0]=='1')
+	{
+		gtk_window_set_keep_above(GTK_WINDOW(w),TRUE);
+	}
+#endif
+
 	g_signal_connect(w,"close-request",G_CALLBACK(on_window_del),p);
 	p->self=w;
 	
@@ -72,6 +101,12 @@ int cu_ctrl_init_window(CUCtrl p)
 	gtk_window_set_title(GTK_WINDOW(w),p->text);
 	gtk_window_set_resizable(GTK_WINDOW(w),FALSE);
 	gtk_widget_set_size_request(GTK_WIDGET(w),p->pos.w,p->pos.h);
+	const char *text=l_xml_get_prop(p->node,"topmost");
+	if(text && text[0]=='1')
+	{
+		gtk_window_set_keep_above(GTK_WINDOW(w),TRUE);
+	}
+
 #if GTK_CHECK_VERSION(3,94,0)
 	g_signal_connect(w,"close-request",G_CALLBACK(on_window_del),p);
 #else
@@ -122,8 +157,13 @@ int cu_ctrl_init_label(CUCtrl p)
 	return 0;
 }
 
-static void set_tooltip(CUCtrl p)
+static void set_tooltip(CUCtrl p,const char *tooltip)
 {
+	if(tooltip)
+	{
+		gtk_widget_set_tooltip_text(p->self,tooltip);
+		return;
+	}
 	const char *text=l_xml_get_prop(p->node,"tooltip");
 	if(!text || !text[0])
 		return;
@@ -143,11 +183,32 @@ int cu_ctrl_init_edit(CUCtrl p)
 		gtk_entry_set_placeholder_text(p->self,t);
 		l_free(t);
 	}
-	set_tooltip(p);
+	set_tooltip(p,NULL);
 	text=l_xml_get_prop(p->node,"readonly");
 	if(text && text[0]=='1')
 	{
 		gtk_editable_set_editable(GTK_EDITABLE(p->self),FALSE);
+	}
+	return 0;
+}
+
+int cu_ctrl_init_textarea(CUCtrl p)
+{
+	GtkWidget *textview=gtk_text_view_new();
+#if GTK_CHECK_VERSION(4,0,0)
+	GtkWidget *sw=gtk_scrolled_window_new();
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(sw),textview);
+#else
+	GtkWidget *sw=gtk_scrolled_window_new(NULL,NULL);
+	gtk_widget_show(textview);
+	gtk_container_add(GTK_CONTAINER(sw),textview);
+#endif
+	p->self=sw;
+	cu_ctrl_add_to_parent(p);
+	const char *text=l_xml_get_prop(p->node,"readonly");
+	if(text && text[0]=='1')
+	{
+		gtk_text_view_set_editable(GTK_TEXT_VIEW(textview),FALSE);
 	}
 	return 0;
 }
@@ -187,7 +248,7 @@ int cu_ctrl_init_list(CUCtrl p)
 		}
 	}
 	g_signal_connect(p->self,"changed",G_CALLBACK(list_changed),p);
-	set_tooltip(p);
+	set_tooltip(p,NULL);
 	return 0;
 }
 
@@ -216,7 +277,7 @@ int cu_ctrl_init_combo(CUCtrl p)
 #endif
 		}
 	}
-	set_tooltip(p);
+	set_tooltip(p,NULL);
 	
 	return 0;
 }
@@ -613,6 +674,7 @@ static InitSelfFunc init_funcs[]={
 	cu_ctrl_init_image,
 	cu_ctrl_init_separator,
 	cu_ctrl_init_link,
+	cu_ctrl_init_textarea,
 };
 
 static InitSelfFunc done_funcs[]={
@@ -630,7 +692,8 @@ static InitSelfFunc done_funcs[]={
 	NULL,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	NULL,
 };
 
 int cu_ctrl_init_self(CUCtrl p)
@@ -763,6 +826,16 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 {
 	switch(p->type){
 	case CU_LABEL:
+		if(s && strchr(s,'\n'))
+		{
+			int n=l_chrpos(s,'\n');
+			char temp[n+1];
+			l_strncpy(temp,s,n);
+			l_str_trim(temp);
+			gtk_label_set_text(GTK_LABEL(p->self),temp);
+			set_tooltip(p,s);
+			break;
+		}
 		gtk_label_set_text(GTK_LABEL(p->self),s?s:"");
 		break;
 	case CU_EDIT:
@@ -820,6 +893,7 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 		break;
 	}
 	case CU_IMAGE:
+	{
 		if(s && s[0])
 		{
 			GdkPixbuf *pixbuf=ui_image_load(s);
@@ -838,6 +912,18 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 			gtk_image_clear(GTK_IMAGE(p->self));
 		}
 		break;
+	}
+	case CU_TEXTAREA:
+	{
+#if GTK_CHECK_VERSION(4,0,0)
+		GtkWidget *textview=gtk_scrolled_window_get_child(GTK_SCROLLED_WINDOW(p->self));
+#else
+		GtkWidget *textview=gtk_bin_get_child(GTK_BIN(p->self));
+#endif
+		GtkTextBuffer *buffer=gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
+		gtk_text_buffer_set_text (buffer, s, -1);		
+		break;
+	}
 	}
 	return 0;
 }
@@ -899,55 +985,15 @@ char *cu_ctrl_get_self(CUCtrl p)
 	return res;
 }
 
-int cu_ctrl_set_prop(CUCtrl p,const char *prop)
+int cu_ctrl_set_disabled(CUCtrl p,bool disabled)
 {
+	switch(p->type){
+		case CU_BUTTON:
+			gtk_widget_set_sensitive(GTK_WIDGET(p->self),!disabled);
+			break;
+	}
 	return 0;
 }
-#if 0
-
-#if GTK_CHECK_VERSION(4,0,0)
-
-int cu_init(void)
-{
-	int dpi;
-	gtk_init();
-	main_loop=g_main_loop_new(NULL,FALSE);
-	dpi=cu_screen_dpi();
-	if(dpi>96)
-		CU_SCALE=dpi/96.0;
-	return 0;
-}
-int cu_loop(void)
-{
-	g_main_loop_run(main_loop);
-	return 0;
-}
-#else
-
-int cu_init(void)
-{
-	int dpi;
-	GtkWidget *w;
-	gtk_init(NULL,NULL);
-
-	/* just let gtk get dpi from system */
-	w=gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_widget_destroy(w);
-	
-	dpi=cu_screen_dpi();
-	if(dpi>96)
-		CU_SCALE=dpi/96.0;
-	return 0;
-}
-
-int cu_loop(void)
-{
-	gtk_main();
-	return 0;
-}
-#endif
-
-#endif
 
 int cu_init(void)
 {
@@ -957,25 +1003,75 @@ int cu_init(void)
 	return 0;
 }
 
+#if GTK_CHECK_VERSION(4,0,0)
+static gboolean on_key_pressed (GtkEventControllerKey *controller,
+                guint                  keyval,
+                guint                  keycode,
+                GdkModifierType        state,
+                gpointer               user_data)
+{
+	if (keyval == GDK_KEY_Escape) {
+		exit(0);
+	}
+	return FALSE;
+}
+#else
+#include <gdk/gdkkeysyms-compat.h>
+static gboolean on_key_press (GtkWidget   *widget,
+              GdkEventKey *event,
+              gpointer     user_data)
+{
+    if (event->keyval == GDK_Escape) {
+		exit(0);
+	}
+	return FALSE;
+}
+#endif
+
 static void gtk_activate(GtkApplication *app,CULoopArg *arg)
 {
+	ui_set_global_css();
 	int dpi=cu_screen_dpi();
 	if(dpi>96)
 		CU_SCALE=dpi/96.0;
 	void (*activate)(CULoopArg *)=arg->priv;
 	activate(arg);
+#if GTK_CHECK_VERSION(4,0,0)
+	GtkEventController *controller = GTK_EVENT_CONTROLLER (gtk_event_controller_key_new ());
+	g_signal_connect (controller, "key-pressed",
+                      G_CALLBACK (on_key_pressed), NULL);
+	gtk_widget_add_controller (arg->win->self, controller);
+#else
+	g_signal_connect(arg->win->self,"key-press-event",G_CALLBACK (on_key_press), NULL);
+#endif
 }
 
-#ifndef G_APPLICATION_DEFAULT_FLAGS
-#define G_APPLICATION_DEFAULT_FLAGS G_APPLICATION_FLAGS_NONE
-#endif
-
-int cu_loop(void (*activate)(CULoopArg *),CULoopArg*arg)
+static gint command_line(GApplication* self,GApplicationCommandLine* cmdline,CULoopArg *arg)
 {
-	app=gtk_application_new(arg->app_id,G_APPLICATION_DEFAULT_FLAGS);
+	if(!arg->win)
+		g_application_activate(self);
+	int argc;
+	char **argv = g_application_command_line_get_arguments (cmdline, &argc);
+	if(arg->cmdline)
+	{
+		arg->argc=argc;
+		arg->argv=argv;
+		arg->cmdline(arg);
+		arg->argc=0;
+		arg->argv=NULL;
+	}
+	g_strfreev(argv);
+	gtk_window_present(GTK_WINDOW(arg->win->self));
+	return 0;
+}
+
+int cu_loop(void (*activate)(CULoopArg *),CULoopArg *arg)
+{
+	app=gtk_application_new(arg->app_id,G_APPLICATION_HANDLES_COMMAND_LINE);
 	arg->priv=activate;
 	g_signal_connect (app, "activate", G_CALLBACK(gtk_activate), arg);
-	g_application_run (G_APPLICATION (app), 0,NULL);
+	g_signal_connect (app, "command-line", G_CALLBACK(command_line), arg);
+	g_application_run (G_APPLICATION (app), arg->argc,arg->argv);
 	if(arg && arg->win)
 	{
 		cu_ctrl_free(arg->win);
@@ -983,7 +1079,6 @@ int cu_loop(void (*activate)(CULoopArg *),CULoopArg*arg)
 	}
 	g_object_unref(app);
 	app=NULL;
-
 	return 0;
 }
 

@@ -13,8 +13,7 @@ typedef struct{
 }UI_SIZE;
 
 typedef struct{
-	UI_POINT;
-	UI_SIZE;
+	int x,y,w,h;
 }UI_RECT;
 
 typedef union{
@@ -179,6 +178,8 @@ extern UI_KBD y_ui_kbd;
 #define UI_BTN_COUNT		(UI_BTN_MENU+1)
 
 typedef struct{
+	bool dummy;
+
 	int (*init)(void);
 	void (*clean)(void);
 	int (*loop)(void);
@@ -234,6 +235,10 @@ void ui_setup_fbterm(Y_UI *p);
 UI_COLOR ui_color_parse(const char *s);
 
 int y_ui_init(const char *name);
+
+#define y_ui_is_dummy() \
+	y_ui.dummy
+
 #define y_ui_loop() \
 	y_ui.loop()
 #define y_ui_clean() \

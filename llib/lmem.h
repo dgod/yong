@@ -28,6 +28,25 @@
 #define l_free free
 #define l_zfree(p) do{l_free(p);p=NULL;}while(0)
 
+#define l_new_with(_type,_ctx)										\
+({																	\
+	void *_p=l_alloc(sizeof(_type)+sizeof(uintptr_t));				\
+	*(void**)((char*)_p+sizeof(_type))=_ctx;							\
+	(_type*)_p;														\
+})
+
+#define l_new0_with(_type,_ctx)										\
+({																	\
+	char *_p=l_alloc0(sizeof(_type)+sizeof(uintptr_t));				\
+	*(void**)(_p+sizeof(_type))=_ctx;								\
+	(_type*)_p;														\
+})
+
+#define l_ptr_context(_p)											\
+({																	\
+	*(void**)((char*)(_p)+sizeof(*((typeof(_p))NULL)));				\
+})
+
 static inline void *l_memcpy0(void *dest,const void *src,size_t n)
 {
 	memcpy(dest,src,n);
@@ -88,11 +107,6 @@ void l_slices_free(LSlices *r);
 void *l_slice_alloc(LSlices *r,int size);
 #define l_slice_new(r,t) l_slice_alloc(r,sizeof(t))
 void l_slice_free(LSlices *r,void *p,int size);
-
-#ifdef __GNUC__
-#define L_AUTO_FREE_X(p) __attribute__((cleanup(p))
-#define L_AUTO_FREE L_AUTO_FREE_X(l_free)
-#endif
 
 #endif/*_LMEM_H_*/
 

@@ -70,14 +70,25 @@ char **l_strsplit(const char *str,int delimiter)
 
 void l_strfreev(char **list)
 {
-	int i;
 	if(!list)
 		return;
-	for(i=0;list[i]!=NULL;i++)
+	for(int i=0;list[i]!=NULL;i++)
 	{
 		l_free(list[i]);
 	}
 	l_free(list);
+}
+
+char **l_strdupv(char **list)
+{
+	int len=l_strv_length(list);
+	char **r=l_alloc((len+1)*sizeof(char*));
+	for(int i=0;i<len;i++)
+	{
+		r[i]=l_strdup(list[i]);
+	}
+	r[len]=NULL;
+	return r;
 }
 
 #if defined(_WIN32) || !defined(__GLIBC__)
@@ -689,4 +700,62 @@ bool l_str_is_ascii(const char *s)
 	}
 	return true;
 }
+
+#if L_USE_MSTR
+const char *l_mstr_nth(const char *s,int n)
+{
+	for(int i=0;i<n;i++)
+	{
+		int len=strlen(s);
+		if(len==0)
+			return NULL;
+		s+=len+1;
+	}
+	if(*s==0)
+		return NULL;
+	return s;
+}
+
+const char *l_mstr_next(const char *s)
+{
+	int len=strlen(s);
+	if(len==0)
+		return NULL;
+	s+=len+1;
+	if(*s==0)
+		return NULL;
+	return s;
+}
+
+char *l_mstr_append(char *s,const char *p,const char *buf_end)
+{
+	if(!p[0])
+		return s;
+	while(1)
+	{
+		if(*s==0)
+		{
+			int len=strlen(p)+1;
+			if(s+len>=buf_end)
+				return NULL;
+			memcpy(s,p,len);
+			s+=len;
+			*s=0;
+			return s;
+		}
+		s+=strlen(s)+1;
+	}
+}
+
+int l_mstr_count(const char *s)
+{
+	int count=0;
+	while(*s!=0)
+	{
+		count++;
+		s+=strlen(s)+1;
+	}	
+	return count;
+}
+#endif
 

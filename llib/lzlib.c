@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "lmem.h"
-#include "ltricky.h"
+#include "llib.h"
 
 #define e(x,y)  0
 
@@ -361,82 +360,6 @@ static int do_zlib(zbuf *a, char *obuf, int olen, int exp, int parse_header)
 
    return parse_zlib(a, parse_header);
 }
-/*
-char *l_zlib_decode_malloc_guesssize(const char *buffer, int len, int initial_size, int *outlen)
-{
-   zbuf a;
-   char *p = (char *) malloc(initial_size);
-   if (p == NULL) return NULL;
-   a.zbuffer = (uint8_t *) buffer;
-   a.zbuffer_end = (uint8_t *) buffer + len;
-   if (do_zlib(&a, p, initial_size, 1, 1)) {
-      if (outlen) *outlen = (int) (a.zout - a.zout_start);
-      return a.zout_start;
-   } else {
-      free(a.zout_start);
-      return NULL;
-   }
-}
-
-char *l_zlib_decode_malloc(char const *buffer, int len, int *outlen)
-{
-   return stbi_zlib_decode_malloc_guesssize(buffer, len, 16384, outlen);
-}
-
-char *l_zlib_decode_malloc_guesssize_headerflag(const char *buffer, int len, int initial_size, int *outlen, int parse_header)
-{
-   zbuf a;
-   char *p = (char *) malloc(initial_size);
-   if (p == NULL) return NULL;
-   a.zbuffer = (uint8_t *) buffer;
-   a.zbuffer_end = (uint8_t *) buffer + len;
-   if (do_zlib(&a, p, initial_size, 1, parse_header)) {
-      if (outlen) *outlen = (int) (a.zout - a.zout_start);
-      return a.zout_start;
-   } else {
-      free(a.zout_start);
-      return NULL;
-   }
-}
-
-int l_zlib_decode_buffer(char *obuffer, int olen, char const *ibuffer, int ilen)
-{
-   zbuf a;
-   a.zbuffer = (uint8_t *) ibuffer;
-   a.zbuffer_end = (uint8_t *) ibuffer + ilen;
-   if (do_zlib(&a, obuffer, olen, 0, 1))
-      return (int) (a.zout - a.zout_start);
-   else
-      return -1;
-}
-
-char *l_zlib_decode_noheader_malloc(char const *buffer, int len, int *outlen)
-{
-   zbuf a;
-   char *p = (char *) malloc(16384);
-   if (p == NULL) return NULL;
-   a.zbuffer = (uint8_t *) buffer;
-   a.zbuffer_end = (uint8_t *) buffer+len;
-   if (do_zlib(&a, p, 16384, 1, 0)) {
-      if (outlen) *outlen = (int) (a.zout - a.zout_start);
-      return a.zout_start;
-   } else {
-      free(a.zout_start);
-      return NULL;
-   }
-}
-
-int l_zlib_decode_noheader_buffer(char *obuffer, int olen, const char *ibuffer, int ilen)
-{
-   zbuf a;
-   a.zbuffer = (uint8_t *) ibuffer;
-   a.zbuffer_end = (uint8_t *) ibuffer + ilen;
-   if (do_zlib(&a, obuffer, olen, 0, 0))
-      return (int) (a.zout - a.zout_start);
-   else
-      return -1;
-}
-*/
 
 int l_zlib_decode(void *obuffer, int olen, const void *ibuffer, int ilen, int header)
 {
@@ -468,3 +391,102 @@ void *l_zlib_decode_alloc(const void *buffer, int len, int *outlen, int header)
 		return NULL;
 	}
 }
+
+#if L_USE_GZ_EXTRACT
+
+#define GZ_ID1	0x1F
+#define GZ_ID2	0x8B
+	
+#define GZ_CM_DEFLATE	0x08
+	
+#define FTEXT		0x01
+#define FHCRC		0x02
+#define FEXTRA		0x04
+#define FNAME		0x08
+#define FCOMMENT	0x10
+
+typedef struct{
+	uint8_t ID1;
+	uint8_t ID2;
+	uint8_t CM;
+	uint8_t FLG;
+	uint32_t MTIME;
+	uint8_t XFL;
+	uint8_t OS;
+}GZ_HDR;
+#define GZ_HDR_LEN		10
+
+void *l_gz_extract(const void *input,int len,int *olen)
+{
+	const GZ_HDR *h;
+	const uint8_t *p;
+	if(len<GZ_HDR_LEN+8)
+	{
+		return NULL;
+	}
+	h=(GZ_HDR*)input;
+	if(h->ID1!=GZ_ID1 || h->ID2!=GZ_ID2 || h->CM!=GZ_CM_DEFLATE)
+	{
+		return NULL;
+	}
+	p=(uint8_t*)h+GZ_HDR_LEN;len-=GZ_HDR_LEN;
+	if((h->FLG&FEXTRA)!=0)
+	{
+		if(len<2)
+		{
+			return NULL;
+		}
+		int xlen=p[0]|(p[1]<<8);
+		p+=2;len-=2;
+		if(len<xlen)
+		{
+			return NULL;
+		}
+		p+=xlen;len-=xlen;
+	}
+	if((h->FLG&FNAME)!=0)
+	{
+		for(;len>0&&p[0];len--,p++);
+		if(len==0)
+		{
+			return NULL;
+		}
+		len--;p++;
+	}
+	if((h->FLG&FCOMMENT)!=0)
+	{
+		for(;len>0&&p[0];len--,p++);
+		if(len==0)
+		{
+			return NULL;
+		}
+		len--;p++;
+	}
+	if((h->FLG&FHCRC)!=0)
+	{
+		len-=2;p+=2;
+	}
+	if(len<8)
+	{
+		return NULL;
+	}
+	const void *zdata=p;
+	int zlen=len-8;
+	p+=zlen;len=zlen;
+	// CRC32
+	p+=4;len-=4;
+	// ISIZE
+	int isize=(int)(p[0]|(p[1]<<8)|(p[2]<<16)|(p[3]<<24));
+	uint8_t *res=malloc(isize+1);
+	if(olen) *olen=isize;
+	if(isize!=l_zlib_decode(res,isize,zdata,zlen,0))
+	{
+		free(res);
+		return NULL;
+	}
+	res[isize]=0;
+	return res;
+}
+
+#endif // L_USE_GZ_EXTRACT
+

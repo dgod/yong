@@ -17,21 +17,27 @@ function run(target){
 		env('LDFLAGS=-static-libgcc');
 		// env('LDFLAGS+=-Wl,--out-implib=w64/libl.a');
 	}else if(target=='l32'){
-		env('CC=clang -m32');
+		if(support('gcc'))
+			env('CC=gcc -m32');
+		else
+			env('CC=clang -m32');
 		env('LDFLAGS=-Wl,--hash-style=sysv');
 		env('DLL=.so');
 		env('CFLAGS=-m32 -fpic');
 		if(os.platform()=='linux')
 			env('CFLAGS+=-D_GNU_SOURCE');
-		env('LIBS=-lm');
+		env('LIBS=-lm -lpthread');
 	}else if(target=='l64'){
-		env('CC=clang');
+		if(support('gcc'))
+			env('CC=gcc');
+		else
+			env('CC=clang');
 		env('LDFLAGS=-Wl,--hash-style=sysv');
 		env('DLL=.so');
 		env('CFLAGS=-fpic');
 		if(os.platform()=='linux')
 			env('CFLAGS+=-D_GNU_SOURCE');
-		env('LIBS=-lm');
+		env('LIBS=-lm -lpthread');
 	}else if(target=='js'){
 		env('LDFLAGS=-m32');
 		env('CFLAGS=-m32');
@@ -47,6 +53,10 @@ function run(target){
 		return;
 	}
 	env("CFLAGS+=-Wall -pipe -g -O2 -fno-plt -flto=auto -ffast-math -fms-extensions -Wno-microsoft-anon-tag");
+	if(support('libucontext')){
+		env("CFLAGS+=-DL_USE_COROUTINE=3");
+		env("LIBS+=-lucontext");
+	}
 	//env("CFLAGS+=-fanalyzer -Wno-analyzer-possible-null-dereference -Wno-analyzer-possible-null-argument -Wanalyzer-malloc-leak");
 	if(target!='js'){
 		if(!$('CC'))
@@ -58,6 +68,7 @@ function run(target){
 	}
 	if($('CC').includes('clang')){
 		env('CFLAGS+=-Wno-invalid-source-encoding');
+		// env('CFLAGS+=-fdefer-ts');
 	}
 	var OBJS=wildcard(SRCS,function(input){
 		return target+'/'+input.replace(/\.c$/,'.o');
@@ -87,6 +98,8 @@ if(target=="clean"){
 	clean(target.targets);
 } else if(!target || target=="all"){
 	build(undefined,undefined,DIRS);
+} else if(target=='test'){
+	cp('l64/libl.so','../install/yong/l64/libl.so');
 } else {
 	run(target);
 }

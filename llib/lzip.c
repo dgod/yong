@@ -312,28 +312,3 @@ char *l_zip_file_get_contents(FILE *fp,const char *name,size_t *length)
 	return res;
 }
 
-#if 0
-int main(int arc,char *arg[])
-{
-	FILE *fp;
-	size_t len;
-	
-	if(arc!=3)
-		return -1;
-	
-	fp=fopen(arg[1],"rb");
-	if(!fp) return -1;
-	//len=l_zip_goto_file(fp,arg[2]);
-	//printf("offset %d size %d\n",(int)ftell(fp),len);
-	int len;
-	char *data;
-	data=l_zip_file_get_contents(fp,arg[2],&len);
-	fclose(fp);
-	if(data!=NULL)
-	{
-		printf("%s\n",data);
-		free(data);
-	}
-	return 0;
-}
-#endif

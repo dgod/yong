@@ -19,36 +19,38 @@
 #define Y_MB_DATA_SIZE		255
 #define Y_MB_DATA_CALC		32
 #define Y_MB_WILDCARD		63
-#define Y_MB_KEY_CP			((int)((sizeof(uintptr_t)<<3)/6))
-#define Y_MB_KEY_MARK		0x01
-#define Y_MB_DATA_CP		((int)(sizeof(uintptr_t)+sizeof(uint16_t)))
 
 /* code for one zi */
+#pragma pack(1)
 struct y_mb_code{
-	struct y_mb_code *next;
+	l_cptr_t next;
 	union{
 		struct{
 			uint8_t virt:1;	/* only used to auto phrase */
-			uint8_t main:1; /* this is from main mb */
 			uint8_t len:6;
 			uint8_t data[];
 		};
 		uint32_t val;
 	};
 };
+#pragma pack()
+static_assert(sizeof(struct y_mb_code)==sizeof(l_cptr_t)+4,"mb code size bad");
 
 /* use hash to store zi for fast access */
+#pragma pack(1)
 struct y_mb_zi{
 	struct y_mb_zi *next;
 	/* main code */
-	struct y_mb_code *code;
+	l_cptr_t code;
 	/* just the hz val */
 	uint32_t data;
 };
+#pragma pack()
+static_assert(sizeof(struct y_mb_zi)==sizeof(void*)+sizeof(l_cptr_t)+4,"mb zi size bad");
 
 /* use array to store rules */
 struct y_mb_rule{
-	void *next;
+	struct y_mb_rule *next;
 	/* is above n char? */
 	unsigned char a;
 	/* n char */
@@ -66,8 +68,9 @@ struct y_mb_rule{
 };
 
 /* store as list, child of item */
+#pragma pack(1)
 struct y_mb_ci{
-	struct y_mb_ci *next;
+	l_cptr_t next;
 	uint16_t len:9;
 	uint16_t zi:1;
 	uint16_t ext:1;
@@ -76,23 +79,31 @@ struct y_mb_ci{
 	uint16_t dic:3;
 	uint8_t data[2];
 };
+#pragma pack()
+static_assert(sizeof(struct y_mb_ci)==sizeof(l_cptr_t)+4,"mb ci size bad");
 
 /* store as list, is one node of code */
+#pragma pack(1)
 struct y_mb_item{
-	struct y_mb_item *next;
-	uintptr_t code; /* if not pointer, this one only have 2- */
-	struct y_mb_ci *phrase;
+	l_cptr_t next;
+	l_cptr_t phrase;
+	uint8_t code[]; /* if not pointer, this one only have 2- */
 };
+#pragma pack()
+static_assert(sizeof(struct y_mb_item)==sizeof(l_cptr_t)*2,"mb item size bad");
 
+#pragma pack(1)
 struct y_mb_index{
-	struct y_mb_index *next;
-	struct y_mb_item *item;
-	struct y_mb_item *half;
+	l_cptr_t next;
+	l_cptr_t item;
+	l_cptr_t half;
+	uint32_t ci_count;
 	uint64_t zi_count:24;
 	uint64_t ext_count:24;
 	uint64_t index:16;
-	uint32_t ci_count;
 };
+#pragma pack()
+static_assert(sizeof(struct y_mb_index)==sizeof(l_cptr_t)*3+sizeof(uint64_t)+sizeof(uint32_t),"mb item size bad");
 
 struct y_mb_context{
 	int sp;
@@ -128,6 +139,12 @@ struct y_mb_pin_item{
 	struct y_mb_pin_ci *list;
 	uint8_t len;
 	char data[];		// with nul at end
+};
+
+struct y_mb_zi_first{
+	struct y_mb_zi_first *next;
+	char code[8];
+	struct y_mb_ci *ci;
 };
 
 /* user phrase */
@@ -186,6 +203,7 @@ struct y_mb{
 	char map[128];
 	char wildcard;
 	char wildcard_orig;
+	uint8_t key_compress;
 	uint8_t english;
 	uint8_t filter;
 	uint8_t len;
@@ -244,7 +262,10 @@ struct y_mb{
 	volatile uint8_t cancel;
 
 	/* error phrase */
-	void *error;
+	LHashTable *error;
+
+	/* first zi array at the code */
+	LHashTable *zi_first;
 };
 
 #define MB_DUMP_MAIN	0x01
@@ -256,9 +277,6 @@ struct y_mb{
 #define MB_DUMP_ALL		0xff
 
 #define MB_FMT_YONG		0x00
-#define MB_FMT_WIN		0x01
-#define MB_FMT_FCITX	0x02
-#define MB_FMT_SCIM		0x03
 
 #define MB_FLAG_ASSIST	0x01		/* load mb as assist */
 #define MB_FLAG_SLOW	0x02		/* test if code data pair exist */
@@ -275,6 +293,7 @@ struct y_mb_arg{
 	const char *assist;				/* assist at config file */
 	int apos;						/* assist code position */
 	int wildcard;					/* wildcard in config file */
+	int zi_freq;					/* source of zi freq to build sentence */
 };
 
 void y_mb_init(void);
@@ -327,7 +346,6 @@ char *y_mb_ci_string(struct y_mb_ci *ci);
 int y_mb_ci_string2(struct y_mb_ci *ci,char *out);
 int y_mb_predict_simple(struct y_mb *mb,char *s,char *out,int *out_len,int (*freq)(const char *));
 struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
-struct y_mb_ci *y_mb_get_first_zi(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c);
 int y_mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end);
 bool y_mb_assist_test_hz(struct y_mb *mb,uint32_t hz,char super[2]);

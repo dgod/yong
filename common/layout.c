@@ -116,7 +116,7 @@ Y_LAYOUT * y_layout_load(const char *path)
 			int pos;
 			layout->flag&=~LAYOUT_FLAG_LRSEP;
 			//snprintf(layout->key,sizeof(layout->key),"%s",line+4);
-			for(i=0,pos=4;i<sizeof(layout->key);i++)
+			for(i=0,pos=4;i<sizeof(layout->key)-1;i++)
 			{
 				int c=line[pos++];
 				if(!c) break;

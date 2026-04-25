@@ -469,6 +469,10 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 
 int ybus_on_key(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int key)
 {
+	if(YK_CODE(key)==0xff)
+	{
+		key=(KEYM_MASK&key)|0x7f;
+	}
 	return y_im_input_key(key);
 }
 
@@ -604,7 +608,7 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 	}
 	case YBUS_TOOL_RELOAD_ALL:
 	{
-		YongReloadAll();
+		YongReloadAllTip();
 		break;
 	}
 	case YBUS_TOOL_KEYBOARD:
@@ -632,6 +636,12 @@ int ybus_on_tool(YBUS_PLUGIN *plugin,CONN_ID conn_id,int type,int param)
 	case YBUS_TOOL_GET_INDEX:
 	{
 		res=im.Index;
+		break;
+	}
+	case YBUS_TOOL_SET_WATCH:
+	{
+		y_im_set_home_watch(param);
+		res=1;
 		break;
 	}
 	default:
@@ -905,34 +915,40 @@ static void upload_clipboard_cb(int code)
 		y_ui_show_tip(YT("上传失败"));
 }
 
-static void download_clipboard_cb(const char *text,void *user)
+static void download_clipboard_cb(LProcessBuffer *result)
 {
-	(void)user;
-	if(text==NULL)
+	if(!result->str || result->status!=0)
 	{
 		y_ui_show_tip(YT("下载失败"));
 		return;
 	}
-	if(!y_ui.set_select)
+	else
 	{
-		y_ui_show_tip("当前接口不支持剪贴板");
-		return;
+		if(!y_ui.set_select)
+		{
+			y_ui_show_tip("当前接口不支持剪贴板");
+			return;
+		}
+		else
+		{
+			y_ui.set_select(result->str);
+			y_ui_show_tip(YT("下载成功"));
+		}
 	}
-	y_ui.set_select(text);
-	y_ui_show_tip(YT("下载失败"));
+	l_buffer_free((LBuffer*)result);
 }
 
 static void xim_action(const char *s)
 {
 	if(!strcmp(s,"copyCloud"))
 	{
-		y_im_run_helper("yong-config --sync --upload-clipboard",NULL,NULL,upload_clipboard_cb);
+		char *argv[]={"yong-config","--sync","--upload-clipboard",NULL};
+		y_im_run_helper(argv,NULL,NULL,upload_clipboard_cb);
 	}
 	else if(!strcmp(s,"pasteCloud"))
 	{
 		char *argv[]={"yong-config","--sync","--download-clipboard",NULL};
-		y_im_async_spawn(argv,download_clipboard_cb,NULL,false);
-		// y_im_run_helper("yong-config --sync --download-clipboard",NULL,NULL,download_clipboard_cb);
+		l_pread(argv,0,(LProcessReadFunc)download_clipboard_cb,NULL);
 	}
 	else if(!strcmp(s,"undo"))
 	{

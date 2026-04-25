@@ -38,11 +38,11 @@
 #define L_VA_NUM_ARGS(...) L_VA_NUM_ARGS_IMPL(__VA_ARGS__, 9,8,7,6,5,4,3,2,1)
 #define L_VA_NUM_ARGS_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,N,...) N
 
-#define L_CAT(a,b) L_CAT_IMPL(a,b)
-#define L_CAT_IMPL(a,b) a##b
+#define LCAT(a,b) L_CAT_IMPL(a,b)
+#define LCAT_IMPL(a,b) a##b
 
-#define L_TO_STR_IMPL(s)	#s
-#define L_TO_STR(s)	L_TO_STR_IMPL(s)
+#define LSTR_IMPL(s)	#s
+#define LSTR(s)	LSTR_IMPL(s)
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))

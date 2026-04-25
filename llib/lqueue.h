@@ -13,7 +13,6 @@ void l_queue_free(LQueue *q);
 void l_queue_push_head(LQueue *q,void *data);
 void l_queue_push_tail(LQueue *q,void *data);
 void *l_queue_pop_head(LQueue *q);
-void *l_queue_peek_head(LQueue *q);
 void l_queue_remove(LQueue *q,void *data);
 #define l_queue_peek_head(q) ((q)->head)
 #define l_queue_length(q) ((q)->length)

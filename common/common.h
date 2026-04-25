@@ -54,7 +54,6 @@ void y_im_str_encode_r(const void *in,char *gb);
 int y_im_str_len(const void *in);
 void y_im_load_punc(void);
 int y_im_forward_key(const char *s);
-void y_im_url_encode(const char *gb,char *out);
 int y_im_go_url(const char *s);
 int y_im_send_file(const char *s);
 int y_im_str_desc(const char *s,void *out);
@@ -79,8 +78,8 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 bool y_im_cand_desc_translate(const char *data,const char *code,const char *tip,char *res,int size);
 bool y_im_key_desc_is_first(int code);
 int y_im_key_desc_first(int code,int len,char *res,int size);
-int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int));
-char *y_im_auto_path(char *fn);
+int y_im_run_helper(char *argv[],const char *watch,void (*change_cb)(void),void (*exit_cb)(int));
+char *y_im_auto_path(const char *fn,bool *home);
 char *y_im_get_im_name(int index);
 char *y_im_get_im_config_string(int index,const char *key);
 const char *y_im_get_im_config_data(int index,const char *key);
@@ -181,7 +180,7 @@ int y_im_handle_menu(const char *cmd);
 int y_kbd_init(const char *fn);
 bool y_kbd_show(int b);
 int y_kbd_show_with_main(int b);
-bool y_kbd_popup_menu(void);
+bool y_kbd_popup_menu(int from);
 void y_kbd_select(int pos,int sub);
 
 int y_replace_init(const char *file);
@@ -234,5 +233,6 @@ int y_main_init(int index);
 void y_main_clean(void);
 
 int y_im_check_select(int key,int flags);
+void y_im_set_home_watch(int config);
 
 #endif/*_COMMON_H_*/

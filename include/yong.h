@@ -109,22 +109,6 @@ typedef struct {
 	int (*Callback)(int,...);
 }EXTRA_IM;
 
-#ifdef YONG_IM_ENGINE
-
-#define CodeInput EIM.CodeInput
-#define StringGet EIM.StringGet
-#define CandTable EIM.CandTable
-#define CodeTips EIM.CodeTips
-#define CodeLen EIM.CodeLen
-#define CandWordMax EIM.CandWordMax
-#define CurCandPage EIM.CurCandPage
-#define CandWordCount EIM.CandWordCount
-#define CandPageCount EIM.CandPageCount
-#define SelectIndex EIM.SelectIndex
-#define CaretPos EIM.CaretPos
-
-#endif/*YONG_IM_ENGINE*/
-
 #define IM_FLAG_ASYNC		0x01
 #define IM_FLAG_CAPITAL		0x02
 
@@ -151,6 +135,7 @@ typedef struct {
 #define YK_TAB		'\t'
 #define YK_ESC		0x1bu
 #define YK_SPACE	0x20u
+#define YK_DELETE	0x7fu
 #define YK_LSHIFT	0xe1u
 #define YK_RSHIFT	0xe2u
 #define YK_LCTRL	0xe3u
@@ -160,7 +145,6 @@ typedef struct {
 #define YK_RALT		0xeau
 #define YK_LWIN		0xebu
 #define YK_RWIN		0xecu
-#define YK_DELETE	0xffu
 
 #define YK_IS_MASK(x)			\
 (__extension__					\
@@ -258,6 +242,7 @@ typedef struct {
 #define YK_VIRT_REFRESH	(KEYM_VIRT|4)
 #define YK_VIRT_TIP		(KEYM_VIRT|5)
 #define YK_VIRT_TRIGGER	(KEYM_VIRT|6)
+#define YK_VIRT_CNEN	(KEYM_VIRT|7)
 #define YK_VIRT_SELECT	(KEYM_VIRT|10)
 #define YK_VIRT_CARET	(KEYM_VIRT|20)
 

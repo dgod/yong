@@ -40,7 +40,6 @@ static char *md5_file(const char *path,uint32_t *size)
 	void *data;
 	size_t length;
 	char temp[64];
-	int i;
 	
 	if(path[0]=='/') path++;	
 	data=l_file_get_contents(path,&length,y_im_get_path("DATA"),NULL);
@@ -53,10 +52,7 @@ static char *md5_file(const char *path,uint32_t *size)
 	l_md5_update(&ctx,data,length);
 	l_md5_final(&ctx);
 	l_free(data);
-	for(i=0;i<16;i++)
-	{
-		sprintf((char*)temp+i*2,"%02x",ctx.digest[i]);
-	}
+	l_bin2hex(temp,ctx.digest,sizeof(ctx.digest));
 	*size=(uint32_t)length;
 	return l_strdup((char*)temp);
 }
@@ -65,16 +61,10 @@ static int md5_check(const void *data,size_t length,const char *md5)
 {
 	MD5_CTX ctx;
 	char temp[64];
-	int i;
-	
 	l_md5_init(&ctx);
 	l_md5_update(&ctx,data,length);
 	l_md5_final(&ctx);
-	
-	for(i=0;i<16;i++)
-	{
-		sprintf((char*)temp+i*2,"%02x",ctx.digest[i]);
-	}
+	l_bin2hex(temp,ctx.digest,sizeof(ctx.digest));
 	return !strcmp(md5,temp);
 }
 
@@ -105,34 +95,6 @@ static void fitem_free(FITEM *p)
 	l_free(p->file);
 	l_free(p->md5);
 	l_free(p);
-}
-
-static void status(const char *fmt,...)
-{
-	CUCtrl list,p;
-	char temp[256];
-	va_list ap;
-	char *fmt2;
-	list=cu_ctrl_list_from_type(CU_LABEL);
-	for(p=list;p!=NULL;p=p->tlist)
-	{
-		if(strcmp("status",p->group))
-		{
-			continue;
-		}
-		break;
-	}
-	if(p==NULL)
-	{
-		return;
-	}
-	fmt2=cu_translate(fmt);
-	va_start(ap,fmt);
-	vsnprintf(temp,sizeof(temp),fmt2,ap);
-	va_end(ap);
-	cu_ctrl_set_self(p,temp);
-	l_free(fmt2);
-	cu_step();
 }
 
 static LArray *build_remote_file_list(void)
@@ -245,6 +207,35 @@ static int l_stat(const char *file,struct stat *buf)
 }
 #endif/*__linux__*/
 
+static int formatFileSize(int bytes,char *out)
+{
+	if (bytes < 1024)
+		return sprintf(out, "%d B", bytes);
+	else if (bytes < 1024 * 1024)
+		return sprintf(out, "%.1f KB", bytes / 1024.0);
+	else
+		return sprintf(out, "%.1f MB", bytes / (1024.0 * 1024.0));
+}
+
+static int download_remote_file_progress(int received,int total,void *file)
+{
+	char temp[256];
+	static uint64_t prev;
+	if(received == 0)
+	{
+		prev=l_ticks();
+		return 0;
+	}
+	uint64_t now=l_ticks();
+	if(now-prev<200)
+		return 0;
+	prev=now;
+	int pos=sprintf(temp,"下载文件“%s” ",(char*)file);
+	pos+=formatFileSize(received,temp+pos);
+	status("%s",temp);
+	return 0;
+}
+
 static int download_remote_file(const FITEM *it)
 {
 	HttpSession *ss;
@@ -267,7 +258,9 @@ static int download_remote_file(const FITEM *it)
 	}
 	ss=http_session_new();
 	http_session_set_host(ss,server_host,server_port);
-	//http_session_set_header(ss,"Cache-Control: no-cache\r\nPragma: no-cache\r\n");
+	download_remote_file_progress(0,0,(void*)file);
+	http_session_set_progress(ss,download_remote_file_progress,(void*)file);
+
 	res=http_session_get(ss,path,&len,NULL,0);
 	http_session_free(ss);
 	if(res==NULL)
@@ -426,7 +419,7 @@ static void set_server(void)
 	t=l_key_file_get_data(config,"sync","server");
 	if(!t)
 		return;
-	sscanf(t,"%31s %d",server_host,&server_port);
+	l_sscanf(t,"%31s %d",server_host,&server_port);
 }
 
 static void set_import(void)
@@ -441,8 +434,53 @@ static void set_import(void)
 	strcpy(user_import,t);
 }
 
+static void status_free(char *s)
+{
+	status("%s",s);
+	l_free(s);
+}
+
+static int get_latest_func(void *unused)
+{
+	char *res;
+	int len;
+	char temp[4096];
+	char *version=NULL;
+
+	snprintf(temp,sizeof(temp),"/sync/update.php?latest=1");
+	HttpSession *ss=http_session_new();
+	http_session_set_host(ss,server_host,server_port);
+	res=http_session_get(ss,temp,&len,NULL,0);
+	http_session_free(ss);
+	if(!res)
+		return 0;
+	temp[0]=0;
+	char *p=res[0]=='2'?res-1:strstr(res,"\n2");
+	if(p!=NULL)
+	{
+		version=p+1;
+		p=strstr(version,"\n2");
+		if(p!=NULL)
+		{
+			*p=0;
+		}
+		l_str_trim(version);
+	}
+	if(version!=NULL)
+	{
+		snprintf(temp,sizeof(temp)-1,"最新版本：%s",version);
+		cu_call((void*)status_free,l_strdup(temp));
+	}
+	l_free(res);
+	return 0;
+}
+
 static void activate(CULoopArg *arg)
 {
+	l_thrd_t thr;
+	l_thrd_create(&thr,get_latest_func,NULL);
+	l_thrd_detach(thr);
+
 	CUCtrl win=cu_ctrl_new(NULL,arg->custom->root.child);
 	assert(win!=NULL);
 	cu_ctrl_show_self(win,1);

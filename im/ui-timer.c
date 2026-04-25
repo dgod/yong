@@ -49,8 +49,7 @@ static void CALLBACK _timer(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
 
 static void _idle(void)
 {
-	int i;
-	for(i=0;i<MAX_IDLE_CB;i++)
+	for(int i=0;i<MAX_IDLE_CB;i++)
 	{
 		if(l_idles[i].cb)
 		{
@@ -78,8 +77,7 @@ static void _timer(UI_CALLBACK *p)
 
 static void _idle(void *unused)
 {
-	int i;
-	for(i=0;i<MAX_IDLE_CB;i++)
+	for(int i=0;i<MAX_IDLE_CB;i++)
 	{
 		if(l_idles[i].cb)
 		{
@@ -120,8 +118,7 @@ static gboolean _idle(gpointer arg)
 
 static void ui_timer_del(void (*cb)(void *),void *arg)
 {
-	int i;
-	for(i=0;i<MAX_TIMER_CB;i++)
+	for(int i=0;i<MAX_TIMER_CB;i++)
 	{
 		if(l_timers[i].cb==cb && l_timers[i].arg==arg)
 		{
@@ -142,8 +139,7 @@ static void ui_timer_del(void (*cb)(void *),void *arg)
 
 static void ui_idle_del(void (*cb)(void *),void *arg)
 {
-	int i;
-	for(i=0;i<MAX_IDLE_CB;i++)
+	for(int i=0;i<MAX_IDLE_CB;i++)
 	{
 		if(l_idles[i].cb==cb && l_idles[i].arg==arg)
 		{

@@ -8,14 +8,17 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "pinyin.h"
 #include "llib.h"
+#include "llineedit.h"
+#include "pinyin.h"
 #include "local.h"
 #include "cloud.h"
 
 #ifdef CFG_XIM_ANDROID
 #define rand() (int)lrand48()
 #endif
+
+static LLineEdit line;
 
 static int SGY_Init(const char *arg);
 static void SGY_Reset(void);
@@ -191,7 +194,7 @@ static char *url_get_auth(const char *url)
 	if(!p)
 		return NULL;
 	user[0]=0;pass[0]=0;
-	sscanf(url,"%31[^:]:%31[^@]",user,pass);
+	l_sscanf(url,"%31[^:]:%31[^@]",user,pass);
 	if(!user[0])
 		return NULL;
 	len=sprintf(auth,"%s:%s",user,pass);
@@ -359,30 +362,6 @@ static sg_res_t* gg_parse_res(sg_cache_t *c,char *s)
 	return r;
 }
 
-static sg_res_t* ek_parse_res(sg_cache_t *c,char *s)
-{
-	char key[64],cand[256];
-	sg_res_t *r;
-	if((s=strstr(s,"<S>"))==NULL)
-		return NULL;
-	s+=3;
-	if(1!=sscanf(s,"%255[^<]",cand))
-		return NULL;
-	if((s=strstr(s,"<Q>"))==NULL)
-		return NULL;
-	s+=3;
-	if(1!=sscanf(s,"%63[^<]",key))
-		return NULL;
-	r=l_new0(sg_res_t);
-	r->l=(uint16_t)strlen(key);
-	r->q=l_strdup(key);
-	r->c=1;
-	r->cs=l_cnew0(r->c,sg_cand_t);
-	r->cs[0].l=r->l;
-	r->cs[0].s=u2gb(cand);
-	return r;
-}
-
 struct cloud_api sg_apis[]={
 	{
 		.name="baidu",
@@ -392,16 +371,6 @@ struct cloud_api sg_apis[]={
 		.key_parse=NULL,
 		.res_parse=bd_parse_res
 	},
-#ifdef EMSCRIPTEN
-	{
-		.name="google",
-		.host="www.google.com",
-		.query_key=NULL,
-		.query_res="/transliterate?text=%s&langpair=en%%7Czh&tlqt=1&version=2&num=20&tl_app=3&uv=b%%3B0%%3B0&jsonp=_callbacks_._19glbuaa5f",
-		.key_parse=NULL,
-		.res_parse=gg_parse_res
-	},
-#else
 	{
 		.name="google",
 		.host="www.google.cn",
@@ -410,24 +379,15 @@ struct cloud_api sg_apis[]={
 		.key_parse=NULL,
 		.res_parse=gg_parse_res
 	},
-#endif
-	{
-		.name="engkoo",
-		.host="s.p.msra.cn",
-		.query_key=NULL,
-		.query_res="/http/v2/7abc7712f9544664adb29271b2d79581/?q=%s",
-		.key_parse=NULL,
-		.res_parse=ek_parse_res
-	}
 };
-struct cloud_api *sg_cur_api=&sg_apis[0];
+struct cloud_api *sg_cur_api=&sg_apis[1];
 
 static void sg_select_api(const char *name)
 {
 	int i;
 	if(!name || !name[0])
 		return;
-	for(i=0;i<lengthof(sg_apis);i++)
+	for(i=0;i<countof(sg_apis);i++)
 	{
 		if(!strcmp(sg_apis[i].name,name))
 		{
@@ -488,7 +448,6 @@ static int SGY_Init(const char *arg)
 {
 	char scheme[256];
 	char *p;
-
 	
 	sg_init();
 	l_cache=sg_cache_new();
@@ -519,7 +478,7 @@ static int SGY_Init(const char *arg)
 		SP=1;
 		EIM.Flag|=IM_FLAG_CAPITAL;
 	}
-	py_init(0,scheme);
+	py2_init(0,scheme);
 	
 	p=EIM.GetConfig(0,"pinyin");
 	if(p)
@@ -548,6 +507,13 @@ static int SGY_Init(const char *arg)
 	}
 	
 	CloudWaitReady();
+
+	l_line_edit_init(&line);
+	l_line_edit_set_max(&line,54);
+	l_line_edit_set_allow(&line,"a-z",true);
+	if(py_sp_has_semi())
+		l_line_edit_set_allow(&line,";",false);
+	l_line_edit_set_nav(&line,YK_LEFT,YK_RIGHT,YK_HOME,YK_END);
 		
 	return 0;
 }
@@ -569,6 +535,8 @@ static void SGY_Reset(void)
 {
 	if(!l_cache)
 		return;
+	
+	l_line_edit_clear(&line);
 	l_user=NULL;
 	l_res=NULL;
 	EIM.CodeInput[0]=0;
@@ -597,7 +565,7 @@ static int PinyinDoSearch()
 	}
 	if(SP)
 	{
-		py_conv_from_sp(p,quan,sizeof(quan),0);
+		py2_conv_from_sp(p,quan,0);
 		p=quan;
 	}
 	CloudLock();
@@ -620,10 +588,12 @@ static int PinyinDoSearch()
 static void PinyinCodeRevert(void)
 {
 	CloudLock();
-	EIM.CaretPos=strlen(CodeGet);
-	strcat(CodeGet,EIM.CodeInput);
-	strcpy(EIM.CodeInput,CodeGet);
-	EIM.CodeLen=strlen(EIM.CodeInput);
+	if(!l_line_edit_unshift(&line,CodeGet))
+	{
+		CloudUnlock();
+		return;
+	}
+	EIM.CodeLen=l_line_edit_copy(&line,EIM.CodeInput,-1,&EIM.CaretPos);
 	CodeGet[0]=0;
 	CodeGetLen=0;
 	EIM.StringGet[0]=0;
@@ -780,7 +750,8 @@ static int CloudMoveCaretTo(int key)
 			p=0;
 		if(EIM.CodeInput[p]==key)
 		{
-			EIM.CaretPos=p;
+			l_line_edit_set_caret(&line,p);
+			EIM.CaretPos=l_line_edit_get_caret(&line);
 			break;
 		}
 		p++;
@@ -790,8 +761,6 @@ static int CloudMoveCaretTo(int key)
 
 static int SGY_DoInput(int key)
 {
-	int i;
-	
 	if(AssistMode && l_cache->l)
 	{
 		if(!AssistSeries)
@@ -822,144 +791,71 @@ static int SGY_DoInput(int key)
 			return IMR_BLOCK;
 		}
 	}
-
-	if(key==YK_BACKSPACE)
+	int ret=l_line_edit_push(&line,key);
+	if(ret==1)
 	{
-		AssistMode=0;
-		if(EIM.CodeLen==0 && CodeGetLen==0)
-			return IMR_CLEAN_PASS;
-		if(EIM.CaretPos==0)
-		{
-			if(CodeGetLen)
-			{
-				PinyinCodeRevert();
-				return IMR_DISPLAY;
-			}
-			return IMR_BLOCK;
-		}
-		for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
-			EIM.CodeInput[i-1]=EIM.CodeInput[i];
-		EIM.CodeLen--;
-		EIM.CaretPos--;
-		EIM.CodeInput[EIM.CodeLen]=0;
-		if(EIM.CaretPos==0)
-		{
-			if(CodeGetLen)
-			{
-				PinyinCodeRevert();
-				return IMR_DISPLAY;
-			}
-		}
-	}
-	else if(key==YK_DELETE)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		if(EIM.CodeLen!=EIM.CaretPos)
-		{
-			CloudLock();
-			for(i=EIM.CaretPos;i<EIM.CodeLen;i++)
-				EIM.CodeInput[i]=EIM.CodeInput[i+1];
-			EIM.CodeLen--;
-			EIM.CodeInput[EIM.CodeLen]=0;
-			CloudUnlock();
-		}
-	}
-	else if(key==YK_HOME)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		EIM.CaretPos=0;
-	}
-	else if(key==YK_END)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		EIM.CaretPos=EIM.CodeLen;
-	}
-	else if(key==YK_LEFT)
-	{
-		if(EIM.CodeLen==0 && !CodeGetLen)
-			return IMR_PASS;
-		if(EIM.CaretPos==0 && CodeGetLen)
-		{
-			PinyinCodeRevert();
-			return IMR_DISPLAY;
-		}
-		if(EIM.CaretPos>0)
-			EIM.CaretPos--;		
-	}
-	else if(key==YK_RIGHT)
-	{
-		if(EIM.CodeLen==0)
-			return IMR_PASS;
-		if(EIM.CaretPos<EIM.CodeLen)
-			EIM.CaretPos++;
-	}
-	else if(key==YK_TAB)
-	{
-		if(EIM.CandWordCount && ASSIST!=0)
-		{
-			AssistMode=1;
-			return IMR_BLOCK;
-		}
-		return IMR_NEXT;
-	}
-	else if(py_is_valid_input(SP,key,EIM.CaretPos))
-	{
-		if(CodeGetLen+EIM.CodeLen>=54)
-			return IMR_BLOCK;
-		PhraseCalcCount=0;
 		CloudLock();
-		if(EIM.CodeLen==0 && CodeGetLen==0)
-		{
-			EIM.CaretPos=0;
-			EIM.StringGet[0]=0;
-			EIM.SelectIndex=0;
-		}
-		for(i=EIM.CodeLen-1;i>=EIM.CaretPos;i--)
-			EIM.CodeInput[i+1]=EIM.CodeInput[i];
-		EIM.CodeInput[EIM.CaretPos]=key;
-		EIM.CodeLen++;
-		EIM.CaretPos++;
-		EIM.CodeInput[EIM.CodeLen]=0;
+		EIM.CodeLen=l_line_edit_copy(&line,EIM.CodeInput,-1,&EIM.CaretPos);
 		CloudUnlock();
+		if(EIM.CodeLen==0)
+			return IMR_CLEAN;
 	}
-	else if(key>='A' && key<='Z')
+	else if(ret==2)
 	{
-		if(EIM.CodeLen>=1)
-			CloudMoveCaretTo(key);
-		else
-			return IMR_NEXT;
-	}
-	else if(key==YK_VIRT_REFRESH)
-	{
-		int i;
-		for(i=0;i<EIM.CodeLen;i++)
-		{
-			if(!islower(EIM.CodeInput[i]))
-				return IMR_BLOCK;
-		}
-		PinyinDoSearch();
-		return SGY_GetCandWords(PAGE_FIRST);
-	}
-	else if(key>=YK_VIRT_CARET && key<=YK_VIRT_CARET+MAX_CODE_LEN+2)
-	{
-		int caret=key-YK_VIRT_CARET-1;
-		if(caret<0 && CodeGetLen)
+		if((key==YK_BACKSPACE || key==YK_LEFT) && CodeGetLen>0)
 		{
 			PinyinCodeRevert();
 		}
-		if(caret>=0 && caret<=EIM.CodeLen)
-		{
-			if(caret==EIM.CaretPos)
-				return IMR_BLOCK;
-			EIM.CaretPos=caret;
+		else
+		{		
+			return IMR_BLOCK;
 		}
 	}
-	else
+	else if(ret==0)
 	{
-		return IMR_NEXT;
+		if(key==YK_TAB)
+		{
+			if(EIM.CandWordCount && ASSIST!=0)
+			{
+				AssistMode=1;
+				return IMR_BLOCK;
+			}
+			return IMR_NEXT;
+		}
+		else if(SP && (key>='A' && key<='Z'))
+		{
+			if(EIM.CodeLen>=1)
+			{
+				CloudMoveCaretTo(key);
+			}
+			else
+			{
+				return IMR_NEXT;
+			}
+		}
+		else if(key==YK_VIRT_REFRESH)
+		{
+			if(l_re_test("^[a-z;]+$",EIM.CodeInput)<0)
+				return IMR_BLOCK;
+			if(!l_line_edit_set_text(&line,EIM.CodeInput))
+				return IMR_BLOCK;
+			EIM.CaretPos=l_line_edit_get_caret(&line);
+			PinyinDoSearch();
+			return SGY_GetCandWords(PAGE_FIRST);
+		}
+		else if(key>=YK_VIRT_CARET && key<=YK_VIRT_CARET+MAX_CODE_LEN+2)
+		{
+			int caret=key-YK_VIRT_CARET;
+			if(caret>=0 && caret<=EIM.CodeLen)
+			{
+				l_line_edit_set_caret(&line,caret);
+				l_line_edit_copy(&line,NULL,-1,&EIM.CaretPos);
+			}
+		}
+		else
+		{
+			return IMR_NEXT;
+		}
 	}
 	PinyinDoSearch();
 	return IMR_DISPLAY;

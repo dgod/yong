@@ -10,6 +10,10 @@ struct _HttpSession{
 	volatile int abort;
 	LString str;
 	CURLM *curlm;
+
+	int content_length;
+	int (*progress)(int received, int total,void *arg);
+	void *progress_arg;
 };
 
 HttpSession *http_session_new(void)
@@ -51,7 +55,36 @@ static size_t write_callback(char *ptr, size_t size, size_t nmemb,  HttpSession 
 		return CURL_WRITEFUNC_ERROR;
 #endif
 	l_string_append(&ss->str,ptr,nmemb);
+	if(ss->progress)
+	{
+		int received = ss->str.len;
+		if(ss->progress(received, ss->content_length, ss->progress_arg) != 0)
+		{
+			ss->abort = 1;
+#ifndef CURL_WRITEFUNC_ERROR
+			return 0;
+#else
+			return CURL_WRITEFUNC_ERROR;
+#endif
+		}
+	}
+	
 	return nmemb;
+}
+
+static size_t header_callback(char *ptr, size_t size, size_t nmemb, HttpSession *ss)
+{
+	if(strncasecmp(ptr, "Content-Length:", 15) == 0)
+	{
+		char *value = ptr + 15;
+		while(*value == ' ') value++;
+		long cl = strtol(value, NULL, 10);
+		if(cl >= 0 && cl <= 0x7FFFFFFF)
+		{
+			ss->content_length = (int)cl;
+		}
+	}
+	return nmemb * size;
 }
 
 char *http_session_get(HttpSession *ss,const char *path,int *len,const char *post,int post_len)
@@ -72,6 +105,7 @@ char *http_session_get(HttpSession *ss,const char *path,int *len,const char *pos
 	curl_easy_setopt(curl,CURLOPT_CONNECTTIMEOUT_MS,1000);
 	curl_easy_setopt(curl,CURLOPT_ACCEPT_ENCODING,"gzip");
 	l_string_init(&ss->str,16);
+	ss->content_length = -1; 
 	if(!strcmp(proto,"https"))
 	{
 		curl_easy_setopt(curl,CURLOPT_SSL_VERIFYPEER,0);
@@ -79,6 +113,8 @@ char *http_session_get(HttpSession *ss,const char *path,int *len,const char *pos
 	}
 	curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,(void*)write_callback);
 	curl_easy_setopt(curl,CURLOPT_WRITEDATA,ss);
+	curl_easy_setopt(curl,CURLOPT_HEADERFUNCTION,(void*)header_callback);
+	curl_easy_setopt(curl,CURLOPT_HEADERDATA,ss);
 	struct curl_slist *header = NULL;
 	header = curl_slist_append(header, "Cache-Control: no-cache");
 	header = curl_slist_append(header, "Content-Type: text/plain");
@@ -88,6 +124,7 @@ char *http_session_get(HttpSession *ss,const char *path,int *len,const char *pos
 	do{
 		mcode=curl_multi_perform(ss->curlm,&still_running);
 	}while(mcode==CURLM_OK && still_running);
+
 	curl_slist_free_all(header);
 	curl_multi_remove_handle(ss->curlm,curl);
 	curl_easy_cleanup(curl);
@@ -117,5 +154,13 @@ int http_session_abort(HttpSession *ss)
 	curl_multi_wakeup(ss->curlm);
 #endif
 	return 0;
+}
+
+void http_session_set_progress(HttpSession *ss, int (*progress)(int received, int total,void *arg),void *arg)
+{
+	if(!ss)
+		return;
+	ss->progress = progress;
+	ss->progress_arg = arg;
 }
 

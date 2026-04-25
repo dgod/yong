@@ -108,7 +108,7 @@ Y_KEY_TOOL2 *y_key_tools2_load(void)
 		key=y_im_get_key("keyboard",1,CTRL_SHIFT_K);
 		if(key>0)
 		{
-			key_cb_append(r,key,0,(void*)y_kbd_popup_menu);
+			key_cb_append(r,key,2,(void*)y_kbd_popup_menu);
 		}
 	}
 #endif

@@ -169,3 +169,22 @@ static inline void l_write_u32le(void *p,uint32_t v)
 	unsigned long:__builtin_popcountl(v),\
 	unsigned long long:__builtin_popcountll(v)\
 )
+
+static inline void l_bitmap_set(void *bm,int i)
+{
+	uint8_t *p=bm;
+	p[i / 8] |= (1 << (i % 8));
+}
+
+static inline void l_bitmap_clr(void *bm,int i)
+{
+	uint8_t *p=bm;
+	p[i / 8] &= ~(1 << (i % 8));
+}
+
+static inline uint8_t l_bitmap_get(void *bm,int i)
+{
+	uint8_t *p=bm;
+	return (p[i/8]>>(i%8))&0x01;
+}
+

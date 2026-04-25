@@ -78,11 +78,21 @@ enum
 
 #define l_thread_local __declspec(thread)
 typedef HANDLE l_thrd_t;
-typedef HANDLE l_mtx_t;
+typedef struct{
+	int type;
+	union{
+		CRITICAL_SECTION plain;
+		HANDLE timed;
+	};
+}l_mtx_t;
+#ifdef _WIN64
+typedef CONDITION_VARIABLE l_cnd_t;
+#else
 typedef struct{
 	HANDLE event;
 	bool has_waiter;
 }l_cnd_t;
+#endif
 
 DWORD WINAPI l_winthread_wrapper(void *param);
 
@@ -143,4 +153,8 @@ int l_cnd_timedwait(l_cnd_t *cnd,l_mtx_t *mtx,const struct timespec *ts);
 #endif
 
 int l_cnd_timedwait_ms(l_cnd_t *cnd,l_mtx_t *mtx,int ms);
+
+int l_thrdp_init(int num);
+int l_thrdp_run(LUserFunc func,void *arg,bool exclusive);
+int l_thrdp_wait(LUserFunc func,int timeout);
 

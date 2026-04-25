@@ -27,6 +27,8 @@ struct trie_tree{
 	int page_size;
 	int page_shift;
 	int page_mask;
+	char fast_begin;
+	char fast_end;
 };
 
 typedef struct trie_iter{
@@ -41,6 +43,7 @@ typedef struct trie_iter{
 #define TRIE_DATA(n) ((trie_node_t*)(n)->data)
 
 trie_tree_t *trie_tree_new(int page_size);
+int trie_tree_add_fast(trie_tree_t *t,char begin,char end);
 void trie_tree_free(trie_tree_t *t);
 trie_node_t *trie_tree_root(trie_tree_t *t);
 trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len);
@@ -71,12 +74,13 @@ typedef union{
 }py_node_t;
 
 typedef struct{
+	int32_t count;
 	uint32_t node[511];
-	int count;
 }py_tree_t;
 
 void py_tree_init(py_tree_t *tree);
 void py_tree_add(py_tree_t *tree,const char *s,int len,int item);
 int py_tree_get(py_tree_t *tree,const char *s,int *out);
+int py_tree_longest(py_tree_t *tree,const char *s,int len,int *out);
 
 #endif/*_TRIE_H_*/

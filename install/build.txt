@@ -35,6 +35,7 @@ function copy_build(build){
 	cp('../config/$(BUILD)-gtk3/yong-config','yong/$(BUILD)/yong-config-gtk3');
 	cp('../config/$(BUILD)-gtk4/yong-config','yong/$(BUILD)/yong-config-gtk4');
 	cp('../vim/$(BUILD)/yong-vim','yong/$(BUILD)');
+	cp('../im/conio/$(BUILD)/yong-con','yong/$(BUILD)');
 	cp('../mb/$(BUILD)/libmb.so','yong/$(BUILD)');
 	cp('../gbk/$(BUILD)/libgbk.so','yong/$(BUILD)');
 	cp('../cloud/$(BUILD)/libcloud.so','yong/$(BUILD)');
@@ -48,6 +49,12 @@ function copy_build(build){
 	exec("strip yong/$(BUILD)/yong-config-gtk3");
 	exec("strip yong/$(BUILD)/yong-config-gtk4");
 	exec("strip yong/$(BUILD)/yong-vim");
+
+	if(!_exists("yong/$(BUILD)/yong-config")){
+		cd("yong/$(BUILD)");
+		exec("ln -sf yong-config-gtk3 yong-config");
+		cd("../..");
+	}
 
 
 }

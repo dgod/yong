@@ -46,6 +46,7 @@ static ui_menu_t *ui_build_menu(LKeyFile *kf);
 
 static void ui_clean(void);
 static int ui_loop(void);
+static int ui_call(void (*cb)(void*),void *arg);
 static int ui_main_update(UI_MAIN *param);
 static void *ui_main_win(void);
 static int ui_input_update(UI_INPUT *param);
@@ -68,6 +69,7 @@ static int ui_button_label(int id,const char *text);
 
 #include "ui-common.c"
 #include "ui-timer.c"
+#include "ui-poll.c"
 
 static bool is_wayland=false;
 static int MainWin_over;
@@ -212,6 +214,18 @@ static int return_1(void)
 
 static gboolean on_screen_size_changed_next(gpointer unused);
 
+static void ui_set_global_css(void)
+{
+	const char *data=".ywindow{background-color:transparent}\nbutton{padding:0}\n";
+	GtkCssProvider *provider=gtk_css_provider_new();
+	gtk_css_provider_load_from_data(provider,data,-1,NULL);
+	GdkScreen *screen = gdk_screen_get_default();
+	gtk_style_context_add_provider_for_screen(screen,
+			GTK_STYLE_PROVIDER(provider),
+			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	g_object_unref(provider);
+}
+
 void YongSetXErrorHandler(void);
 static int ui_init(void)
 {
@@ -293,12 +307,15 @@ static int ui_init(void)
 
 	load_app_indicator();
 
-	L_CO_INIT init={
-		.events={
-			.sleep=ui_timer_add
-		}
+	L_LOOP_SCHED sched={
+		.sleep=ui_timer_add,
+		.idle=ui_idle_add,
+		.main=ui_call,
+		.poll=ui_poll,
 	};
-	l_co_init(&init);
+	l_loop_sched(&sched);
+	l_thrdp_init(4);
+	l_co_init();
 
 	GtkClipboard *cb=gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 	if(cb!=NULL)
@@ -324,6 +341,8 @@ static int ui_init(void)
 			l_thrd_sleep_ms(100);
 		}
 	}
+
+	ui_set_global_css();
 	
 	return 0;
 }
@@ -701,6 +720,13 @@ static gboolean main_enter_leave_notify(GtkWidget *window,GdkEventCrossing *even
 	return FALSE;
 }
 
+void ui_add_class(GtkWidget *w,const gchar *cls)
+{
+	GtkStyleContext *context=gtk_widget_get_style_context(w);
+    gtk_style_context_add_class(context, cls);
+}
+
+#if 0
 void ui_set_css(GtkWidget *widget,const gchar *data)
 {
 	GtkCssProvider *provider=gtk_css_provider_new();
@@ -709,6 +735,7 @@ void ui_set_css(GtkWidget *widget,const gchar *data)
 	gtk_style_context_add_provider(context,GTK_STYLE_PROVIDER(provider),GTK_STYLE_PROVIDER_PRIORITY_USER);
 	g_object_unref(provider);
 }
+#endif
 
 static guint screen_changed_timer=0;
 static gboolean on_screen_size_changed_next(gpointer unused)
@@ -774,7 +801,8 @@ int ui_main_update(UI_MAIN *param)
 			G_CALLBACK(on_screen_size_changed),NULL);
 
 
-		ui_set_css(GTK_WIDGET(MainWin),"window{background-color:transparent}\n");
+		// ui_set_css(GTK_WIDGET(MainWin),"window{background-color:transparent}\n");
+		ui_add_class(GTK_WIDGET(MainWin),"ywindow");
 	}
 
 	if(MainWin_bg)
@@ -1092,13 +1120,19 @@ static UI_IMAGE ui_input_bg_adjust(UI_IMAGE bg,int cand_max,int bottom)
 	return res;
 }
 
-static int get_input_text_height(void)
+static int get_input_text_width(void)
 {
-	char temp[8];
+	UI_FONT font=InputTheme.layout;
+	return ui_text_size(NULL,font,"A",NULL,NULL);
+}
+
+static int get_input_text_height(UI_FONT font)
+{
+	if(!font) font=InputTheme.layout;
+	char temp[8]="\xe6\xb5\x8b";
 	int cy;
 	int get_text_width(const char *s,UI_FONT layout,int *height);
-	y_im_str_encode("测",temp,0);
-	get_text_width(temp,InputTheme.layout,&cy);
+	get_text_width(temp,font,&cy);
 	return cy;
 }
 
@@ -1142,7 +1176,8 @@ int ui_input_update(UI_INPUT *param)
 		g_signal_connect(G_OBJECT(InputWin),"draw",
 			G_CALLBACK(on_input_draw),0);
 		
-		ui_set_css(GTK_WIDGET(InputWin),"window{background-color:transparent}\n");
+		//ui_set_css(GTK_WIDGET(InputWin),"window{background-color:transparent}\n");
+		ui_add_class(GTK_WIDGET(InputWin),"ywindow");
 
 		if(is_wayland && !param->root)
 			ybus_wayland_set_window(InputWin,"input",1);
@@ -1173,6 +1208,19 @@ int ui_input_update(UI_INPUT *param)
 		{
 			ui_region_destroy(InputTheme.rgn[i]);
 			InputTheme.rgn[i]=NULL;
+		}
+	}
+	for(i=0;i<2;i++)
+	{
+		if(InputTheme.page.up[i])
+		{
+			ui_image_free(InputTheme.page.up[i]);
+			InputTheme.page.up[i]=NULL;
+		}
+		if(InputTheme.page.down[i])
+		{
+			ui_image_free(InputTheme.page.down[i]);
+			InputTheme.page.down[i]=NULL;
 		}
 	}
 	InputTheme.line=param->line;
@@ -1217,6 +1265,19 @@ int ui_input_update(UI_INPUT *param)
 		InputTheme.layout=ui_font_parse(InputWin,param->font,ui_scale);
 		if(param->page.show && param->page.scale!=0 && param->page.scale!=1)
 			InputTheme.page.layout=ui_font_parse(InputWin,param->font,ui_scale*param->page.scale);
+	}
+	if(InputTheme.page.show)
+	{
+		InputTheme.page.space=MAX(get_input_text_width(),InputTheme.space);
+		if(InputTheme.page.text[0]==1)
+		{
+			UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
+			int size=get_input_text_height(font);
+			InputTheme.page.up[0]=ui_image_load_page(size,InputTheme.text[4],true);
+			InputTheme.page.up[1]=ui_image_load_page(size,InputTheme.page.color,true);
+			InputTheme.page.down[0]=ui_image_load_page(size,InputTheme.text[4],false);
+			InputTheme.page.down[1]=ui_image_load_page(size,InputTheme.page.color,false);
+		}
 	}
 	
 	InputTheme.line_width=param->line_width;
@@ -1400,6 +1461,16 @@ int ui_input_update(UI_INPUT *param)
 	InputTheme.text[5]=ui_color_parse(param->text[5]);
 	InputTheme.text[6]=ui_color_parse(param->text[6]);
 
+	if(InputTheme.page.show && InputTheme.page.text[0]==1)
+	{
+		UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
+		int size=get_input_text_height(font);
+		InputTheme.page.up[0]=ui_image_load_page(size,InputTheme.text[4],true);
+		InputTheme.page.up[1]=ui_image_load_page(size,InputTheme.page.color,true);
+		InputTheme.page.down[0]=ui_image_load_page(size,InputTheme.text[4],false);
+		InputTheme.page.down[1]=ui_image_load_page(size,InputTheme.page.color,false);
+	}
+
 	InputTheme.RealWidth=2*InputTheme.RealHeight;
 	InputTheme.MaxHeight=InputTheme.RealHeight;
 
@@ -1408,7 +1479,7 @@ int ui_input_update(UI_INPUT *param)
 		
 	if(!InputTheme.bg[1])
 	{
-		int cy=get_input_text_height();
+		int cy=get_input_text_height(NULL);
 		if(InputTheme.line==0 || InputTheme.line==2)
 		{
 			int pad=InputTheme.CandY-InputTheme.Height/2;
@@ -1438,7 +1509,7 @@ int ui_input_update(UI_INPUT *param)
 	{
 		if(InputTheme.line==0 || InputTheme.line==2)
 		{
-			int cy=get_input_text_height();
+			int cy=get_input_text_height(NULL);
 			int pad=(InputTheme.CandY-InputTheme.CodeY-cy)/2;
 			InputTheme.Middle=InputTheme.CandY-pad;
 		}
@@ -1583,6 +1654,15 @@ static int YongPageWidth(void)
 			im.PageLen[2]=0;
 			ret=im.PageLen[0];
 		}
+		else if(InputTheme.page.text[0]==1 && InputTheme.page.up[0])
+		{
+			double scale=InputTheme.scale!=1?ui_scale:1;
+			int w,h;
+			ui_image_size(InputTheme.page.up[0],&w,&h);
+			im.PageLen[0]=w;
+			im.PageLen[1]=round(4*scale*InputTheme.page.scale);
+			im.PageLen[2]=w;
+		}
 		else
 		{
 			double scale=InputTheme.scale!=1?ui_scale:1;
@@ -1597,6 +1677,12 @@ static int YongPageWidth(void)
 			pos=l_unichar_to_utf8(InputTheme.page.text[0],(uint8_t*)im.Page);
 			pos+=l_unichar_to_utf8(InputTheme.page.text[1],(uint8_t*)im.Page+pos);
 			im.Page[pos]=0;	
+		}
+		if(InputTheme.page.text[0]==1 && InputTheme.page.up[0])
+		{
+			int h;
+			ui_image_size(InputTheme.page.up[0],NULL,&h);
+			im.PagePosY=InputTheme.CodeY+(im.cursor_h-h)/2.0;
 		}
 		if(font!=InputTheme.layout)
 		{
@@ -1637,7 +1723,7 @@ static int YongCandWidth(void)
 		pos=im.CandPosX+i*3;
 
 		pos[0]=cur;
-		if(InputTheme.no==0)
+		if(InputTheme.no==0 || InputTheme.no==2)
 		{
 			cur+=get_text_width(YongGetSelectNumber(i),InputTheme.layout,&h1);
 		}
@@ -1751,10 +1837,10 @@ int YongDrawInput(void)
 	if(InputTheme.line==0)
 	{
 		if(PageWidth)
-			im.PagePosX=MAX(CandWidth-PageWidth,CodeWidth+InputTheme.space);
+			im.PagePosX=MAX(CandWidth-PageWidth,CodeWidth+InputTheme.page.space);
 		CodeWidth+=InputTheme.CodeX-InputTheme.WorkLeft;
 		if(PageWidth)
-			CodeWidth+=InputTheme.space+PageWidth;
+			CodeWidth+=InputTheme.page.space+PageWidth;
 		CandWidth+=InputTheme.CandX-InputTheme.WorkLeft;
 		TempWidth=MAX(CodeWidth,CandWidth);
 		TempHeight=InputTheme.RealHeight;
@@ -1765,8 +1851,8 @@ int YongDrawInput(void)
 		TempWidth=CodeWidth+CandWidth+pad;
 		if(PageWidth)
 		{
-			im.PagePosX=TempWidth+InputTheme.space-pad;
-			TempWidth+=InputTheme.space+PageWidth;			
+			im.PagePosX=TempWidth+InputTheme.page.space-pad;
+			TempWidth+=InputTheme.page.space+PageWidth;			
 		}
 		if(eim)
 		{
@@ -1788,7 +1874,7 @@ int YongDrawInput(void)
 		int pad=InputTheme.CodeX-InputTheme.WorkLeft;
 		CodeWidth+=pad;
 		if(PageWidth)
-			CodeWidth+=InputTheme.space+PageWidth;
+			CodeWidth+=InputTheme.page.space+PageWidth;
 		CandWidth+=InputTheme.CandX-InputTheme.WorkLeft;
 		TempWidth=MAX(CodeWidth,CandWidth);
 		if(InputTheme.CodeY>=0)
@@ -2514,7 +2600,8 @@ static void ui_show_tip(const char *fmt,...)
 			gtk_widget_realize(tip);
 			if(!wayland_tip_center)
 				ybus_wayland_set_window(tip,"tip",1);
-			ui_set_css(GTK_WIDGET(tip),"window{background-color:transparent}\n");
+			//ui_set_css(GTK_WIDGET(tip),"window{background-color:transparent}\n");
+			ui_add_class(GTK_WIDGET(tip),"ywindow");
 		}
 	}
 	g_object_set_data_full(G_OBJECT(tip),"tip",g_strdup(text),g_free);
@@ -2549,82 +2636,9 @@ static void ui_show_tip(const char *fmt,...)
 	tip_timer_id=g_timeout_add(1000,(GSourceFunc)on_tip_timeout,tip);
 }
 
-#if 0
-static void speed_stat(void)
-{
-	GtkWidget *dlg;
-	char temp[1500];
-	
-	y_im_str_encode(y_im_speed_stat(),temp,0);
-	
-	dlg=gtk_message_dialog_new(
-		GTK_WINDOW(MainWin),
-		GTK_DIALOG_DESTROY_WITH_PARENT,
-		GTK_MESSAGE_INFO,
-		GTK_BUTTONS_OK,
-		temp);
-	gtk_window_set_title(GTK_WINDOW(dlg),YT("Yong输入法"));
-	gtk_dialog_run(GTK_DIALOG(dlg));
-	gtk_widget_destroy(dlg);
-}
-
-static void do_optimize(void)
-{
-	int ret;
-	void *out=NULL;
-	ret=y_im_run_tool("tool_save_user",0,0);
-	if(ret!=0) return;
-	ret=y_im_run_tool("tool_get_file","main",&out);
-	if(ret!=0 || !out) return;
-	y_im_backup_file(out,".bak");
-	y_im_run_tool("tool_optimize",0,0);
-	ui_show_message(YT("完成"));
-}
-
-static void do_merge_user(void)
-{
-	int ret;
-	void *out=NULL;
-	ret=y_im_run_tool("tool_save_user",0,0);
-	if(ret!=0) return;
-	ret=y_im_run_tool("tool_get_file","main",&out);
-	if(ret!=0 || !out) return;
-	y_im_backup_file(out,".bak");
-	ret=y_im_run_tool("tool_get_file","user",&out);
-	if(ret!=0 || !out) return;
-	y_im_backup_file(out,".bak");
-	ret=y_im_run_tool("tool_merge_user",0,0);
-	if(ret!=0) return;
-	y_im_remove_file(out);
-	YongReloadAll();
-	ui_show_message(YT("完成"));
-}
-
-static void do_edit_main(void)
-{
-	int ret;
-	void *out=NULL;
-	char *ed;
-	char temp[256];
-	ed=y_im_get_config_string("table","edit");
-	if(!ed) return;
-	ret=y_im_run_tool("tool_get_file","main",&out);
-	if(ret!=0 || !out)
-	{
-		g_free(ed);
-		return;
-	}
-	out=y_im_auto_path(out);
-	sprintf(temp,"%s %s",ed,(char*)out);
-	y_im_run_helper(temp,out,YongReloadAll);
-	g_free(ed);
-	g_free(out);
-}
-#endif
-
 static void show_system_info(void)
 {
-	char temp[1024];
+	char temp[4096];
 	int pos=0;
 	const char *p;
 	p=getenv("LANG");if(!p) p="";
@@ -2638,6 +2652,7 @@ static void show_system_info(void)
 	p=getenv("QT_IM_MODULE");if(!p) p="";
 	pos+=sprintf(temp+pos,"QT_IM_MODULE=%s\n",p);
 	sprintf(temp+pos,"SCALE=%.2f\n",ui_scale);
+	// pos+=sprintf(temp+pos,"XDG_CONFIG_HOME=%s",getenv("XDG_CONFIG_HOME")?:"");
 	ui_show_message(temp);
 }
 
@@ -2790,7 +2805,9 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 			l_free(exec);
 			return;
 		}
-		if(!strncmp(exec,"$GO(yong-config ",16) && !l_file_exists("/usr/bin/yong-config"))
+		if(!strncmp(exec,"$GO(yong-config ",16) &&
+				!l_file_exists("/usr/bin/yong-config") &&
+				!l_file_exists("./yong-config"))
 		{
 			l_free(exec);
 			return;
@@ -3238,8 +3255,12 @@ fallback:
 	return is_dark;
 }
 
+static void ui_setup_dummy(Y_UI *p);
+
 void ui_setup_default(Y_UI *p)
 {
+	if(!getenv("DISPLAY") && !getenv("WAYLAND_DISPLAY"))
+		return ui_setup_dummy(p);
 	p->init=ui_init;
 	p->loop=ui_loop;
 	p->clean=ui_clean;
@@ -3285,3 +3306,33 @@ void ui_setup_default(Y_UI *p)
 	p->idle_del=ui_idle_del;
 	p->call=ui_call;
 }
+
+static GMainLoop *dummy_loop;
+
+static int dummy_ui_init(void)
+{
+	dummy_loop=g_main_loop_new(NULL,0);
+	return 0;
+}
+
+static int dummy_ui_loop(void)
+{
+	g_main_loop_run(dummy_loop);
+	return 0;
+}
+
+
+static void ui_setup_dummy(Y_UI *p)
+{
+	p->dummy=true;
+
+	p->init=dummy_ui_init;
+	p->loop=dummy_ui_loop;
+	p->clean=l_noop;
+
+	p->timer_add=ui_timer_add;
+	p->timer_del=ui_timer_del;
+	p->idle_add=ui_idle_add;
+	p->idle_del=ui_idle_del;
+}
+

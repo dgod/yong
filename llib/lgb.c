@@ -6682,6 +6682,49 @@ void *l_gb_next_char(const void *p)
 	}
 }
 
+bool l_gb_validate(const void *s,int len,void **end)
+{
+	const uint8_t *p=s;
+	if(len<0)
+		len=(int)strlen(s);
+	while(len>0)
+	{
+		uint8_t c=*p;
+		if(!c)
+			break;
+		if(c<=0x80)
+		{
+			p++;
+			len--;
+		}
+		else if(c<=0xfe && c>=0x81)
+		{
+			if(len<2)
+				break;
+			c=p[1];
+			if(c<=0x39)
+			{
+				if(len<4)
+					break;
+				p+=4;
+				len-=4;
+			}
+			else
+			{
+				p+=2;
+				len-=2;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	if(end)
+		*end=(void*)p;
+	return len==0;
+}
+
 int l_gb_strlen(const void *p,int size)
 {
 	const uint8_t *s=p;

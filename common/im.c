@@ -33,7 +33,7 @@ static char *eim_get_config(const char *section,const char *key)
 		l_free(tmp);
 		return NULL;
 	}
-	strcpy(ret,tmp);		
+	strcpy(ret,tmp);
 	l_free(tmp);
 
 	return ret;
@@ -262,12 +262,12 @@ int LoadExtraIM(IM *im,const char *fn)
 	return y_im_load_extra(im,fn);
 }
 
-static const char *fullchar[]=
+static const char fullchar[][3]=
 {
 	"　","！","”","＃","＄","％","＆","’","（","）","＊","＋",
 	"，","－","．","／","０","１","２","３","４","５","６","７","８","９","：","；","＜","＝","＞","？",
 	"＠","Ａ","Ｂ","Ｃ","Ｄ","Ｅ","Ｆ","Ｇ","Ｈ","Ｉ","Ｊ","Ｋ","Ｌ","Ｍ","Ｎ","Ｏ","Ｐ","Ｑ","Ｒ","Ｓ",
-	"Ｔ","Ｕ","Ｖ","Ｗ","Ｘ","Ｙ","Ｚ","〔","＼","〕","︿","ˍ",
+	"Ｔ","Ｕ","Ｖ","Ｗ","Ｘ","Ｙ","Ｚ","〔","＼","〕","︿","＿",
 	"‘","ａ","ｂ","ｃ","ｄ","ｅ","ｆ","ｇ","ｈ","ｉ","ｊ","ｋ","ｌ","ｍ",
 	"ｎ","ｏ","ｐ","ｑ","ｒ","ｓ","ｔ","ｕ","ｖ","ｗ","ｘ","ｙ","ｚ","｛","｜","｝","～"
 };
@@ -356,7 +356,7 @@ const char *YongGetPunc(int key,int bd,int peek)
 	char *t;
 	int i;
 	key&=~KEYM_SHIFT;
-	if(key & KEYM_MASK)
+	if(key>=0x7f)
 		return NULL;
 	t=strchr(punc,(char)key);
 	if(!t)

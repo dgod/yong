@@ -1,0 +1,42 @@
+const SRCS=['conio.c','lcall.c'];
+const DIRS=['l32','l64'];
+
+env("VPATH+=$(TOPDIR)/im");
+env("VPATH+=$(TOPDIR)/im/conio");
+env("CFLAGS+=$(PICFLAGS) $(LLIB_CFLAGS)");
+env("CFLAGS+=-DL_CALL_GLIB_CLIENT -I$(TOPDIR)/im");
+env("LDFLAGS+=$(LLIB_LDFLAGS)");
+env("LDFLAGS+=-Wl,-rpath,'$ORIGIN'");
+env("LIBS+=$(LLIB_LDADD)");
+
+function run(target){
+	cd(target);
+	include("../../../rules.txt");
+	if("GLIB_CFLAGS" in process.env)
+		env("CFLAGS","+=",process.env.GLIB_CFLAGS);
+	else
+		env("CFLAGS+=`pkg-config --cflags glib-2.0`");
+	env("CFLAGS+=-Wno-deprecated-declarations");
+	const OBJS=wildcard(SRCS,function(input){
+		return input.replace(/\.c$/,'.o');
+	});
+	begin();
+	cc(SRCS,OBJS);
+	end(function(){
+		if("GLIB_LDFLAGS" in process.env)
+			env("LDFLAGS","+=",process.env.GLIB_LDFLAGS);
+		else
+			env("LIBS+=`pkg-config --libs glib-2.0`");
+		ld(OBJS,'$(DESTDIR)/yong-con');
+	});
+}
+
+if(target=="clean"){
+	rmdir(DIRS,'*');
+}else if(!target || target=="all"){
+	build(undefined,undefined,DIRS);
+}else if(target=='test'){
+	cp('l64/yong-con','../../install/yong/l64/');
+}else{
+	run(target);
+}

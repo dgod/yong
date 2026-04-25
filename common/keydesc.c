@@ -241,7 +241,7 @@ int y_im_key_desc_update(void)
 			if(pos<0 || pos>=32) continue;
 			if(ret==1) desc[0]=0;
 			temp.pos=pos;
-				snprintf(temp.desc,sizeof(temp.desc),"%s",desc);
+			l_strcpy(temp.desc,sizeof(temp.desc),desc);
 			l_array_append(ikey,&temp);
 		}
 		l_strfreev(list);
@@ -385,6 +385,17 @@ QUIT:
 	return 0;
 }
 
+static int code_len_without_space(const char *s)
+{
+	int count=0,c;
+	while((c=*s++)!=0)
+	{
+		if(c!=' ')
+			count++;
+	}
+	return count;
+}
+
 int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const char *data,char *res,int size)
 {
 	char out[size*2+1];
@@ -460,10 +471,15 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 	code-=pos;
 	i=pos;
 	EXTRA_IM *eim=YongCurrentIM();
-	int CaretPos=(eim==im.eim&&code==eim->CodeInput)?eim->CaretPos:-1;
+	int CaretPos=(eim==im.eim && code==eim->CodeInput)?eim->CaretPos:-1;
 	int CaretAdvance=0;
 	int SkipSpace=0;
-	
+	uint8_t at=idx->at;
+	if(CaretPos>=0 && at>=2 && zi>1 && code_len_without_space(code)<=zi)
+	{
+		at=1;
+	}
+
 	for(;code[i]!=0;i++)
 	{
 		char temp[4];
@@ -476,7 +492,7 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 			SkipSpace=1;
 			continue;
 		}
-		if(i!=0 && idx->split && ((i+SkipSpace)%idx->at)==0 && pos==0 && code[i-1]!=' ' && CaretPos>=0)
+		if(i!=0 && idx->split && ((i+SkipSpace)%at)==0 && pos==0 && code[i-1]!=' ' && CaretPos>=0)
 		{
 			// if prev is space don't add useless split here
 			// pos>0 means we translate code tip, should not here
@@ -486,7 +502,7 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 			if(CaretPos>=i)
 				CaretAdvance++;
 		}
-		l_strncpy(temp,code+i,3);
+		l_strncpy(temp,code+i,at>0?at:3);
 		for(tlen=strlen(temp);;temp[--tlen]=0)
 		{		
 			ikey=key_array_lookup(idx->key,temp);
@@ -502,9 +518,9 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 			}
 		}
 		desc=desc_item_lookup(ikey,i+SkipSpace+1);
-		if(!desc && idx->at)
+		if(!desc && at)
 		{
-			desc=desc_item_lookup(ikey,(i+SkipSpace+1)%idx->at+1);
+			desc=desc_item_lookup(ikey,(i+SkipSpace+1)%at+1);
 			if(!desc)
 				desc=desc_item_lookup(ikey,1);
 		}
@@ -513,11 +529,18 @@ int y_im_key_desc_translate(const char *code,const char *tip,const int pos,const
 			code=orig_code;
 			goto QUIT;
 		}
+		if(CaretPos>=i)
+		{
+			int step=l_gb_strlen(desc,-1)-tlen;
+			CaretAdvance+=step;
+		}
 		strcat(out,desc);
 	}
 	y_im_str_encode(out,res,DONT_ESCAPE);
 	if(CaretPos>=0)
+	{
 		im.CaretPos=CaretPos+CaretAdvance;
+	}
 	return 0;
 QUIT:
 	y_im_str_encode(code,res,DONT_ESCAPE);

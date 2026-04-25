@@ -13,6 +13,8 @@
 #include "lfile.h"
 #include "larray.h"
 #include "ltricky.h"
+#include "lthreads.h"
+#include "lcoroutine.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -401,7 +403,7 @@ bool l_file_exists(const char *path)
 	return !l_access(path,F_OK);
 }
 
-time_t l_file_mtime(const char *path)
+int64_t l_file_mtime(const char *path)
 {
 	struct stat st;
 	if(0!=l_stat(path,&st))
@@ -588,4 +590,204 @@ char *l_path_resolve(const char *path)
 		return NULL;
 	return l_strdup(temp);
 }
+
+const char *l_path_extname(const char *path)
+{
+	if(!path)
+		return NULL;
+	const char *p=strrchr(path,'.');
+	if(!p)
+		return NULL;
+#ifdef _WIN32
+	if(strpbrk(p,"/\\"))
+		return NULL;
+#else
+	if(strchr(p,'/'))
+		return NULL;
+#endif
+	return p;
+}
+
+#ifdef _WIN32
+typedef struct{
+	OVERLAPPED overlapped;
+	HANDLE hDirectory;
+	int flags;
+	void (*cb)(const char*);
+	BYTE buffer[4096];
+}WATCH_PARAM;
+static VOID WINAPI watch_func(DWORD dwErrorCode,DWORD bytes,WATCH_PARAM *param)
+{
+	BOOL bWatchSubtree=(param->flags&L_WATCH_SUBTREE)?TRUE:FALSE;
+	if(bytes>0)
+	{
+		FILE_NOTIFY_INFORMATION *p=(FILE_NOTIFY_INFORMATION*)param->buffer;
+		while(1)
+		{
+			char temp[256];
+			int size=WideCharToMultiByte(CP_UTF8,0,p->FileName,p->FileNameLength/2,temp,sizeof(temp)-1,NULL,NULL);
+			if(size<=0)
+			{
+				break;
+			}
+			temp[size]=0;
+			l_str_replace(temp,'\\','/');
+			param->cb(temp);
+			if(p->NextEntryOffset==0)
+				break;
+			p=(FILE_NOTIFY_INFORMATION*)((BYTE*)p+p->NextEntryOffset);
+		}
+	}
+	int retry_count=0;
+RETRY:
+	BOOL ret=ReadDirectoryChangesW(
+			param->hDirectory,
+			param->buffer,
+			sizeof(param->buffer),
+			bWatchSubtree,
+			FILE_NOTIFY_CHANGE_ATTRIBUTES,
+			NULL,
+			(LPOVERLAPPED)param,
+			(void*)watch_func);
+	if(ret!=TRUE)
+	{
+		if(GetLastError()==ERROR_NOTIFY_ENUM_DIR)
+		{
+			if(retry_count<2)
+			{
+				retry_count++;
+				goto RETRY;
+			}
+		}
+		CloseHandle(param->hDirectory);
+		l_free(param);
+	}
+}
+
+bool l_path_watch(const char *path,void (*cb)(const char *name),int flags)
+{
+	if(!path || !cb)
+		return false;
+	WCHAR temp[256];
+	l_utf8_to_utf16(path,temp,sizeof(temp));
+	HANDLE hDirectory=CreateFileW(temp,
+			GENERIC_READ,
+			FILE_SHARE_READ|FILE_SHARE_WRITE,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OVERLAPPED|FILE_FLAG_BACKUP_SEMANTICS,
+			NULL);
+	if(hDirectory==INVALID_HANDLE_VALUE)
+		return false;
+	WATCH_PARAM *param=l_new(WATCH_PARAM);
+	memset(&param->overlapped,0,sizeof(OVERLAPPED));
+	param->hDirectory=hDirectory;
+	param->flags=flags;
+	param->cb=cb;
+	watch_func(0,0,param);
+	return true;
+}
+#elif defined(__linux__) && !defined(__ANDROID__)
+#include <sys/inotify.h>
+typedef struct{
+	char *name;
+	int wd;
+}WATCH_ITEM;
+static void watch_item_free(WATCH_ITEM *p)
+{
+	l_free(p->name);
+}
+typedef struct{
+	int fd,wd;
+	void (*cb)(const char*);
+	LArray *items;
+}WATCH_PARAM;
+static void watch_func(int fd,int events,WATCH_PARAM *p)
+{
+	char buf[4096];
+	ssize_t len=read(fd,buf,sizeof(buf));
+	if(len<=0)
+	{
+		l_sched.poll(fd,0,NULL,NULL);
+		close(fd);
+		l_array_free(p->items,(LFreeFunc)watch_item_free);
+		l_free(p);
+		return;
+	}
+	char *ptr=buf;
+	do{
+		struct inotify_event *event=(struct inotify_event*)ptr;
+		if(event->len>1)
+		{
+			if(event->wd==p->wd)
+			{
+				p->cb(event->name);
+			}
+			else
+			{
+				for(int i=0;i<l_array_length(p->items);i++)
+				{
+					WATCH_ITEM *item=l_array_nth(p->items,i);
+					if(item->wd!=event->wd)
+						continue;
+					char temp[256];
+					snprintf(temp,sizeof(temp),"%s/%s",item->name,event->name);
+					p->cb(temp);
+					break;
+				}
+			}
+		}
+		ptr+=sizeof(struct inotify_event)+event->len;
+	}while(ptr<buf+len);
+}
+bool l_path_watch(const char *path,void (*cb)(const char *name),int flags)
+{
+	if(!path || !cb)
+		return false;
+	int fd=inotify_init();
+	if(fd==-1)
+		return false;
+	WATCH_PARAM *param=l_new(WATCH_PARAM);
+	param->fd=fd;
+	param->items=l_array_new(0,sizeof(WATCH_ITEM));
+	int ret=inotify_add_watch(fd,path,IN_ATTRIB|IN_CLOSE_WRITE);
+	if(ret==-1)
+		goto FAIL;
+	param->wd=ret;
+	if((flags&L_WATCH_SUBTREE))
+	{
+		char **sub=l_readdir(path);
+		if(sub!=NULL)
+		{
+			for(int i=0;sub[i]!=NULL;i++)
+			{
+				char temp[256];
+				snprintf(temp,sizeof(temp),"%s/%s",path,sub[i]);
+				if(!l_file_is_dir(temp))
+					continue;
+				int ret=inotify_add_watch(fd,temp,IN_ATTRIB|IN_CLOSE_WRITE);
+				if(ret==-1)
+				{
+					l_strfreev(sub);
+					goto FAIL;
+				}
+				WATCH_ITEM *item=l_array_append(param->items,NULL);
+				item->wd=ret;
+				item->name=l_strdup(sub[i]);
+			}
+			l_strfreev(sub);
+		}
+	}
+	param->fd=fd;
+	param->cb=cb;
+	l_sched.poll(fd,1,(void*)watch_func,param);
+	return true;
+FAIL:
+	l_ptr_array_free(param->items,(LFreeFunc)watch_item_free);
+	close(param->fd);
+	l_free(param);
+	return false;
+}
+#else
+#endif
 

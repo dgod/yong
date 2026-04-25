@@ -70,8 +70,6 @@ typedef struct{
 #define snprintf _snprintf
 #endif
 
-void *gz_extract(const void *input,int len,int *olen);
-
 #ifdef _WIN32
 static int sock_nonblock(SOCKET sock,int on)
 {
@@ -416,7 +414,7 @@ static int http_parse_header(HBUF *buf,char **h)
 	int ret;
 	int ver[2],code;
 	int line_break_size=4;
-	ret=sscanf(buf->data,"HTTP/%d.%d %d",ver+0,ver+1,&code);
+	ret=l_sscanf(buf->data,"HTTP/%d.%d %d",ver+0,ver+1,&code);
 	if(ret!=3) return -1;
 	if(code!=200 && code!=302) return -1;
 	/*if(memcmp(buf->data,"HTTP/1.1 200 OK\r\n",17) &&
@@ -452,7 +450,7 @@ static int build_auth_string(char auth[],const char *user,const char *pass)
 	if(!user || !pass) return 0;
 	len=snprintf(temp,sizeof(temp),"%s:%s",user,pass);
 	pos=sprintf(auth,"Authorization: Basic ");
-	http_session_base64_encode(auth+pos,temp,len);
+	l_base64_encode(auth+pos,temp,len);
 	strcat(auth,"\r\n");
 	return strlen(auth);
 }
@@ -581,7 +579,7 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 		if(r.auth[0])
 		{
 			proxy_auth=alloca(sizeof(r.auth)*3/2+3);
-			http_session_base64_encode(proxy_auth,r.auth,strlen(r.auth));
+			l_base64_encode(proxy_auth,r.auth,strlen(r.auth));
 		}
 		if(!strncmp(url,"http://",7))
 		{
@@ -854,7 +852,7 @@ static char *http_session_get_internal(HttpSession *ss,const char *url,int *len,
 	}
 	else
 	{
-		void *res=gz_extract(buf.data,buf.len,len);
+		void *res=l_gz_extract(buf.data,buf.len,len);
 		free(buf.data);
 		return res;
 	}
@@ -1334,32 +1332,12 @@ int http_session_test(HttpSession *ss)
 	return ret;
 }
 
-static char b64_list[] = 
-"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-void http_session_base64_encode(char *out, const void *in_data, int inlen)
+void http_session_set_progress(HttpSession *ss, int (*progress)(int received, int total,void *arg),void *arg)
 {
-	const unsigned char *in=in_data;
-	for (; inlen >= 3; inlen -= 3)
-	{
-		*out++ = b64_list[in[0] >> 2];
-		*out++ = b64_list[((in[0] << 4) & 0x30) | (in[1] >> 4)];
-		*out++ = b64_list[((in[1] << 2) & 0x3c) | (in[2] >> 6)];
-		*out++ = b64_list[in[2] & 0x3f];
-		in += 3;
-	}
-	if (inlen > 0)
-	{
-		unsigned char fragment;
-		*out++ = b64_list[in[0] >> 2];
-		fragment = (in[0] << 4) & 0x30;
-		if (inlen > 1)
-		fragment |= in[1] >> 4;
-		*out++ = b64_list[fragment];
-		*out++ = (inlen < 2) ? '=' : b64_list[(in[1] << 2) & 0x3c];
-		*out++ = '=';
-	}
-	*out = '\0';
+	if(!ss)
+		return;
+	ss->progress = progress;
+	ss->progress_arg = arg;
 }
 
 

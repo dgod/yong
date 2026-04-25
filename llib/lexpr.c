@@ -3,12 +3,7 @@
 #include <ctype.h>
 #include <math.h>
 
-#include "ltypes.h"
-#include "lqueue.h"
-#include "lmem.h"
-#include "ltricky.h"
-
-#include <stdio.h>
+#include "llib.h"
 
 typedef struct expr_item{
 	struct expr_item *next;
@@ -19,6 +14,36 @@ typedef struct expr_item{
 // op can't defined by one ascii char
 #define OP_POW		0x01
 #define OP_NEG		0x02
+
+#if L_USE_EXPR_FUNC
+
+#define OP_FUNC		0x03
+
+typedef enum{
+	FUNC_NONE=0,
+	FUNC_LOG,
+	FUNC_ABS,
+	FUNC_POW,
+}FuncID;
+
+static const char *func_table[]={
+	"log","abs","pow",
+};
+
+static FuncID find_func(const char *s,int len)
+{
+	char name[32];
+	if(len>=sizeof(name))
+		return FUNC_NONE;
+	l_strncpy(name,s,len);
+	for(int i=0;i<countof(func_table);i++)
+	{
+		if(!strcmp(func_table[i],name))
+			return i+1;
+	}
+	return FUNC_NONE;
+}
+#endif
 
 static LVariant l_expr_next_token(const char *s,char **next)
 {
@@ -68,6 +93,27 @@ static LVariant l_expr_next_token(const char *s,char **next)
 		if(s!=*next)
 			var.type=L_TYPE_FLOAT;
 	}
+#if L_USE_EXPR_FUNC
+	else if(isalpha(c))
+	{
+		const char *start = s;
+		while(isalpha(*s)) s++;
+		FuncID fid=find_func(start,(int)(size_t)(s-start));
+		if(fid!=FUNC_NONE)
+		{
+			var.type=L_TYPE_OP;
+			var.v_op=OP_FUNC;
+			var.v_info=fid;
+			*next=(char*)s;
+		}
+	}
+	else if(c==',')
+	{
+		var.type=L_TYPE_OP;
+		var.v_op=c;
+		*next=(char*)s+1;
+	}
+#endif
 	return var;
 }
 
@@ -159,6 +205,27 @@ LVariant l_expr_calc(const char *s)
 				l_queue_push_head(stk,it);
 				break;
 			}
+#if L_USE_EXPR_FUNC
+			case OP_FUNC:
+			{
+				l_queue_push_head(stk, it);
+				break;
+			}
+#endif
+			case ',':
+			{
+				l_free(it);
+				while(true)
+				{
+					top = l_queue_peek_head(stk);
+					if(!top) break;
+					if (top->var.v_op == '(')
+						break;
+					l_queue_pop_head(stk);
+					l_queue_push_tail(back, top);
+				}
+				break;
+			}
 			case ')':
 			{
 				l_free(it);
@@ -173,6 +240,14 @@ LVariant l_expr_calc(const char *s)
 					if(top->var.type==L_TYPE_OP && top->var.v_op=='(')
 					{
 						l_free(top);
+#if L_USE_EXPR_FUNC
+						top = l_queue_peek_head(stk);
+						if(top && top->var.type == L_TYPE_OP && top->var.v_op == OP_FUNC)
+						{
+							l_queue_pop_head(stk);
+							l_queue_push_tail(back, top);
+						}
+#endif
 						break;
 					}
 					l_queue_push_tail(back,top);
@@ -213,7 +288,11 @@ LVariant l_expr_calc(const char *s)
 		v2=l_queue_pop_head(stk);
 		if(!v2)
 			goto out;
-		if(it->var.v_op!=OP_NEG)
+		if(it->var.v_op!=OP_NEG
+#if L_USE_EXPR_FUNC
+			 && it->var.v_op!=OP_FUNC
+#endif
+			)
 		{
 			v1=l_queue_pop_head(stk);
 			if(v1 && v2 && v1->var.type!=v2->var.type)
@@ -361,6 +440,39 @@ LVariant l_expr_calc(const char *s)
 			}
 			l_queue_push_head(stk,v2);
 			break;
+#if L_USE_EXPR_FUNC
+		case OP_FUNC:
+			if(it->var.v_info!=FUNC_ABS)
+				TO_FLOAT(v2);
+			switch(it->var.v_info){
+				case FUNC_LOG:
+					v2->var.v_float=log(v2->var.v_float);
+					break;
+				case FUNC_ABS:
+					if(v2->var.type==L_TYPE_INT && v2->var.v_int<0)
+						v2->var.v_int=-v2->var.v_int;
+					else if(v2->var.type==L_TYPE_FLOAT)
+						v2->var.v_float=fabs(v2->var.v_float);
+					break;
+				case FUNC_POW:
+					v1=l_queue_pop_head(stk);
+					if(!v1)
+					{
+						l_free(it);
+						l_free(v2);
+						goto out;
+					}
+					TO_FLOAT(v1);
+					v2->var.v_float = pow(v1->var.v_float, v2->var.v_float);
+					break;
+				default:
+					l_free(it);
+					l_free(v2);
+					goto out;
+			}
+			l_queue_push_head(stk, v2);
+			break;
+#endif
 		default:
 			l_free(it);
 			l_free(v1);

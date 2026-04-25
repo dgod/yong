@@ -247,7 +247,7 @@ static void fuzzy_enum_key(FUZZY_LIST *fl,const char *prev,py_item_t *input,int 
 	FUZZY_ITEM *it;
 	int i;
 	char *me;
-	py_build_string(code,input,1);
+	py2_build_string(code,input,1,0);
 	if(count>1)
 	{
 		me=l_sprintf("%s%s",prev,code);
@@ -265,7 +265,7 @@ static void fuzzy_enum_key(FUZZY_LIST *fl,const char *prev,py_item_t *input,int 
 		FUZZY_TO *to=it->to+i;
 		if(to->code[0]==0)
 			continue;
-		if(!py_is_valid_code(to->code))
+		if(!py2_is_valid_code(to->code))
 			continue;
 		if(count>1)
 		{
@@ -316,8 +316,8 @@ LPtrArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 	}
 	if(split==0 || split==1)
 		return list;
-	count=py_parse_string(l_ptr_array_nth(list,0),input,-1,NULL,NULL);
-	count=py_remove_split(input,count);
+	count=py2_parse_string(l_ptr_array_nth(list,0),input,NULL,NULL);
+	count=py2_remove_split(input,count);
 	if(count==0)
 		return list;
 	fl.list=list;
@@ -329,7 +329,7 @@ LPtrArray *fuzzy_key_list(FUZZY_TABLE *ft,const char *code,int len,int split)
 	}
 	else
 	{
-		py_build_string(tail,input+7,count-7);
+		py2_build_string(tail,input+7,count-7,0);
 		py_prepare_string(tail,tail,0);
 		count=7;
 	}
@@ -405,10 +405,10 @@ int main(void)
 	// printf("load %p\n",ft);
 	// fuzzy_table_dump(ft);
 	
-	py_init('\'',NULL);
+	py2_init('\'',NULL);
 	// list_key(ft,"a's'den'a's'dei'f'da's'den'a's'den'e'da's'den'sa'dei'f'e'za'sen'za's",'\'');
-	// list_key(ft,"shenme",'\'');
-	list_key(ft,"zuo",'\'');
+	list_key(ft,"shenme",'\'');
+	//list_key(ft,"zuo",'\'');
 
 	fuzzy_table_free(ft);
 	return 0;

@@ -6,6 +6,8 @@
 
 #include "trie.h"
 
+#define TRIE_ASC		0
+
 #ifdef _WIN32
 #include <windows.h>
 static inline void *alloc_page(int page_size)
@@ -19,13 +21,14 @@ static inline void free_page(void *p,int page_size)
 	VirtualFree(p,0,MEM_RELEASE);
 }
 #elif defined(EMSCRIPTEN)
-static inline void *alloc_page(void)
+static inline void *alloc_page(int page_size)
 {
-	return malloc(TRIE_PAGE);
+	return malloc(page_size);
 }
 
-static inline void free_page(void *p)
+static inline void free_page(void *p,int page_size)
 {
+	(void)page_size;
 	free(p);
 }
 #else
@@ -87,8 +90,13 @@ static trie_node_t *trie_node(trie_tree_t *t,trie_node_t *n,uint32_t val)
 	{
 		if(n->self==val)
 			return n;
+#if TRIE_ASC
 		if(n->self>val)
 			return NULL;
+#else
+		if(n->self<val)
+			return NULL;
+#endif
 		brother=n->brother;
 		if(!brother)
 			return NULL;
@@ -110,12 +118,42 @@ static trie_node_t *trie_leaf(trie_tree_t *t,trie_node_t *n)
 
 trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len)
 {
-	trie_node_t *n;
-	n=trie_root(t);
-	if(!n->child)
-		return NULL;
-	n=trie_nth(t,n->child);
-	for(int i=0;i<len;i++)
+	int i=0;
+	trie_node_t *n,*root;
+	root=n=trie_root(t);
+	if(t->fast_begin && s[0]>=t->fast_begin && s[0]<=t->fast_end)
+	{
+		int val=s[i];
+#if TRIE_ASC
+		n=n+1+val-t->fast_begin;
+#else
+		n=n+1+t->fast_end-val;
+#endif
+		if(len==1)
+			return n;
+		i=1;
+		if(s[1]>=t->fast_begin && s[1]<=t->fast_end)
+		{
+#if TRIE_ASC
+			n=root+n->child+s[1]-t->fast_begin;
+#else
+			n=root+n->child+t->fast_end-s[1];
+#endif
+			if(len==2)
+				return n;
+			i=2;
+		}
+		if(!n->child)
+			return NULL;
+		n=trie_nth(t,n->child);
+	}
+	else
+	{
+		if(!n->child)
+			return NULL;
+		n=trie_nth(t,n->child);
+	}
+	for(;i<len;i++)
 	{
 		int val=s[i];
 		n=trie_node(t,n,val);
@@ -132,7 +170,7 @@ trie_node_t *trie_tree_get_path(trie_tree_t *t,const char *s,int len)
 trie_node_t *trie_tree_get_leaf(trie_tree_t *t,const char *s,int len)
 {
 	trie_node_t *n=trie_tree_get_path(t,s,len);
-	if(!n || !n->child)
+	if(!n || !n->leaf)
 		return NULL;
 	n=trie_nth(t,n->child);
 	n=trie_leaf(t,n);
@@ -221,14 +259,79 @@ static inline trie_node_t *trie_add_brother(trie_tree_t *t,trie_node_t *p,uint32
 	return n;
 }
 
+static void trie_tree_add_fast_child(trie_tree_t *t,trie_node_t *p,char begin,char end)
+{
+	trie_node_t *root=trie_root(t);
+	p->child=t->count;
+#if TRIE_ASC
+	for(char c=begin;c<=end;c++)
+	{
+		trie_node_t *n=root+t->count;
+		n->data=0;
+		n->node=1;
+		n->self=c;
+		if(c!=end)
+			n->brother=t->count+1;
+		t->count++;
+	}
+#else
+	for(char c=end;c>=begin;c--)
+	{
+		trie_node_t *n=root+t->count;
+		n->data=0;
+		n->node=1;
+		n->self=c;
+		if(c!=begin)
+			n->brother=t->count+1;
+		t->count++;
+	}
+#endif
+}
+
+int trie_tree_add_fast(trie_tree_t *t,char begin,char end)
+{
+	if(t->count!=1)
+		return -1;
+	t->fast_begin=begin;
+	t->fast_end=end;
+	trie_node_t *root=trie_root(t);
+	trie_tree_add_fast_child(t,root,begin,end);
+	for(int i=0;i<end-begin+1;i++)
+	{
+		trie_node_t *p=root+1+i;
+		trie_tree_add_fast_child(t,p,begin,end);
+	}
+	return 0;
+}
+
 trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 {
-	trie_node_t *n=NULL,*p;
-	int i,val;
-	p=trie_root(t);
-	for(i=0;i<len;i++)
+	trie_node_t *n=NULL,*p,*root;
+	int i=0;
+	root=p=trie_root(t);
+	if(t->fast_begin && s[0]>=t->fast_begin && s[0]<=t->fast_end)
 	{
-		val=s[i];
+#if TRIE_ASC
+		n=p+1+s[0]-t->fast_begin;
+#else
+		n=p+1+t->fast_end-s[0];
+#endif
+		i=1;
+		p=n;
+		if(s[1]>=t->fast_begin && s[1]<=t->fast_end)
+		{
+#if TRIE_ASC
+			n=root+p->child+s[1]-t->fast_begin;
+#else
+			n=root+p->child+t->fast_end-s[1];
+#endif
+			i=2;
+			p=n;
+		}
+	}
+	for(;i<len;i++)
+	{
+		uint8_t val=s[i];
 		if(!p->child)
 		{
 			n=trie_add_child(t,p,val);
@@ -236,23 +339,23 @@ trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 		else
 		{
 			trie_node_t *h=trie_nth(t,p->child);
-			for(n=h;;)
+			n=h;
+			if(n->node && n->self==val)
+			{
+			}
+#if TRIE_ASC
+			else if(!n->node || n->self>val)
+#else
+			else if(!n->node || n->self<val)
+#endif
+			{
+				n=trie_add_child(t,p,val);
+			}
+			else for(;;)
 			{
 				trie_node_t *nn;
 				int brother;
 				
-				if(n==h)
-				{
-					if(!n->node || n->self>val)
-					{
-						n=trie_add_child(t,p,val);
-						break;
-					}
-					if(n->node && n->self==val)
-					{
-						break;
-					}
-				}
 				brother=n->brother;
 				if(!brother)
 				{
@@ -270,7 +373,11 @@ trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 					n=nn;
 					break;
 				}
+#if TRIE_ASC
 				else if(nn->self>val)
+#else
+				else if(nn->self<val)
+#endif
 				{
 					n=trie_add_brother(t,n,val);
 					break;
@@ -283,7 +390,7 @@ trie_node_t *trie_tree_add(trie_tree_t *t,const char *s,int len)
 		}
 		p=n;
 	}
-	n->leaf=1;
+	n->leaf=1;	
 	if(!n->child)
 	{
 		i=trie_add(t);
@@ -379,6 +486,11 @@ next:
 	if(!n->node)
 	{
 		trie_iter_up(iter);
+		goto next;
+	}
+	if(!n->child && !n->leaf)
+	{
+		iter->path[iter->depth]=n->brother;
 		goto next;
 	}
 	if(n->child)
@@ -491,6 +603,17 @@ void py_tree_init(py_tree_t *tree)
 {
 	tree->count=1;
 	tree->node[0]=0;
+	py_node_t *n=(py_node_t*)(tree->node+0);
+	n->child=1;
+	for(int c='a';c<='z';c++)
+	{
+		n=(py_node_t*)(tree->node+tree->count);
+		n->data=0;
+		n->self=c-'a';
+		if(c!='z')
+			n->brother=tree->count+1;
+		tree->count++;
+	}
 }
 
 void py_tree_add(py_tree_t *tree,const char *s,int len,int item)
@@ -567,19 +690,25 @@ void py_tree_add(py_tree_t *tree,const char *s,int len,int item)
 
 int py_tree_get(py_tree_t *tree,const char *s,int *out)
 {
-	py_node_t *p;
+	const py_node_t *base=(const py_node_t*)(tree->node);
+	const py_node_t *p;
 	int count=0;
-	int i,val;
-	p=(py_node_t*)(tree->node+0);
-	if(!p->child) return 0;
-	p=(py_node_t*)(tree->node+p->child);
-	for(i=0;;i++)
+	uint32_t val=(uint8_t)s[0];
+	if(val<'a' || val>'z')
+		return 0;
+	p=base+1+val-'a';
+	if(p->item)
+		out[count++]=p->item-1;
+	if(!p->child)
+		return count;
+	p=base+p->child;
+	for(int i=1;;i++)
 	{
-		val=s[i];
+		val=(uint8_t)s[i];
 		if(val<'a' || val>'z')
 			break;
 		val-='a';
-		for(;;p=(py_node_t*)(tree->node+p->brother))
+		for(;;p=base+p->brother)
 		{
 			if(p->self==val) break;
 			else if(p->self>val) goto out;
@@ -593,11 +722,77 @@ int py_tree_get(py_tree_t *tree,const char *s,int *out)
 		{
 			break;
 		}
-		p=(py_node_t*)(tree->node+p->child);
+		p=base+p->child;
 	}
 out:
 	return count;
 }
+
+#ifdef PY_TREE_LONGEST
+int py_tree_longest(py_tree_t *tree,const char *s,int len,int *out)
+{
+	py_node_t *p;
+	int result=-1;
+	int i,val;
+	p=(py_node_t*)(tree->node+0);
+	if(!p->child) return 0;
+	p=(py_node_t*)(tree->node+p->child);
+	for(i=0;i<len;i++)
+	{
+		val=s[i];
+		if(val<'a' || val>'z')
+			return -1;
+		val-='a';
+		for(;;p=(py_node_t*)(tree->node+p->brother))
+		{
+			if(p->self==val) break;
+			else if(p->self>val) goto out;
+			if(!p->brother) goto out;
+		}
+		if(p->item)
+		{
+			result=i+1;
+			*out=p->item-1;
+		}
+		if(!p->child)
+		{
+			break;
+		}
+		p=(py_node_t*)(tree->node+p->child);
+	}
+out:
+	return result;
+}
+#endif
+
+#ifdef TOOLS_TRIE_TEST1
+// gcc trie.c -DTOOLS_TRIE_TEST1 -I../llib -I../include -Wl,-rpath='$ORIGIN' -L. -ll -g -O0
+int main(int arc,char *arg[])
+{
+	char line[4096];
+	char code[64];
+	FILE *fp;
+	int indata=0;
+	trie_tree_t *t;
+	trie_iter_t iter;
+	trie_node_t *n;
+	t=trie_tree_new(512*1024);
+	trie_tree_add_fast(t,'a','z');
+	trie_tree_add(t,"nihao",5);
+	n=trie_tree_root(t);
+	n=trie_iter_leaf_first(&iter,t,n,64);
+	while(n!=NULL)
+	{
+		trie_iter_get_path(&iter,code);
+		printf("%s\n",code);
+		n=trie_iter_leaf_next(&iter);
+	}
+	fprintf(stderr,"node count %d\n",t->count);
+	trie_tree_free(t);
+	return 0;
+}
+#endif
+
 
 #if 0
 #include <time.h>

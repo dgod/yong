@@ -202,7 +202,6 @@ bool l_utf8_validate(const void *s,int len,void **end)
 		{
 			break;
 		}
-			
 	}
 	if(end)
 		*end=(void*)p;

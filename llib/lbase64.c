@@ -1,5 +1,4 @@
-#include "lmem.h"
-#include "ltypes.h"
+#include "llib.h"
 
 static const char b64_list[] = 
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -70,3 +69,41 @@ int l_base64_decode(uint8_t *out, const char *in)
 	}while (*in && d4 != '=');
 	return len;
 }
+
+int l_hex2bin(void *b,const char *h)
+{
+	uint8_t *p=b;
+	int cnt=0;
+	uint8_t c,byte=0;
+	bool high=true;
+	while((c=*h++)!='\0')
+	{
+		if (isspace(c))
+			continue;
+		if(!isxdigit(c))
+			return -1;
+		uint8_t v=(c&0xf)+(c>>6)*9;
+		byte=(byte<<4)|v;
+		high=!high;
+		if(high)
+			p[cnt++]=byte;
+	}
+	if(!high)
+		return -1;
+	return cnt;
+}
+
+static const char hex_list[]="0123456789abcdef";
+int l_bin2hex(char *h,const void *b,int len)
+{
+	const uint8_t *p=b;
+	for(int i=0;i<len;i++)
+	{
+		*h++=hex_list[p[i]>>4];
+		*h++=hex_list[p[i]&0xf];
+	}
+	*h=0;
+	return 2*len;
+}
+
+

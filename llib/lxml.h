@@ -7,8 +7,8 @@ typedef struct _lxmlnode LXmlNode;
 
 struct _lxmlprop{
 	LXmlProp *next;
-	char *name;
 	char *value;
+	char name[];
 };
 
 struct _lxmlnode{
@@ -16,13 +16,13 @@ struct _lxmlnode{
 	LXmlNode *parent;
 	LXmlNode *child;
 	LXmlProp *prop;
-	char *name;
 	char *data;
+	char name[];
 };
 
 typedef struct{
-	LXmlNode root;
 	LXmlNode *cur;
+	LXmlNode root;
 }LXml;
 
 LXml *l_xml_load(const char *data);

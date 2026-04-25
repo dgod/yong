@@ -7,12 +7,17 @@
 #define PREDICT_ASSIST		1
 #define PREDICT_JP			2
 
+typedef struct{
+	bool py_switch;
+	bool begin;
+}PREDICT_OPTIONS;
+
 struct learn_data;
 typedef struct learn_data LEARN_DATA;
 
 LEARN_DATA *y_mb_learn_load(struct y_mb *mb,const char *in);
 void y_mb_learn_free(LEARN_DATA *data);
-int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *g,int begin);
+int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *g,PREDICT_OPTIONS *options);
 const char *y_mb_predict_nth(const char *s,int n);
 
 extern int l_predict_simple;

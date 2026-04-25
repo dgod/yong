@@ -108,7 +108,7 @@ void l_call_serv_free(LCallServ *serv);
 
 #ifdef L_CALL_GLIB_CLIENT
 GIOChannel *l_call_client_new(void);
-void l_call_client_connect(void);
+int l_call_client_connect(void);
 void l_call_client_disconnect(void);
 void l_call_client_dispatch(int (*_dispatch)(const char *,LCallBuf *));
 void l_call_client_set_connect(void (*cb)(void));

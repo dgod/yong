@@ -69,6 +69,7 @@ typedef struct{
 	uint8_t xim;
 	uint8_t first;
 	uint8_t show;
+	bool menu_show;
 }Y_KBD_STATE;
 
 static Y_KBD_STATE kst;
@@ -79,7 +80,8 @@ bool ui_is_wayland(void);
 void ybus_wayland_set_window(GtkWidget *w,const char *role,int type);
 int ybus_wayland_get_custom(GtkWidget *w);
 void ui_win_show(GtkWidget *w,int show);
-void ui_set_css(GtkWidget *widget,const gchar *data);
+//void ui_set_css(GtkWidget *widget,const gchar *data);
+void ui_add_class(GtkWidget *w,const gchar *cls);
 #endif
 
 #include "keyboard.xml.c"
@@ -89,7 +91,7 @@ static void kbd_main_show(int b);
 int y_kbd_init(const char *fn)
 {
 #ifndef _WIN32
-	if(getenv("FBTERM_IM_SOCKET"))
+	if(y_ui_is_dummy())
 		return 0;
 #endif
 	memset(&kst,0,sizeof(kst));
@@ -102,7 +104,10 @@ int y_kbd_init(const char *fn)
 	}
 	else
 	{
-		kst.config=l_xml_load((const char*)keyboard_xml);
+		char temp[20*1024];
+		int len=l_zlib_decode(temp,sizeof(temp),keyboard_xml,sizeof(keyboard_xml),0);
+		temp[len]=0;
+		kst.config=l_xml_load(temp);
 	}
 	if(!kst.config)
 		return -2;
@@ -171,7 +176,7 @@ static void line_free(KBD_BTN *b)
 static int kbd_select(int8_t pos,int8_t sub)
 {
 	double scale;
-	
+
 	if(pos==kst.cur && sub==kst.sub && kst.layout.name)
 		return 0;
 	scale=y_ui_get_scale(0);
@@ -181,7 +186,7 @@ static int kbd_select(int8_t pos,int8_t sub)
 	l_free(kst.layout.main.data);
 	kst.layout.main.data=NULL;
 	l_ptr_array_free(kst.layout.line,(LFreeFunc)line_free);
-	kst.layout.line=l_ptr_array_new(5);
+	kst.layout.line=NULL;
 	ui_font_free(kst.layout.font);
 	kst.layout.font=NULL;
 	if(pos==-1)
@@ -237,8 +242,8 @@ static int kbd_select(int8_t pos,int8_t sub)
 	kst.layout.shift=NULL;
 	for(LXmlNode *row=rows->child;row!=NULL;row=row->next)
 	{
-		int y=(int)round(l_xml_get_prop_int(row,"y")*scale);
-		int h=(int)round(l_xml_get_prop_int(row,"h")*scale);
+		float y=round(l_xml_get_prop_int(row,"y")*scale);
+		float h=round(l_xml_get_prop_int(row,"h")*scale);
 		if(prev && prev->rc.y+prev->rc.h>y+1)
 		{
 			for(KBD_BTN *p=prev;p!=NULL;p=p->next)
@@ -248,14 +253,16 @@ static int kbd_select(int8_t pos,int8_t sub)
 		prev=NULL;
 		for(LXmlNode *key=row->child;key!=NULL;key=key->next)
 		{
-			int x=(int)round(l_xml_get_prop_int(key,"x")*scale);
-			int w=(int)round(l_xml_get_prop_int(key,"w")*scale);
+			float x=l_xml_get_prop_int(key,"x")*scale;
+			float w=l_xml_get_prop_int(key,"w")*scale;
 			KBD_BTN *btn=l_alloc0(sizeof(KBD_BTN));
-			btn->rc.x=(float)x;btn->rc.y=(float)y;
-			btn->rc.w=(float)w;btn->rc.h=(float)h;
+			btn->rc.y=y;
+			btn->rc.h=h;
+			btn->rc.x=round(x);
+			btn->rc.w=round(x+w-btn	->rc.x);
 			if(prev && prev->rc.x+prev->rc.w>x+1)
 			{
-				prev->rc.w=x-prev->rc.x+1;
+				prev->rc.w=btn->rc.x-prev->rc.x+1;
 			}
 			btn->state=KBTN_NORMAL;
 			btn->type=KBT_NORMAL;
@@ -402,6 +409,7 @@ bool y_kbd_show(int b)
 	if(b==1 && kst.layout.name)
 	{
 		kbd_main_show(b);
+		kst.show=b;
 		return false;
 	}
 	if(b==-1)
@@ -439,6 +447,8 @@ static void kbd_hide_latter(void)
 
 int y_kbd_show_with_main(int b)
 {
+	if(kst.menu_show)
+		return -1;
 	if(b)
 	{
 		pending_hide=false;
@@ -652,7 +662,8 @@ static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int from)
 		if(i%half!=half-1)
 			AppendMenu(MainMenu,MF_SEPARATOR,0,0);
 	}
-	HWND hWnd=GetFocusedWindow();
+	HWND hFocus=GetFocusedWindow();
+	HWND hForeground=GetForegroundWindow();
 	GetCursorPos(&pos);
 	UINT uFlags=TPM_RETURNCMD|TPM_NONOTIFY;
 	if(from==1)
@@ -670,17 +681,53 @@ static void kbd_popup_menu(LPtrArray *arr,int cur,void (*cb)(int),int from)
 			uFlags|=TPM_TOPALIGN;
 		}
 	}
+
 	ShowWindow(kst.layout.win,SW_HIDE);
-	SetForegroundWindow(kst.layout.win);
+	if(hForeground!=NULL && IsWindow(hForeground))
+	{
+		DWORD dwForeThread = GetWindowThreadProcessId(hForeground, NULL);
+		DWORD dwCurThread = GetCurrentThreadId();
+		if (dwForeThread != dwCurThread)
+		{
+			AttachThreadInput(dwCurThread, dwForeThread, TRUE);
+			SetForegroundWindow(kst.layout.win); // 尝试设为前台
+			AttachThreadInput(dwCurThread, dwForeThread, FALSE);
+			Sleep(20);
+		}
+		else
+		{
+			SetForegroundWindow(kst.layout.win);
+		}
+	}
+	else
+	{
+		SetForegroundWindow(kst.layout.win);
+	}
+	kst.menu_show=true;
 	int id=TrackPopupMenu(MainMenu,uFlags,pos.x,pos.y,
 		0,kst.layout.win,NULL);
 	DestroyMenu(MainMenu);
 	MainMenu=NULL;
+	if(kst.show && kst.layout.name)
+	{
+		ShowWindow(kst.layout.win,SW_SHOW);
+	}
+	if(hForeground!=NULL && IsWindow(hForeground))
+	{
+		DWORD currentThreadId = GetCurrentThreadId();
+		DWORD targetThreadId = GetWindowThreadProcessId(hForeground, NULL);
+		AttachThreadInput(currentThreadId, targetThreadId, TRUE);
+		SetForegroundWindow(hForeground);
+		if(hFocus && IsWindow(hFocus)) SetFocus(hFocus);
+		AttachThreadInput(currentThreadId, targetThreadId, FALSE);
+		Sleep(20);
+		PostMessage(hForeground,WM_NULL,0,0);
+	}
 	PostMessage(kst.layout.win,WM_NULL,0,0);
-	ShowWindow(kst.layout.win,SW_SHOW);
-	SetForegroundWindow(hWnd);
+
 	if(id>0)
 		cb(id-IDC_KEYBOARD);
+	kst.menu_show=false;
 }
 #else
 static void (*_menu_click_cb)(int);
@@ -772,13 +819,14 @@ static bool y_kbd_popup_menu_real(int from)
 	return true;
 }
 
-bool y_kbd_popup_menu(void)
+bool y_kbd_popup_menu(int from)
 {
 #ifdef _WIN32
-	PostMessage(kst.layout.win,WM_USER,0,0);
+	PostMessage(kst.layout.win,WM_USER,0,from);
+	// SetTimer(kst.layout.win,from,1000,NULL);
 	return true;
 #else
-	return y_kbd_popup_menu_real(1);
+	return y_kbd_popup_menu_real(from);
 #endif
 }
 
@@ -975,7 +1023,11 @@ static LRESULT WINAPI kbd_win_proc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lPara
 		ReleaseCapture();
 		break;
 	case WM_USER:
-		y_kbd_popup_menu_real(1);
+		y_kbd_popup_menu_real((int)lParam);
+		break;
+	case WM_TIMER:
+		KillTimer(hWnd,wParam);
+		y_kbd_popup_menu_real((int)wParam);
 		break;
 	case WM_RBUTTONUP:
 		y_kbd_popup_menu_real(0);
@@ -1140,7 +1192,8 @@ static void kbd_main_new(void)
 	if(ui_is_wayland())
 	{
 		ybus_wayland_set_window(kst.layout.win,"keyboard",2);
-		ui_set_css(kst.layout.win,"window{background-color:transparent}\n");
+		ui_add_class(GTK_WIDGET(kst.layout.win),"ywindow");
+		//ui_set_css(kst.layout.win,"window{background-color:transparent}\n");
 	}
 	gtk_widget_realize(kst.layout.win);
 	gdk_window_set_functions(gtk_widget_get_window(kst.layout.win),GDK_FUNC_MOVE|GDK_FUNC_MINIMIZE|GDK_FUNC_CLOSE);

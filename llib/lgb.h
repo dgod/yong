@@ -7,6 +7,7 @@ uint32_t l_gb_to_unichar(const uint8_t *s);
 void *l_gb_next_char(const void *p);
 int l_gb_strlen(const void *p,int size);
 void *l_gb_offset(const void *p,int offset);
+bool l_gb_validate(const void *s,int size,void **end);
 uint32_t l_gb_to_char(const void *p);
 uint32_t l_gb_last_char(const void *p);
 int l_char_to_gb(uint32_t c,void *outbuf);
@@ -65,7 +66,7 @@ static inline bool gb_is_biaodian(const void *p)
 static inline bool gb_is_symbol(const void *p)
 {
 	const uint8_t *s=p;
-	return s[0]>=0xA1 && s[0]<=0xA9 && s[1]<=0xFE && s[1]>=0xA1;
+	return s[0]==0xA1 && s[1]<=0xFE && s[1]>=0xA1;
 }
 
 static inline bool gb_is_gb18030(const void *p)
@@ -88,6 +89,9 @@ static inline bool gb_is_gb18030(const void *p)
 #define GB2312_SECTION_SIZE (94)
 #define GB2312_HZ_SIZE 		((0xF7-0xB0+1)*GB2312_SECTION_SIZE)
 #define GB2312_HZ_OFFSET(a) ((((uint8_t*)(a))[0]-0xb0)*GB2312_SECTION_SIZE+((uint8_t*)(a))[1]-0xa1)
+
+#define GB2312_IS_BIAODIAN(a) ((a)>=0xA1A1 && (a)<=0xA1FE)
+#define GB2312_IS_SYMBOL(a) ((a)>=GB2312_BEGIN && (a)<=0xA9FE && ((a)&0xff)>=0xA1)
 
 #endif/*_LGB_H_*/
 

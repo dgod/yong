@@ -107,7 +107,7 @@ p_wl_keyboard_add_listener(struct wl_keyboard *wl_keyboard,
 #include "libwayland-glib-source.c"
 
 static GWaylandSource *l_source;
-static bool l_wayland_debug;
+static bool l_wayland_debug=false;
 
 #define CLIENT_ID_VAL			1
 
@@ -269,7 +269,8 @@ static void input_method_keyboard_keymap(
 		int32_t fd,
 		uint32_t size)
 {
-	// printf("input_method_keyboard_keymap %u %d %u\n",format,fd,size);
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_keyboard_keymap v2 %u %d %u\n",format,fd,size);
 	if(keyboard->keymap_param.fd>0)
 		close(keyboard->keymap_param.fd);
 	keyboard->keymap_param.format=format;
@@ -524,11 +525,15 @@ static void send_string(struct simple_im *keyboard,const char *s)
 {
 	if(keyboard->input_method_manager_v2)
 	{
+		if(l_wayland_debug)
+			fprintf(stderr,"commit_string v2 %s\n",s);
 		zwp_input_method_v2_commit_string(keyboard->input_method_v2,s);
 		zwp_input_method_v2_commit(keyboard->input_method_v2,keyboard->serial);
 	}
 	else if(keyboard->input_method_v1)
 	{
+		if(l_wayland_debug)
+			fprintf(stderr,"commit_string v1 %s\n",s);
 		zwp_input_method_context_v1_commit_string(keyboard->context,keyboard->serial,s);
 	}
 }
@@ -806,7 +811,7 @@ static void input_method_keyboard_key(
 		uint32_t key,
 		uint32_t state)
 {
-	// fprintf(stderr,"input_method_keyboard_key %u %u %u %u\n",serial,time,key,state);
+	fprintf(stderr,"input_method_keyboard_key v2 %u %u %u %u\n",serial,time,key,state);
 	if(!keyboard->state)
 	{
 		zwp_virtual_keyboard_v1_key(keyboard->virtual_keyboard_v1,time,key,state);
@@ -984,6 +989,8 @@ static void input_method_keyboard_keymap_v1(struct simple_im *keyboard,
 			     int32_t fd,
 			     uint32_t size)
 {
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_keyboard_keymap v1 %u %d %u\n",format,fd,size);
 	if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
 	{
 		close(fd);
@@ -1037,6 +1044,8 @@ static void input_method_keyboard_key_v1(struct simple_im *keyboard,
 			  uint32_t key,
 			  uint32_t state)
 {
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_keyboard_key v1 %u %u %u %u\n",serial,time,key,state);
 	if (!keyboard->state)
 	{
 		zwp_input_method_context_v1_key(keyboard->context,serial,time,key,state);
@@ -1175,7 +1184,8 @@ static void input_method_keyboard_modifiers_v1(struct simple_im *keyboard,
 				uint32_t mods_locked,
 				uint32_t group)
 {
-	// fprintf(stderr,"input_method_keyboard_modifiers_v1 %u %u %u %u\n",mods_depressed,mods_latched,mods_locked,group);
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_keyboard_modifiers_v1 %u %u %u %u\n",mods_depressed,mods_latched,mods_locked,group);
 	struct zwp_input_method_context_v1 *context = keyboard->context;
 	xkb_state_update_mask(keyboard->state, mods_depressed,
 			      mods_latched, mods_locked, 0, 0, group);
@@ -1202,7 +1212,8 @@ static const struct wl_keyboard_listener input_method_keyboard_listener_v1 = {
 	(void*)l_noop,
 	(void*)l_noop,
 	(void*)input_method_keyboard_key_v1,
-	(void*)input_method_keyboard_modifiers_v1
+	(void*)input_method_keyboard_modifiers_v1,
+	(void*)l_noop,
 };
 
 static void input_method_activate_v1(struct simple_im *keyboard,
@@ -1210,7 +1221,8 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 			 struct zwp_input_method_context_v1 *context)
 {
 	conn_app_set_active("v1");
-	// fprintf(stderr,"input_method_activate_v1\n");
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_activate v1\n");
 	if (keyboard->context)
 		zwp_input_method_context_v1_destroy(keyboard->context);
 	keyboard->serial=0;
@@ -1227,14 +1239,14 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 #else
 	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
 #endif
-
 }
 
 static void input_method_deactivate_v1(struct simple_im *keyboard,
 			   struct zwp_input_method_v1 *zwp_input_method_v1,
 			   struct zwp_input_method_context_v1 *context)
 {
-	// fprintf(stderr,"input_method_deactivate_v1\n");
+	if(l_wayland_debug)
+		fprintf(stderr,"input_method_deactivate_v1\n");
 	CONN_ID id=(CONN_ID)keyboard->app_active;
 	keyboard->app_active[0]=0;
 #ifdef WAYLAND_STANDALONE
@@ -1288,7 +1300,8 @@ static void registry_handle_global(void *data, struct wl_registry *registry,
 		if(!keyboard->input_method_manager_v2)
 		{
 			keyboard->input_method_v1 = p_wl_registry_bind(registry, name, &zwp_input_method_v1_interface, 1);
-			// fprintf(stderr,"input_method_v1=%p\n",keyboard->input_method_v1);
+			if(l_wayland_debug)
+				fprintf(stderr,"input_method_v1=%p\n",keyboard->input_method_v1);
 		}
 	}
 	else if(!strcmp(interface,"zwp_input_panel_v1"))
@@ -1296,7 +1309,8 @@ static void registry_handle_global(void *data, struct wl_registry *registry,
 		if(!keyboard->input_method_manager_v2)
 		{
 			keyboard->input_panel_v1=p_wl_registry_bind(registry, name, &zwp_input_panel_v1_interface, 1);
-			// fprintf(stderr,"input_panel_v1=%p\n",keyboard->input_panel_v1);
+			if(l_wayland_debug)
+				fprintf(stderr,"input_panel_v1=%p\n",keyboard->input_panel_v1);
 		}
 	}
 }
@@ -1566,7 +1580,8 @@ int main(void)
 	if(!keyboard->input_method_v2 && keyboard->seat && keyboard->input_method_manager_v2)
 	{
 		keyboard->input_method_v2=zwp_input_method_manager_v2_get_input_method(keyboard->input_method_manager_v2,keyboard->seat);
-		// printf("get input method %p\n",keyboard->input_method);
+		if(l_wayland_debug)
+			fprintf(stderr,"get input method v2 %p\n",keyboard->input_method);
 		zwp_input_method_v2_add_listener(keyboard->input_method_v2,
 					  &input_method_listener_v2, keyboard);
 	}
@@ -1976,7 +1991,8 @@ static void send_keys_coroutine(LArray *arr)
 		if((mask&KEYM_VIRT)!=0)
 		{
 			int code=key&~KEYM_VIRT;
-			l_unichar_to_utf8(code,(uint8_t*)prev.str);
+			int len=l_unichar_to_utf8(code,(uint8_t*)prev.str);
+			prev.str[len]=0;
 			prev.iskey=false;
 			send_string(keyboard,prev.str);
 		}
@@ -2056,7 +2072,7 @@ static int xim_init(void)
 	if(keyboard->input_method_v2 && keyboard->seat)
 	{
 		if(l_wayland_debug)
-			fprintf(stderr,"get input method %p\n",keyboard->input_method_v2);
+			fprintf(stderr,"get input method v2 %p\n",keyboard->input_method_v2);
 		zwp_input_method_v2_add_listener(keyboard->input_method_v2,
 					  &input_method_listener_v2, keyboard);
 	}

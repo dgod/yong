@@ -74,11 +74,6 @@ static void send_raw_string_async(const char *text,void *unused)
 {
 	if(!text || !text[0])
 		return;
-	// if(strchr(text,'\n'))
-	// {
-		// YongSendClipboard(text);
-		// return;
-	// }
 	size_t len=strlen(text);
 	while(len>0)
 	{
@@ -279,6 +274,28 @@ static void escape_last(const char *s,char *out)
 	*out=0;
 }
 
+#if L_USE_COROUTINE
+static void y_im_input_key_at_idle(int *keys)
+{
+	if(!keys)
+		return;
+	l_co_idle();
+	int i=0;
+	for(;keys[i]==YK_BACKSPACE;i++);
+	if(i>0)
+	{
+		y_xim_forward_key(YK_BACKSPACE,i);
+		if(keys[i]==0)
+			return;
+		l_co_sleep(50);
+	}
+	for(;keys[i]!=0;i++)
+	{
+		y_im_input_key(keys[i]);
+	}
+	l_free(keys);
+}
+#else
 static void y_im_input_key_at_idle(int *keys)
 {
 	if(!keys)
@@ -305,6 +322,7 @@ static void y_im_input_key_at_idle(int *keys)
 	}
 	l_free(keys);
 }
+#endif
 
 void y_xim_send_keys(const char *s)
 {
@@ -428,7 +446,7 @@ void y_xim_send_string2(const char *s,int flag)
 			{
 #if !defined(CFG_XIM_ANDROID) && !defined(__EMSCRIPTEN__)
 				int pos=0,sub=0;
-				sscanf(s+10,"%d,%d",&pos,&sub);
+				l_sscanf(s+10,"%d,%d",&pos,&sub);
 				y_kbd_select(pos,sub);
 #endif	
 			}
@@ -443,8 +461,14 @@ void y_xim_send_string2(const char *s,int flag)
 			{
 				char *temp=l_memdupa0(s+7,strlen(s+7)-1);
 				int *keys=y_im_str_to_keys(temp);
+#if L_USE_COROUTINE
+				l_co_create((void*)y_im_input_key_at_idle,keys);
+				l_co_sched();
+#else
 				y_ui_idle_add((void*)y_im_input_key_at_idle,keys);
+#endif
 			}
+#if L_USE_COROUTINE
 			else if(l_str_has_surround(s,"$SENDKEYS(",")"))
 			{
 				if(xim.send_keys)
@@ -462,6 +486,7 @@ void y_xim_send_string2(const char *s,int flag)
 					y_ui_show_tip(YT("不支持此功能"));
 				}
 			}
+#endif // L_USE_COROUTINE
 			else if(!strcmp(s,"$REDIRECT()"))
 			{
 				int ret=y_im_history_redirect_run();
@@ -528,11 +553,6 @@ COPY:
 		s+=y_im_str_desc(s,NULL);
 		if(!y_im_forward_key(s))
 			goto out;
-		key=y_im_strip_key((char*)s,&key_repeat);
-		if(!y_im_go_url(s))
-			goto out;
-		if(!y_im_send_file(s))
-			goto out;
 #ifndef CFG_XIM_ANDROID
 		if(strstr(s,"$/"))
 		{
@@ -540,6 +560,11 @@ COPY:
 			goto out;
 		}
 #endif
+		key=y_im_strip_key((char*)s,&key_repeat);
+		if(!y_im_go_url(s))
+			goto out;
+		if(!y_im_send_file(s))
+			goto out;
 	}
 
 	y_im_speed_update(0,s);
@@ -685,7 +710,6 @@ int y_im_input_key(int key)
 	int bing=key&KEYM_BING;
 	int mod=key&KEYM_MASK;
 	key&=~KEYM_CAPS;
-
 	ret=YongHotKey(key);
 	if(ret)
 	{
@@ -908,6 +932,20 @@ int y_im_config_path(void)
 	l_setenv("_DATA",y_im_get_path("DATA"),1);
 	l_setenv("_HOME",y_im_get_path("HOME"),1);
 #endif
+
+#if defined(__linux__) && !defined(CFG_XIM_ANDROID)
+	char temp[256];
+	if(getcwd(temp,sizeof(temp)))
+	{
+		const char *path=getenv("PATH");
+		if(path && !strstr(path,temp))
+		{
+			char *newpath=l_sprintf("%s:%s",temp,path);
+			l_setenv("PATH",newpath,1);
+			l_free(newpath);
+		}
+	}
+#endif
 	return 0;
 }
 
@@ -1051,10 +1089,27 @@ const char *y_im_get_path(const char *type)
 	if(!strcmp(type,"HOME"))
 	{
 		static char path[256];
-		sprintf(path,"%s/.yong",getenv("HOME"));
+		if(!path[0])
+		{
+			const char *config_home=getenv("XDG_CONFIG_HOME");
+			if(config_home==NULL)
+			{
+				sprintf(path,"%s/.config",getenv("HOME"));
+				config_home=l_strdupa(path);
+			}
+			sprintf(path,"%s/yong",config_home);
+			if(l_file_exists(path))
+			{
+				return path;
+			}
+			const char *home=getenv("HOME");
+			sprintf(path,"%s/.yong",home);
+			if(l_file_exists(path))
+				return path;
+			sprintf(path,"%s/yong",config_home);
+			l_mkdir(path,0700);
+		}
 		ret=path;
-		if(!l_file_exists(ret))
-			l_mkdir(ret,0700);
 	}
 	else
 	{
@@ -1288,7 +1343,7 @@ static int key_from_config(const char *s)
 {
 	char key[64];
 	int which=-1;
-	sscanf(s,"%63s %d",key,&which);
+	l_sscanf(s,"%63s %d",key,&which);
 	return y_im_get_key(key,which,0);
 }
 
@@ -1506,7 +1561,7 @@ int y_im_parse_keys(const char *s,int *out,int size)
 						}
 						else
 						{
-							ret=sscanf(esc,"%9s %d",str,&repeat);
+							ret=l_sscanf(esc,"%9s %d",str,&repeat);
 						}
 						if(ret<1 || repeat<=0)
 							return -5;
@@ -2414,16 +2469,6 @@ void y_im_str_encode_r(const void *in,char *gb)
 #endif
 }
 
-void y_im_url_encode(const char *gb,char *out)
-{
-	int i;
-	char temp[256];
-
-	l_gb_to_utf8(gb,temp,sizeof(temp));
-	for(i=0;temp[i];i++)
-		sprintf(out+3*i,"%%%02x",(uint8_t)temp[i]);
-}
-
 int y_im_is_url(const char *s)
 {
 	const char *p1,*p2,*p3;
@@ -2439,7 +2484,7 @@ int y_im_is_url(const char *s)
 	return 0;
 }
 
-char *y_im_auto_path(char *fn)
+char *y_im_auto_path(const char *fn,bool *home)
 {
 	char temp[256];
 
@@ -2448,12 +2493,20 @@ char *y_im_auto_path(char *fn)
 	if(fn[0]=='/' || (fn[0]=='.' && fn[1]=='/'))
 	{
 		strcpy(temp,fn);
+		*home=false;
 	}
 	else
 	{
 		sprintf(temp,"%s/%s",y_im_get_path("HOME"),fn);
 		if(!l_file_exists(temp))
+		{
 			sprintf(temp,"%s/%s",y_im_get_path("DATA"),fn);
+			*home=false;
+		}
+		else
+		{
+			*home=true;
+		}
 	}
 	return l_strdup(temp);
 }
@@ -2698,7 +2751,7 @@ void y_im_about_self(void)
 	int pos=0;
 	
 	pos=sprintf(temp,"%s%s\n",YT("作者："),"dgod");
-	pos+=sprintf(temp+pos,"%s%s\n",YT("论坛："),"http://yong.dgod.net");
+	pos+=sprintf(temp+pos,"%s%s\n",YT("论坛："),"yong.dgod.net");
 	pos+=sprintf(temp+pos,"%s%s\n",YT("编译时间："),YONG_VERSION);
 	/*pos+=*/sprintf(temp+pos,"%s%s",YT("感谢："),"stb, nanosvg");
 	
@@ -2840,8 +2893,7 @@ void y_im_setup_config(void)
 {
 #if !defined(CFG_NO_HELPER)
 	char config[256];
-	char *args[3]={0,config,0};
-	char prog[512];
+	char *argv[3]={NULL,config,NULL};
 
 #ifdef _WIN32
 #ifdef _WIN64
@@ -2852,241 +2904,98 @@ void y_im_setup_config(void)
 #else
 	char *setup="yong-config";
 #endif
-
 	sprintf(config,"%s/yong.ini",y_im_get_path("HOME"));
 
-	if(!args[0] && l_file_exists(setup))
+	if(!argv[0] && l_file_exists(setup))
 	{
-		args[0]=setup;
+		argv[0]=setup;
 	}
 #ifndef _WIN32
-	if(!args[0] && l_file_exists("./yong-config-gtk3"))
+	if(!argv[0] && l_file_exists("/usr/bin/yong-config"))
 	{
-		args[0]="./yong-config-gtk3";
-	}
-	if(!args[0] && l_file_exists("/usr/bin/yong-config"))
-	{
-		args[0]="/usr/bin/yong-config";
+		argv[0]="/usr/bin/yong-config";
 	}
 #endif
-	if(!args[0])
+	if(!argv[0])
 	{
-		static char user[256];
 		char *tmp=y_im_get_config_string("main","edit");
 		if(tmp && tmp[0] && tmp[0]!=' ')
-		{
-			strcpy(user,tmp);
-			args[0]=user;
-		}
+			argv[0]=l_strdupa(tmp);
 		l_free(tmp);
 	}
 #ifndef _WIN32
-	if(!args[0]) args[0]="xdg-open";
+	if(!argv[0]) argv[0]="xdg-open";
 #else
-	if(!args[0]) args[0]="notepad.exe";
+	if(!argv[0]) argv[0]="notepad.exe";
 #endif
-	snprintf(prog,sizeof(prog),"%s %s",args[0],config);
-
-	if(strstr(args[0],"yong-config"))
-	{
-		char temp[32];
-		y_im_get_current(temp,sizeof(temp));
-		sprintf(prog+strlen(prog)," --active=%s",temp);
-	}
-
-	y_im_run_helper(prog,config,YongReloadAllTip,NULL);
+	y_im_run_helper(argv,NULL,NULL,NULL);
 #endif
 }
 
 #if !defined(CFG_NO_HELPER)
 
 struct im_helper{
-#ifdef _WIN32
-	HANDLE pid;
-	UINT_PTR timer;
-#else
-	GPid pid;
-	guint timer;
-	guint child;
-#endif
 	char *prog;
 	char *watch;
-	time_t mtime;
+	int64_t mtime;
 	void (*cb)(void);
 	void (*exit_cb)(int);
 };
 static struct im_helper helper_list[4];
 
-#ifdef _WIN32
-static VOID CALLBACK HelperTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
+static void  HelperExit(LProcessBuffer *result)
 {
-	int i;
-	for(i=0;i<4;i++)
-	{
-		struct im_helper *p=helper_list+i;
-		DWORD code;
-		if(!p->prog) continue;
-		if(p->timer!=idEvent) continue;
-		if(p->watch)
-		{
-			time_t mtime;
-			mtime=l_file_mtime(p->watch);
-			if(mtime!=p->mtime)
-			{
-				p->mtime=mtime;
-				if(p->cb)
-					p->cb();
-			}
-		}
-		if(!GetExitCodeProcess(p->pid,&code) || code!=STILL_ACTIVE)
-		{
-			CloseHandle(p->pid);
-			l_free(p->prog);
-			p->prog=0;
-			l_free(p->watch);
-			p->watch=0;
-			KillTimer(NULL,idEvent);
-			if(p->exit_cb)
-				p->exit_cb((int)code);
-		}
-		break;
-	}
+	struct im_helper *p=l_ptr_context(result);
+	if(p->exit_cb)
+		p->exit_cb(result->status);
+	l_free(p->prog);
+	p->prog=NULL;
+	l_free(p->watch);
+	p->watch=NULL;
+	l_buffer_free((LBuffer*)result);
 }
 
-int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int))
+static void HelperTimerProc(struct im_helper *p)
 {
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	BOOL ret;
-	int i;
-	WCHAR wprog[MAX_PATH];
-	
-	for(i=0;i<4;i++)
+	int64_t mtime=l_file_mtime(p->watch);
+	if(mtime!=p->mtime)
 	{
-		char *p=helper_list[i].prog;
-		if(!p) continue;
-		if(!strcmp(p,prog))
-			return -1;
+		p->mtime=mtime;
+		p->cb();
 	}
-	l_utf8_to_utf16(prog,wprog,sizeof(wprog));
-	
-	memset(&si,0,sizeof(si));
-	si.cb=sizeof(si);
-	si.wShowWindow = SW_SHOWNORMAL;
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	memset(&pi,0,sizeof(pi));
-	ret=CreateProcess(NULL,wprog,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi);
-	if(!ret)
-	{
-		return -2;
-	}
-	CloseHandle(pi.hThread);
+	y_ui_timer_add(1000,(LUserFunc)HelperTimerProc,p);
+}
 
-	for(i=0;i<4;i++)
+int y_im_run_helper(char *argv[],const char *watch,void (*change_cb)(void),void (*exit_cb)(int))
+{
+	char *prog=l_strjoinv(" ",argv);
+	for(int i=0;i<countof(helper_list);i++)
+	{
+		struct im_helper *p=helper_list+i;
+		if(p->prog && !strcmp(p->prog,prog))
+			return 0;
+	}
+	for(int i=0;i<countof(helper_list);i++)
 	{
 		struct im_helper *p=helper_list+i;
 		if(p->prog) continue;
-		p->prog=l_strdup(prog);
+		if(0!=l_pread(argv,L_PREAD_SHOW,HelperExit,p))
+		{
+			l_free(prog);
+			return -1;
+		}
+		p->prog=prog;
 		p->watch=watch?l_strdup(watch):NULL;
-		p->pid=pi.hProcess;
 		p->mtime=watch?l_file_mtime(watch):0;
-		p->timer=SetTimer(NULL,0,1000,HelperTimerProc);
-		p->cb=cb;
+		p->cb=change_cb;
 		p->exit_cb=exit_cb;
+		if(p->watch && p->cb)
+			y_ui_timer_add(1000,(LUserFunc)HelperTimerProc,p);
 		return 0;
 	}
-	CloseHandle(pi.hProcess);
+	l_free(prog);
 	return -1;
 }
-#else
-static void  HelperExit(GPid pid,gint status,gpointer data)
-{
-	int i;
-	for(i=0;i<4;i++)
-	{
-		struct im_helper *p=helper_list+i;
-		if(p->pid!=pid) continue;
-		if(p->watch)
-		{
-			time_t mtime;
-			mtime=l_file_mtime(p->watch);
-			if(mtime!=p->mtime)
-			{
-				p->mtime=mtime;
-				if(p->cb)
-					p->cb();
-			}
-		}
-		g_free(p->prog);
-		p->prog=0;
-		g_free(p->watch);
-		p->watch=0;
-		g_source_remove(p->timer);
-		g_source_remove(p->child);
-		if(p->exit_cb)
-			p->exit_cb((int)status);
-	}
-	g_spawn_close_pid(pid);
-}
-
-static gboolean HelperTimerProc(gpointer data)
-{
-	struct im_helper *p=data;
-	if(p->watch)
-	{
-		time_t mtime;
-		mtime=l_file_mtime(p->watch);
-		if(mtime!=p->mtime)
-		{
-			p->mtime=mtime;
-			if(p->cb)
-				p->cb();
-		}
-	}
-	return TRUE;
-}
-
-int y_im_run_helper(const char *prog,const char *watch,void (*cb)(void),void (*exit_cb)(int))
-{
-	int i;
-	gint argc;
-	gchar **argv;
-	GPid pid;
-	for(i=0;i<4;i++)
-	{
-		char *p=helper_list[i].prog;
-		if(!p) continue;
-		if(!strcmp(p,prog))
-			return -1;
-	}
-	if(!g_shell_parse_argv(prog,&argc,&argv,NULL))
-		return -1;
-	if(!g_spawn_async(0,argv,0,
-			G_SPAWN_DO_NOT_REAP_CHILD|G_SPAWN_SEARCH_PATH,
-			0,0,&pid,0))
-	{
-		g_strfreev(argv);
-		return -1;
-	}
-	g_strfreev(argv);
-	for(i=0;i<4;i++)
-	{
-		struct im_helper *p=helper_list+i;
-		if(p->prog) continue;
-		p->prog=g_strdup(prog);
-		p->watch=watch?g_strdup(watch):NULL;
-		p->pid=pid;
-		p->mtime=watch?l_file_mtime(watch):0;
-		p->timer=g_timeout_add(1000,HelperTimerProc,p);
-		p->cb=cb;
-		p->exit_cb=exit_cb;
-		p->child=g_child_watch_add(pid,HelperExit,p);
-		return 0;
-	}
-	g_spawn_close_pid(pid);
-	return -1;
-}
-#endif
 #endif
 
 void y_im_str_strip(char *s)
@@ -3107,10 +3016,9 @@ void y_im_show_help(char *wh)
 
 int y_im_help_desc(char *wh,char *desc,int len)
 {
-	char *p,*ps;
-	p=y_im_get_config_string(wh,"help");
+	char *p=y_im_get_config_string(wh,"help");
 	if(!p) return -1;
-	ps=strchr(p,' ');
+	char *ps=strchr(p,' ');
 	if(ps) *ps=0;
 	snprintf(desc,len,"%s",p);
 	l_free(p);
@@ -3119,10 +3027,9 @@ int y_im_help_desc(char *wh,char *desc,int len)
 
 int y_im_get_current(char *item,int len)
 {
-	char *p;
 	char wh[32];
 	sprintf(wh,"%d",im.Index);
-	p=l_key_file_get_string(MainConfig,"IM",wh);
+	char *p=l_key_file_get_string(MainConfig,"IM",wh);
 	if(!p) return -1;
 	snprintf(item,len,"%s",p);
 	l_free(p);
@@ -3132,10 +3039,9 @@ int y_im_get_current(char *item,int len)
 int y_im_get_keymap(char *name,int len)
 {
 	char item[128];
-	char *p,*ps;
 	if(0!=y_im_get_current(item,sizeof(item)))
 		return -1;
-	p=y_im_get_config_string(item,"keymap");
+	char *p=y_im_get_config_string(item,"keymap");
 	if(!p) return -1;
 	l_str_trim(p);
 	if(!p[0])
@@ -3143,7 +3049,7 @@ int y_im_get_keymap(char *name,int len)
 		l_free(p);
 		return -1;
 	}
-	ps=strchr(p,' ');
+	char *ps=strchr(p,' ');
 	if(!ps)
 	{
 		l_free(p);
@@ -3174,13 +3080,11 @@ bool y_im_show_keymap(void)
 	char img[128];
 	int top=0;
 	int tran=0;
-	char *p;
-	int ret;
 	if(0!=y_im_get_current(item,sizeof(item)))
 		return false;
-	p=y_im_get_config_string(item,"keymap");
+	char *p=y_im_get_config_string(item,"keymap");
 	if(!p) return false;
-	ret=l_sscanf(p,"%s %s %d %d",item,img,&top,&tran);
+	int ret=l_sscanf(p,"%s %s %d %d",item,img,&top,&tran);
 	l_free(p);
 	if(ret<2)
 	{
@@ -3350,9 +3254,8 @@ int y_im_handle_menu(const char *cmd)
 	else if(!strncmp(cmd,"$GO(",4))
 	{
 		char temp[256];
-		int len;
 		snprintf(temp,256,"%s",cmd+4);
-		len=strlen(temp);
+		int len=strlen(temp);
 		if(len>0 && temp[len-1]==')')
 			temp[len-1]=0;
 		y_xim_explore_url(temp);
@@ -3363,10 +3266,9 @@ int y_im_handle_menu(const char *cmd)
 	}
 	else if(!strcmp(cmd,"$MBO"))
 	{
-		int ret;
-		void *out=NULL;
 		char file[128];
-		ret=y_im_run_tool("tool_save_user",0,0);
+		void *out;
+		int ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
 		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
@@ -3378,10 +3280,9 @@ int y_im_handle_menu(const char *cmd)
 	}
 	else if(!strcmp(cmd,"$MBM"))
 	{
-		int ret;
 		void *out=NULL;
 		char file[128];
-		ret=y_im_run_tool("tool_save_user",0,0);
+		int ret=y_im_run_tool("tool_save_user",0,0);
 		if(ret!=0) return 0;
 		y_im_async_wait(1000);
 		ret=y_im_run_tool("tool_get_file","main",&out);
@@ -3401,33 +3302,35 @@ int y_im_handle_menu(const char *cmd)
 #if !defined(CFG_NO_HELPER)
 	else if(!strcmp(cmd,"$MBEDIT"))
 	{
-		int ret;
 		void *out=NULL;
-		char *ed;
-		char temp[256];
+		char *argv[3]={NULL,NULL,NULL};
 		char file[128];
-		ed=y_im_get_config_string("table","edit");
-		if(!ed) return 0;
-		ret=y_im_run_tool("tool_get_file","main",&out);
+		bool at_home;
+		argv[0]=y_im_get_config_string("table","edit");
+		if(!argv[0]) return 0;
+		int ret=y_im_run_tool("tool_get_file","main",&out);
 		if(ret!=0 || !out)
 		{
-			l_free(ed);
+			l_free(argv[0]);
 			return 0;
 		}
 		l_gb_to_utf8(out,file,sizeof(file));
-		out=y_im_auto_path(file);
-		sprintf(temp,"%s %s",ed,(char*)out);
-		y_im_run_helper(temp,out,YongReloadAllTip,NULL);
-		l_free(ed);
-		l_free(out);
+		out=argv[1]=y_im_auto_path(file,&at_home);
+		if(at_home && l_str_has_suffix(file,".txt"))
+		{
+			l_free(out);
+			out=NULL;
+		}
+		y_im_run_helper(argv,out,YongReloadAllTip,NULL);
+		l_free(argv[0]);
+		l_free(argv[1]);
 	}
 #endif
 	else if(!strncmp(cmd,"$MSG(",5))
 	{
 		char temp[512];
-		int len;
 		l_utf8_to_gb(cmd+5,temp,sizeof(temp));
-		len=strlen(temp);
+		int len=strlen(temp);
 		if(len>0)
 		{
 			if(temp[len-1]==')')

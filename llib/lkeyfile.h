@@ -16,12 +16,13 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 int l_key_file_set_string(LKeyFile *key_file,const char *group,const char *key,const char *value);
 int l_key_file_set_int(LKeyFile *key_file,const char *group,const char *key,int value);
 void l_key_file_set_dirty(LKeyFile *key_file);
+bool l_key_file_get_dirty(LKeyFile *key_file);
 const char *l_key_file_get_start_group(LKeyFile *key_file);
 bool l_key_file_has_group(LKeyFile *key_file,const char *group);
 char **l_key_file_get_groups(LKeyFile *key_file);
 char **l_key_file_get_keys(LKeyFile *key_file,const char *group);
 void l_key_file_set_inherit(LKeyFile *key_file,char delimiter);
-void l_key_file_set_overlay(LKeyFile *key_file,LKeyFile *overly);
+void l_key_file_set_overlay(LKeyFile *key_file,LKeyFile *overlay);
 
 #define l_key_file_remove_group(key_file,group) \
 	l_key_file_set_data((key_file),(group),NULL,NULL)

@@ -210,13 +210,15 @@ void YongSetLang(int lang)
 				y_xim_send_string(im.CodeInputEngine);
 				goto out;
 			}
-			eim->DoInput(YK_VIRT_REFRESH);
+			eim->DoInput(YK_VIRT_CNEN);
 			y_im_str_encode(eim->CodeInput,im.CodeInput,DONT_ESCAPE);
 			y_im_str_encode(eim->StringGet,im.StringGet,0);
 			y_ui_input_draw();
 		}
 		else if(im.eim)
 		{
+			if(!y_english_from_cnen())
+				return;
 			EXTRA_IM *eim=y_english_eim();
 			char temp[MAX_CODE_LEN+1];
 			
@@ -230,11 +232,16 @@ void YongSetLang(int lang)
 			eim=im.eim;
 			eim->CodeLen=strlen(im.CodeInputEngine);
 			eim->CaretPos=eim->CodeLen;
-			if(!YongKeyInput(YK_VIRT_REFRESH,0))
+			int ret=eim->DoInput(YK_VIRT_REFRESH);
+			if(ret==IMR_BLOCK || ret==IMR_NEXT)
 			{
 				YongSetLang(-1);
 			}
-		}		
+			else
+			{
+				y_ui_input_draw();
+			}
+		}
 		return;
 	}
 out:
@@ -578,10 +585,14 @@ void update_input_window(void)
 		if(ret>1)
 		{
 			next=l_utf8_offset((uint8_t*)temp,1);
-			if(next)
+			if(next && next[0])
 			{
 				param.page.text[0]=l_utf8_to_unichar((uint8_t*)temp);
 				param.page.text[1]=l_utf8_to_unichar(next);
+			}
+			else
+			{
+				param.page.text[0]=1;
 			}
 		}
 		if(ret>3)
@@ -1342,7 +1353,7 @@ static void YongFlushResult(void)
 	}
 	if(im.EnglishMode && eim->CodeLen && eim->CodeInput[0])
 	{
-		if((uint8_t)im.CodeInputEngine[0]==key_temp_english)
+		if(!y_english_from_cnen())
 		{
 			if(im.CodeInputEngine[1])
 				y_xim_send_string2(im.CodeInputEngine+1,SEND_FLUSH|SEND_RAW);
@@ -1405,7 +1416,7 @@ int YongCallDict(int key)
 		if(im.EnglishMode)
 		{
 			s=eim->CodeInput;
-			if(s[0] && s[0]==key_temp_english) s++;
+			if(!y_english_from_cnen()) s++;
 		}
 		else
 		{
@@ -1420,7 +1431,7 @@ int YongCallDict(int key)
 	}
 #endif
 	if(im.EnglishMode)
-		strcpy(temp,(im.CodeInputEngine[0]==key_temp_english)?(eim->CodeInput+1):eim->CodeInput);
+		strcpy(temp,(!y_english_from_cnen())?(eim->CodeInput+1):eim->CodeInput);
 	else
 		y_im_get_real_cand(eim->CandTable[eim->SelectIndex],temp,sizeof(temp));
 	y_dict_query_network(temp);
@@ -1605,7 +1616,7 @@ void YongUpdateInputDesc(EXTRA_IM *eim)
 		int len=y_im_str_len(im.CodeInput);
 		y_im_str_encode(eim->CodeInput+1,(char*)(im.CodeInput+len),DONT_ESCAPE);
 	}
-	else if(im.EnglishMode && key_temp_english && eim->CodeInput[0]==key_temp_english)
+	else if(im.EnglishMode && !y_english_from_cnen())
 	{
 		y_im_key_desc_translate(eim->CodeInput,
 				eim->CodeTips[eim->SelectIndex],
@@ -1746,18 +1757,18 @@ int YongKeyInput(int key,int mod)
 			key+='a'-'A';
 		}
 	}
-	if(im.EnglishMode==0 && 
+	if(im.EnglishMode==0 && !im.CodeInputEngine[0] &&
 		((key>='A' && key<='Z' && !(im.eim && (im.eim->Flag&IM_FLAG_CAPITAL)))
-			|| (key_temp_english && im.CodeInputEngine[0]==key_temp_english && im.CodeInputEngine[1]==0 && !(key&KEYM_MASK) && isgraph(key))
-			/* || (key==key_temp_english && !im.CodeInputEngine[0])*/)
-			)
+			|| key==key_temp_english))
 	{
 ENGLISH_MODE:
-		if(im.CodeInputEngine[0]==key_temp_english)
+		if(key==key_temp_english)
 		{
-			EXTRA_IM *eim=y_english_eim();
 			YongResetIM_();
-			eim->DoInput(key_temp_english);
+			if(key>=0x80)
+			{
+				key=YK_VIRT_CNEN;
+			}
 		}
 		else
 		{
@@ -1768,6 +1779,8 @@ ENGLISH_MODE:
 				y_xim_send_string(temp);
 				return 1;
 			}
+			EXTRA_IM *eim=y_english_eim();
+			eim->DoInput(YK_VIRT_CNEN);
 		}
 		im.EnglishMode=1;
 	}
@@ -1843,7 +1856,9 @@ ENGLISH_MODE:
 				YongSetLang(-1);
 				cnen_mode=old;
 				if(!im.EnglishMode)
-					return 1;
+				{
+					im.ChinglishMode=0;
+				}
 			}
 			else if(ret==IMR_ENGLISH && key==YK_VIRT_REFRESH)
 			{
@@ -2665,6 +2680,61 @@ static void deal_exec(void)
 }
 #endif
 
+#if !defined(__EMSCRIPTEN__) && !defined(CFG_XIM_ANDROID)
+static uint64_t _cancel_watch_time;
+void y_im_set_home_watch(int config)
+{
+	if(config==0)
+	{
+		_cancel_watch_time=l_ticks()+60*1000;
+		return;
+	}
+	_cancel_watch_time=0;
+	if(config==2)
+	{
+		y_ui_timer_del((LUserFunc)YongReloadAllTip,NULL);
+		y_ui_timer_add(500,(LUserFunc)YongReloadAllTip,NULL);
+	}
+}
+static void home_change_cb(const char *name)
+{
+	if(_cancel_watch_time)
+	{
+		if(l_ticks()<=_cancel_watch_time)
+			return;
+		_cancel_watch_time=0;
+	}
+	const char *ext=l_path_extname(name);
+	if(!ext)
+		return;
+	if(!strcmp(ext,".ini"))
+	{
+	}
+	else if(!strcmp(ext,".txt"))
+	{
+		if(!strcmp(name,"clipboard.txt"))
+			return;
+		void *out=NULL;
+		int ret=y_im_run_tool("tool_get_file","user",&out);
+		if(ret!=0 || !out)
+			return;
+		if(!strcmp(out,name))
+			return;
+	}
+	else
+	{
+		return;
+	}
+	char temp[256];
+	snprintf(temp,sizeof(temp)-1,"%s/%s",y_im_get_path("HOME"),name);
+	int timeout=500;
+	if(l_file_mtime(temp)+10<l_time())		// if sync, wait more time
+		timeout=2000;
+	y_ui_timer_del((LUserFunc)YongReloadAllTip,NULL);
+	y_ui_timer_add(timeout,(LUserFunc)YongReloadAllTip,NULL);
+}
+#endif
+
 int main(int arc,char *arg[])
 {
 	int mb_tool=0;
@@ -2810,7 +2880,6 @@ int main(int arc,char *arg[])
 	y_ui_init(xim);
 
 	im.Index=y_im_get_config_int("IM","default");
-	y_im_async_init();
 	update_config_translate();
 	update_config_skin();
 	update_main_window();
@@ -2845,6 +2914,10 @@ int main(int arc,char *arg[])
 	update_tray_icon();
 	VERBOSE("update menu\n");
 	y_ui_update_menu();
+#if !defined(__EMSCRIPTEN__)
+	VERBOSE("watch user dir %s\n",y_im_get_path("HOME"));
+	l_path_watch(y_im_get_path("HOME"),home_change_cb,L_WATCH_SUBTREE);
+#endif
 
 	atexit(YongDestroyIM);
 	
@@ -2888,7 +2961,6 @@ int y_main_init(int index)
 		im.Index=index;
 	else
 		im.Index=y_im_get_config_int("IM","default");
-	y_im_async_init();
 	update_im();
 	return 0;
 }
@@ -2896,7 +2968,6 @@ int y_main_init(int index)
 void y_main_clean(void)
 {
 	YongDestroyIM();
-	y_im_async_destroy();
 	y_ui_clean();
 #ifndef CFG_NO_REPLACE
 	y_replace_free();

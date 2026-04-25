@@ -46,7 +46,7 @@ static const Y_BIHUA_INFO y_bihua_info[32]={
 	{0,0},			//.
 	{0,0},			//
 };
-static const Y_BIHUA_INFO *bihua_info=y_bihua_info;
+static const Y_BIHUA_INFO *bihua_info;
 
 #define BIHUA_MAX	63
 #define GROUP_MAX	63
@@ -102,6 +102,11 @@ static int y_bihua_load(const char *fn)
 	}
 	base=(char*)(trunc+TRUNC_COUNT);
 	bihua_version=trunc->group>>14;
+	if(bihua_version!=1)
+	{
+		y_bihua_free();
+		return -1;
+	}
 	trunc->group&=0x3fff;
 
 	return 0;
@@ -147,38 +152,20 @@ static int bihua_decompress(const char *bh,int len,char temp[BIHUA_MAX+1])
 
 static int bihua_test(const char *bh,const char *s,int len)
 {
-	int bhlen;
-	if(bihua_version==0)
+	int bhlen=bh[0];
+	if(gb_is_gbk(bh+1))
 	{
-		bhlen=bh[1];
-		if(gb_is_gbk(bh+2))
-		{
-			bh+=4;
-			bhlen-=4;
-		}
-		else
-		{
-			bh+=6;
-			bhlen-=6;
-		}
+		bh+=3;
+		bhlen-=3;
 	}
 	else
 	{
-		bhlen=bh[0];
-		if(gb_is_gbk(bh+1))
-		{
-			bh+=3;
-			bhlen-=3;
-		}
-		else
-		{
-			bh+=5;
-			bhlen-=5;
-		}
-		char *temp=l_alloca(BIHUA_MAX+1);
-		bhlen=bihua_decompress(bh,bhlen,temp);
-		bh=temp;
+		bh+=5;
+		bhlen-=5;
 	}
+	char *temp=l_alloca(BIHUA_MAX+1);
+	bhlen=bihua_decompress(bh,bhlen,temp);
+	bh=temp;
 	if(bhlen<len)
 	{
 		int ret=memcmp(bh,s,bhlen);
@@ -192,8 +179,6 @@ static int bihua_test(const char *bh,const char *s,int len)
 
 static inline uint32_t bihua_next(uint32_t offset)
 {
-	if(bihua_version==0)
-		return offset+base[offset+1];
 	return offset+base[offset];
 }
 
@@ -292,14 +277,7 @@ static uint32_t *y_bihua_get(int at,int num)
 	for(int i=0;i<num;i++)
 	{
 		char *t=base+offset;
-		if(bihua_version==0)
-		{
-			res.str[i]=l_gb_to_char(t+2);
-		}
-		else
-		{
-			res.str[i]=l_gb_to_char(t+1);
-		}
+		res.str[i]=l_gb_to_char(t+1);
 		offset=bihua_next(offset);
 	}
 	return res.str;
@@ -310,10 +288,11 @@ static uint32_t *y_bihua_get(int at,int num)
 #ifndef TOOLS_BIHUA
 
 #include "yong.h"
-#include "common.h"
+#include "llineedit.h"
 
-static int BihuaLen;
-static char BihuaInput[64];
+// static int BihuaLen;
+// static char BihuaInput[64];
+static LLineEdit line;
 
 static int PhraseListCount;
 static int BihuaKey;
@@ -346,6 +325,40 @@ int y_bihua_good(void)
 	return !!trunc;
 }
 
+static int BihuaDisplay(const char *b,char *s)
+{
+	int len=1,c;
+	s[0]=BihuaKey;
+	for(int i=1;(c=b[i])!=0;i++)
+	{
+		int j=l_chrpos(bihua_key,c);
+		if(j<0)
+			return -1;
+		if(bihua_info[j].code==NULL)
+			return -1;
+		len+=sprintf(s+len,"%s",bihua_info[j].name);
+	}
+	s[len]=0;
+	return len;
+}
+
+static void BihuaSetKeys(const Y_BIHUA_INFO *info)
+{
+	char allow[64];
+	int len=1;
+	allow[0]=BihuaKey;
+	for(int i=0;i<32;i++)
+	{
+		if(info[i].code!=NULL)
+		{
+			allow[len++]=Y_BIHUA_KEY[i];
+		}
+	}
+	allow[len]=0;
+	l_line_edit_set_allow(&line,allow,true);
+	l_line_edit_set_first(&line,BihuaKey,true);
+}
+
 static int BihuaInit(const char *arg)
 {
 	if(arg)
@@ -354,20 +367,29 @@ static int BihuaInit(const char *arg)
 		bihua_info=(Y_BIHUA_INFO*)y_bihua_info;
 	cand_a=y_im_get_config_int("IM","cand_a");
 	BihuaKey=y_im_get_key("bihua",-1,'`');
-	if(trunc)
-		return 0;
-	return y_bihua_load("bihua.bin");
+	if(!trunc)
+	{
+		int ret=y_bihua_load("bihua.bin");
+		if(ret!=0)
+			return ret;
+	}
+
+	l_line_edit_init(&line);
+	l_line_edit_set_max(&line,63);
+	BihuaSetKeys(bihua_info);
+
+	return 0;
 }
 
 static int BihuaDestroy(void)
 {
-	bihua_info=y_bihua_info;
-	//y_bihua_free();
+	bihua_info=NULL;
 	return 0;
 }
 
 static void BihuaReset(void)
 {
+	l_line_edit_clear(&line);
 	EIM.CandWordTotal=0;
 	EIM.CodeInput[0]=0;
 	EIM.StringGet[0]=0;
@@ -444,23 +466,25 @@ static int BihuaGetCandWords(int mode)
 
 static int BihuaDoSearch(void)
 {
+	const char *BihuaInput=l_line_edit_get_text(&line);
+	int BihuaLen=l_line_edit_get_len(&line);
 	int max=EIM.CandWordMax;
-	if(EIM.CodeLen==1)
+	if(BihuaLen==1)
 	{
+		EIM.CodeLen=BihuaDisplay(BihuaInput,EIM.CodeInput);
 		PhraseListCount=1;
 		EIM.CandWordTotal=PhraseListCount;
 		EIM.CandPageCount=1;
 	}
 	else
 	{
-		int ret=y_bihua_set(BihuaInput);
+		int ret=y_bihua_set(BihuaInput+1);
 		if(ret<=0)
 		{
-			BihuaInput[--BihuaLen]=0;
-			EIM.CodeLen-=2;
-			EIM.CodeInput[EIM.CodeLen]=0;
+			l_line_edit_undo(&line);
 			return IMR_BLOCK;
 		}
+		EIM.CodeLen=BihuaDisplay(BihuaInput,EIM.CodeInput);
 		PhraseListCount=ret;
 		EIM.CandWordTotal=PhraseListCount;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
@@ -471,61 +495,34 @@ static int BihuaDoSearch(void)
 
 static int BihuaDoInput(int key)
 {
-	int ret=IMR_DISPLAY;
-	char *p;
-	
 	if(!trunc)
 		return IMR_NEXT;
 
 	if(EIM.CodeLen==0)
 	{
+		Y_BIHUA_INFO *info;
 		if(im.eim && im.eim->Bihua)
-			bihua_info=(Y_BIHUA_INFO*)im.eim->Bihua;
+			info=(Y_BIHUA_INFO*)im.eim->Bihua;
 		else
-			bihua_info=(Y_BIHUA_INFO*)y_bihua_info;
+			info=(Y_BIHUA_INFO*)y_bihua_info;
+		if(info!=bihua_info)
+		{
+			bihua_info=info;
+			BihuaSetKeys(info);
+		}
 	}
 
-	if(key=='\b')
+	int ret=l_line_edit_push(&line,key);
+	if(ret==1)
 	{
-		if(EIM.CodeLen==0)
-			return IMR_CLEAN_PASS;
-		EIM.CodeLen--;
-		if(EIM.CodeInput[EIM.CodeLen]&0x80 && EIM.CodeLen>0)
-			EIM.CodeLen--;
-		EIM.CodeInput[EIM.CodeLen]=0;
-		if(BihuaLen)
-		{
-			BihuaLen--;
-			BihuaInput[BihuaLen]=0;
-		}
-		if(EIM.CodeLen==0)
+		if(l_line_edit_get_len(&line)==0)
 			return IMR_CLEAN;
-		return BihuaDoSearch();
-	}
-	else if(key==BihuaKey && (!EIM.CodeInput[0] || EIM.CodeLen==0))
-	{
-		EIM.CodeInput[EIM.CodeLen++]=key;
-		EIM.CodeInput[EIM.CodeLen]=0;	
-		BihuaLen=0;
-		return BihuaDoSearch();
-	}
-	else if(EIM.CodeInput[0]==BihuaKey && EIM.CodeLen>0 && (p=strchr(bihua_key,key))!=NULL)
-	{
-		int i;
-		i=p-bihua_key;
-		if(bihua_info[i].code==NULL)
-			return IMR_NEXT;
-		strcpy(EIM.CodeInput+EIM.CodeLen,bihua_info[i].name);
-		EIM.CodeLen+=2;
-		BihuaInput[BihuaLen++]=key;
-		BihuaInput[BihuaLen]=0;
 		return BihuaDoSearch();
 	}
 	else
 	{
-		ret=IMR_NEXT;
+		return IMR_NEXT;
 	}
-	return ret;
 }
 
 #endif

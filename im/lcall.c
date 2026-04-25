@@ -660,14 +660,15 @@ void l_call_client_set_connect(void (*cb)(void))
 	_connect=cb;
 }
 
-void l_call_client_connect(void)
+int l_call_client_connect(void)
 {
 	GIOChannel *ch;
 	if(_conn)
-		return;
+		return -1;
 	ch=l_call_client_new();
-	if(!ch) return;
+	if(!ch) return -1;
 	l_call_conn_new(ch,&_user);
+	return 0;
 }
 
 void l_call_client_disconnect(void)

@@ -37,6 +37,10 @@ static void xml_parseElement(char* s,
 	{
 		s++;
 		end = 1;
+		if(!*s && endelCb) {
+			(*endelCb)(ud, "");
+			return;
+		}
 	}
 	else
 	{
@@ -211,22 +215,37 @@ static char *load_string(const char *s)
 	temp[i]=0;
 	return l_strdup(temp);
 }
+
+static LXmlNode *l_new_xml_node(const char *name)
+{
+	int len=strlen(name);
+	LXmlNode *node=l_alloc0(sizeof(LXmlNode)+len+1);
+	strcpy(node->name,name);
+	return node;
+}
+
+static LXmlProp *l_new_xml_prop(const char *name)
+{
+	int len=strlen(name);
+	LXmlProp *prop=l_alloc(sizeof(LXmlProp)+len+1);
+	prop->next=NULL;
+	prop->value=NULL;
+	strcpy(prop->name,name);
+	return prop;
+}
 	
 static void startelCb(LXml *x, const char* el, const char** attr)
 {
-	LXmlNode *node=l_new0(LXmlNode);
-	node->name=l_strdup(el);
+	LXmlNode *node=l_new_xml_node(el);
 	node->parent=x->cur;
 	x->cur->child=l_slist_append(x->cur->child,node);
 	x->cur=node;
 	for(int i=0;attr[i]!=NULL;i+=2)
 	{
-		LXmlProp *prop=l_new0(LXmlProp);
-		prop->name=l_strdup(attr[i]);
+		LXmlProp *prop=l_new_xml_prop(attr[i]);
 		prop->value=load_string(attr[i+1]);
 		if(!prop->value)
 		{
-			l_free(prop->name);
 			l_free(prop);
 			continue;
 		}
@@ -236,7 +255,7 @@ static void startelCb(LXml *x, const char* el, const char** attr)
 
 static void endelCb(LXml *x, const char *el)
 {
-	if(x->cur && !strcmp(x->cur->name,el))
+	if(x->cur/* && !strcmp(x->cur->name,el)*/)
 	{
 		x->cur=x->cur->parent;
 	}
@@ -265,7 +284,6 @@ LXml *l_xml_load(const char *data)
 static void free_prop(LXmlProp *prop)
 {
 	if(!prop) return;
-	l_free(prop->name);
 	l_free(prop->value);
 	l_free(prop);
 }
@@ -275,7 +293,6 @@ static void free_node(LXmlNode *node)
 	if(!node) return;
 	l_slist_free(node->child,(LFreeFunc)free_node);
 	l_slist_free(node->prop,(LFreeFunc)free_prop);
-	l_free(node->name);
 	l_free(node->data);
 	l_free(node);
 }

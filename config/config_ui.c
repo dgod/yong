@@ -24,7 +24,7 @@ struct{
 	{"image"},
 	{"sep"},
 	{"link"},
-	{NULL}
+	{"textarea"},
 };
 
 static int LoadIMList(CUCtrl,int,char **);
@@ -48,6 +48,12 @@ static int LaunchUpdate(CUCtrl,int,char **);
 
 static int CheckAutoStart(CUCtrl,int,char **);
 static int SaveAutoStart(CUCtrl,int,char **);
+static int RestartIME(CUCtrl,int,char **);
+
+extern int DictLocal(CUCtrl p,int arc,char **arg);
+extern int DictNetwork(CUCtrl p,int arc,char **arg);
+
+int y_run_tool(int t,int p,bool wait);
 
 const struct{
 	const char *name;
@@ -73,14 +79,16 @@ const struct{
 	{"LaunchUpdate",LaunchUpdate},
 	{"CheckAutoStart",CheckAutoStart},
 	{"SaveAutoStart",SaveAutoStart},
-	{NULL,NULL},
+	{"RestartIME",RestartIME},
+	{"DictLocal",DictLocal},
+	{"DictNetwork",DictNetwork},
 };
 
 int cu_ctrl_type_from_name(const char *name)
 {
 	int i;
 	if(!name) return -1;
-	for(i=0;CUCtrl_type[i].name!=NULL;i++)
+	for(i=0;i<countof(CUCtrl_type);i++)
 	{
 		if(!strcmp(name,CUCtrl_type[i].name))
 			return i;
@@ -92,7 +100,7 @@ void *cu_ctrl_action_from_name(const char *name)
 {
 	int i;
 	if(!name) return NULL;
-	for(i=0;CUCtrl_action[i].name!=NULL;i++)
+	for(i=0;i<countof(CUCtrl_action);i++)
 	{
 		if(!strcmp(name,CUCtrl_action[i].name))
 			return CUCtrl_action[i].action;
@@ -139,13 +147,7 @@ CUAction cu_action_new(const char *s)
 		action->action=func;
 		action->arg=l_strsplit(arg,',');
 		action->arc=l_strv_length(action->arg);
-		if(!head) head=action;
-		else
-		{
-			CUAction p;
-			for(p=head;p->next!=NULL;p=p->next);
-			p->next=action;
-		}
+		head=l_slist_append(head,action);
 	}
 	l_strfreev(list);
 	return head;
@@ -761,13 +763,9 @@ char *GetStatusPos(void)
 #include <glib.h>
 char *GetStatusPos(void)
 {
-	gchar *out=NULL;
-	if(!g_spawn_command_line_sync("yong-vim -w -t 10",&out,NULL,NULL,NULL))
+	int temp=y_run_tool(10,0,true);
+	if(temp<=0)
 		return NULL;
-	if(!out)
-		return NULL;
-	int temp=atoi(out);
-	g_free(out);
 	int x=temp>>16,y=(int16_t)(temp&0xffff);
 	return l_sprintf("%d,%d",x,y);
 }
@@ -1481,6 +1479,51 @@ static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+static int RestartIME(CUCtrl p,int arc,char **arg)
+{
+   	TCHAR exe[256];
+	GetYongExeFile(exe);
+	cu_ctrl_set_disabled(p,true);
+	status("开始重启");
+	for(int i=0;i<4;i++)
+	{
+		HWND hWnd=FindWindow(L"yong_main",L"main");
+		if(hWnd)
+		{
+			PostMessage(hWnd,WM_USER+116,9,0);
+			if(i==3)
+			{
+				status("关闭输入法超时");
+				cu_ctrl_set_disabled(p,false);
+				return 0;
+			}
+		}
+		else
+		{
+			break;
+		}
+		Sleep(200);
+	}
+	ShellExecute(p->self,L"open",exe,NULL,NULL,SW_SHOWNORMAL);
+	for(int i=0;i<4;i++)
+	{
+		Sleep(200);
+		HWND hWnd=FindWindow(L"yong_main",L"main");
+		if(hWnd)
+		{
+			status("重启成功");
+			break;
+		}
+		if(i==3)
+		{
+			status("重启等待超时");
+			break;
+		}
+	}
+	cu_ctrl_set_disabled(p,false);
+	return 0;
+}
+
 #endif
 
 
@@ -1525,6 +1568,27 @@ static int CheckAutoStart(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+
+static void GetYongExeFile(char *out)
+{
+	if(l_file_exists("/usr/bin/yong"))
+	{
+		strcpy(out,"/usr/bin/yong");
+		return;
+	}
+	if(l_file_exists("yong"))
+	{
+		l_fullpath(out,"yong",256);
+		return;
+	}
+	if(l_file_exists("yong-gtk3"))
+	{
+		l_fullpath(out,"yong-gtk3",256);
+		return;
+	}
+	strcpy(out,"/usr/bin/yong");
+}
+
 static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 {
 	char path[256];
@@ -1534,17 +1598,20 @@ static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 	strcat(path,"/yong.desktop");
 	if(s[0]=='1' && !exist)
 	{
-		const char *text=
-			"[Desktop Entry]\n"
-			"Name=yong\n"
-			"Exec=/usr/bin/yong\n"
-			"Type=Application\n"
-			"X-GNOME-Autostart-enabled=false\n"
-			"X-KDE-autostart-after=panel\n"
-			"X-LXQt-Need-Tray=true\n"
-			"StartupNotify=false\n"
-			;
+		char exe[256];
+		GetYongExeFile(exe);
+		char *text=l_sprintf(
+				"[Desktop Entry]\n"
+				"Name=yong\n"
+				"Exec=%s\n"
+				"Type=Application\n"
+				"X-GNOME-Autostart-enabled=false\n"
+				"X-KDE-autostart-after=panel\n"
+				"X-LXQt-Need-Tray=true\n"
+				"StartupNotify=false\n",
+				exe);
 		l_file_set_contents(path,text,strlen(text),NULL);
+		l_free(text);
 	}
 	else if(s[0]!='1' && exist)
 	{
@@ -1554,5 +1621,72 @@ static int SaveAutoStart(CUCtrl p,int arc,char **arg)
 	return 0;
 }
 
+static int RestartIME(CUCtrl p,int arc,char **arg)
+{
+	char exe[256];
+	GetYongExeFile(exe);
+	cu_ctrl_set_disabled(p,true);
+	status("开始重启");
+	for(int i=0;i<4;i++)
+	{
+		int ret=y_run_tool(9,0,true);
+		if(ret!=0)
+			break;
+		if(i==3)
+		{
+			status("关闭输入法超时");
+			cu_ctrl_set_disabled(p,false);
+			return 0;
+		}
+		l_thrd_sleep_ms(200);
+	}
+	g_spawn_command_line_async(exe,NULL);
+	for(int i=0;i<4;i++)
+	{
+		l_thrd_sleep_ms(200);
+		int ret=y_run_tool(0,0,true);
+		if(ret==0)
+		{
+			status("重启成功");
+			break;
+		}
+		if(i==3)
+		{
+			status("重启等待超时");
+			break;
+		}
+	}
+	cu_ctrl_set_disabled(p,false);
+	return 0;
+}
+
 #endif
+
+void status(const char *fmt,...)
+{
+	CUCtrl list,p;
+	char temp[4096];
+	va_list ap;
+	char *fmt2;
+	list=cu_ctrl_list_from_type(CU_LABEL);
+	for(p=list;p!=NULL;p=p->tlist)
+	{
+		if(strcmp("status",p->group))
+		{
+			continue;
+		}
+		break;
+	}
+	if(p==NULL)
+	{
+		return;
+	}
+	fmt2=cu_translate(fmt);
+	va_start(ap,fmt);
+	vsnprintf(temp,sizeof(temp),fmt2,ap);
+	va_end(ap);
+	cu_ctrl_set_self(p,temp);
+	l_free(fmt2);
+	cu_step();
+}
 

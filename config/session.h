@@ -19,6 +19,7 @@ int http_session_set_host(HttpSession *ss,const char *host,int port);
 const char *http_session_get_host(HttpSession *ss);
 int http_session_set_header(HttpSession *ss,const char *header);
 char *http_session_get(HttpSession *ss,const char *path,int *len,const char *post,int post_len);
+void http_session_set_progress(HttpSession *ss, int (*progress)(int received, int total,void *arg),void *arg);
 char *http_session_put(HttpSession *ss,const char *url,int *len,const char *data,int data_len);
 char *http_session_post_form(HttpSession *ss,const char *path,int *len,const char *name,const char *val,...);
 int http_session_download(HttpSession *ss,const char *remote,const char *local);
@@ -36,8 +37,3 @@ int http_session_sockc_sendn(HttpSession *ss,const void *buf,size_t size);
 int http_session_sockc_recv(HttpSession *ss,void *buf,size_t size);
 int http_session_sockc_recvn(HttpSession *ss,void *buf,size_t size);
 void http_session_sockc_close(HttpSession *ss);
-
-void http_session_base64_encode(char *out, const void *in, int inlen);
-
-int encodeURIComponent(const char *in,char *out,int size);
-

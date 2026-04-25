@@ -17,5 +17,6 @@ void y_english_init(void);
 void y_english_destroy(void);
 void *y_english_eim(void);
 void y_english_key_desc(const char *code,char *res);
+bool y_english_from_cnen(void);
 
 #endif/*_ENGLISH_H_*/

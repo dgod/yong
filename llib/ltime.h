@@ -14,14 +14,8 @@ static inline uint64_t l_ticks(void)
 #endif
 }
 #else
-static inline uint64_t l_ticks(void)
-{
-	struct timespec t;
-	clock_gettime(CLOCK_MONOTONIC,&t);
-	return t.tv_sec*1000+t.tv_nsec/1000000;
-}
+uint64_t l_ticks(void);
 #endif
-
 
 #if L_WORD_SIZE==64 || !defined(_WIN32)
 #define l_time() (int64_t)time(NULL)

@@ -30,7 +30,7 @@ static const unsigned short LunarMonthDay[] = {
     0Xd520, 0Xdaa0, 0X6b50, 0X56d0, 0X4ae0, 0Xa4e8, 0Xa4d0, 0Xd150, 0Xd928, 0Xd520,   // 2100
 };
 
-//数组LanarMonth存放农历2001年到2050年闰月的月份，如没有则为0，每字节存两年
+//数组LunarMonth存放农历2001年到2050年闰月的月份，如没有则为0，每字节存两年
 static const unsigned char LunarMonth[]={
 	0X00, 0X50, 0X04, 0X00, 0X20,   // 1910  
     0X60, 0X05, 0X00, 0X20, 0X70,   // 1920  
@@ -179,7 +179,7 @@ static int GetSpanDays(int year,int yday)
 static int GetDaysOfYear(int year,int month,int day)
 {
 	const int days[]={31,28,31,30,31,30,31,31,30,31,30,31};
-	bool isLeapYear=(year%4==0 && year%100!=0) || (year%100==0);
+	bool isLeapYear=(year%4==0 && year%100!=0) || (year%400==0);
 	int result=day;
 	if(isLeapYear && month>2)
 		result++;

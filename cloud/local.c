@@ -196,14 +196,10 @@ void local_free_all(void)
 
 bool local_assist_match(const char *p,int c)
 {
-	char temp[256];
-	char *assist;
-	uint16_t hz;
 	if(!gb_is_gbk(p))
 		return false;
-	hz=l_gb_to_char(p);
-	assist=&l_chars_assist[GBK_OFFSET(hz)][0];
-	l_gb_to_utf8(p,temp,sizeof(temp));
+	uint16_t hz=l_gb_to_char(p);
+	char *assist=&l_chars_assist[GBK_OFFSET(hz)][0];
 	return (c==assist[0] || c==assist[1]);
 }
 
@@ -300,10 +296,9 @@ void local_load_user(const char *fn)
 		if(len>1 && strlen(list[0])<8)
 		{
 			int i;
-			struct phrase_item *item,key;
+			struct phrase_item *item;
 			struct data_item *data;
-			strcpy(key.pinyin,list[0]);
-			item=l_hash_table_find(l_user,&key);
+			item=l_hash_table_lookup(l_user,list[0]);
 			for(i=1;i<len;i++)
 			{
 				char *p=list[i];
