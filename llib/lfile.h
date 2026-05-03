@@ -19,6 +19,7 @@ int l_mkdir(const char *name,int mode);
 int l_rmdir(const char *name);
 char **l_readdir(const char *path);
 int l_remove(const char *name);
+LPtrArray *l_scandir(const char *path,const char *extname,...);
 
 bool l_file_is_dir(const char *path);
 int l_access(const char *path,int mode);

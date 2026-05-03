@@ -59,6 +59,7 @@ ad' 安定
 adbl 爱搭不理
 adic 暗度陈仓
 adil 暗地里 奥地利
+adiu 爱迪生
 adke 安道尔
 adly 澳大利亚
 adsn 安东尼
@@ -271,6 +272,7 @@ anhp 安魂
 anhv 安徽
 anhz 暗黑
 ania 安插
+anid 暗疮
 anie 奥尼尔
 anih 暗娼
 anik 暗潮
@@ -1193,7 +1195,7 @@ bid 敝 必
 bida 笔答
 bidb 鼻窦 比斗
 bidc 笔调
-bide 逼得 必得
+bide 逼得 必得 彼得
 bidp 必
 bidr 弊端
 bidu 必读
@@ -1835,6 +1837,7 @@ blhu 白虎
 blhv 拜会 白灰
 blhw 百花 白话 白花
 blhy 败坏
+blia 白茶
 blii 白痴 比例尺
 bliu 摆出 比利时
 blix 兵临城下
@@ -1990,6 +1993,7 @@ bmda 鞭打
 bmdb 扁豆
 bmdc 变调
 bmde 变得
+bmdh 便当
 bmdi 遍地 贬低
 bmdj 扁担
 bmdk 编导 便道
@@ -4006,6 +4010,7 @@ cpdl 存贷
 cpfh 存放
 cpfu 村妇
 cpgf 存根
+cpgk 存稿
 cpgr 村官
 cpgu 村姑
 cpgv 村规
@@ -4573,7 +4578,7 @@ davu 打住
 dawf 答问
 dawh 大王
 dawj 打完 大腕 大碗
-dawo 打我
+dawo 打我 打窝
 dawu 大雾
 dax 怛
 daxc 大小 大笑 打消 打小 大校
@@ -4776,6 +4781,7 @@ dcfv 掉
 dcg 刁
 dcga 刁
 dcgc 多层次
+dcgd 掉光
 dcgj 钓竿
 dcgm 多层面
 dcgp 掉层皮
@@ -5026,6 +5032,7 @@ dgjw 等价
 dgjy 刀光剑影
 dgk 噔
 dgkd 噔
+dgku 大干快上
 dgld 等量 灯亮
 dgle 等了
 dgls 灯笼
@@ -6674,6 +6681,7 @@ dub 赌
 duba 独霸
 dubf 读本
 dubj 督办
+dubk 读报
 dubl 独白 滴水不漏
 dubo 赌博
 dubr 低收入 对事不对人 得势不饶人
@@ -7448,6 +7456,7 @@ erli 而立
 erll 而来
 erlq 二流
 erls 耳聋
+erlu 二路
 erml 耳麦
 ermo 二模 耳膜
 ermr 耳濡目染
@@ -7618,6 +7627,7 @@ fale 发了
 falg 发愣
 falh 法郎 发廊
 fali 乏力 发力
+falj 法兰
 falk 法老
 falo 发落
 falv 法律
@@ -9124,6 +9134,7 @@ gau 尬
 gaug 高岸深谷
 gauj 尬
 gax 尜
+gaxi 轧戏
 gaxx 尜
 gb 够 购 狗 沟 构 勾 苟 钩 觏 篝 垢 佝 岣 诟 鞲 笱 枸 遘 媾 缑 彀 句 鸲 ㄅ ㄋ
 gb; 沟
@@ -9679,6 +9690,7 @@ ggyk 更要
 ggyp 耕耘
 ggyq 供过于求
 ggyv 过刚易折
+ggzi 庚子
 ggzk 更早
 ggzo 耕作
 ggzu 高高在上 梗阻
@@ -9768,6 +9780,7 @@ ghwj 港湾
 ghwy 颃
 ghwz 岗位
 ghxd 刚想
+ghxu 刚需
 ghxy 刚性
 ghyg 孤魂野鬼
 ghyi 刚毅
@@ -11852,6 +11865,7 @@ hewy 合二为一 合而为一
 hewz 何谓 何为
 hexc 核销
 hexi 河西 贺喜
+hexj 赫尔辛基
 hexm 和弦
 hexn 核心 贺信 河心
 hexu 何须 和煦 何许
@@ -12350,6 +12364,7 @@ hkli 毫厘
 hkll 好赖
 hklm 耗
 hkly 号令
+hklz 好嘞 好累
 hkma 号码 好吗
 hkmc 毫秒 浩淼
 hkme 好么
@@ -13374,7 +13389,7 @@ hvcs 荟
 hvcv 荟萃
 hvcx 蕙
 hvda 回答
-hvdc 毁掉
+hvdc 毁掉 回调
 hvdh 回荡
 hvdj 回单
 hvdk 回到 挥刀
@@ -14318,6 +14333,7 @@ ifh 称
 ifht 长方体
 ifhv 晨会
 ifhx 长方形 称
+ifhy 春风化雨
 ifi 辰 龀
 ifib 龀
 ifif 沉沉
@@ -14635,6 +14651,7 @@ ihlh 长廊
 ihli 常理 厂里
 ihll 常来
 ihls 长龙
+ihlv 常绿
 ihm 阊
 ihmk 长毛 长矛
 ihmm 长眠 场面
@@ -15253,6 +15270,7 @@ ipgs 春宫
 iphb 淳厚 醇厚
 iphj 春寒
 ipho 蠢货
+iphv 春晖
 iphw 春花
 ipi 唇 蠢 蝽
 ipia 春茶
@@ -15261,6 +15279,7 @@ ipik 春潮 唇
 ipip 纯纯
 ipjd 春江
 ipji 春季
+ipjm 纯碱
 ipjn 纯金
 ipjq 醇酒
 ipjr 春卷
@@ -20838,6 +20857,7 @@ kssu 控诉
 kstb 空头 空投
 kstc 空调
 kstj 空谈
+kstl 卡斯特罗
 ksts 空桶
 kstx 客死他乡
 ksu 崆
@@ -22848,6 +22868,7 @@ lmai 恋爱
 lmaj 露马脚 楝
 lmal 梿
 lmau 两码事
+lmaz 老妈子
 lmb 帘
 lmbc 链表
 lmbd 连绵不断
@@ -23366,6 +23387,7 @@ lprb 仑 伦
 lps 纶
 lpsb 纶
 lpsh 沦丧
+lpti 论题 轮替
 lptj 论坛
 lptl 轮胎
 lptv 轮退
@@ -24848,6 +24870,7 @@ mbup 鸣不平
 mbuu 莫不是 美不胜收
 mbuv 摸不着
 mbv 厶
+mbvb 命比纸薄
 mbvd 厶
 mbvi 目标侦察
 mbvj 目不转睛
@@ -25400,6 +25423,7 @@ mith 蜜糖 米汤
 miti 谜题
 mitj 密谈 密探
 mitk 蜜桃
+mito 弥陀
 mitr 谜团
 mitu 迷途
 miuh 迷上
@@ -26219,6 +26243,7 @@ mou 馍
 moua 抹杀 抹煞 磨砂
 moub 没收 魔兽
 moud 馍
+mouf 魔神
 moug 陌生
 moui 模式 漠视
 mouk 末梢
@@ -26424,6 +26449,7 @@ mujw 木架
 mujy 目镜 面授机宜
 muk 目
 muke 木刻 目
+mukr 募款
 mulc 木料 幕僚
 mule 穆勒
 mulg 穆棱
@@ -28761,6 +28787,7 @@ ouk 呕 吽
 oukn 吽
 oukq 呕
 oul 耦
+oula 欧拉
 oulu 欧陆
 ouly 耦
 oumg 欧盟
@@ -29029,6 +29056,7 @@ pfjz 票贩子
 pfk 喷
 pfkb 喷
 pflm 平方厘米
+pfln 喷淋
 pfmo 喷墨
 pfpf 匹夫匹妇
 pfqd 盆腔 喷枪
@@ -29541,6 +29569,7 @@ pkgo 跑过
 pkgr 炮管
 pkh 炮
 pkhb 炮
+pkhd 抛荒
 pkho 炮火
 pkhs 炮轰
 pkhv 跑回 炮灰
@@ -38674,6 +38703,7 @@ uavi 砂纸
 uavu 刹住 杀猪 煞住
 uawf 沙文
 uawj 沙湾
+uawo 杀我
 uawz 少安毋躁
 uax 刹 杀
 uaxa 杀
@@ -41240,7 +41270,7 @@ uuqu 实事求是 戍区
 uuqy 抒情 顺手牵羊 舍生取义
 uur 舒 倏 毹
 uurd 舒
-uurf 熟人 数人 树人
+uurf 熟人 数人 树人 熟稔
 uuri 数日 翌日
 uurj 倏然
 uurm 毹
@@ -43643,7 +43673,7 @@ vkld 照亮 着凉
 vkle 找了
 vkli 照例 照理 着力 笊篱
 vklj 招揽
-vkll 找来 召来 招徕
+vkll 找来 招来 招徕
 vklo 着落
 vklu 招录
 vkly 招领 找零
@@ -44616,6 +44646,7 @@ vuks 主控
 vuku 正式开始 嘱
 vul 麈
 vulb 主楼 竹楼
+vulc 主料
 vuld 主粮
 vule 住了
 vulh 逐浪
@@ -45189,7 +45220,7 @@ w 我
 w; 五
 w' 问
 w/ 位
-wa 瓦 挖 袜 娃 哇 凹 娲 蛙 洼 佤 腽
+wa 哇 挖 袜 娃 瓦 凹 娲 蛙 洼 佤 腽
 wa; 洼
 wa;t 洼
 wa' 晚安
@@ -45754,6 +45785,7 @@ whyl 文化娱乐
 whyp 文化用品
 whyr 望远
 whys 妄用
+whyt 望月
 whyu 文化艺术
 whyx 无何有之乡
 whyy 文化娱乐
@@ -45952,6 +45984,7 @@ wjtc 万条
 wjtg 塆
 wjth 晚汤
 wjtj 挖掘机
+wjtk 万套
 wjts 顽童
 wjtw 畹
 wjty 烷烃
@@ -48044,7 +48077,7 @@ xie 隙 隰
 xieh 隰
 xiex 隙
 xifa 戏法 洗发
-xiff 细分
+xiff 细分 戏份
 xifg 西风 息烽
 xifh 西方
 xifj 稀饭
@@ -50061,6 +50094,7 @@ xwtb 下头
 xwtc 下调 瞎调
 xwti 下体
 xwtj 下探
+xwtk 下套
 xwtl 下台
 xwtm 夏天
 xwts 下同
@@ -51092,6 +51126,7 @@ yclk 由此来看
 ycll 原材料 用材林
 yclt 以此类推 依此类推
 yctu 与此同时
+ycuc 一簇簇
 ycuj 因材施教
 ycwg 与此无关
 ycxf 与此相反
@@ -51576,6 +51611,7 @@ yhln 央
 yhlp 依葫芦画瓢
 yhlq 杨柳
 yhlu 养路
+yhly 杨凌
 yhma 养马
 yhmc 秧苗
 yhmj 有话慢慢讲
@@ -56114,6 +56150,7 @@ zrks 钻孔
 zrkx 自然科学
 zrle 钻了
 zrqq 钻求
+zrru 钻入
 zrs 缵
 zrsb 缵
 zrtb 钻头

@@ -116,7 +116,7 @@ static bool first_page_init(void)
 		MEM_ASSERT(heap->base!=NULL);
 	}
 	#else
-	p=CHECK_PAGE_BEGIN;
+	uint8_t *p=CHECK_PAGE_BEGIN;
 	while(p<CHECK_PAGE_END-TOTAL_SIZE)
 	{
 		uint8_t *ret=mmap(p,TOTAL_SIZE,PROT_NONE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);

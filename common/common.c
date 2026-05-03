@@ -2519,8 +2519,6 @@ FILE *y_im_open_file(const char *fn,const char *mode)
 
 	if(fn[0]=='/' || (fn[0]=='.' && fn[1]=='/'))
 	{
-		if(strchr(mode,'w'))
-			y_im_mkdir(fn);
 		fp=l_file_open(fn,mode,NULL);
 	}
 	else

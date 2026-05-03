@@ -44,6 +44,7 @@ static py_tree_t py_index;
 #if ENABLE_PY2
 static py_tree_t py2_index;
 #define py2_split	511
+#define py2_partial	0x10000
 #define QP(s,y)	{.len=sizeof(LSTR(s))-1,.yun=y,.code=LSTR(s)}
 
 const py_qp_t py_qp_all[]={
@@ -1517,7 +1518,7 @@ static inline int py2_sp_yun_index(char c)
 
 static inline const py_qp_t *py2_get_item(int val)
 {
-	return py_qp_all+val;
+	return py_qp_all+(val&0xffff);
 }
 
 void py2_init(int split,const char *sp)
@@ -1567,14 +1568,19 @@ void py2_init(int split,const char *sp)
 				*shuang++=0;
 				len=strcspn(shuang," ");shuang[len]=0;
 				if(len!=2) continue;
-				if(!(shuang[0]>='a' && shuang[0]<'z'))
+				if(!(shuang[0]>='a' && shuang[0]<='z'))
+				{
 					continue;
+				}
 				len=strlen(quan);
 				if(len>6) continue;
 				py_qp_t it;
 				strcpy(it.code,quan);
 				py_qp_t *qp=bsearch(&it,py_qp_all,countof(py_qp_all),sizeof(py_qp_t),(LCmpFunc)py_qp_cmpr);
-				if(!qp) continue;
+				if(!qp)
+				{
+					continue;
+				}
 				int qp_index=qp-py_qp_all;
 				int i=shuang[0]-'a';
 				if(shuang[1]==';') sp_semicolon=true;
@@ -1768,6 +1774,7 @@ static int py2_parse_r(PY2_PARSER *parser,const char *input,int len)
 				out=sp_sheng_map[s-'a'];
 				if(!out)
 					return -4;
+				out|=py2_partial;
 			}
 			else
 			{
@@ -1913,6 +1920,8 @@ int py2_build_string(char *out,py_item_t *token,int count,int split)
 			const py_qp_t *p=py2_get_item(val);
 			memcpy(out+pos,p->code,p->len);
 			pos+=p->len;
+			if(val&py2_partial && split)
+				out[pos++]=split;
 		}
 		out[pos]=0;
 		return pos;
@@ -2124,6 +2133,7 @@ int py2_caret_next_item(py_item_t *token,int count,int caret)
 	return pos;
 }
 
+#if 0
 int py2_conv_from_sp(const char *in,char *out,int split)
 {
 	py_item_t token[PY_MAX_TOKEN];
@@ -2133,6 +2143,70 @@ int py2_conv_from_sp(const char *in,char *out,int split)
 	parser.count=0;
 	py2_parse_r(&parser,in,strlen(in));
 	return py2_build_string(out,token,parser.count,split);
+}
+#endif
+
+int py2_conv_from_sp(const char *in,char *out,int split)
+{
+	int pos=0;
+	for(int i=0;in[i]!=0;)
+	{
+		if(in[i]==' ')
+		{
+			if(pos>0 && out[pos-1]==split)
+				out[pos-1]=' ';
+			else
+				out[pos++]=' ';
+			i++;
+			continue;
+		}
+		if(!(in[i]>='a' && in[i]<='z'))
+			break;
+		int sheng=in[i]-'a';
+		if(in[i+1])
+		{
+			int yun=py2_sp_yun_index(in[i+1]);
+			if(yun>=0)
+			{
+				int qp_index=sp_qp_map[sheng][yun];
+				if(qp_index)
+				{
+					const struct py_qp *p=&py_qp_all[qp_index];
+					memcpy(out+pos,p->code,p->len);
+					pos+=p->len;
+					i+=2;
+					if(in[i]!=0 && split)
+					{
+						out[pos++]=split;
+					}
+					continue;
+				}
+			}
+		}
+		int qp_index=sp_sheng_map[sheng];
+		if(qp_index)
+		{
+			const struct py_qp *p=&py_qp_all[qp_index];
+			memcpy(out+pos,p->code,p->len);
+			pos+=p->len;
+			i++;
+			if(in[i-1]=='a' || in[i-1]=='e' || in[i-1]=='o')
+			{
+				// 以这个形式表示双拼中单个出现的aeo，现在能判断句尾出现的
+				out[pos++]=split;
+			}
+			else if(in[i]!=0 && split)
+			{
+				out[pos++]=split;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	out[pos]=0;
+	return pos;
 }
 
 bool py2_quanpin_maybe_jp(const py_item_t *token,int count)
@@ -2173,6 +2247,7 @@ int py2_pos_of_sp(const char *in,int pos)
 			const py_qp_t *p=py2_get_item(val);
 			step=p->len==p->yun?1:2;
 			pos-=p->len;
+			if(pos>0) pos--; // 完整的音节后面如果还有音节，则必然会有分割符
 		}
 		res+=step;
 	}
@@ -2373,6 +2448,11 @@ int py2_conv_to_sp2(const char *s,const char *zi,char *out,uint32_t (*first_code
 					if(!sp[0]) continue;
 					out[0]=sp[0];
 					out[1]=sp[1];
+					if(next[0]<=0x20)
+					{
+						out[2]=0;
+						return 0;
+					}
 					int ret=py2_conv_to_sp2(next,prev,out+2,first_code,arg);
 					if(ret==0) return 0;
 				}
@@ -2391,6 +2471,11 @@ int py2_conv_to_sp2(const char *s,const char *zi,char *out,uint32_t (*first_code
 					if(!sp[0]) continue;
 					out[0]=sp[0];
 					out[1]=sp[1];
+					if(next[0]<=0x20)
+					{
+						out[2]=0;
+						return 0;
+					}
 					int ret=py2_conv_to_sp2(next,prev,out+2,first_code,arg);
 					if(ret==0) return 0;
 				}
@@ -2403,7 +2488,7 @@ int py2_conv_to_sp2(const char *s,const char *zi,char *out,uint32_t (*first_code
 		/* 这里假设不出现简拼的情况 */
 		*out++=sp[0];
 		*out++=sp[1];
-		if(s[0]==0 || s[0]==' ' || s[0]=='\t')
+		if(s[0]<=0x20)
 		{
 			*out=0;
 			return 0;

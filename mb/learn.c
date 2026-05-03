@@ -794,11 +794,12 @@ out:
 		if(mm->last_zi==l_gb_last_char(s))
 		{
 			tmp=tmp2;
-			max=max2;
+			// 继续使用tmp的频率，确保辅助码的应用导致生成的句子明确发生了变化
+			(void)max2;
+			// max=max2;
 		}
 	}
 	
-	//printf("%s %d\n",y_mb_ci_string(tmp),max);
 	if(ci) *ci=tmp;
 	if(l_predict_data)
 		max-=l_predict_data->all_freq;
@@ -2063,18 +2064,14 @@ const char *y_mb_predict_nth(const char *s,int n)
 
 static int get_space_pos(MMSEG *mm,const char *s)
 {
-	int pos=0;
-	const char *p;
-	p=strchr(s,' ');
-	if(p)
-	{
-		struct y_mb *mb=mm->mb;
-		int i,split;
-		pos=(int)(p-s);
-		for(i=split=0;i<pos;i++)
-			if(s[i]==mb->split) split++;
-		pos-=split;
-	}
+	int pos=l_chrpos(s,' ');
+	if(pos<0)
+		return 0;
+	struct y_mb *mb=mm->mb;
+	int split=0;
+	for(int i=0;i<pos;i++)
+		if(s[i]==mb->split) split++;
+	pos-=split;
 	return pos;
 }
 
@@ -2462,8 +2459,6 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 {
 	char *out=g->phrase;
 	MMSEG mm;
-	int len;
-	int tmp;
 	char temp[256];
 
 	char simple_data[256];
@@ -2477,10 +2472,11 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 	mm.sentence_end=(s[caret]==0);
 	mm.assist_end=0;
 	mm.prefix=NULL;
-	tmp=s[caret];s[caret]=0;
+	int tmp=s[caret];s[caret]=0;
 
 	if(l_predict_sp)
 	{
+#ifndef TOOLS_LEARN
 		py_prepare_string(temp,s,0);
 		if(l_predict_simple && !options->py_switch && l_predict_simple_mode==-1 && py2_sp_unlikely_jp(temp))
 			l_predict_simple_mode=0;
@@ -2508,18 +2504,21 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 			}
 			l_predict_simple_mode=0;
 		}
-		len=py2_conv_from_sp(s,temp,'\'');
-		if(tmp==0)
+#endif
+		int len=py2_conv_from_sp(s,temp,'\'');
+		if(tmp=='\0')
 		{
 			int assist=s[caret-1];
 			if(!islower(assist) && !(assist==';' && py_sp_has_semi()))
 			{
-				mm.assist_end=s[caret-1];
+				mm.assist_end=assist;
 			}
 			else if(len>=3 && temp[len-1]=='\'')
 			{
-				mm.assist_end=temp[len-2];
+				mm.assist_end=assist;
 				temp[len-2]=0;
+				if(temp[len-3]!='\'')
+					temp[len-3]=0;
 			}
 		}
 		mm.space=get_space_pos(&mm,temp);
@@ -2552,7 +2551,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 		mm.space2=py2_get_space_pos(mm.input,mm.count,mm.space);
 	}
 	s[caret]=tmp;
-	
+
 	if(mm.count<=1 || mm.count>64)
 	{
 		return 0;
@@ -2635,7 +2634,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 	}
 	if(!options->py_switch)
 	{
-		len=y_mb_find_sentence(&mm,temp);
+		int len=y_mb_find_sentence(&mm,temp);
 		if(len>0)
 		{
 			if(mm.assist_end)
@@ -2657,7 +2656,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 			count=unigram(&mm);
 		else
 			count=mmseg_split(&mm);
-		len=strlen(mm.cand);
+		int len=strlen(mm.cand);
 		if(len>=4)
 		{
 			mm.assist_end=temp;
@@ -2687,7 +2686,7 @@ int y_mb_predict_by_learn(struct y_mb *mb,char *s,int caret,CSET_GROUP_PREDICT *
 		}
 	}
 
-	len=strlen(mm.cand);
+	int len=strlen(mm.cand);
 	mb->match=tmp;
 	
 	if(l_gb_strlen((uint8_t*)mm.cand,-1)==1)

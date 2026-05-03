@@ -38,6 +38,7 @@ static int SaveFont(CUCtrl,int,char **);
 static int LoadSkinList(CUCtrl,int,char **);
 static int PreviewSkin(CUCtrl,int,char **);
 static int LoadSPList(CUCtrl,int,char **);
+static int LoadAssistList(CUCtrl p,int arc,char **arg);
 static int InitDefault(CUCtrl,int,char **);
 static int ChangePYConfig(CUCtrl,int,char **);
 extern int SyncUpload(CUCtrl,int,char **);
@@ -70,6 +71,7 @@ const struct{
 	{"LoadSkinList",LoadSkinList},
 	{"PreviewSkin",PreviewSkin},
 	{"LoadSPList",LoadSPList},
+	{"LoadAssistList",LoadAssistList},
 	{"InitDefault",InitDefault},
 	{"ChangePYConfig",ChangePYConfig},
 	{"SyncUpload",SyncUpload},
@@ -1028,6 +1030,68 @@ static char *get_sp_name(const char *file)
 	res=l_strdup(file);
 	res[strlen(file)-3]=0;
 	return res;
+}
+
+static char *get_mb_name(const char *file)
+{
+	char *res=NULL;
+	FILE *fp=l_file_open(file,"rb",y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
+	if(!fp)
+		return NULL;
+	for(int i=0;i<32;i++)
+	{
+		char line[256];
+		int len=l_get_line(line,sizeof(line),fp);
+		if(len<0) break;
+		if(l_str_has_prefix(line,"name="))
+		{
+			char temp[256];
+			l_gb_to_utf8(line+5,temp,sizeof(temp));
+			res=l_strdup(temp);
+			break;
+		}
+	}
+	fclose(fp);
+	return res;
+}
+
+static int LoadAssistList(CUCtrl p,int arc,char **arg)
+{
+	char **list=l_alloc0(64*sizeof(char*));
+	char **rlist=l_alloc0(64*sizeof(char*));
+	int count=0;
+
+	list[count]=cu_translate("默认");
+	rlist[count]=l_strdup("");
+	count++;
+
+	LPtrArray *arr=l_scandir("assist",".txt",y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
+	if(arr!=NULL)
+	{
+		for(int i=0;i<l_ptr_array_length(arr);i++)
+		{
+			char temp[256];
+			snprintf(temp,sizeof(temp),"assist/%s",(const char*)l_ptr_array_nth(arr,i));
+			char *name=get_mb_name(temp);
+			if(!name)
+				continue;
+			list[count]=name;
+			rlist[count]=l_strdup(temp);
+			count++;
+		}
+		l_ptr_array_free(arr,l_free);
+	}
+
+	l_strfreev(p->data);
+	l_strfreev(p->view);
+	p->view=list;
+	p->data=rlist;
+	
+	cu_ctrl_init_self(p);
+	
+	cu_config_init_default(p);
+
+	return 0;
 }
 
 static int LoadSPList(CUCtrl p,int arc,char **arg)

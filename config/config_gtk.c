@@ -195,6 +195,7 @@ int cu_ctrl_init_edit(CUCtrl p)
 int cu_ctrl_init_textarea(CUCtrl p)
 {
 	GtkWidget *textview=gtk_text_view_new();
+	gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(textview),GTK_WRAP_CHAR);
 #if GTK_CHECK_VERSION(4,0,0)
 	GtkWidget *sw=gtk_scrolled_window_new();
 	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(sw),textview);

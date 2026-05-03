@@ -175,3 +175,14 @@ void l_ptr_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg)
 	l_qsort_r(array->data,array->len,sizeof(void*),(LCmpDataFunc)_ptr_array_cmp_r,arr);
 }
 
+void *l_ptr_array_find(LPtrArray *array,const void *ptr,LCmpFunc cmp)
+{
+	for(int i=0;i<array->len;i++)
+	{
+		void *cur=array->ptr[i];
+		if(!cmp(cur,ptr))
+			return cur;
+	}
+	return NULL;
+}
+

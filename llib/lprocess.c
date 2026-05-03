@@ -83,7 +83,7 @@ static LPWSTR cmdline_from_argv(char **argv)
 			len=l_unichar_to_utf16(' ',temp);
 		bool space=strchr(p,' ')?true:false;
 		if(space)
-			len+=l_unichar_to_utf16('"',temp);
+			len+=l_unichar_to_utf16('"',temp+len/2);
 		if(len>0)
 			l_buffer_append(&buf,temp,len);
 		while(p!=NULL)
@@ -97,12 +97,12 @@ static LPWSTR cmdline_from_argv(char **argv)
 			if(c=='"')
 			{
 				len=l_unichar_to_utf16('\\',temp);
-				len+=l_unichar_to_utf16(c,temp);
+				len+=l_unichar_to_utf16(c,temp+len/2);
 			}
 			else if(i!=0 && space && c=='\\' && !l_str_has_prefix(argv[0],"cmd"))
 			{
 				len=l_unichar_to_utf16('\\',temp);
-				len+=l_unichar_to_utf16('\\',temp);
+				len+=l_unichar_to_utf16('\\',temp+len/2);
 			}
 			else
 			{

@@ -43,7 +43,7 @@ void l_string_erase(LString *string,int pos,int len);
 #define l_buffer_free(buf) l_string_free(buf)
 #define l_buffer_expand(buf,len) l_string_expand((buf),(len))
 #define l_buffer_append(buf,val,len) l_string_append((buf),(const char*)(val),(len))
-#define l_buffer_append_b(buf,b) l_string_append((buf),(b))
+#define l_buffer_append_b(buf,b) l_string_append_c((buf),(b))
 #define l_buffer_steal(buf) (void*)l_string_steal(buf)
 #define l_buffer_clear(buf) l_string_clear(buf)
 #define l_buffer_erase(buf,pos,len) l_string_erase((buf),(pos),(len))

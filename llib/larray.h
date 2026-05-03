@@ -41,6 +41,7 @@ void l_ptr_array_free(LArray *array,LFreeFunc func);
 void l_ptr_array_clear(LArray *array,LFreeFunc func);
 void l_ptr_array_sort(LArray *array,LCmpFunc cmp);
 void l_ptr_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg);
+void *l_ptr_array_find(LPtrArray *array,const void *ptr,LCmpFunc cmp);
 
 #define L_PTR_ARRAY_INIT (LPtrArray){.size=sizeof(void*)}
 #define L_PTR_ARRAY_INIT_COUNT(c)			\

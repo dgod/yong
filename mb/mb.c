@@ -3386,7 +3386,7 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 			//printf("%d %d %d\n",t1,t2,t3);
 			mb->commit_mode=(uint8_t)t1;
 			mb->commit_len=(uint8_t)t2;
-			mb->commit_which=(uint8_t)t3;
+			mb->commit_which=(int8_t)t3;
 		}
 		else if(!strncmp(line,"skip=",5))
 		{

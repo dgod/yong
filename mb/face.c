@@ -429,7 +429,17 @@ static int TableInitReal(const char *arg)
 	mb_arg.dicts=l_strdupa(EIM.GetConfig(NULL,"dicts"));
 	if(!mb_arg.dicts || !mb_arg.dicts[0])
 		mb_arg.dicts=EIM.GetConfig("table","dicts");
-	mb_arg.assist=l_strdupa(EIM.GetConfig(NULL,"assist"));
+	name=EIM.GetConfig(NULL,"assist_code");
+	if(name && name[0])
+	{
+		char *temp=l_alloca(strlen(name)+8);
+		sprintf(temp,"%s 0",name);
+		mb_arg.assist=temp;
+	}
+	else
+	{
+		mb_arg.assist=l_strdupa(EIM.GetConfig(NULL,"assist"));
+	}
 	mb_arg.zi_freq=TableGetConfigInt(NULL,"py_zi_freq",0);
 	mb=y_mb_new();
 	if(EIM.GetConfig(NULL,"auto_phrase") || EIM.GetConfig(NULL,"auto_sentence"))
@@ -1485,7 +1495,7 @@ static int TableDoInput(int key)
 	}
 	else if(mb->yong && key==YK_TAB && EIM.CodeLen>0 && !InsertMode)
 	{
-		if(mb->commit_which && mb->commit_which<EIM.CodeLen && EIM.CodeLen==mb->len)
+		if(mb->commit_which>0 && mb->commit_which<EIM.CodeLen && EIM.CodeLen==mb->len)
 		{
 			active_mb=Y_MB_ACTIVE(mb);
 			goto commit_simple;
@@ -1902,7 +1912,7 @@ LIST:
 					ret=IMR_BLOCK;
 				}
 			}
-			else if(full<=1 && mb->commit_which && mb->commit_which<EIM.CodeLen)
+			else if(full<=1 && mb->commit_which>0 && mb->commit_which<EIM.CodeLen)
 			{
 				char temp[MAX_CODE_LEN+1];
 				int temp_count;
@@ -1958,6 +1968,63 @@ commit_simple:
 				count=temp_count;
 				
 				DoTipWhenCommit();
+			}
+			else if(mb->commit_which==-1)
+			{
+				EIM.StringGet[0]=0;
+				EIM.CodeInput[EIM.CodeLen++]=key;
+				EIM.CodeInput[EIM.CodeLen]=0;
+				while(EIM.CodeLen>0)
+				{
+					int good=0;
+					int ret=y_mb_max_match(mb,EIM.CodeInput,EIM.CodeLen,0,hz_filter_temp,&good,NULL);
+					if(ret<=0)
+					{
+						return IMR_CLEAN;
+					}
+					if(good==0 || good==EIM.CodeLen)
+						break;
+					char temp[good+1];
+					l_strncpy(temp,EIM.CodeInput,good);
+					y_mb_set(mb,temp,1,hz_filter_temp);
+					y_mb_get_first(mb,EIM.StringGet+strlen(EIM.StringGet),NULL);
+					memmove(EIM.CodeInput,EIM.CodeInput+good,EIM.CodeLen+1-good);
+					EIM.CodeLen-=good;
+				}
+				if(EIM.CodeLen>0)
+				{
+					count=y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,hz_filter_temp);
+					if(count<=0)
+					{
+						if(EIM.CodeLen==1)
+						{
+							EIM.CodeInput[--EIM.CodeLen]=0;
+							ret=IMR_PUNC;
+						}
+						else
+						{
+							if(!EIM.StringGet[0])
+							{
+								EIM.CodeInput[--EIM.CodeLen]=0;
+								return IMR_BLOCK;
+							}
+							return IMR_CLEAN;
+						}
+					}
+					else
+					{
+						if(EIM.StringGet[0])
+							ret=IMR_COMMIT_DISPLAY;
+						else
+							ret=IMR_DISPLAY;
+					}
+				}
+				else
+				{
+					if(EIM.StringGet[0])
+						return IMR_COMMIT;
+					return IMR_CLEAN;
+				}
 			}
 			else
 			{
@@ -2495,6 +2562,7 @@ static void PinyinResetPart(void)
 	PinyinSetAssistCode(NULL);
 
 	l_predict_simple_mode=-1;
+	PySwitch=false;
 
 	ExtraZiReset();
 }
@@ -3853,6 +3921,7 @@ static int PinyinDoInput(int key)
 			return IMR_PASS;
 		EIM.CaretPos=EIM.CodeLen;
 		PySwitch=false;
+		l_predict_simple_mode=-1;
 	}
 	else if(key==YK_LEFT)
 	{

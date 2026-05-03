@@ -209,7 +209,7 @@ struct y_mb{
 	uint8_t len;
 	uint8_t commit_mode;
 	uint8_t commit_len;
-	uint8_t commit_which;
+	int8_t commit_which;
 	uint8_t stop;
 	char push[10];
 	char pull[10];

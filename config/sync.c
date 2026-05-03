@@ -1206,7 +1206,7 @@ const char *y_im_get_path(const char *type)
 	return "/sdcard/yong/.yong";
 }
 
-static void status(const char *fmt,...)
+void status(const char *fmt,...)
 {
 	char temp[256];
 	va_list ap;

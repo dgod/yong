@@ -6,15 +6,7 @@
 #include <utime.h>
 #include <sys/stat.h>
 
-#include "ltypes.h"
-#include "lmem.h"
-#include "lconv.h"
-#include "lstring.h"
-#include "lfile.h"
-#include "larray.h"
-#include "ltricky.h"
-#include "lthreads.h"
-#include "lcoroutine.h"
+#include "llib.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -606,6 +598,40 @@ const char *l_path_extname(const char *path)
 		return NULL;
 #endif
 	return p;
+}
+
+LPtrArray *l_scandir(const char *path,const char *extname,...)
+{
+	LPtrArray *result = l_ptr_array_new(8);
+	va_list ap;
+
+	va_start(ap, extname);
+	while(1)
+	{
+		const char *parent = va_arg(ap, const char *);
+		if(!parent)
+			break;
+		char temp[256];
+		snprintf(temp,sizeof(temp),"%s/%s",parent,path);
+		LDir *d = l_dir_open(temp);
+		if(d!=NULL)
+		{
+			const char *name;
+			while ((name = l_dir_read_name(d)) != NULL)
+			{
+				if (extname && !l_str_has_suffix(name, extname))
+					continue;
+				if (l_ptr_array_find(result, name, (LCmpFunc)strcmp) != NULL)
+					continue;
+				l_ptr_array_append(result, l_strdup(name));
+			}
+			l_dir_close(d);
+		}
+	}
+
+	va_end(ap);
+
+	return result;
 }
 
 #ifdef _WIN32
