@@ -1,16 +1,16 @@
+// vim: set ft=javascript:
 env("TOPDIR","=",path.dirname($("BUILD_FILE")));
 
 env("BUILD","?=",path.basename(process.cwd()).split('-')[0]);
-var BUILD=$("BUILD");
+const BUILD=$("BUILD");
 
 if(BUILD=="w32"){
 	env("CROSS_COMPILE=i686-w64-mingw32-");
-	env("CFLAGS+=-D_UNICODE -DUNICODE -march=i686");
-	env("LDFLAGS+=-static-libgcc");
+	env("CFLAGS+=-D_UNICODE -DUNICODE");
 	env("EXE=.exe");
 	env("DESTDIR=$(TOPDIR)/winim/yong");
-	env("CC=$(CROSS_COMPILE)gcc");
-	env("CXX=$(CROSS_COMPILE)g++");
+	env("CC=$(CROSS_COMPILE)clang");
+	env("CXX=$(CROSS_COMPILE)clang++");
 }else if(BUILD=="l32"){
 	env("LDFLAGS+=-Wl,--hash-style=sysv -m32");
 	env("EXE=");
@@ -32,8 +32,8 @@ if(BUILD=="w32"){
 	env("LDFLAGS+=-static-libgcc");
 	env("EXE=.exe");
 	env("DESTDIR=$(TOPDIR)/winim/yong/w64");
-	env("CC=$(CROSS_COMPILE)gcc");
-	env("CXX=$(CROSS_COMPILE)g++");
+	env("CC=$(CROSS_COMPILE)clang");
+	env("CXX=$(CROSS_COMPILE)clang++");
 }else if(BUILD=="l64"){
 	env("LDFLAGS+=-Wl,--hash-style=sysv");
 	env("EXE=");
@@ -75,14 +75,20 @@ env("WINDRES:=$(CROSS_COMPILE)windres");
 env("STRIP=$(CROSS_COMPILE)strip");
 env("DLLTOOL:=$(CROSS_COMPILE)dlltool");
 
-env("CFLAGS+=-Wall -g -O2 -fno-plt -fno-stack-protector -fno-strict-aliasing -Wno-format-truncation -fms-extensions -pipe -ffast-math -I$(TOPDIR)/include -I$(TOPDIR)/common");
+env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -Wno-format-truncation -fms-extensions -pipe -ffast-math -I$(TOPDIR)/include -I$(TOPDIR)/common");
 if($('CC').includes('clang')){
 	env('CFLAGS+=-Wno-invalid-source-encoding');
 	env('CFLAGS+=-Wno-microsoft-anon-tag');
-	// env('CFLAGS+=-fdefer-ts');
+	env('CFLAGS+=-fdefer-ts');
+}else if(BUILD=='w32' || BUILD=='w64'){
+	env("LDFLAGS+=-static-libgcc");
 }
-if(BUILD=='js')
+if(BUILD=='js'){
 	env("CFLAGS+=-Wno-microsoft-anon-tag");
+	env("CFLAGS-=-g");
+	env("CFLAGS-=-O2");
+	env("CFLAGS+=-Os");
+}
 
 env("LLIB_PATH:=$(TOPDIR)/llib");
 env("LLIB_CFLAGS:=-I$(LLIB_PATH)");

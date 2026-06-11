@@ -13,6 +13,7 @@
 
 static const char *bihua_key=Y_BIHUA_KEY;
 
+#ifndef TOOLS_BIHUA
 static const Y_BIHUA_INFO y_bihua_info[32]={
 	{"ɽ","252"},	//a
 	{0,0},			//b
@@ -46,6 +47,7 @@ static const Y_BIHUA_INFO y_bihua_info[32]={
 	{0,0},			//.
 	{0,0},			//
 };
+#endif
 static const Y_BIHUA_INFO *bihua_info;
 
 #define BIHUA_MAX	63
@@ -115,10 +117,10 @@ static int y_bihua_load(const char *fn)
 static char *bihua_escape(const char *bh,char temp[BIHUA_MAX+1])
 {
 	int i,len,p;
-	char c,*code;
+	char c;
 	for(i=0;(c=*bh++)!=0;)
 	{
-		code=strchr(bihua_key,c);
+		const char *code=strchr(bihua_key,c);
 		if(!code)
 			return NULL;
 		p=code-bihua_key;

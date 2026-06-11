@@ -63,6 +63,11 @@ enum{
 	L_TYPE_FLOAT,
 	L_TYPE_POINTER,
 	L_TYPE_OP,
+	L_TYPE_BOOL,
+	L_TYPE_STRING,
+	L_TYPE_ARRAY,
+	L_TYPE_OBJECT,
+	L_TYPE_NULL,
 };
 
 typedef struct{
@@ -72,12 +77,19 @@ typedef struct{
 		long v_int;
 		double v_float;
 		void *v_pointer;
+		bool v_bool;
 		struct{
 			int v_op;
 			int v_info;
 		};
 	};
 }LVariant;
+
+typedef struct{
+	void *next;
+	void *value;
+	char key[];
+}LKeyValue;
 
 #ifndef MAX
 #define MAX(a,b) ((a)>(b)?(a):(b))

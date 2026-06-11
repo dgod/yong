@@ -791,34 +791,34 @@ const py_qp_t py_qp_all[]={
 	QP(tao,1),
 	#define QP_te		(QP_t_b+6)
 	QP(te,1),
-	#define QP_teng		(QP_t_b+7)
-	QP(teng,1),
-	#define QP_ti		(QP_t_b+8)
-	QP(ti,1),
-	#define QP_tian		(QP_t_b+9)
-	QP(tian,1),
-	#define QP_tiao		(QP_t_b+10)
-	QP(tiao,1),
-	#define QP_tie		(QP_t_b+11)
-	QP(tie,1),
-	#define QP_ting		(QP_t_b+12)
-	QP(ting,1),
-	#define QP_tong		(QP_t_b+13)
-	QP(tong,1),
-	#define QP_tou		(QP_t_b+14)
-	QP(tou,1),
-	#define QP_tu		(QP_t_b+15)
-	QP(tu,1),
-	#define QP_tuan		(QP_t_b+16)
-	QP(tuan,1),
-	#define QP_tui		(QP_t_b+17)
-	QP(tui,1),
-	#define QP_tun		(QP_t_b+18)
-	QP(tun,1),
-	#define QP_tuo		(QP_t_b+19)
-	QP(tuo,1),
-	#define QP_tei		(QP_t_b+20)
+	#define QP_tei		(QP_t_b+7)
 	QP(tei,1),
+	#define QP_teng		(QP_t_b+8)
+	QP(teng,1),
+	#define QP_ti		(QP_t_b+9)
+	QP(ti,1),
+	#define QP_tian		(QP_t_b+10)
+	QP(tian,1),
+	#define QP_tiao		(QP_t_b+11)
+	QP(tiao,1),
+	#define QP_tie		(QP_t_b+12)
+	QP(tie,1),
+	#define QP_ting		(QP_t_b+13)
+	QP(ting,1),
+	#define QP_tong		(QP_t_b+14)
+	QP(tong,1),
+	#define QP_tou		(QP_t_b+15)
+	QP(tou,1),
+	#define QP_tu		(QP_t_b+16)
+	QP(tu,1),
+	#define QP_tuan		(QP_t_b+17)
+	QP(tuan,1),
+	#define QP_tui		(QP_t_b+18)
+	QP(tui,1),
+	#define QP_tun		(QP_t_b+19)
+	QP(tun,1),
+	#define QP_tuo		(QP_t_b+20)
+	QP(tuo,1),
 	
 #define QP_w_b			(QP_t_b+QP_t_c)
 #define QP_w_c			10
@@ -1576,7 +1576,7 @@ void py2_init(int split,const char *sp)
 				if(len>6) continue;
 				py_qp_t it;
 				strcpy(it.code,quan);
-				py_qp_t *qp=bsearch(&it,py_qp_all,countof(py_qp_all),sizeof(py_qp_t),(LCmpFunc)py_qp_cmpr);
+				const py_qp_t *qp=bsearch(&it,py_qp_all,countof(py_qp_all),sizeof(py_qp_t),(LCmpFunc)py_qp_cmpr);
 				if(!qp)
 				{
 					continue;

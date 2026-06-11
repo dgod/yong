@@ -28,7 +28,8 @@ typedef struct{
 	int InAssoc;
 	int Beep;
 	int BingSkip[2];
-	int Hint;				// 编码提示
+	bool Hint;				// 编码提示
+	bool Safe;
 
 #if defined(_WIN32) || defined(CFG_XIM_ANDROID)
 	uint16_t StringGet[MAX_CAND_LEN+1];

@@ -113,10 +113,11 @@ static int key_last;
 static int key_clear_code;
 
 static int py_switch;
-static int py_switch_save;
-static int py_assist_save;
-static int py_assist_series;
-static int py_space=' ';
+static uint8_t py_switch_save;
+static uint8_t py_assist_save;
+static uint8_t py_assist_series;
+static uint8_t py_space=' ';
+static uint8_t py_reorder_cand;
 
 static int hz_trad;
 static int hz_filter;
@@ -308,10 +309,11 @@ void y_mb_init_pinyin(struct y_mb *mb)
 	EIM.Reset=PinyinReset;
 	
 	py_switch=TableGetConfigKey("py_switch",-1,'\\');
-	py_switch_save=TableGetConfigInt(NULL,"py_switch_save",0);
-	py_assist_save=TableGetConfigInt(NULL,"py_assist_save",0);
-	py_assist_series=TableGetConfigInt(NULL,"assist_series",0);
-	py_space=y_mb_is_key(mb,' ')?'_':' ';
+	py_switch_save=(uint8_t)TableGetConfigInt(NULL,"py_switch_save",0);
+	py_assist_save=(uint8_t)TableGetConfigInt(NULL,"py_assist_save",0);
+	py_assist_series=(uint8_t)TableGetConfigInt(NULL,"assist_series",0);
+	py_space=(uint8_t)y_mb_is_key(mb,' ')?'_':' ';
+	py_reorder_cand=(uint8_t)TableGetConfigInt(NULL,"py_reorder_cand",0);
 	
 	name=EIM.GetConfig(0,"sp");
 	if(name && name[0])
@@ -3084,6 +3086,7 @@ static int PinyinDoSearch(int adjust)
 	int HaveResult=0;
 
 	cset_clear(&cs,CSET_TYPE_CALC);
+	cset_clear(&cs,CSET_TYPE_ARRAY);
 	
 	(void)GoodMatch;
 
@@ -3230,6 +3233,8 @@ static int PinyinDoSearch(int adjust)
 		{
 			PhraseListCount=y_mb_set(mb,EIM.CodeInput,CodeMatch,hz_filter_temp);
 			cset_mb_group_set(&cs,mb,PhraseListCount);
+			if(py_reorder_cand==1 && mb->split==2 && EIM.CodeLen==4 && !CodeGetLen)
+				cset_reorder_mb_cand(&cs,(LCmpDataFunc)cset_ci_first_cmp,NULL);
 			PhraseListCount=cset_count(&cs);
 		}
 		HaveResult=PhraseListCount>0;

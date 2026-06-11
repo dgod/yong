@@ -470,7 +470,7 @@ static int Num2Set(const char *s)
 {
 	ENGLISH_IM *e=&eim_num2;
 	int len,i,format;
-	
+
 	e->Priv2=(uintptr_t)s;	
 	e->Count=0;
 	e->Priv1=0;

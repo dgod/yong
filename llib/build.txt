@@ -9,13 +9,11 @@ function run(target){
 		env('DLL=.dll');
 		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
 		env('LDFLAGS=-static-libgcc');
-		// env('LDFLAGS+=-Wl,--out-implib=w32/libl.a');
 	}else if(target=='w64'){
 		env('CROSS_COMPILE=x86_64-w64-mingw32-');
 		env('DLL=.dll');
 		env('CFLAGS=-D_UNICODE -DUNICODE -DUSE_SYSTEM_ICONV');
 		env('LDFLAGS=-static-libgcc');
-		// env('LDFLAGS+=-Wl,--out-implib=w64/libl.a');
 	}else if(target=='l32'){
 		if(support('gcc'))
 			env('CC=gcc -m32');
@@ -52,7 +50,7 @@ function run(target){
 	} else {
 		return;
 	}
-	env("CFLAGS+=-Wall -pipe -g -O2 -fno-plt -flto=auto -ffast-math -fms-extensions -Wno-microsoft-anon-tag");
+	env("CFLAGS+=-Wall -pipe -g -O2 -flto=auto -ffast-math -fms-extensions -Wno-microsoft-anon-tag");
 	if(support('libucontext')){
 		env("CFLAGS+=-DL_USE_COROUTINE=3");
 		env("LIBS+=-lucontext");
@@ -60,15 +58,19 @@ function run(target){
 	//env("CFLAGS+=-fanalyzer -Wno-analyzer-possible-null-dereference -Wno-analyzer-possible-null-argument -Wanalyzer-malloc-leak");
 	if(target!='js'){
 		if(!$('CC'))
-			env('CC:=$(CROSS_COMPILE)gcc');
+			env('CC:=$(CROSS_COMPILE)clang');
 		env('AR:=$(CROSS_COMPILE)ar');
 		env('STRIP:=$(CROSS_COMPILE)strip');
 		env('DLLTOOL:=$(CROSS_COMPILE)dlltool');
-		env('LDFLAGS+=-shared');	
+		env('LDFLAGS+=-shared');
+	}else{
+		env("CFLAGS-=-g");
+		env("CFLAGS-=-O2");
+		env("CFLAGS+=-Os");
 	}
 	if($('CC').includes('clang')){
 		env('CFLAGS+=-Wno-invalid-source-encoding');
-		// env('CFLAGS+=-fdefer-ts');
+		env('CFLAGS+=-fdefer-ts');
 	}
 	var OBJS=wildcard(SRCS,function(input){
 		return target+'/'+input.replace(/\.c$/,'.o');

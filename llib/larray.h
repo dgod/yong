@@ -37,7 +37,7 @@ void l_ptr_array_insert(LArray *array,int n,const void *val);
 #define l_ptr_array_remove(array,n) l_array_remove(array,n)
 void l_ptr_array_free(LArray *array,LFreeFunc func);
 #define l_ptr_array_nth(array,n) (((LArray*)array)->ptr[n])
-#define l_ptr_array_length(array) l_array_length(array)
+#define l_ptr_array_length(array) l_array_length(((LPtrArray*)array))
 void l_ptr_array_clear(LArray *array,LFreeFunc func);
 void l_ptr_array_sort(LArray *array,LCmpFunc cmp);
 void l_ptr_array_sort_r(LArray *array,LCmpDataFunc cmp,void *arg);

@@ -225,11 +225,14 @@ int cu_ctrl_init_list(CUCtrl p)
 	
 	if(!p->self)
 	{
-#if GTK_CHECK_VERSION(3,0,0)
 		p->self=gtk_combo_box_text_new();
-#else
-		p->self=gtk_combo_box_new_text();
-#endif
+		GList *renderers = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(p->self));
+		if (renderers)
+		{
+			GtkCellRenderer *renderer = GTK_CELL_RENDERER(renderers->data);
+			g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+			g_list_free(renderers);
+		}
 		cu_ctrl_add_to_parent(p);
 	}
 	
@@ -256,11 +259,7 @@ int cu_ctrl_init_list(CUCtrl p)
 int cu_ctrl_init_combo(CUCtrl p)
 {
 	char **list;
-#if GTK_CHECK_VERSION(3,0,0)
 	p->self=gtk_combo_box_text_new_with_entry();
-#else
-	p->self=gtk_combo_box_entry_new_text();
-#endif
 	cu_ctrl_add_to_parent(p);
 	
 	list=p->view?p->view:p->data;
@@ -633,7 +632,12 @@ int cu_ctrl_init_font(CUCtrl p)
 
 int cu_ctrl_init_image(CUCtrl p)
 {
+#if GTK_CHECK_VERSION(4,0,0)
+	p->self=gtk_picture_new();
+	gtk_picture_set_content_fit(GTK_PICTURE(p->self),GTK_CONTENT_FIT_SCALE_DOWN);
+#else
 	p->self=gtk_image_new();
+#endif
 	cu_ctrl_add_to_parent(p);
 	return 0;
 }
@@ -723,6 +727,7 @@ static void cu_ctrl_destroy_item(CUCtrl p)
 {
 #if !USE_LIST_AS_TREE
 	gtk_tree_path_free(p->self);
+#else
 #endif
 }
 
@@ -765,62 +770,15 @@ int cu_ctrl_show_self(CUCtrl p,int b)
 	return 0;
 }
 
-static void image_load_cb(GdkPixbufLoader *loader,GdkPixbuf **pixbuf)
+static bool ui_image_path(const char *file,char path[256])
 {
-	if(*pixbuf)
-		return;
-	*pixbuf=gdk_pixbuf_loader_get_pixbuf(loader);
-	g_object_ref(*pixbuf);
-}
-static GdkPixbuf *ui_image_load(const char *file)
-{
-	char path[256];
-	GdkPixbuf *pixbuf;
-	if(!file)
-	{
-		return 0;
-	}
-	if(file[0]=='~' && file[1]=='/')
-	{
-		sprintf(path,"%s/%s",getenv("HOME"),file+2);
-	}
-	else
-	{
-		strcpy(path,file);
-	}
-	if(file[0]=='/')
-	{
-        	pixbuf = gdk_pixbuf_new_from_file(path, NULL);
-	}
-	else
-	{
-		char *contents;
-		size_t length;
-		GdkPixbufLoader *load;
-		contents=l_file_get_contents(file,&length,
-				y_im_get_path("HOME"),
-				y_im_get_path("DATA"),
-				NULL);
-		if(!contents)
-		{
-			//fprintf(stderr,"load %s contents fail\n",file);
-			return NULL;
-		}
-		load=gdk_pixbuf_loader_new();
-		pixbuf=NULL;
-		g_signal_connect(load,"area-prepared",G_CALLBACK(image_load_cb),&pixbuf);
-		if(!gdk_pixbuf_loader_write(load,(const guchar*)contents,length,NULL))
-		{
-			l_free(contents);
-			//fprintf(stderr,"load image %s fail\n",file);
-			return NULL;
-		}
-		l_free(contents);
-		pixbuf=gdk_pixbuf_loader_get_pixbuf(load);
-		if(pixbuf) g_object_ref(pixbuf);
-		gdk_pixbuf_loader_close(load,NULL);
-	}
-	return pixbuf;
+	snprintf(path,256,"%s/%s",y_im_get_path("HOME"),file);
+	if(l_file_exists(path))
+		return true;
+	snprintf(path,256,"%s/%s",y_im_get_path("DATA"),file);
+	if(l_file_exists(path))
+		return true;
+	return false;
 }
 
 int cu_ctrl_set_self(CUCtrl p,const char *s)
@@ -895,22 +853,21 @@ int cu_ctrl_set_self(CUCtrl p,const char *s)
 	}
 	case CU_IMAGE:
 	{
-		if(s && s[0])
+		char real[256];
+		if(s && s[0] && ui_image_path(s,real))
 		{
-			GdkPixbuf *pixbuf=ui_image_load(s);
-			if(pixbuf)
-			{
-				gtk_image_set_from_pixbuf(GTK_IMAGE(p->self),pixbuf);
-				g_object_unref(G_OBJECT(pixbuf));
-			}
-			else
-			{
-				gtk_image_clear(GTK_IMAGE(p->self));
-			}
+#if GTK_CHECK_VERSION(4,0,0)
+			gtk_picture_set_filename(GTK_PICTURE(p->self),real);
+#else
+			gtk_image_set_from_file(GTK_IMAGE(p->self),real);
+#endif
 		}
 		else
 		{
+#if GTK_CHECK_VERSION(4,0,0)
+#else
 			gtk_image_clear(GTK_IMAGE(p->self));
+#endif
 		}
 		break;
 	}

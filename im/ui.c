@@ -14,6 +14,8 @@
 
 #include "ui.h"
 #include "translate.h"
+#include "color-schema.h"
+#include "app-indicator.h"
 
 #include "ltricky.h"
 
@@ -36,13 +38,15 @@ int wayland_show_hack,wayland_tip_center;
 typedef struct ui_menu{
 	LKeyFile *config;
 	GtkWidget *root;
+	GMenu *root_g;
+	GSimpleActionGroup *actions;
 	int mb;
 	int base;
 	int count;
 	char *cmd[64];
 }ui_menu_t;
 
-static ui_menu_t *ui_build_menu(LKeyFile *kf);
+static ui_menu_t *ui_build_menu2(LKeyFile *kf,bool root);
 
 static void ui_clean(void);
 static int ui_loop(void);
@@ -77,54 +81,22 @@ static bool MainWin_visible;
 
 static int IconSelected;
 static void *StatusIcon;
-static GdkPixbuf *IconPixbuf[2];
 static void (*my_ca_gtk_play_for_widget)(GtkWidget *,uint32_t id,...);
-static void (*my_gdk_window_beep)(GdkWindow *window);
 static void (*my_menu_popup_at_pointer)(GtkMenu* menu,const GdkEvent* trigger_event);
-static gint (*my_widget_get_scale_factor)(GtkWidget *widget);
-
-static void *(*app_indicator_new)(const gchar *id,const gchar *icon_name,int category);
-static void (*app_indicator_set_status)(void *self,int status);
-static void (*app_indicator_set_icon_full)(void *self,const gchar *icon_name,const gchar *icon_desc);
-static void (*app_indicator_set_attention_icon_full)(void *self,const gchar *icon_name,const gchar *icon_desc);
-static void (*app_indicator_set_menu)(void *self,GtkMenu *menu);
-static GtkMenu *(*app_indicator_get_menu)(void *self);
-static void (*app_indicator_set_title)(void *self,const gchar *title);
 
 static GtkWidget *ImageWin;
 static UI_IMAGE ImageWin_bg;
-
-static void (*set_opacity)(GdkWindow *window,gdouble opacity);
-static void (*set_opacity2)(GtkWidget *window,gdouble opacity);
-static gboolean (*is_composited)(GtkWidget *widget);
 
 static bool clipboard_skip;
 static char clipboard_text[512];
 
 static void load_sound_system(void)
 {
-	my_gdk_window_beep=dlsym(NULL,"gdk_window_beep");
 	my_ca_gtk_play_for_widget=dlsym(dlopen("libcanberra-gtk3.so.0",RTLD_LAZY),"ca_gtk_play_for_widget");
 }
 
 static void load_app_indicator(void)
 {
-	// if(!is_wayland)
-		// return;
-	void *so=dlopen("libappindicator3.so.1",RTLD_LAZY);
-	if(!so)
-	{
-		so=dlopen("libayatana-appindicator3.so.1",RTLD_LAZY);
-		if(!so)
-			return;
-	}
-	app_indicator_new=dlsym(so,"app_indicator_new");
-	app_indicator_set_status=dlsym(so,"app_indicator_set_status");
-	app_indicator_set_icon_full=dlsym(so,"app_indicator_set_icon_full");
-	app_indicator_set_attention_icon_full=dlsym(so,"app_indicator_set_attention_icon_full");
-	app_indicator_set_menu=dlsym(so,"app_indicator_set_menu");
-	app_indicator_get_menu=dlsym(so,"app_indicator_get_menu");
-	app_indicator_set_title=dlsym(so,"app_indicator_set_title");
 }
 
 bool ui_is_wayland(void)
@@ -153,7 +125,7 @@ static void calc_ui_scale(void)
 	{
 		ui_scale=strtod(temp,NULL);
 	}
-	ui_res_scale=ui_scale*my_widget_get_scale_factor(w);
+	ui_res_scale=ui_scale*gtk_widget_get_scale_factor(w);
 	if(w!=MainWin)
 	{
 		gtk_widget_destroy(w);
@@ -207,11 +179,6 @@ static bool is_process_running(const char *exe)
 	return false;
 }
 
-static int return_1(void)
-{
-	return 1;
-}
-
 static gboolean on_screen_size_changed_next(gpointer unused);
 
 static void ui_set_global_css(void)
@@ -229,8 +196,6 @@ static void ui_set_global_css(void)
 void YongSetXErrorHandler(void);
 static int ui_init(void)
 {
-	GtkSettings*p;
-
 	setenv("GTK_CSD","0",1);
 	if(getenv("WAYLAND_DISPLAY") && getenv("DISPLAY") && !getenv("GDK_BACKEND"))
 	{
@@ -261,32 +226,9 @@ static int ui_init(void)
 #endif
 	gtk_init(NULL,NULL);
 
-	set_opacity=dlsym(NULL,"gdk_window_set_opacity");
-	set_opacity2=dlsym(NULL,"gtk_widget_set_opacity");
-	is_composited=dlsym(NULL,"gtk_widget_is_composited");
 	my_menu_popup_at_pointer=dlsym(NULL,"gtk_menu_popup_at_pointer");
-	my_widget_get_scale_factor =dlsym(NULL,"gtk_widget_get_scale_factor");
-	if(!my_widget_get_scale_factor)
-		my_widget_get_scale_factor=(void *)return_1;
 	load_sound_system();
 	
-	p=gtk_settings_get_default();
-	if(p)
-	{
-		if(gtk_get_minor_version()>=16)
-		{
-			g_object_set(p,
-					// "gtk-im-module","gtk-im-context-simple",
-					"gtk-show-input-method-menu",FALSE,
-					"gtk-enable-animations",FALSE,
-					NULL);
-		}
-		else
-		{
-			gtk_settings_set_long_property(p,"gtk-show-input-method-menu",0,0);
-		}
-	}
-
 	YongSetXErrorHandler();
 
 	int delay=y_im_get_config_int("main","delay");
@@ -343,6 +285,7 @@ static int ui_init(void)
 	}
 
 	ui_set_global_css();
+	color_schema_init(YongReloadAll);
 	
 	return 0;
 }
@@ -388,9 +331,9 @@ static void get_workarea (int *x, int *y, int *width, int *height)
 		return;
 	}
 	int scale_factor=1;
-	if(MainWin && my_widget_get_scale_factor)
+	if(MainWin)
 	{
-		scale_factor=my_widget_get_scale_factor(MainWin);
+		scale_factor=gtk_widget_get_scale_factor(MainWin);
 	}
 
 	GdkAtom net_current_desktop_atom = gdk_atom_intern ("_NET_CURRENT_DESKTOP", TRUE);;
@@ -630,14 +573,7 @@ static void ui_win_tran(GtkWidget *w,int tran)
 	if(show==0 || show==2)
 	{
 		double val=(255.0-tran)/255.0;
-		if(set_opacity2)
-		{
-			set_opacity2(w,val);
-		}
-		else if(set_opacity)
-		{
-			set_opacity(gtk_widget_get_window(w),val);
-		}
+		gtk_widget_set_opacity(w,val);
 	}
 	int temp=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"tran"));
 	uint8_t orig=temp>>8&0xff;
@@ -668,14 +604,7 @@ void ui_win_show(GtkWidget *w,int show)
 		}
 		else
 		{
-			if(set_opacity2)
-			{
-				set_opacity2(w,0);
-			}
-			else if(set_opacity)
-			{
-				set_opacity(gtk_widget_get_window(w),0);
-			}
+			gtk_widget_set_opacity(w,0);
 			cairo_region_t *u=cairo_region_create();
 			gtk_widget_input_shape_combine_region(w,u);
 			ui_region_destroy(u);
@@ -852,7 +781,7 @@ int ui_main_update(UI_MAIN *param)
 			MainWin_bg=ui_image_load(param->bg,IMAGE_SKIN);
 			ui_image_size(MainWin_bg,&MainWin_W,&MainWin_H);
 		}
-		if(!is_composited || !is_composited(MainWin))
+		if(!gtk_widget_is_composited(MainWin))
 		{
 			UI_REGION r=ui_image_region(MainWin_bg,ui_scale/ui_res_scale);
 			gtk_widget_shape_combine_region(MainWin,r);
@@ -981,19 +910,26 @@ static gboolean input_click_cb (GtkWidget *window,GdkEventButton *event,gpointer
 				if(x >= pos[0] && ((i<count-1 && x<pos[3]-InputTheme.space)
 					|| (i==count-1 && x<pos[3])))
 				{
-					char *s=eim->GetCandWord(i);
-					if(s)
+					if(event->button==1)
 					{
-						y_xim_send_string(s2t_conv(s));
-						if(event->button==1)
+						char *s=eim->GetCandWord(i);
+						if(s)
+						{
+							y_xim_send_string(s2t_conv(s));
 							YongResetIM();
+						}
+						else
+						{
+							if(eim->SelectIndex>=0)
+								YongUpdateInputDesc(eim);
+							y_im_str_encode(eim->StringGet,im.StringGet,0);
+							y_ui_input_draw();
+						}
 					}
 					else
 					{
-						if(eim->SelectIndex>=0)
-							YongUpdateInputDesc(eim);
-						y_im_str_encode(eim->StringGet,im.StringGet,0);
-						y_ui_input_draw();
+						const char *s=eim->CandTable[i];
+						y_xim_send_string(s2t_conv(s));
 					}
 					break;					
 				}
@@ -1056,7 +992,7 @@ static void set_rgn(void)
 		cairo_region_union(u,t);
 		ui_region_destroy(t);
 	}
-	if(!is_composited(InputWin))
+	if(!gtk_widget_is_composited(InputWin))
 		gtk_widget_shape_combine_region(InputWin,u);
 	gtk_widget_input_shape_combine_region(InputWin,u);
 	ui_region_destroy(u);
@@ -1266,19 +1202,6 @@ int ui_input_update(UI_INPUT *param)
 		if(param->page.show && param->page.scale!=0 && param->page.scale!=1)
 			InputTheme.page.layout=ui_font_parse(InputWin,param->font,ui_scale*param->page.scale);
 	}
-	if(InputTheme.page.show)
-	{
-		InputTheme.page.space=MAX(get_input_text_width(),InputTheme.space);
-		if(InputTheme.page.text[0]==1)
-		{
-			UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
-			int size=get_input_text_height(font);
-			InputTheme.page.up[0]=ui_image_load_page(size,InputTheme.text[4],true);
-			InputTheme.page.up[1]=ui_image_load_page(size,InputTheme.page.color,true);
-			InputTheme.page.down[0]=ui_image_load_page(size,InputTheme.text[4],false);
-			InputTheme.page.down[1]=ui_image_load_page(size,InputTheme.page.color,false);
-		}
-	}
 	
 	InputTheme.line_width=param->line_width;
 	memcpy(InputTheme.pad,param->pad,sizeof(param->pad));
@@ -1461,14 +1384,18 @@ int ui_input_update(UI_INPUT *param)
 	InputTheme.text[5]=ui_color_parse(param->text[5]);
 	InputTheme.text[6]=ui_color_parse(param->text[6]);
 
-	if(InputTheme.page.show && InputTheme.page.text[0]==1)
+	if(InputTheme.page.show)
 	{
-		UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
-		int size=get_input_text_height(font);
-		InputTheme.page.up[0]=ui_image_load_page(size,InputTheme.text[4],true);
-		InputTheme.page.up[1]=ui_image_load_page(size,InputTheme.page.color,true);
-		InputTheme.page.down[0]=ui_image_load_page(size,InputTheme.text[4],false);
-		InputTheme.page.down[1]=ui_image_load_page(size,InputTheme.page.color,false);
+		InputTheme.page.space=MAX(get_input_text_width(),InputTheme.space);
+		if(InputTheme.page.text[0]==1)
+		{
+			UI_FONT font=InputTheme.page.layout?InputTheme.page.layout:InputTheme.layout;
+			int size=get_input_text_height(font);
+			InputTheme.page.up[0]=ui_image_load_page(size,InputTheme.text[4],true);
+			InputTheme.page.up[1]=ui_image_load_page(size,InputTheme.page.color,true);
+			InputTheme.page.down[0]=ui_image_load_page(size,InputTheme.text[4],false);
+			InputTheme.page.down[1]=ui_image_load_page(size,InputTheme.page.color,false);
+		}
 	}
 
 	InputTheme.RealWidth=2*InputTheme.RealHeight;
@@ -2070,16 +1997,6 @@ int ui_input_show(int show)
 	return 0;
 }
 
-static void on_status_popup_menu(GtkStatusIcon *icon,
-	guint button,guint time,gpointer data)
-{
-	LKeyFile *kf=y_im_get_menu_config();
-	ui_menu_t *m;
-	m=ui_build_menu(kf);
-	g_object_ref_sink(m->root);
-	gtk_menu_popup(GTK_MENU(m->root),NULL,NULL,gtk_status_icon_position_menu,icon,button,time);
-}
-
 static void on_status_activate(void)
 {
 	y_xim_enable(-1);
@@ -2107,7 +2024,7 @@ static int ui_image_get_path(const char *file,char *out,int size)
 	return -1;
 }
 
-static void ui_tray_update_with_indicator(UI_TRAY *param)
+static void ui_tray_update(UI_TRAY *param)
 {
 	if(!param->enable)
 	{
@@ -2133,86 +2050,22 @@ static void ui_tray_update_with_indicator(UI_TRAY *param)
 	l_fullpath(icon2,icon2,sizeof(icon2));
 	if(!StatusIcon)
 	{
-		StatusIcon=app_indicator_new("net.dgod.yong",icon2,0);
+		StatusIcon=app_indicator_new("net.dgod.yong",icon2,NULL);
 		if(!StatusIcon)
 			return;
-		app_indicator_set_attention_icon_full(StatusIcon,icon1,NULL);
+		app_indicator_set_activate_callback(StatusIcon,(void*)on_status_activate,NULL);
+		app_indicator_set_secondary_activate_callback(StatusIcon,(void*)on_status_activate,NULL);
+		app_indicator_set_attention_icon(StatusIcon,icon1);
 	}
 	else
 	{
-		app_indicator_set_icon_full(StatusIcon,icon2,NULL);
-		app_indicator_set_attention_icon_full(StatusIcon,icon1,NULL);
+		app_indicator_set_icon(StatusIcon,icon2);
+		app_indicator_set_attention_icon(StatusIcon,icon1);
 	}
 	LKeyFile *kf=y_im_get_menu_config();
-	ui_menu_t *m=ui_build_menu(kf);
-	app_indicator_set_menu(StatusIcon,GTK_MENU(m->root));
-}
+	ui_menu_t *m=ui_build_menu2(kf,false);
+	app_indicator_set_menu_full(StatusIcon,m->root_g,m->actions);
 
-void ui_tray_update(UI_TRAY *param)
-{
-	if(app_indicator_new)
-	{
-		ui_tray_update_with_indicator(param);
-		return;
-	}
-	
-	{
-		int ret;
-		char icon1[256],icon2[256];
-		ret=ui_image_get_path(param->icon[0],icon1,sizeof(icon1));
-		ret|=ui_image_get_path(param->icon[1],icon2,sizeof(icon2));
-		if(ret==0)
-		{
-			if(strstr(icon1,".zip/"))
-			{
-				snprintf(icon1,sizeof(icon1),"%s/skin/%s",y_im_get_path("DATA"),"tray1.png");
-				snprintf(icon2,sizeof(icon2),"%s/skin/%s",y_im_get_path("DATA"),"tray2.png");
-			}
-			ybus_wm_icon(icon1,icon2);
-		}
-	}
-
-	if(is_wayland)
-	{
-		return;
-	}
-
-	for(int i=0;i<2;i++)
-	{
-		if(!IconPixbuf[i]) continue;
-		g_object_unref(G_OBJECT(IconPixbuf[i]));
-		IconPixbuf[i]=0;
-	}
-	if(!param->enable)
-	{
-		if(StatusIcon)
-		{
-			g_object_unref(G_OBJECT(StatusIcon));
-			StatusIcon=NULL;
-		}
-		return;
-	}
-	if(!param->icon[0])
-		return;
-	for(int i=0;i<2;i++)
-	{
-		if(param->icon[i])
-		{
-			IconPixbuf[i]=ui_image_load_pixbuf_at_size(param->icon[i],-1,-1,IMAGE_SKIN|IMAGE_SKIN_DEF);
-		}
-	}
-	if(StatusIcon)
-	{
-		ui_tray_status(IconSelected);
-	}
-	else
-	{
-		StatusIcon=gtk_status_icon_new_from_pixbuf(IconPixbuf[IconSelected]);
-		g_signal_connect(G_OBJECT(StatusIcon),"popup-menu",
-			G_CALLBACK(on_status_popup_menu),NULL);
-		g_signal_connect(G_OBJECT(StatusIcon),"activate",
-			G_CALLBACK(on_status_activate),NULL);
-	}
 }
 
 void ui_tray_tooltip(const char *tip)
@@ -2220,15 +2073,7 @@ void ui_tray_tooltip(const char *tip)
 	char tip2[32];
 	if(!StatusIcon) return;
 	y_im_str_encode(tip,tip2,0);
-	if(app_indicator_set_title)
-	{
-		app_indicator_set_title(StatusIcon,tip2);
-	}
-	else
-	{
-		gtk_status_icon_set_tooltip_text(StatusIcon,tip2);
-		gtk_status_icon_set_title(StatusIcon,tip2);
-	}
+	app_indicator_set_tooltip(StatusIcon, NULL, tip2, NULL);
 }
 
 void ui_tray_status(int which)
@@ -2240,15 +2085,7 @@ void ui_tray_status(int which)
 	IconSelected=which;
 	if(!StatusIcon)
 		return;
-	if(app_indicator_set_status)
-	{
-		app_indicator_set_status(StatusIcon,which?1:2);
-		return;
-	}
-	if(IconPixbuf[IconSelected])
-	{
-		gtk_status_icon_set_from_pixbuf(StatusIcon,IconPixbuf[IconSelected]);
-	}
+	app_indicator_set_status(StatusIcon,which?APP_INDICATOR_STATUS_ACTIVE:APP_INDICATOR_STATUS_NEEDS_ATTENTION);
 }
 
 static void send_file_get_func(
@@ -2492,15 +2329,6 @@ static void ui_set_select(const char *text)
 	clipboard_skip=false;
 }
 
-static int menu_disable;
-static void menu_activate(GtkMenuItem *item,gpointer data)
-{
-	int id=GPOINTER_TO_INT(data);
-	if(id==im.Index) return;
-	if(menu_disable) return;
-	YongSwitchIM(id);
-}
-
 void ui_show_message(const char *s)
 {
 	GtkWidget *dlg;
@@ -2656,64 +2484,33 @@ static void show_system_info(void)
 	ui_show_message(temp);
 }
 
-static void menu_set_default(void)
-{
-	y_im_set_default(im.Index);
-}
-
 void ui_update_menu(void)
 {
 }
 
-static GtkWidget *im_list_menu(void)
+static GMenu *im_list_menu2(void)
 {
-	GtkWidget *menu,*item=NULL;
-	int i;
-	char name[128];	
-	
-	menu=gtk_menu_new();
-	menu_disable=1;	
-	
-	for(i=0;i<32;i++)
+	char name[128];
+	GMenu *menu=g_menu_new();
+	for(int i=0;i<32;i++)
 	{
-		char *tmp;
-		tmp=y_im_get_im_name(i);
+		char *tmp=y_im_get_im_name(i);
 		if(!tmp) break;
 		l_gb_to_utf8(tmp,name,sizeof(name));
 		l_free(tmp);
-		if(!item)			
-			item=gtk_radio_menu_item_new_with_label(NULL,name);
-		else
-			item=gtk_radio_menu_item_new_with_label_from_widget(GTK_RADIO_MENU_ITEM(item),name);
-		g_signal_connect(G_OBJECT(item),"activate",
-			G_CALLBACK(menu_activate),GINT_TO_POINTER(i));
-		gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
-		gtk_widget_show(item);
-		if(im.Index==i)
-			gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item),TRUE);
+
+		GMenuItem *item=g_menu_item_new(name,"menu.im_list");
+		g_menu_item_set_action_and_target(item,"menu.im_list","i",i);
+		g_menu_append_item(menu,item);
+		g_object_unref(item);		
 	}
-	item=gtk_separator_menu_item_new();
-	gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
-	gtk_widget_show(item);
+
+	GMenu *group=g_menu_new();
 	y_im_str_encode(YT("д╛хо"),name,0);
-	item=gtk_menu_item_new_with_label(name);
-	gtk_menu_shell_append(GTK_MENU_SHELL(menu),item);
-	gtk_widget_show(item);
-	g_signal_connect(G_OBJECT(item),"activate",
-		G_CALLBACK(menu_set_default),GINT_TO_POINTER(i));
-
-	menu_disable=0;
-
+	g_menu_append(group,name,"menu.im_default");
+	g_menu_append_section(menu,NULL,G_MENU_MODEL(group));
+	g_object_unref(group);
 	return menu;
-}
-
-static void ui_menu_on_cmd(GtkMenuItem *item,gpointer user_data)
-{
-	ui_menu_t *m;
-	int i;
-	m=g_object_get_data(G_OBJECT(item),"m");
-	i=GPOINTER_TO_INT(user_data);
-	y_im_handle_menu(m->cmd[i]);
 }
 
 static void ui_menu_free(ui_menu_t *m);
@@ -2728,17 +2525,17 @@ static void  ui_menu_on_done(GtkMenuShell *menushell,ui_menu_t *m)
 	}
 }
 
-static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
+static void ui_add_menu2(ui_menu_t *m,GMenu *parent,const char *group)
 {
 	char *child,*name;
 	char temp[128];
-	GtkWidget *item;
+	GMenuItem *item;
 	
 	if(!strcmp(group,"-"))
 	{
-		item=gtk_separator_menu_item_new();
-		gtk_menu_shell_append(GTK_MENU_SHELL(parent),item);
-		gtk_widget_show(item);
+		GMenu *section=g_menu_new();
+		g_menu_append_section(parent,NULL,G_MENU_MODEL(section));
+		g_object_unref(section);
 		return;
 	}
 	name=l_key_file_get_string(m->config,group,"name");
@@ -2757,29 +2554,30 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 	if(child)
 	{
 		char **list;
-		int i;
-		GtkWidget *me=gtk_menu_new();
+		GMenu *me=g_menu_new();
+		if(!parent)
+			m->root_g=me;
 		if(parent)
 		{
-			item=gtk_menu_item_new_with_label(temp);
-			gtk_menu_shell_append(GTK_MENU_SHELL(parent),item);
-			gtk_menu_item_set_submenu(GTK_MENU_ITEM(item),me);
-			gtk_widget_show(item);
+			item=g_menu_item_new_submenu(temp,G_MENU_MODEL(me));
+			g_menu_append_item(parent,item);
+			g_object_unref(item);
 		}
 		list=l_strsplit(child,' ');
 		l_free(child);
-		for(i=0;list[i]!=NULL;i++)
+		for(int i=0;list[i]!=NULL;i++)
 		{
-			ui_add_menu(m,me,list[i]);
+			if(!strcmp(list[i],"-"))
+			{
+				GMenu *group=g_menu_new();
+				g_menu_append_section(me,NULL,G_MENU_MODEL(group));
+				me=group;
+				g_object_unref(group);
+				continue;
+			}
+			ui_add_menu2(m,me,list[i]);
 		}
 		l_strfreev(list);
-		if(!parent)
-		{
-			m->root=me;
-			g_object_set_data_full(G_OBJECT(me),"m",m,(GDestroyNotify)ui_menu_free);
-			g_signal_connect(G_OBJECT(me),"selection-done",
-						G_CALLBACK(ui_menu_on_done),m);
-		}
 	}
 	else
 	{
@@ -2818,12 +2616,9 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 			int ybus_ibus_use_ibus_menu(void);
 			if(!ybus_ibus_use_ibus_menu())
 			{
-				GtkWidget *me;
-				me=im_list_menu();
-				item=gtk_menu_item_new_with_label(temp);
-				gtk_menu_shell_append(GTK_MENU_SHELL(parent),item);
-				gtk_widget_show(item);
-				gtk_menu_item_set_submenu(GTK_MENU_ITEM(item),me);
+				GMenu *me=im_list_menu2();
+				g_menu_append_submenu(parent,temp,G_MENU_MODEL(me));
+				g_object_unref(me);
 			}
 		}
 		else
@@ -2859,31 +2654,52 @@ static void ui_add_menu(ui_menu_t *m,GtkWidget *parent,const char *group)
 				}
 				snprintf(temp,sizeof(temp),"%s",desc);
 			}
-			item=gtk_menu_item_new_with_label(temp);
-			gtk_menu_shell_append(GTK_MENU_SHELL(parent),item);
-			gtk_widget_show(item);
-			if(!strcmp(exec,"$EXIT"))
-			{
-				g_signal_connect(G_OBJECT(item),"activate",
-						G_CALLBACK(gtk_main_quit),NULL);
-			}
-			else if(!strcmp(exec,"$SYSINFO"))
-			{
-				g_signal_connect(G_OBJECT(item),"activate",
-						G_CALLBACK(show_system_info),NULL);
-			}
-			else
-			{
-				g_object_set_data(G_OBJECT(item),"m",m);
-				g_signal_connect(G_OBJECT(item),"activate",
-						G_CALLBACK(ui_menu_on_cmd),GINT_TO_POINTER(m->count));
-			}
+			item=g_menu_item_new(temp,NULL);
+			g_menu_item_set_action_and_target(item,"menu.menu_cmd","i",m->count);
+			g_menu_append_item(parent,item);
+			g_object_unref(item);
 			m->cmd[m->count++]=exec;
 		}
 	}
 }
 
-static ui_menu_t *ui_build_menu(LKeyFile *kf)
+static void ui_menu_on_cmd2 (GSimpleAction* self,GVariant* parameter,ui_menu_t *m)
+{
+	gchar *name;
+	g_object_get(self,"name",&name,NULL);
+	gint32 param_i=0;
+	if(parameter)
+		param_i=g_variant_get_int32(parameter);
+	if(!strcmp(name,"im_list"))
+	{
+		if(param_i==im.Index)
+			return;
+		YongSwitchIM(param_i);
+	}
+	else if(!strcmp(name,"im_default"))
+	{
+		y_im_set_default(im.Index);
+	}
+	else
+	{
+		const char *exec=m->cmd[param_i];
+		if(!strcmp(exec,"$EXIT"))
+		{
+			y_ui_quit();
+		}
+		else if(!strcmp(exec,"$SYSINFO"))
+		{
+			show_system_info();
+		}
+		else
+		{
+			y_im_handle_menu(exec);
+		}
+	}
+	g_free(name);
+}
+
+static ui_menu_t *ui_build_menu2(LKeyFile *kf,bool root)
 {
 	ui_menu_t *m;
 	char *engine;
@@ -2894,7 +2710,39 @@ static ui_menu_t *ui_build_menu(LKeyFile *kf)
 	engine=y_im_get_current_engine();
 	if(engine && !strcmp(engine,"libmb.so"))
 		m->mb=1;
-	ui_add_menu(m,m->root,"root");
+	ui_add_menu2(m,m->root_g,"root");
+	GSimpleActionGroup *actions = g_simple_action_group_new();
+	GSimpleAction *action = g_simple_action_new("menu_cmd", G_VARIANT_TYPE_INT32);
+	g_signal_connect(G_OBJECT(action),"activate",
+						G_CALLBACK(ui_menu_on_cmd2),m);
+	g_action_map_add_action(G_ACTION_MAP(actions), G_ACTION(action));
+	g_object_unref(action);
+	GVariant *state=g_variant_new_int32(im.Index);
+	action = g_simple_action_new_stateful("im_list", G_VARIANT_TYPE_INT32,state);
+	g_signal_connect(G_OBJECT(action),"activate",
+						G_CALLBACK(ui_menu_on_cmd2),m);
+	g_action_map_add_action(G_ACTION_MAP(actions), G_ACTION(action));
+	g_object_unref(action);
+	action = g_simple_action_new("im_default", NULL);
+	g_signal_connect(G_OBJECT(action),"activate",
+						G_CALLBACK(ui_menu_on_cmd2),m);
+	g_action_map_add_action(G_ACTION_MAP(actions), G_ACTION(action));
+	g_object_unref(action);
+	m->actions=actions;
+	
+	if(root)
+	{
+		m->root=gtk_menu_new_from_model(G_MENU_MODEL(m->root_g));
+		gtk_widget_insert_action_group(m->root,"menu",G_ACTION_GROUP(actions));
+
+		g_object_set_data_full(G_OBJECT(m->root),"m",m,(GDestroyNotify)ui_menu_free);
+		g_signal_connect(G_OBJECT(m->root),"selection-done",
+					G_CALLBACK(ui_menu_on_done),m);
+	}
+	else
+	{
+		g_object_set_data_full(G_OBJECT(m->root_g),"m",m,(GDestroyNotify)ui_menu_free);
+	}
 	return m;
 }
 
@@ -2903,6 +2751,10 @@ static void ui_menu_free(ui_menu_t *m)
 	int i;
 	if(!m)
 		return;
+	if(m->root_g)
+		g_object_unref(m->root_g);
+	if(m->actions)
+		g_object_unref(m->actions);
 	for(i=0;i<m->count;i++)
 		l_free(m->cmd[i]);
 	l_free(m);
@@ -2912,7 +2764,7 @@ static void ui_popup_menu(UI_EVENT *event)
 {
 	LKeyFile *kf=y_im_get_menu_config();
 	ui_menu_t *m;
-	m=ui_build_menu(kf);
+	m=ui_build_menu2(kf,true);
 	g_object_ref_sink(m->root);
 	gtk_menu_attach_to_widget(GTK_MENU(m->root),MainWin,NULL);
 	if(my_menu_popup_at_pointer)
@@ -3185,76 +3037,6 @@ static double ui_get_scale(int which)
 	return ui_scale;
 }
 
-static GSettings *gsettings;
-static void on_gsetting_changed(GSettings *settings, const gchar *key, gpointer user_data)
-{
-	if(g_strcmp0(key, "color-scheme") == 0)
-	{
-		YongReloadAll();
-	}
-}
-
-static bool is_settings_has_key(const char *s)
-{
-	gchar **keys=g_settings_list_keys(gsettings);
-	bool found=false;
-	for(int i=0;keys[i]!=NULL;i++)
-	{
-		if(!strcmp(s,keys[i]))
-		{
-			found=true;
-			break;
-		}
-	}
-	g_strfreev(keys);
-	return found;
-}
-static bool ui_get_dark(void)
-{
-	bool is_dark=false;
-	if(!gsettings)
-	{
-		GSettingsSchemaSource *src=g_settings_schema_source_get_default();
-		if(!src)
-			goto fallback;
-		if(!g_settings_schema_source_lookup(src,"org.gnome.desktop.interface",FALSE))
-			goto fallback;
-		gsettings = g_settings_new("org.gnome.desktop.interface");
-		if(gsettings)
-		{
-			g_signal_connect(gsettings, "changed", G_CALLBACK(on_gsetting_changed), NULL);
-		}
-	}
-	if(!gsettings)
-	{
-		goto fallback;
-	}
-	if(!is_settings_has_key("color-scheme"))
-	{
-		g_object_unref(gsettings);
-		gsettings=NULL;
-		goto fallback;
-	}
-	char *color=g_settings_get_string(gsettings,"color-scheme");
-	if(!color)
-	{
-		g_object_unref(gsettings);
-		gsettings=NULL;
-		goto fallback;
-	}
-	is_dark=!strcmp(color,"prefer-dark");
-	g_free(color);
-	return is_dark;
-fallback:
-	GtkSettings *settings = gtk_settings_get_default();
-	if(!settings)
-		return false;
-	gboolean dark=FALSE;
-	g_object_get(G_OBJECT(settings), "gtk-application-prefer-dark-theme",&dark,NULL);
-	is_dark=dark?true:false;
-	return is_dark;
-}
-
 static void ui_setup_dummy(Y_UI *p);
 
 void ui_setup_default(Y_UI *p)
@@ -3299,7 +3081,7 @@ void ui_setup_default(Y_UI *p)
 	p->request=ui_request;
 	
 	p->get_scale=ui_get_scale;
-	p->get_dark=ui_get_dark;
+	p->get_dark=color_schema_get_dark;
 	p->timer_add=ui_timer_add;
 	p->timer_del=ui_timer_del;
 	p->idle_add=ui_idle_add;

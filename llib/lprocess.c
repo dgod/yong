@@ -187,6 +187,12 @@ OUT1:
 }
 #endif
 
+#ifdef __EMSCRIPTEN__
+int l_pread(char **argv,int flags,LProcessReadFunc cb,void *user_data)
+{
+	return -1;
+}
+#else
 int l_pread(char **argv,int flags,LProcessReadFunc cb,void *user_data)
 {
 	WRAPPER_PARAM *param=l_new(WRAPPER_PARAM);
@@ -230,4 +236,5 @@ int l_pread(char **argv,int flags,LProcessReadFunc cb,void *user_data)
 	l_thrd_detach(thr);
 	return 0;
 }
+#endif
 

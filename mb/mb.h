@@ -154,7 +154,6 @@ struct y_mb_zi_first{
 
 #define Y_MB_DIC_MAIN	0x00
 #define Y_MB_DIC_SUB	0x01
-#define Y_MB_DIC_PIN	0x04
 #define Y_MB_DIC_USER	0x05
 #define Y_MB_DIC_TEMP	0x06
 #define Y_MB_DIC_ASSIST	0x07
@@ -369,7 +368,11 @@ bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int cou
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);
 
+#ifdef _WIN32
+extern __declspec(dllexport) EXTRA_IM EIM;
+#else
 extern EXTRA_IM EIM;
+#endif
 
 static inline void y_mb_context_reset(struct y_mb *mb)
 {

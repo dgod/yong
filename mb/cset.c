@@ -524,6 +524,55 @@ static int cmp_with_assoc(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY
 	return it1->index-it2->index;
 }
 
+int cset_ci_first_cmp(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,void *unused)
+{
+	int l1=l_gb_strlen(y_mb_skip_display(s1->cand,-1),-1);
+	int l2=l_gb_strlen(y_mb_skip_display(s2->cand,-1),-1);
+	if((l1==1 && l2==1) || (l1>1 && l2>1))
+		return s1->index-s2->index;
+	return l2-l1;
+}
+
+void cset_reorder_mb_cand(CSET *cs,LCmpDataFunc cmp,void *data)
+{
+	CSET_GROUP_MB *gmb=(void*)cset_get_group_by_type(cs,CSET_TYPE_MB);
+	if(!gmb)
+	{
+		return;
+	}
+	CSET_GROUP_ARRAY *ga=cset_array_group_new(cs);
+	gmb->offset=0;
+	char cand[10][MAX_CAND_LEN+1];
+	char tip[10][MAX_TIPS_LEN+1];
+	for(int i=0;i<gmb->count;)
+	{
+		int num=gmb->count-i;
+		if(num>10)
+			num=10;
+		gmb->get((CSET_GROUP*)gmb,i,num,cand,tip);
+		for(int j=0;j<num;j++)
+		{
+			if(tip[j][0])
+				goto out;
+			else
+				cset_array_group_append(ga,cand[j],NULL);
+		}
+		i+=num;
+	}
+out:
+	if(ga->count<=1)
+	{
+		ga->free((CSET_GROUP*)ga);
+		cset_array_group_new(cs);
+	}
+	else
+	{
+		cset_array_group_sort(ga,cmp,data);
+		cset_group_offset((CSET_GROUP*)gmb,ga->count);
+		cs->list=l_slist_insert_before(cs->list,gmb,ga);
+	}
+}
+
 void cset_apply_assoc(CSET *cs)
 {
 	if(!cs->assoc || l_hash_table_size(cs->assoc)==0)
@@ -540,15 +589,14 @@ void cset_apply_assoc(CSET *cs)
 
 	char cand[10][MAX_CAND_LEN+1];
 	char tip[10][MAX_TIPS_LEN+1];
-	int i,j;
 
-	for(i=0;i<gmb->count;)
+	for(int i=0;i<gmb->count;)
 	{
 		int num=gmb->count-i;
 		if(num>10)
 			num=10;
 		gmb->get((CSET_GROUP*)gmb,i,num,cand,tip);
-		for(j=0;j<num;j++)
+		for(int j=0;j<num;j++)
 		{
 			if(tip[j][0])
 			{

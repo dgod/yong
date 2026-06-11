@@ -467,13 +467,14 @@ int main(int arc,char *arg[])
 	{
 		char *p;
 		p=l_file_get_contents(temp,NULL,y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
-		if(!p) return -1;
+		if(!p) goto INNER;
 		custom=l_xml_load(p);
 		l_free(p);
-		if(!custom) return -1;
+		if(!custom) goto INNER;
 	}
 	else
 	{
+INNER:
 		char temp[20*1024];
 		int len=l_zlib_decode(temp,sizeof(temp),config_custom,sizeof(config_custom),0);
 		temp[len]=0;

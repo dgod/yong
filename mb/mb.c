@@ -1543,7 +1543,7 @@ static inline struct y_mb_ci *mb_add_one_ci(
 						if(p->zi)
 							mb_add_zi(mb,code,clen,data,dlen,0);
 					}
-					if(dic!=Y_MB_DIC_ASSIST && dic!=Y_MB_DIC_TEMP)
+					if(dic!=Y_MB_DIC_ASSIST && dic!=Y_MB_DIC_TEMP && dic!=Y_MB_DIC_SUB)
 					{
 						p->dic=dic;
 					}
@@ -1566,9 +1566,7 @@ static inline struct y_mb_ci *mb_add_one_ci(
 					if(p->zi)
 						mb_add_zi(mb,code,clen,data,dlen,0);
 				}
-				if(dic==Y_MB_DIC_PIN)
-					p->dic=Y_MB_DIC_PIN;
-				else if(dic==Y_MB_DIC_USER && p->dic==Y_MB_DIC_TEMP)
+				if(dic==Y_MB_DIC_USER && p->dic==Y_MB_DIC_TEMP)
 					p->dic=Y_MB_DIC_USER;
 				return p;
 			}
@@ -1600,7 +1598,8 @@ static inline struct y_mb_ci *mb_add_one_ci(
 					if(p->zi)
 						mb_add_zi(mb,code,clen,data,dlen,0);
 				}
-				p->dic=dic;
+				if(dic!=Y_MB_DIC_SUB)
+					p->dic=dic;
 				if(!n) return p;
 				c=p;p=n;
 				it->phrase=L_CPTR_T(p);
@@ -1621,12 +1620,12 @@ static inline struct y_mb_ci *mb_add_one_ci(
 					if(i==pos)
 					{
 						/* 词已经在正常位置，不需要用户词库调整 */
-						if(dic==Y_MB_DIC_PIN)
-							n->dic=Y_MB_DIC_PIN;
 						return n;
 					}
 					p->next=n->next;
-					c=n;c->dic=dic;
+					c=n;
+					if(dic!=Y_MB_DIC_SUB)
+						c->dic=dic;
 					if(a_node)
 						break;
 					del=1;
@@ -2532,7 +2531,7 @@ int mb_load_data(struct y_mb *mb,FILE *fp,int dic)
 	int len,clen,dlen;
 	char *data;
 	struct y_mb_ci *c;
-	int in_data=(dic==Y_MB_DIC_MAIN || dic==Y_MB_DIC_USER || dic==Y_MB_DIC_PIN);
+	int in_data=(dic==Y_MB_DIC_MAIN || dic==Y_MB_DIC_USER);
 	int has_space=y_mb_is_key(mb,' ');
 
 	while(!mb->cancel)
@@ -2887,89 +2886,69 @@ int y_mb_load_pin(struct y_mb *mb,const char *pin)
 {
 	if(!pin)
 		return -1;
-	
 	FILE *fp=y_mb_open_file(pin,"rb");
 	if(!fp)
 		return -1;
-	//assert(mb->pin==NULL);
 	if(mb->pin)
 	{
 		l_hash_table_free(mb->pin,(LFreeFunc)pin_free);
 		mb->pin=NULL;
 	}
 	mb->pin=L_HASH_TABLE_STRING(struct y_mb_pin_item,data,0);	
-	mb_load_data(mb,fp,Y_MB_DIC_PIN);
-	fclose(fp);
-	for(struct y_mb_index *index=mb->index;index;index=L_CPTR(index->next))
+	mb_load_data(mb,fp,Y_MB_DIC_MAIN);
+	rewind(fp);
+	while(true)
 	{
-		struct y_mb_item *it=L_CPTR(index->item);
-		while(it)
+		char line[512],key[64],phrase[256];
+		int len=l_get_line(line,sizeof(line),fp);
+		if(len<0)
+			break;
+		if(line[0]!='{')
+			continue;
+		int pos;
+		int ret=l_sscanf(line,"{%d}%63s %255s",&pos,key,phrase);
+		if(ret!=3 || pos<0 || pos>127)
+			continue;
+		struct y_mb_pin_item *item=l_hash_table_lookup(mb->pin,key);
+		if(!item)
 		{
-			char *code;
-			int clen;
-			struct y_mb_ci *cp;
-			int pos=0;
-			struct y_mb_pin_item *item=NULL;
-			
-			code=mb_key_conv2_r(mb,index->index,it->code);
-			clen=strlen(code);
-			
-			cp=L_CPTR(it->phrase);
-			while(cp)
-			{
-				if(cp->dic==Y_MB_DIC_PIN && pos<128)
-				{
-					struct y_mb_pin_ci *pc;
-					if(!item)
-					{
-						item=l_hash_table_lookup(mb->pin,code);
-						if(!item)
-						{			
-							item=l_alloc(sizeof(struct y_mb_pin_item)+clen+1);
-							strcpy(item->data,code);
-							item->len=(uint8_t)clen;
-							item->next=NULL;
-							item->list=NULL;
-							l_hash_table_insert(mb->pin,item);
-						}
-					}
-			
-					pc=l_alloc(sizeof(struct y_mb_pin_ci)+cp->len);
-					pc->next=NULL;
-					pc->len=cp->len;
-					pc->pos=(int8_t)pos;
-					memcpy(pc->data,cp->data,cp->len);
-					//printf("{%d}%s %s\n",pos,code,y_mb_ci_string(cp));
-					if(item->list==NULL)
-					{
-						item->list=pc;
-					}
-					else if(item->list->pos>=pc->pos)
-					{
-						pc->next=item->list;
-						item->list=pc;
-					}
-					else
-					{
-						struct y_mb_pin_ci *pp;
-						for(pp=item->list;pp!=NULL;pp=pp->next)
-						{
-							if(pp->next==NULL || pp->next->pos>=pc->pos)
-							{
-								pc->next=pp->next;
-								pp->next=pc;
-								break;
-							}
-						}
-					}
-				}
-				if(!cp->del)
-					pos++;
-				cp=L_CPTR(cp->next);
-			}
-			it=L_CPTR(it->next);
+			int clen=strlen(key);
+			item=l_alloc(sizeof(struct y_mb_pin_item)+clen+1);
+			strcpy(item->data,key);
+			item->len=(uint8_t)clen;
+			item->next=NULL;
+			item->list=NULL;
+			l_hash_table_insert(mb->pin,item);
 		}
+		len=strlen(phrase);
+		struct y_mb_pin_ci *pc=l_alloc(sizeof(struct y_mb_pin_ci)+len);
+		pc->next=NULL;
+		pc->len=len;
+		pc->pos=pos;
+		memcpy(pc->data,phrase,len);
+		if(item->list == NULL)
+		{
+			item->list=pc;
+		}
+		else if(item->list->pos >= pc->pos)
+		{
+			pc->next=item->list;
+			item->list=pc;
+		}
+		else
+		{
+			for(struct y_mb_pin_ci *pp=item->list;pp!=NULL;pp=pp->next)
+			{
+				if(pp->next==NULL || pp->next->pos>=pc->pos)
+				{
+					pc->next=pp->next;
+					pp->next=pc;
+					break;
+				}
+			}
+		}		
 	}
+	fclose(fp);
 	return 0;
 }
 
@@ -2988,7 +2967,7 @@ static int mb_pin_phrase(struct y_mb *mb,const char *code)
 	}
 	for(c=item->list;c!=NULL;c=c->next)
 	{
-		mb_add_one(mb,code,item->len,c->data,c->len,c->pos,Y_MB_DIC_PIN);
+		mb_add_one(mb,code,item->len,c->data,c->len,c->pos,Y_MB_DIC_MAIN);
 	}
 	return 0;
 }
@@ -3167,7 +3146,7 @@ int y_mb_load_to(struct y_mb *mb,const char *fn,int flag,struct y_mb_arg *arg)
 			if(line[0]=='#')
 				continue;
 		}
-		if(!strcmp(line,"encode=UTF-8"))
+		if(l_str_has_prefix(line,"encode=UTF-8"))
 		{
 			mb->encode=1;
 		}
@@ -4167,10 +4146,9 @@ static int mb_simple_code_match(const char *code,const char *s,int len,uint8_t s
 	}
 	else
 	{
-		char *p;
 		for(i=0;i<len;i++)
 		{
-			p=strchr(code,s[i]);
+			const char *p=strchr(code,s[i]);
 			if(!p) return 0;
 			code=p+1;			
 		}

@@ -198,6 +198,8 @@ int y_im_nl_from_day(char *s,int year,int month,int day)
 		return -3;
 	int yday=GetDaysOfYear(year,month,day)-1;
 	int iSpanDays=GetSpanDays(year-1900,yday);
+	if(iSpanDays<49)
+		return -4;
 	LunarDay(&year,&month,&day,iSpanDays);
 	if(month>=1 && month<=12 && day>=1 && day<=30)
 		sprintf(s,"%s%s",nl_mon[month-1],nl_day[day-1]);
@@ -218,17 +220,19 @@ int y_im_nl_from_time(char *s,int64_t t)
 	if(tm->tm_year+1900>END_YEAR || tm->tm_year+1900<START_YEAR)
 		return -2;
 	iSpanDays=GetSpanDays(tm->tm_year,tm->tm_yday);
+	if(iSpanDays<49)
+		return -3;
 	LunarDay(&year,&month,&day,iSpanDays);
 	if(month>=1 && month<=12 && day>=1 && day<=30)
 		sprintf(s,"%s%s",nl_mon[month-1],nl_day[day-1]);
 	return 0;
 }
 
-#if 0
+#if TEST_NL
 int main(int arc,char *arg[])
 {
 	char day[256];
-	y_im_nl_day(l_time(),day);
+	y_im_nl_from_time(day,l_time());
 	printf("%s\n",day);
 	return 0;
 }

@@ -6517,7 +6517,7 @@ int l_unichar_to_gb(uint32_t c,uint8_t *outbuf)
 		{
 			static const char *pua_uni=
 					"\x2c\x79\x95\xe7\xf1";
-			char *p=strchr(pua_uni,(char)c&0xff);
+			const char *p=strchr(pua_uni,(char)c&0xff);
 			if(!p) return 0;
 			t=0xfd9c+(uint8_t)(size_t)(p-pua_uni);
 		}
@@ -6526,7 +6526,7 @@ int l_unichar_to_gb(uint32_t c,uint8_t *outbuf)
 			static const char *pua_uni=
 					"\x0c\x0d\x0e\x0f\x11\x13\x14\x18"
 					"\x1f\x20\x21\x23\x24\x27\x28\x29";
-			char *p=strchr(pua_uni,(char)c&0xff);
+			const char *p=strchr(pua_uni,(char)c&0xff);
 			if(!p) return 0;
 			t=0xfe40+(uint8_t)(size_t)(p-pua_uni);
 		}

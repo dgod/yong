@@ -100,3 +100,6 @@ int cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count);
 int cset_has_assoc(CSET *cs,const char *code);
 void cset_apply_assoc(CSET *cs);
 
+int cset_ci_first_cmp(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,void *unused);
+void cset_reorder_mb_cand(CSET *cs,LCmpDataFunc cmp,void *data);
+

@@ -1057,7 +1057,12 @@ void update_im(void)
 		}
 	}
 	/* something should different for engines should update */
-	im.Hint=y_im_get_config_int("input","hint");	
+	im.Hint=y_im_get_config_int("input","hint")?true:false;
+	eim=(char*)y_im_get_im_config_data(im.Index,"safe");
+	if(eim && eim[0])
+		im.Safe=atoi(eim)?true:false;
+	else
+		im.Safe=im.Index==y_im_get_config_int("IM","default");
 	y_ui_cfg_ctrl("strip",get_input_strip());
 	
 	im.AssocLen=y_im_get_im_config_int(im.Index,"assoc_len");

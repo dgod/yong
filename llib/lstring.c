@@ -150,6 +150,7 @@ void l_string_init(LString *string,int size)
 		string->str=l_alloc(size);
 		string->str[0]=0;
 		string->size=size;
+		string->len=0;
 	}
 	else
 	{

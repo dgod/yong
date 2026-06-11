@@ -1,7 +1,7 @@
 #include "llib.h"
 #include "lmman.h"
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__EMSCRIPTEN__)
 #include <sys/mman.h>
 #endif
 

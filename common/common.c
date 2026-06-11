@@ -16,8 +16,6 @@
 #endif
 #include "ybus.h"
 
-//#define memcpy(a,b,c) memmove(a,b,c)
-
 static LKeyFile *MainConfig,*SubConfig,*MenuConfig;
 
 static Y_XIM xim;
@@ -371,6 +369,11 @@ void y_xim_send_string2(const char *s,int flag)
 			}
 			else if(!strncmp(s,"$GO(",4) && l_str_has_suffix(s,")"))
 			{
+				if(!im.Safe)
+				{
+					y_ui_show_tip(YT("非安全输出"));
+					return;
+				}
 				y_xim_send_string2("",SEND_FLUSH|SEND_GO);
 				y_im_go_url(s);
 				return;
@@ -459,6 +462,11 @@ void y_xim_send_string2(const char *s,int flag)
 			}
 			else if(l_str_has_surround(s,"$IMKEY(",")"))
 			{
+				if(!im.Safe)
+				{
+					y_ui_show_tip(YT("非安全输出"));
+					return;
+				}
 				char *temp=l_memdupa0(s+7,strlen(s+7)-1);
 				int *keys=y_im_str_to_keys(temp);
 #if L_USE_COROUTINE
@@ -471,6 +479,11 @@ void y_xim_send_string2(const char *s,int flag)
 #if L_USE_COROUTINE
 			else if(l_str_has_surround(s,"$SENDKEYS(",")"))
 			{
+				if(!im.Safe)
+				{
+					y_ui_show_tip(YT("非安全输出"));
+					return;
+				}
 				if(xim.send_keys)
 				{
 					char *temp=l_memdupa0(s+10,strlen(s+10)-1);
@@ -771,11 +784,21 @@ int y_im_last_key(int key)
 	return ret;
 }
 
+static bool y_im_is_empty_string(const void *s)
+{
+#if defined(_WIN32) || defined(CFG_XIM_ANDROID)
+	const uint16_t *p=s;
+#else
+	const uint8_t *p=s;
+#endif
+	return p[0]?false:true;
+}
+
 void y_xim_preedit_draw(const char *s,int len)
 {
 	if(xim.preedit_draw)
 	{
-		if(!s || len==0 || !s[0])
+		if(!s || len==0 || y_im_is_empty_string(s))
 		{
 			y_xim_preedit_clear();
 		}
@@ -2135,7 +2158,7 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 	static char line[8192];
 
 	/* test if escape needed */
-	ps=strchr(s,'$');
+	ps=(char*)strchr(s,'$');
 	if(!ps)
 	{
 		/* copy, so we can always change the escaped string without change orig */
@@ -2147,7 +2170,7 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 	if(s[0]=='$' && !strcmp(s+1,"LAST"))
 	{
 		s=last_output;
-		ps=strchr(s,'$');
+		ps=(char*)strchr(s,'$');
 		if(!ps)
 		{
 			strcpy(line,s);
@@ -2208,7 +2231,7 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 	}
 	strcpy(line,s);
 	s=line;
-	ps=strchr(s,'$');
+	ps=(char*)strchr(s,'$');
 	if(!t) t=l_time();
 	tm=l_localtime(&t);
 
@@ -2357,7 +2380,7 @@ char *y_im_str_escape(const char *s,int commit,int64_t t)
 		{
 			str_replace(ps-1,5,last_output);
 		}
-		s=ps;ps=strchr(s,'$');
+		s=ps;ps=(char*)strchr(s,'$');
 	}while(ps!=NULL);
 	return line;
 }

@@ -73,7 +73,9 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 			if(gb_is_gbk(p))
 			{
 				if(size>0 && pos+2>=size)
+				{
 					return NULL;
+				}
 				if(out)
 				{
 					out[pos++]=*p++;
@@ -89,7 +91,9 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 			else if(gb_is_gb18030_ext(p))
 			{
 				if(size>0 && pos+2>=size)
+				{
 					return NULL;
+				}
 				if(out)
 				{
 					out[pos++]=*p++;
@@ -107,7 +111,9 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 		}
 		c=*p++;
 		if(size>0 && pos+1>=size)
+		{
 			return NULL;
+		}
 		if(c==config->env[0])
 		{
 			if(*p!=config->env[1])
@@ -117,10 +123,14 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 			c=*p++;
 			const char *end=strchr((const char*)p,config->env[2]);
 			if(!end)
+			{
 				return NULL;
+			}
 			int len=(int)(size_t)(end-(const char*)p);
 			if(len<=1)
+			{
 				return NULL;
+			}
 			char name[len+1];
 			memcpy(name,p,len);
 			name[len]=0;
@@ -136,7 +146,9 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 				int num=(int)(size_t)(end-out-pos+1);
 				int val_len=l_str_splice_inplace(out,size,start,num,val);
 				if(val_len<0)
+				{
 					return NULL;
+				}
 				p=(const uint8_t*)out+start+val_len;
 				pos=start+val_len;
 			}
@@ -146,7 +158,9 @@ void *l_unescape(const void *in, char *out, int size, const L_ESCAPE_CONFIG *con
 				{
 					int val_len=strlen(val);
 					if(pos+val_len>=size)
+					{
 						return NULL;
+					}
 					memcpy(out+pos,val,val_len);
 					p+=len+1;
 					pos+=val_len;

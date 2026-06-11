@@ -275,14 +275,6 @@ typedef struct{
 	int height;
 }AtScaleData;
 
-static void image_load_cb(GdkPixbufLoader *loader,GdkPixbuf **pixbuf)
-{
-	if(*pixbuf)
-		return;
-	*pixbuf=gdk_pixbuf_loader_get_pixbuf(loader);
-	g_object_ref(*pixbuf);
-}
-
 static void image_size_cb(GdkPixbufLoader *loader,gint width,gint height,UI_SIZE *sz)
 {
 	if(sz->w>0 && sz->h>0)
@@ -319,7 +311,6 @@ GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,in
 			// printf("get image path fail %s\n",file);
 			return NULL;
 		}
-		GdkPixbufLoader *load;
 		contents=l_file_get_contents(path,&length,NULL);
 		if(!contents)
 		{
@@ -327,23 +318,26 @@ GdkPixbuf *ui_image_load_pixbuf_at_size(const char *file,int width,int height,in
 			return NULL;
 		}
 LOAD_BUF:
-		load=gdk_pixbuf_loader_new();
+		GdkPixbufLoader *load=gdk_pixbuf_loader_new();
 		UI_SIZE size={.w=width,.h=height};
 		g_signal_connect(load,"size-prepared",G_CALLBACK(image_size_cb),&size);
 		if(width>0 && height>0)
 		{
 			gdk_pixbuf_loader_set_size(load,width,height);
 		}
-		pixbuf=NULL;
-		g_signal_connect(load,"area-prepared",G_CALLBACK(image_load_cb),&pixbuf);
 		if(!gdk_pixbuf_loader_write(load,(const guchar*)contents,length,NULL))
 		{
 			l_free(contents);
+			g_object_unref(load);
 		 	// fprintf(stderr,"load image %s fail\n",file);
 			return NULL;
 		}
 		l_free(contents);
 		gdk_pixbuf_loader_close(load,NULL);
+		pixbuf=gdk_pixbuf_loader_get_pixbuf(load);
+		if(pixbuf!=NULL)
+			g_object_ref(pixbuf);
+		g_object_unref(load);
 	}
 	return pixbuf;
 }

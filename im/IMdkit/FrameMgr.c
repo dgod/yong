@@ -487,7 +487,7 @@ FmStatus _FrameMgrPutToken (FrameMgr fm, void *data, int data_size)
 	break;
     }
     /*endswitch*/
-    return (FmStatus) NULL;  /* Should never be reached */
+    return (FmStatus)(intptr_t)NULL;  /* Should never be reached */
 }
 
 FmStatus _FrameMgrGetToken (FrameMgr fm , void* data, int data_size)
@@ -711,7 +711,7 @@ FmStatus _FrameMgrGetToken (FrameMgr fm , void* data, int data_size)
 	break;
     }
     /*endswitch*/
-    return (FmStatus) NULL;  /* Should never be reached */
+    return (FmStatus)(intptr_t)NULL;  /* Should never be reached */
 }
 
 FmStatus FrameMgrSetSize (FrameMgr fm, int barray_size)
@@ -1754,10 +1754,10 @@ static XimFrameType IterGetNextType (Iter it, XimFrameTypeInfo info)
         }
 
     default:
-	return (XimFrameType) NULL;
+	return (XimFrameType)(intptr_t)NULL;
     }
     /*endswitch*/
-    return (XimFrameType) NULL;  /* This should never occur */
+    return (XimFrameType)(intptr_t)NULL;  /* This should never occur */
 }
 
 static XimFrameType IterPeekNextType (Iter it, XimFrameTypeInfo info)
@@ -1835,7 +1835,7 @@ static XimFrameType IterPeekNextType (Iter it, XimFrameTypeInfo info)
     }
     /*endswitch*/
     /* Reaching here is a bug! */
-    return (XimFrameType) NULL;
+    return (XimFrameType)(intptr_t)NULL;
 }
 
 static FmStatus IterSetSize (Iter it, int num)

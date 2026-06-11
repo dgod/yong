@@ -517,7 +517,7 @@ LCallConn *l_call_conn_new(GIOChannel *channel,LCallUser *user)
 #endif
 
 #ifdef L_CALL_GLIB_SERVER
-#include "lfile.h"
+#include "llib.h"
 GIOChannel *l_call_server_new(void)
 {
 	struct sockaddr_un sa;

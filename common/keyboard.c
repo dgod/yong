@@ -343,18 +343,23 @@ static int kbd_select(int8_t pos,int8_t sub)
 		SetWindowText(kst.layout.win,temp);
 		InvalidateRect(kst.layout.win,NULL,TRUE);
 		
-		int w,h,cx,cy;
+		int w,h;
 		w=GetSystemMetrics(SM_CXSCREEN);
 		h=GetSystemMetrics(SM_CYSCREEN);
-		cy=GetSystemMetrics(SM_CYCAPTION)+2*GetSystemMetrics(SM_CYFIXEDFRAME);
-		cx=2*GetSystemMetrics(SM_CXFIXEDFRAME);
+
+		DWORD dwExStyle=WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_APPWINDOW;
+		DWORD dwStyle=WS_CAPTION|WS_OVERLAPPED|WS_SYSMENU;
+		RECT rect = { 0, 0, kst.layout.main.rc.w, kst.layout.main.rc.h };
+		AdjustWindowRectEx(&rect, dwStyle, FALSE, dwExStyle);
+		DWORD dwWidth=rect.right-rect.left;
+		DWORD dwHeight=rect.bottom-rect.top;
+
 		if(kst.first)
 		{
 			MoveWindow(kst.layout.win,
-				(w-cx-kst.layout.main.rc.w)/2,
-				(h-cy-kst.layout.main.rc.h)/2,
-				cx+kst.layout.main.rc.w,
-				cy+kst.layout.main.rc.h,
+				(w-dwWidth)/2,
+				(h-dwHeight)/2,
+				dwWidth,dwHeight,
 				TRUE);
 			kst.first=0;
 		}
@@ -363,8 +368,7 @@ static int kbd_select(int8_t pos,int8_t sub)
 			GetWindowRect(kst.layout.win,&rc);
 			MoveWindow(kst.layout.win,
 				rc.left,rc.top,
-				cx+kst.layout.main.rc.w,
-				cy+kst.layout.main.rc.h,
+				dwWidth,dwHeight,
 				TRUE);
 		}
 		GetClientRect(kst.layout.win,&rc);

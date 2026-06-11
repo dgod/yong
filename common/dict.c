@@ -42,7 +42,8 @@ int y_dict_query_network(const char *s)
 	char temp[256];
 	char *site;
 	int eng=im.EnglishMode || (l_gb_strlen(s,-1)==strlen(s));
-	encodeURIComponent(s,temp,sizeof(temp));
+	l_gb_to_utf8(s,url,sizeof(url));
+	encodeURIComponent(url,temp,sizeof(temp));
 	site=y_im_get_config_string("IM",eng?"dict_en":"dict_cn");
 	if(site)
 	{
