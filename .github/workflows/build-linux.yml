@@ -1,5 +1,4 @@
-name: build-linux
-
+g`"
 on:
   push:
   workflow_dispatch:
@@ -39,6 +38,12 @@ jobs:
       - name: 编译
         run: |
           set -e
+          mkdir -p \
+            llib/l64 mb/l64 gbk/l64 cloud/l64 vim/l64 \
+            config/l64-gtk3 config/l64-gtk4 \
+            im/IMdkit/l64 im/l64-gtk3 \
+            im/gtk-im/l64-gtk3 im/gtk4-im/l64-gtk4 im/conio/l64 \
+            linim/l64 linim/IMdkit/l64 linim/wui/l64
           build -C llib l64
           build -C mb l64
           build -C gbk l64
