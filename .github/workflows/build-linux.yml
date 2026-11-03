@@ -1,0 +1,96 @@
+name: build-linux
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang pkg-config \
+            libgtk-3-dev libgtk-4-dev libibus-1.0-dev libxkbcommon-dev \
+            libx11-dev libwayland-dev libcurl4-openssl-dev \
+            gettext p7zip-full
+      - name: 编译
+        run: |
+          set -e
+          node build.js -C llib l64
+          node build.js -C mb l64
+          node build.js -C gbk l64
+          node build.js -C cloud l64
+          node build.js -C vim l64
+          node build.js -C config l64
+          node build.js -C im/IMdkit l64
+          node build.js -C im/gtk-im l64-gtk3
+          node build.js -C im/gtk4-im l64-gtk4
+          node build.js -C im/conio l64
+          node build.js -C im l64-gtk3
+          node build.js -C linim l64
+          # 不构建 l64-gtk2：Ubuntu 24.04 已无 libgtk2.0-dev，x86_64 与 arm64 包内容保持一致
+      - name: 组装 install/yong
+        run: |
+          set -e
+          # 缺失的 data/bihua.bin、data/mb/pypre.bin、data/mb/wbx.txt 与 gtk2 插件按条件跳过，不调用 symver
+          Y=install/yong
+          rm -rf "$Y"
+          mkdir -p "$Y/l64/gtk-im" "$Y/mb" "$Y/skin" "$Y/locale" "$Y/entry"
+
+          cp -a im/skin/. "$Y/skin/"
+          cp -a im/yong-tool.sh im/yong.ini im/yong.xml "$Y/"
+          for f in README.txt yong.chm normal.txt bihua.bin; do
+            if [ -f "data/$f" ]; then cp "data/$f" "$Y/"; fi
+          done
+          for f in wbx.txt wbpy.ini erbi.txt zhengma.txt english.txt pinyin.ini \
+                   sp.ini pinyin.txt pypre.bin yong.txt; do
+            if [ -f "data/mb/$f" ]; then cp "data/mb/$f" "$Y/mb/"; fi
+          done
+          cp -a data/entry/. "$Y/entry/"
+
+          cp llib/l64/libl.so "$Y/l64/"
+          cp im/l64-gtk3/yong "$Y/l64/yong-gtk3"
+          cp config/l64-gtk3/yong-config "$Y/l64/yong-config-gtk3"
+          cp config/l64-gtk4/yong-config "$Y/l64/yong-config-gtk4"
+          cp vim/l64/yong-vim "$Y/l64/"
+          cp im/conio/l64/yong-con "$Y/l64/"
+          cp mb/l64/libmb.so gbk/l64/libgbk.so cloud/l64/libcloud.so "$Y/l64/"
+          cp im/gtk-im/l64-gtk3/im-yong.so "$Y/l64/gtk-im/im-yong-gtk3.so"
+          cp im/gtk4-im/l64-gtk4/libimyong.so "$Y/l64/gtk-im/libimyong-gtk4.so"
+          cp linim/l64/yong "$Y/l64/yong-wui"
+          cp linim/wui/l64/libwui-gtk3-x11.so linim/wui/l64/libwui-wayland.so "$Y/l64/"
+          ln -sf yong-config-gtk3 "$Y/l64/yong-config"
+
+          msgfmt -c im/gtk-im/zh_CN.po -o "$Y/locale/zh_CN.mo"
+          find "$Y/l64" -type f \( -name '*.so' -o -name 'yong-*' \) \
+            -exec strip --strip-all {} + || true
+      - name: 打包 7z
+        run: |
+          set -e
+          VER=$(date +%Y%m%d)
+          cd install
+          7z a "yong-lin-${{ matrix.arch }}-$VER.7z" yong
+          ls -lh "yong-lin-${{ matrix.arch }}-$VER.7z"
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: yong-lin-${{ matrix.arch }}
+          path: install/yong-lin-*.7z
+          if-no-files-found: error
