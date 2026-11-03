@@ -1,4 +1,3 @@
-g`"
 on:
   push:
   workflow_dispatch:
