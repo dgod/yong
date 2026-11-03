@@ -72,7 +72,7 @@ function run(target){
 	}
 	if($('CC').includes('clang')){
 		env('CFLAGS+=-Wno-invalid-source-encoding');
-		env('CFLAGS+=-fdefer-ts');
+		// env('CFLAGS+=-fdefer-ts');
 	}
 	var OBJS=wildcard(SRCS,function(input){
 		return target+'/'+input.replace(/\.c$/,'.o');
