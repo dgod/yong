@@ -84,7 +84,7 @@ env("CFLAGS+=-Wall -g -O2 -fno-strict-aliasing -Wno-format-truncation -fms-exten
 if($('CC').includes('clang')){
 	env('CFLAGS+=-Wno-invalid-source-encoding');
 	env('CFLAGS+=-Wno-microsoft-anon-tag');
-	env('CFLAGS+=-fdefer-ts');
+	// env('CFLAGS+=-fdefer-ts');
 }else if(BUILD=='w32' || BUILD=='w64'){
 	env("LDFLAGS+=-static-libgcc");
 }
