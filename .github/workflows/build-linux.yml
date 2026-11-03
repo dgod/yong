@@ -30,21 +30,27 @@ jobs:
             libgtk-3-dev libgtk-4-dev libibus-1.0-dev libxkbcommon-dev \
             libx11-dev libwayland-dev libcurl4-openssl-dev \
             gettext p7zip-full
+      - name: 安装 build 命令
+        run: |
+          git clone --depth 1 https://github.com/dgod/build.js.git /tmp/dgod-build.js
+          sudo install -m 755 /tmp/dgod-build.js/build.js /usr/local/bin/build
+          sudo sed -i '1c #!/usr/bin/env node' /usr/local/bin/build
+          build -h
       - name: 编译
         run: |
           set -e
-          node build.js -C llib l64
-          node build.js -C mb l64
-          node build.js -C gbk l64
-          node build.js -C cloud l64
-          node build.js -C vim l64
-          node build.js -C config l64
-          node build.js -C im/IMdkit l64
-          node build.js -C im/gtk-im l64-gtk3
-          node build.js -C im/gtk4-im l64-gtk4
-          node build.js -C im/conio l64
-          node build.js -C im l64-gtk3
-          node build.js -C linim l64
+          build -C llib l64
+          build -C mb l64
+          build -C gbk l64
+          build -C cloud l64
+          build -C vim l64
+          build -C config l64
+          build -C im/IMdkit l64
+          build -C im/gtk-im l64-gtk3
+          build -C im/gtk4-im l64-gtk4
+          build -C im/conio l64
+          build -C im l64-gtk3
+          build -C linim l64
           # 不构建 l64-gtk2：Ubuntu 24.04 已无 libgtk2.0-dev，x86_64 与 arm64 包内容保持一致
       - name: 组装 install/yong
         run: |
