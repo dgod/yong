@@ -211,7 +211,7 @@ int y_im_load_extra(IM *im,const char *name)
 		im->Biaodian=LANG_CN;
 		id.biaodian=LANG_CN;
 	}
-	p=y_im_get_config_string(name,"corner");
+	p=y_im_get_config_data(name,"corner");
 	if(p && !strcmp(p,"full"))
 	{
 		id.corner=CORNER_FULL;
@@ -279,11 +279,12 @@ const char *YongFullChar(int key)
 	return fullchar[key-' '];
 }
 
-static char punc[32]=".,?\":;'<>\\!@$^*_()[]&";
-static struct{
+typedef struct{
 	char punc[2][11];
 	int8_t which;
-}PUNC[32]={
+}PUNC_ITEM;
+static char punc[32]=".,?\":;'<>\\!@$^*_()[]&";
+static const PUNC_ITEM _PUNC[32]={
 	{{"¡£",""},-1},
 	{{"£¬",""},-1},
 	{{"£¿",""},-1},
@@ -295,12 +296,10 @@ static struct{
 	{{"¡·",""},-1},
 	{{"¡¢",""},-1},
 	{{"£¡",""},-1},
-	//{{"¡¤",""},-1},
 	{{"@",""},-1},
 	{{"£¤",""},-1},
 	{{"¡­¡­",""},-1},
 	{{"¡Á",""},-1},
-	//{{"©¤©¤",""},-1},
 	{{"¡ª¡ª",""},-1},
 	{{"£¨",""},-1},
 	{{"£©",""},-1},
@@ -308,52 +307,62 @@ static struct{
 	{{"¡¸","¡¹"},0},
 	{{"¡¤",""},-1},
 };
+static PUNC_ITEM *PUNC;
 
 void y_im_load_punc(void)
 {
-	FILE *fp;
-	char temp[256];
-	char *bd_file;
+	char filename[256];
 
 	/* remove append biaodian first */
 	memset(punc+21,0,sizeof(punc)-21);
-		
-	bd_file=y_im_get_config_string("IM","biaodian");
-	strcpy(temp,bd_file?bd_file:"bd.txt");
+	l_free(PUNC);
+	PUNC=l_memdup(_PUNC,sizeof(_PUNC));
+
+	char *bd_file=y_im_get_config_string("IM","biaodian");
+	strcpy(filename,bd_file?bd_file:"bd.txt");
 	if(bd_file) l_free(bd_file);
 
-	fp=y_im_open_file(temp,"rb");
-	if(!fp) return;
-	while(fgets(temp,sizeof(temp),fp))
+	for(int i=0;i<2;i++)
 	{
-		char code[8],bd1[11],bd2[8];
-		char *p;
-		int ret;
-		if(temp[0]=='#') continue;
-		ret=l_sscanf(temp,"%8s %11s %8s",code,bd1,bd2);
-		if(ret<2)
+		FILE *fp=l_file_open(filename,"rb",y_im_get_path(i==0?"DATA":"HOME"),NULL);
+		if(!fp) continue;
+		if(l_filep_size(fp)<=2)
 		{
-			break;
+			fclose(fp);
+			continue;
 		}
-		if(ret==2) bd2[0]=0;
-		if(strlen(code)!=1 || strlen(bd1)>10 || strlen(bd2)>4)
+		char temp[256];
+		while(fgets(temp,sizeof(temp),fp))
 		{
-			break;
+			char code[8],bd1[11],bd2[8];
+			char *p;
+			int ret;
+			if(temp[0]=='#') continue;
+			ret=l_sscanf(temp,"%8s %11s %8s",code,bd1,bd2);
+			if(ret<2)
+			{
+				break;
+			}
+			if(ret==2) bd2[0]=0;
+			if(strlen(code)!=1 || strlen(bd1)>10 || strlen(bd2)>4)
+			{
+				break;
+			}
+			if(code[0]<=0x20 || code[0]>=0x7f)
+			{
+				break;
+			}
+			p=strchr(punc,code[0]);
+			if(p) ret=p-punc;
+			else ret=strlen(punc);
+			if(ret>=31) break;
+			punc[ret]=code[0];
+			strcpy(PUNC[ret].punc[0],bd1);
+			strcpy(PUNC[ret].punc[1],bd2);
+			PUNC[ret].which=bd2[0]?0:-1;
 		}
-		if(code[0]<=0x20 || code[0]>=0x7f)
-		{
-			break;
-		}
-		p=strchr(punc,code[0]);
-		if(p) ret=p-punc;
-		else ret=strlen(punc);
-		if(ret>=31) break;
-		punc[ret]=code[0];
-		strcpy(PUNC[ret].punc[0],bd1);
-		strcpy(PUNC[ret].punc[1],bd2);
-		PUNC[ret].which=bd2[0]?0:-1;
+		fclose(fp);
 	}
-	fclose(fp);
 }
 
 const char *YongGetPunc(int key,int bd,int peek)

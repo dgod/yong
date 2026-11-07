@@ -140,8 +140,8 @@ UI_IMAGE ui_image_load_scale(const char *file,double scale,int width,int height,
 
 UI_IMAGE ui_image_load_page(int size,UI_COLOR color,bool up)
 {
-	static const char *path_up="M 56.1875 5.953125 L 56.1875 -54.203125 L 4.09375 -24.125 Z M 56.1875 5.953125 ";
-	static const char *path_down="M 7.8125 5.953125 L 59.90625 -24.125 L 7.8125 -54.203125 Z M 7.8125 5.953125 ";
+	static const char *path_up="M 56.1875 5.953125 L 56.1875 -54.203125 L 4.09375 -24.125 Z";
+	static const char *path_down="M 7.8125 5.953125 L 59.90625 -24.125 L 7.8125 -54.203125 Z";
 	char svg[1024];
 	int pos=sprintf(svg,"<svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">");
 	pos+=sprintf(svg+pos,"<path fill=\"#%02x%02x%02x\" fill-opacity=\"1\" transform=\"translate(0,56.240234)\" d=\"%s\"/>",

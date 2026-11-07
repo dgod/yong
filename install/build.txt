@@ -23,6 +23,7 @@ function copy_data(){
 	cp('../data/mb/sp.ini','yong/mb/');
 	cp('../data/mb/pinyin.txt','yong/mb/');
 	cp('../data/mb/pypre.bin','yong/mb/');
+	cp('../data/mb/pypre-zrm.bin','yong/mb/');
 	cp('../data/mb/yong.txt','yong/mb/');
 	cp('../data/entry','yong/');
 }
@@ -196,6 +197,7 @@ if(target=="copy"){
 	copy_build("l64");
 }else if(target=="dist"){
 	set_ver();
+	rm('yong/mb/pypre-zrm.bin');
 	exec("7za a yong-lin-$(VER).7z yong");	
 }else if(target=="rpm"){
 	rpm();

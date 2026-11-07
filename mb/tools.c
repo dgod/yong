@@ -244,18 +244,20 @@ static void mb_head_dump(struct y_mb *mb,FILE *fp)
 		fprintf(fp,"hint=0\n");
 	if(mb->auto_clear)
 		fprintf(fp,"auto_clear=%d\n",mb->auto_clear);
-	else if(mb->nomove[0])
+	if(mb->nomove[0])
 		fprintf(fp,"nomove=%s\n",mb->nomove);
-	else if(mb->auto_move)
+	if(mb->auto_move)
 		fprintf(fp,"auto_move=%d\n",mb->auto_move);
-	else if(mb->nsort)
+	if(mb->nsort)
 		fprintf(fp,"nsort=1\n");
-	else if(mb->sloop)
+	if(mb->sloop)
 		fprintf(fp,"sloop=%d\n",mb->sloop);
-	else if(mb->split>0 && mb->split<10)
+	if(mb->split>0 && mb->split<10)
 		fprintf(fp,"split=%d\n",mb->split);
 	else if(mb->split)
 		fprintf(fp,"split=%c\n",mb->split);
+	if(mb->none)
+		fprintf(fp,"none=%c",mb->none);
 	if(mb->commit_mode || mb->commit_len || mb->commit_which)
 		fprintf(fp,"commit=%d %d %d\n",mb->commit_mode,
 			mb->commit_len,mb->commit_which);
@@ -291,7 +293,8 @@ static void mb_head_dump(struct y_mb *mb,FILE *fp)
 	if(mb->rule)
 	{
 		mb_rule_dump(mb,fp);
-		fprintf(fp,"code_hint=%d\n",mb->code_hint);
+		if(mb->code_hint)
+			fprintf(fp,"code_hint=%d\n",mb->code_hint);
 	}
 	fprintf(fp,"[DATA]\n");
 }

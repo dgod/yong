@@ -54,6 +54,11 @@ static int RestartIME(CUCtrl,int,char **);
 extern int DictLocal(CUCtrl p,int arc,char **arg);
 extern int DictNetwork(CUCtrl p,int arc,char **arg);
 
+extern int PuncLoad(CUCtrl p,int arc,char **arg);
+extern int PuncSelect(CUCtrl p,int arc,char **arg);
+extern int PuncDelete(CUCtrl p,int arc,char **arg);
+extern int PuncSave(CUCtrl p,int arc,char **arg);
+
 int y_run_tool(int t,int p,bool wait);
 
 const struct{
@@ -84,6 +89,10 @@ const struct{
 	{"RestartIME",RestartIME},
 	{"DictLocal",DictLocal},
 	{"DictNetwork",DictNetwork},
+	{"PuncLoad",PuncLoad},
+	{"PuncSelect",PuncSelect},
+	{"PuncDelete",PuncDelete},
+	{"PuncSave",PuncSave},
 };
 
 int cu_ctrl_type_from_name(const char *name)

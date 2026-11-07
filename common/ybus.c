@@ -78,13 +78,6 @@ int ybus_init_plugins(void)
 	return 0;
 }
 
-int64_t ybus_now(void)
-{
-	struct timeval tv;
-	gettimeofday(&tv,NULL);
-	return tv.tv_sec*1000+tv.tv_usec/1000;
-}
-
 static void xim_ybus_update_config(void)
 {
 	YBUS_PLUGIN *p,*n;
@@ -136,7 +129,7 @@ static void ybus_recycle_connect(int64_t now);
 YBUS_CONNECT *ybus_add_connect(YBUS_PLUGIN *plugin,CONN_ID conn_id)
 {
 	YBUS_CONNECT *conn;
-	int64_t now=ybus_now();
+	int64_t now=l_ticks();
 	conn=ybus_find_connect(plugin,conn_id);
 	if(conn) return conn;
 	conn=l_new0(YBUS_CONNECT);
@@ -221,6 +214,8 @@ void ybus_free_connect(YBUS_CONNECT *conn)
 	}
 	if(plugin->free_connect_id)
 		plugin->free_connect_id(conn->id);
+	if(conn->focus_in_timer)
+		g_source_remove((guint)conn->focus_in_timer);
 	conn_list=l_slist_remove(conn_list,(YBUS_CONNECT*)conn);
 	l_free(conn);
 }
@@ -264,7 +259,7 @@ YBUS_CLIENT *ybus_add_client(YBUS_CONNECT *conn,CLIENT_ID client_id,size_t child
 {
 	YBUS_PLUGIN *plugin=conn->plugin;
 	YBUS_CLIENT *client;
-	conn->alive=ybus_now();
+	conn->alive=l_ticks();
 	client=ybus_find_client(conn,client_id);
 	if(client) return client;
 	client=l_alloc0(sizeof(YBUS_CLIENT)+child);
@@ -337,6 +332,7 @@ int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	YBUS_CLIENT *client;
 	
 	conn=ybus_find_connect(plugin,conn_id);
+	// fprintf(stderr,"open %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 	{
 		return -1;
@@ -401,21 +397,18 @@ int ybus_on_close(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	return 0;
 }
 
-int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
+static int ybus_on_focus_in_real(YBUS_PLUGIN *plugin,YBUS_CONNECT *conn,CLIENT_ID client_id)
 {
-	YBUS_CONNECT *conn;
 	YBUS_CLIENT *client;
-	time_t now;
 	
-	conn=ybus_find_connect(plugin,conn_id);
-	// fprintf(stderr,"focus in %s:%p:%p\n",plugin->name,conn,(void*)client_id);
+	// fprintf(stderr,"focus in real %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 	{
 		return 0;
 	}
 	if(conn!=conn_active)
 		YongResetIM();
-	now=ybus_now();
+	uint64_t now=l_ticks();
 	conn->alive=now;
 	conn_active=conn;
 	conn->focus=1;
@@ -428,7 +421,7 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	conn->active=client;
 	if(!client->state && conn->state && plugin->open_im)
 	{
-		plugin->open_im(conn_id,client_id);
+		plugin->open_im(conn->id,client_id);
 	}
 	YongShowInput(conn->state);
 	YongShowMain(conn->state);
@@ -443,6 +436,37 @@ int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	return 0;
 }
 
+static gboolean focus_in_timer_cb(gpointer user_data)
+{
+	YBUS_CONNECT *conn=user_data;
+	conn->focus_in_timer=0;
+	ybus_on_focus_in_real(
+			conn->plugin,
+			conn,
+			conn->focus_in_client);
+	return G_SOURCE_REMOVE;
+}
+
+int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,bool dummy)
+{
+	YBUS_CONNECT *conn=ybus_find_connect(plugin,conn_id);
+	if(!conn)
+		return 0;
+	if(conn->focus_in_timer)
+	{
+		g_source_remove(conn->focus_in_timer);
+	}
+	if(dummy)
+	{
+		conn->focus_in_timer=0;
+		ybus_on_focus_in_real(plugin,conn,client_id);
+		return 0;
+	}
+	conn->focus_in_client=client_id;
+	conn->focus_in_timer=g_timeout_add(100,focus_in_timer_cb,conn);
+	return 0;
+}
+
 int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 {
 	YBUS_CONNECT *conn;
@@ -452,6 +476,13 @@ int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id)
 	// printf("focus out %s:%p:%p\n",plugin->name,conn,(void*)client_id);
 	if(!conn)
 		return 0;
+	if(conn->focus_in_timer && conn->focus_in_client)
+	{
+		g_source_remove((guint)conn->focus_in_timer);
+		conn->focus_in_timer=0;
+		// printf("cancel focus in %s:%p:%p\n\n",plugin->name,conn,(void*)client_id);
+		return 0;
+	}
 	if(conn_active!=conn)
 		return 0;
 	client=ybus_find_client(conn,client_id);

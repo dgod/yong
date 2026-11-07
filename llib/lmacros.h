@@ -143,4 +143,8 @@ do{							\
 	);									\
 })
 
+#if defined(__clang__)
+#define ASSUME(expr) __builtin_assume(expr)
+#endif
+
 #endif/*_LMACROS_H_*/

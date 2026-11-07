@@ -37,6 +37,11 @@ enum{
 	W_CURSOR_MOVE=13,
 };
 
+enum{
+	W_EFFECT_NONE=0,
+	W_EFFECT_BLUR=1,
+};
+
 typedef struct{
 	int type;
 	union{
@@ -113,6 +118,7 @@ int w_clipboard_set_text(const char *text);
 int w_clipboard_set_mime(const char *mime,const void *data,int size);
 int w_win_alert(w_win_t win,const char *title,const char *text);
 int w_win_preferred_size(w_win_t win,int *w,int *h);
+int w_win_effect(w_win_t win,int effect);
 
 int w_wayland_set_serial(uint32_t serial);
 void *w_wayland_get_surface(w_win_t win);
@@ -168,6 +174,7 @@ typedef struct{
 	int (*win_alert)(w_win_t win,const char *title,const char *text);
 	int (*win_center)(w_win_t win);
 	int (*win_preferred_size)(w_win_t win,int *w,int *h);
+	int (*win_effect)(w_win_t win,int effect);
 	char *(*clipboard_get_text)(void);
 	int (*clipboard_set_text)(const char *text);
 	int (*clipboard_set_mime)(const char *mime,const void *data,int size);

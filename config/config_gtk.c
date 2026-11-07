@@ -230,7 +230,7 @@ int cu_ctrl_init_list(CUCtrl p)
 		if (renderers)
 		{
 			GtkCellRenderer *renderer = GTK_CELL_RENDERER(renderers->data);
-			g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+			g_object_set(renderer, "ellipsize", PANGO_ELLIPSIZE_END, "ellipsize-set", TRUE, NULL);
 			g_list_free(renderers);
 		}
 		cu_ctrl_add_to_parent(p);
@@ -1265,6 +1265,29 @@ int cu_confirm(CUCtrl p,const char *message)
 	gtk_window_destroy(GTK_WINDOW(dlg));
 	return response;
 }
+
+static void _cu_alert_response(GtkDialog *dlg,int response_id,gpointer userdata)
+{
+	*(int*)userdata=1;
+}
+void cu_alert(CUCtrl p,const char *message)
+{
+	int done=0;
+	GtkWidget *dlg;
+	p=cu_ctrl_get_root(p);
+	dlg=gtk_message_dialog_new(p->self,
+		GTK_DIALOG_DESTROY_WITH_PARENT | GTK_DIALOG_MODAL,
+		GTK_MESSAGE_INFO,
+		GTK_BUTTONS_OK,
+		"%s",
+		message);
+	gtk_window_set_title(GTK_WINDOW(dlg),p->text);
+	g_signal_connect (dlg, "response",  G_CALLBACK (_cu_alert_response), &done);
+	gtk_widget_show(dlg);
+	while(!done)
+		cu_step();
+	gtk_window_destroy(GTK_WINDOW(dlg));
+}
 #else
 int cu_confirm(CUCtrl p,const char *message)
 {
@@ -1284,6 +1307,21 @@ int cu_confirm(CUCtrl p,const char *message)
 	if(ret==GTK_RESPONSE_OK)
 		return 1;
 	return 0;
+}
+void cu_alert(CUCtrl p,const char *message)
+{
+	GtkWidget *dlg;
+	p=cu_ctrl_get_root(p);
+	dlg=gtk_message_dialog_new(p->self,
+		GTK_DIALOG_MODAL,
+		GTK_MESSAGE_INFO,
+		GTK_BUTTONS_OK,
+		"%s",
+		message);
+	gtk_window_set_title(GTK_WINDOW(dlg),p->text);
+	gtk_window_set_position(GTK_WINDOW(dlg),GTK_WIN_POS_CENTER);
+	gtk_dialog_run(GTK_DIALOG(dlg));
+	gtk_widget_destroy(dlg);
 }
 #endif
 

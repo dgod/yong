@@ -1,7 +1,8 @@
 #pragma once
 
 #include "yong.h"
-#include "mb.h"
+
+struct y_mb;
 
 enum{
 	CSET_TYPE_NONE=0,
@@ -33,20 +34,22 @@ typedef struct _cset_group_calc{
 typedef struct _cset_group_predict{
 	CSET_GROUP;
 	int ptype;
-	char phrase[MAX_CAND_LEN+1];
-	char codetip[MAX_CODE_LEN+1];
+	LArray *array;
 }CSET_GROUP_PREDICT;
 
 typedef struct _cset_group_mb{
 	CSET_GROUP;
 	struct y_mb *mb;
+	LArray *array;
 }CSET_GROUP_MB;
 
 typedef struct{
-	char *cand;
-	char *codetip;
-	int index;
-}CSET_GROUP_ARRAY_ITEM;
+	l_cptr_t cand;
+	l_cptr_t codetip;
+	int32_t index;
+	int16_t cand_size;
+	int16_t codetip_size;
+}CSET_ARRAY_ITEM;
 
 typedef struct _cset_group_array{
 	CSET_GROUP;
@@ -66,6 +69,8 @@ typedef struct _cset{
 	short assoc_adjust;
 	short assoc_adjust_add;
 	short assoc_adjust_code;
+
+	int dedup_mode;
 }CSET;
 
 void cset_init(CSET *cs);
@@ -83,11 +88,20 @@ void cset_group_free(CSET_GROUP *g);
 int cset_group_offset(CSET_GROUP *g,int offset);
 void cset_group_dump(CSET_GROUP *g,FILE *fp);
 
+void cset_array_item_fill(CSET_ARRAY_ITEM *item,const void *cand,int cand_len,const void *codetip,int codetip_len);
+void cset_array_item_free(CSET_ARRAY_ITEM *item);
+void cset_array_item_dedup(LArray *array);
+
 CSET_GROUP_PREDICT *cset_predict_group_new(CSET *cs);
+void cset_predict_group_init(CSET_GROUP_PREDICT *g);
+int cset_predict_group_append(CSET_GROUP_PREDICT *g,const char *s);
+const char *cset_predict_group_nth(CSET_GROUP_PREDICT *g,int i);
 int cset_predict_group_count(CSET *cs);
+int cset_predict_group_dedup(CSET_GROUP_PREDICT *g);
 
 CSET_GROUP_CALC *cset_calc_group_new(CSET *cs);
-int cset_calc_group_append(CSET_GROUP_CALC *g,const char *s);
+int cset_calc_group_append(CSET_GROUP_CALC *g,const void *s);
+int cset_calc_group_append2(CSET_GROUP_CALC *g,const void *s,int len);
 int cset_calc_group_count(CSET *cs);
 
 CSET_GROUP_MB *cset_mb_group_new(CSET *cs,struct y_mb *mb,int count);
@@ -95,12 +109,13 @@ void cset_mb_group_set(CSET *cs,struct y_mb *mb,int count);
 
 CSET_GROUP_ARRAY *cset_array_group_new(CSET *cs);
 int cset_array_group_append(CSET_GROUP_ARRAY *g,const char *cand,const char *codetip);
+int cset_array_group_append2(CSET_GROUP_ARRAY *g,const char *cand,int cand_len,const char *codetip,int codetip_len);
 int cset_array_group_insert(CSET_GROUP_ARRAY *g,int n,const char *cand,const char *codetip);
 
 int cset_set_assoc(CSET *cs,char CalcPhrase[][MAX_CAND_LEN+1],int count);
 int cset_has_assoc(CSET *cs,const char *code);
 void cset_apply_assoc(CSET *cs);
 
-int cset_ci_first_cmp(const CSET_GROUP_ARRAY_ITEM *s1,const CSET_GROUP_ARRAY_ITEM *s2,void *unused);
+int cset_ci_first_cmp(const CSET_ARRAY_ITEM *s1,const CSET_ARRAY_ITEM *s2,void *unused);
 void cset_reorder_mb_cand(CSET *cs,LCmpDataFunc cmp,void *data);
 

@@ -1511,6 +1511,7 @@ void py2_init(int split,const char *sp)
 	else
 		py_type=2;
 
+	// default sp to zrm
 	for(int i=0;i<26;i++)
 	{
 		for(int j=0;j<26;j++)
@@ -1563,9 +1564,19 @@ void py2_init(int split,const char *sp)
 				int j=py2_sp_yun_index(shuang[1]);
 				if(j==-1)
 					continue;
-				char *sp=qp_sp_map[qp_index];
-				sp[0]=shuang[0];sp[1]=shuang[1];
-				sp_qp_map[i][j]=qp_index;
+				if(sp[0]!=shuang[0] || sp[1]!=shuang[1])
+				{
+					char *sp=qp_sp_map[qp_index];
+					if(sp[0] && sp[1])
+					{
+						int ii=sp[0]-'a';
+						int jj=py2_sp_yun_index(sp[1]);
+						if(jj!=-1 && sp_qp_map[ii][jj]==zrm_qp_map[ii][jj])
+							sp_qp_map[ii][jj]=0;
+					}
+					sp[0]=shuang[0];sp[1]=shuang[1];
+					sp_qp_map[i][j]=qp_index;
+				}
 				if(qp->yun==2)
 				{
 					if(qp->code[0]=='c')
@@ -1719,20 +1730,20 @@ static int py2_parse_r(PY2_PARSER *parser,const char *input,int len)
 			parser->count=1;
 			return 1;
 		}
-		L_VITERBI v;
-		v.input=input;
-		v.len=(uint8_t)len;
-		v.topk=1;
-		v.choices=qp_choices;
-		v.A=parser->check?qp_A:NULL;
-		v.S=NULL;
-		v.B=qp_B;
-		v.L=qp_L;
-		v.user_data=parser;
-		int ret=l_viterbi_decode(&v);
+		L_VITERBI *v=l_newa(L_VITERBI);
+		v->input=input;
+		v->len=(uint8_t)len;
+		v->topk=1;
+		v->choices=qp_choices;
+		v->A=parser->check?qp_A:NULL;
+		v->S=NULL;
+		v->B=qp_B;
+		v->L=qp_L;
+		v->user_data=parser;
+		int ret=l_viterbi_decode(v);
 		if(ret==0)
 		{
-			int ret=l_viterbi_result(&v,0,parser->token,PY_MAX_TOKEN);
+			int ret=l_viterbi_result(v,0,parser->token,PY_MAX_TOKEN);
 			if(ret<=0)
 				return -1;
 			parser->count=ret;

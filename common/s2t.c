@@ -204,7 +204,7 @@ const char *s2t_conv(const char *s)
 				else
 				{
 S2T_EXT:
-					const uint32_t *res=bsearch(&code,s2te,s2te_num,4,l_uint32_equal);
+					const uint32_t *res=bsearch(&code,s2te,s2te_num,8,l_uint32_equal);
 					if(res) code=res[1];
 				}
 			}
@@ -222,7 +222,7 @@ S2T_EXT:
 				else
 				{
 T2S_EXT:
-					const uint32_t *res=bsearch(&code,s2te,s2te_num,4,l_uint32_equal);
+					const uint32_t *res=bsearch(&code,t2se,t2se_num,8,l_uint32_equal);
 					if(res) code=res[1];
 				}
 			}

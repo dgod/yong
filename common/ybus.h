@@ -45,6 +45,7 @@ typedef struct{
 	void (*wm_make_above)(CONN_ID,const char *);
 	void (*wm_move)(CONN_ID,const char *,int,int,int);
 	void (*wm_icon)(CONN_ID,const char *,const char*);
+
 }YBUS_PLUGIN;
 
 typedef struct{
@@ -54,7 +55,7 @@ typedef struct{
 	YBUS_CLIENT *client;
 	YBUS_PLUGIN *plugin;
 	YBUS_CLIENT *active;
-	int64_t alive;
+	uint64_t alive;
 
 	LKeyFile *app;
 	
@@ -65,6 +66,9 @@ typedef struct{
 	unsigned int biaodian:1;
 	unsigned int trad:1;
 	unsigned int onspot:2;
+
+	uintptr_t focus_in_timer;
+	CLIENT_ID focus_in_client;
 }YBUS_CONNECT;
 
 enum{
@@ -88,10 +92,9 @@ int ybus_init(void);
 void ybus_destroy(void);
 void ybus_add_plugin(YBUS_PLUGIN *plugin);
 int ybus_init_plugins(void);
-int64_t ybus_now(void);
 
 int ybus_on_key(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,int key);
-int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
+int ybus_on_focus_in(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id,bool dummy);
 int ybus_on_focus_out(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
 int ybus_on_open(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);
 int ybus_on_close(YBUS_PLUGIN *plugin,CONN_ID conn_id,CLIENT_ID client_id);

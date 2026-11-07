@@ -911,7 +911,7 @@ static void input_method_activate(
 #ifdef WAYLAND_STANDALONE
 	client_focus_in(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,false);
 #endif
 }
 
@@ -1237,7 +1237,7 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 #ifdef WAYLAND_STANDALONE
 	client_focus_in(CLIENT_ID_VAL);
 #else
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,false);
 #endif
 }
 

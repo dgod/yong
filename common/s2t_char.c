@@ -3136,8 +3136,9 @@ static const uint16_t s2t_m_5[][2]={
 static const uint16_t s2t_num_m[]={2706,359,41,11,2};
 static const void *s2t_m[]={s2t,s2t_m_2,s2t_m_3,s2t_m_4,s2t_m_5};
 
-static const uint16_t s2te_num=1;
+static const uint16_t s2te_num=2;
 static const uint32_t s2te[][2]={
 	{0x0000a1a4, 0x8136a634},
+	{0x9a378637, 0x9a378638},
 };
 

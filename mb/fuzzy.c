@@ -224,10 +224,7 @@ void fuzzy_table_dump(FUZZY_TABLE *ft)
 		{
 			FUZZY_TO *pto=item->to+i;
 			if(!pto->code[0]) break;
-			if(pto->mode==FUZZY_DEFAULT)
-				printf(" >%s",pto->code);
-			else if(pto->mode==FUZZY_FORCE)
-				printf(" >>%s",pto->code);
+			printf(" >%s",pto->code);
 		}
 		printf("\n");
 	}

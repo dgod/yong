@@ -10,7 +10,7 @@
 #include <alloca.h>
 #endif
 
-#define l_alloc(s) malloc(s)
+#define l_alloc malloc
 #define l_calloc(n,s) malloc((n)*(s))
 #define l_alloc0(s) calloc(1,(s))
 #define l_calloc0(n,s) calloc((n),(s))
@@ -84,7 +84,7 @@ static inline void *l_memdup0(const void *p,size_t s)
 #endif
 
 #define l_alloca0(s) memset(l_alloc(s),0,(s))
-#define l_newa(t) ((t*)l_alloc(sizeof(t)))
+#define l_newa(t) ((t*)l_alloca(sizeof(t)))
 #define l_newa0(t) ((t*)l_alloca0(sizeof(t)))
 #define l_memdupa(p,s) memcpy(l_alloca(s),p,s)
 
@@ -102,7 +102,7 @@ static inline void *l_memdup0(const void *p,size_t s)
 #endif
 
 typedef struct _lslices LSlices;
-LSlices *l_slices_new(int n,...);
+LSlices *l_slices_new(void);
 void l_slices_free(LSlices *r);
 void *l_slice_alloc(LSlices *r,int size);
 #define l_slice_new(r,t) l_slice_alloc(r,sizeof(t))

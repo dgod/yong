@@ -201,6 +201,33 @@ PARENT:
 	return NULL;
 }
 
+static const L_ESCAPE_CONFIG escape_config={
+	.lead='\\',
+	.count=6,
+	.map={
+		{'\r','r'},
+		{'\n','n'},
+		{'\t','t'},
+		{' ','s'},
+		{'\'','\''},
+		{'\"','\"'},
+	}
+};
+
+char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key)
+{
+	const char *data=l_key_file_get_data(key_file,group,key);
+	if(!data)
+		return NULL;
+	int len=strlen(data);
+	char *res=l_alloc(len+1);
+	if(!l_unescape(data,res,len+1,&escape_config))
+		return NULL;
+	return res;
+}
+
+#if 0
+
 char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key)
 {
 	char temp[256];
@@ -249,6 +276,7 @@ char *l_key_file_get_string(LKeyFile *key_file,const char *group,const char *key
 	temp[pos]=0;
 	return l_strdup(temp);
 }
+#endif
 
 char *l_key_file_get_string_gb(LKeyFile *key_file,const char *group,const char *key)
 {
@@ -342,6 +370,18 @@ int l_key_file_set_data(LKeyFile *key_file,const char *group,const char *key,con
 
 int l_key_file_set_string(LKeyFile *key_file,const char *group,const char *key,const char *value)
 {
+	if(!key || !value)
+		return l_key_file_set_data(key_file,group,key,value);
+	char temp[256];
+	int ret=l_escape(value,temp,sizeof(temp),&escape_config);
+	if(ret<0)
+		return -1;
+	return l_key_file_set_data(key_file,group,key,temp);
+}
+
+#if 0
+int l_key_file_set_string(LKeyFile *key_file,const char *group,const char *key,const char *value)
+{
 	char temp[256];
 	int i,pos,c;
 
@@ -377,6 +417,7 @@ int l_key_file_set_string(LKeyFile *key_file,const char *group,const char *key,c
 	temp[pos]=0;
 	return l_key_file_set_data(key_file,group,key,temp);
 }
+#endif
 
 int l_key_file_set_int(LKeyFile *key_file,const char *group,const char *key,int value)
 {

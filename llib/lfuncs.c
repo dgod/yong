@@ -150,13 +150,15 @@ int l_rand(int min,int max)
 }
 
 #ifdef _WIN32
+static LARGE_INTEGER s_frequency = {0};
+[[gnu::constructor]]
+static void ticks_init(void)
+{
+	QueryPerformanceFrequency(&s_frequency);
+}
+
 uint64_t l_ticks(void)
 {
-    static LARGE_INTEGER s_frequency = {0};
-    if (s_frequency.QuadPart == 0) {
-        QueryPerformanceFrequency(&s_frequency);
-    }
-
     LARGE_INTEGER current_time;
     QueryPerformanceCounter(&current_time);
 

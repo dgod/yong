@@ -1,8 +1,8 @@
-var SRCS=['config_ui.c','config_main.c','translate.c',
-	'sync.c','aes.c','update.c','tools.c','dict.c'];
-var SRCS_WIN=['config_win.c','session_win.c'];
-var SRCS_LIN=['config_gtk.c','session_curl.c'];
-var DIRS=['l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',
+const SRCS=['config_ui.c','config_main.c','translate.c',
+	'sync.c','aes.c','update.c','tools.c','dict.c','punc.c'];
+const SRCS_WIN=['config_win.c','session_win.c'];
+const SRCS_LIN=['config_gtk.c','session_curl.c'];
+const DIRS=['l32-gtk3','l64-gtk3','l32-gtk4','l64-gtk4',
 
 	];
 

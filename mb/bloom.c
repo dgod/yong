@@ -15,18 +15,9 @@ BloomFilter *bloom_new(uint32_t size)
 	return bf;
 }
 
-static uint32_t bloom_hash (const void *v,int len)
-{
-	const uint8_t *p = v;
-	unsigned h = *p++;
-	for(int i=1;i<len;i++)
-		h = h*131 + *p++;
-	return h;
-}
-
 void bloom_add(BloomFilter *bf,const char *s,int len)
 {
-	unsigned h=bloom_hash(s,len);
+	unsigned h=l_str_hash2(s,len);
 	int pos=h%bf->size;
 #ifdef BLOOM_DEBUG
 	bf->count++;
@@ -61,7 +52,7 @@ static inline BloomCacheItem *bloom_cache_get(BloomFilter *bf,uint32_t hash,cons
 
 bool bloom_check(BloomFilter *bf,const char *s,int len,BloomCacheItem **item)
 {
-	uint32_t h=bloom_hash(s,len);
+	uint32_t h=l_str_hash2(s,len);
 	int pos=h%bf->size;
 	bool ret=l_bitmap_get(bf->bits,pos);
 	if(ret)

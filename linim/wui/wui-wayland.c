@@ -21,6 +21,7 @@
 #include "xdg-system-bell-v1.h"
 #include "viewporter.h"
 #include "alpha-modifier-v1.h"
+#include "ext-background-effect-v1.h"
 #include "xx-fractional-scale-v2.h"
 
 #include "ext-data-control-v1.c"
@@ -32,6 +33,7 @@
 #include "xdg-system-bell-v1.c"
 #include "viewporter.c"
 #include "alpha-modifier-v1.c"
+#include "ext-background-effect-v1.c"
 #include "xx-fractional-scale-v2.c"
 
 // Wayland global info structure
@@ -143,10 +145,12 @@ struct w_window {
 	};
 	struct wp_viewport *viewport;
 	struct wp_alpha_modifier_surface_v1 *alpha_modifier;
+	struct ext_background_effect_surface_v1 *background_effect;
 	bool decorated;
 	bool configured;
 	bool cursor_updated;
 	int tran;
+	int effect;			// 当前的窗口特效（W_EFFECT_*）
 	WUI_BUFFER *buf;
 	PangoLayout *pango_layout;
 
@@ -189,6 +193,8 @@ static struct wp_viewporter *wl_viewporter = NULL;
 static struct wp_cursor_shape_manager_v1 *wl_cursor_shape_manager = NULL;
 static struct xdg_system_bell_v1 *wl_system_bell = NULL;
 static struct zwlr_layer_shell_v1 *wl_layer_shell = NULL;
+static struct ext_background_effect_manager_v1 *wl_background_effect = NULL;
+static uint32_t wl_background_effect_caps = 0;
 static uint32_t wl_last_serial = 0;
 static w_win_t wl_pointer_win = NULL;
 static w_win_t wl_keyboard_win = NULL;
@@ -204,6 +210,7 @@ static w_win_t root;
 
 int w_workarea_update(w_output_t *output);
 int w_workarea_fallback(int *x, int *y, int *w, int *h, w_output_t *output);
+static void w_win_update_effect_region(w_win_t win);
 
 // Hash table to store all global interfaces
 static LHashTable *wl_globals_hash = NULL;
@@ -770,6 +777,20 @@ static const struct wl_output_listener output_listener = {
 	.mode = output_mode,
 	.done = output_done,
 	.scale = output_scale,
+};
+
+// ext-background-effect-v1 listeners
+static void background_effect_capabilities(void *data,
+	struct ext_background_effect_manager_v1 *manager, uint32_t flags)
+{
+	wl_background_effect_caps = flags;
+
+	if(wl_debug)
+		fprintf(stderr, "[wui-wayland] background effect capabilities: %x\n", flags);
+}
+
+static const struct ext_background_effect_manager_v1_listener background_effect_manager_listener = {
+	.capabilities = background_effect_capabilities,
 };
 
 #include "wui-clipboard.c"
@@ -1647,9 +1668,25 @@ int w_init(const char *id)
 		wl_tran_self=true;
 	}
 
+	// Bind background effect (blur)
+	info = l_hash_table_lookup(wl_globals_hash, "ext_background_effect_manager_v1");
+	if(info)
+	{
+		info->bind = wl_registry_bind(wl_registry, info->name,
+			&ext_background_effect_manager_v1_interface, 1);
+		if(info->bind)
+		{
+			wl_background_effect = info->bind;
+			ext_background_effect_manager_v1_add_listener(wl_background_effect,
+				&background_effect_manager_listener, NULL);
+			if(wl_debug)
+				fprintf(stderr, "[wui-wayland] bound ext_background_effect_manager_v1: %p\n", info->bind);
+		}
+	}
+
 	// Bind ext-data-control for clipboard
 	info = l_hash_table_lookup(wl_globals_hash, "ext_data_control_manager_v1");
-	if(info && false)
+	if(info)
 	{
 		info->bind = wl_registry_bind(wl_registry, info->name, &ext_data_control_manager_v1_interface, 1);
 		if(wl_debug)
@@ -1980,6 +2017,13 @@ int w_win_destroy(w_win_t win)
 	if(win->alpha_modifier)
 		wp_alpha_modifier_surface_v1_destroy(win->alpha_modifier);
 
+	if(win->background_effect)
+	{
+		ext_background_effect_surface_v1_set_blur_region(win->background_effect, NULL);
+		ext_background_effect_surface_v1_destroy(win->background_effect);
+		win->background_effect = NULL;
+	}
+
 	// Destroy role-specific objects
 	switch(win->wl_info.role_type)
 	{
@@ -2065,6 +2109,7 @@ int w_win_resize_internal(w_win_t win, int w, int h)
 	int title_height = win->decorated ? (line_height + 2 * default_ui_style.padding_title + 1) : 0;
 	if(win->viewport)
 		wp_viewport_set_destination(win->viewport, win->width + 2 * border, win->height + 2 * border + title_height);
+	w_win_update_effect_region(win);
 	return 0;
 }
 
@@ -2129,6 +2174,27 @@ static int w_win_get_real_size(w_win_t win, int *w, int *h)
 	if(w) *w=win->width + 2 * border;
 	if(h) *h=win->height + 2 * border + title_height;
 	return 0;
+}
+
+// 更新窗口背景特效区域（覆盖整个surface，含装饰）
+static void w_win_update_effect_region(w_win_t win)
+{
+	if(!win || !win->background_effect || win->effect != W_EFFECT_BLUR)
+		return;
+	if(!wl_compositor)
+		return;
+
+	int w,h;
+	w_win_get_real_size(win,&w,&h);
+	if(w<=0 || h<=0)
+		return;
+
+	struct wl_region *region=wl_compositor_create_region(wl_compositor);
+	if(!region)
+		return;
+	wl_region_add(region,0,0,w,h);
+	ext_background_effect_surface_v1_set_blur_region(win->background_effect,region);
+	wl_region_destroy(region);
 }
 
 int w_win_get_size(w_win_t win, int *w, int *h)
@@ -2476,6 +2542,53 @@ int w_win_get_dpi(w_win_t win)
 #include "wui-toast.c"
 
 #include "wui-alert.c"
+
+int w_win_effect(w_win_t win,int effect)
+{
+	if(!win || !win->surface)
+		return -1;
+	if(effect<0)
+		return win->effect;
+
+	// 关闭特效
+	if(effect==W_EFFECT_NONE)
+	{
+		if(win->background_effect)
+		{
+			ext_background_effect_surface_v1_set_blur_region(win->background_effect,NULL);
+			ext_background_effect_surface_v1_destroy(win->background_effect);
+			win->background_effect=NULL;
+			wl_surface_commit(win->surface);
+		}
+		win->effect=W_EFFECT_NONE;
+		return 0;
+	}
+
+	if(effect!=W_EFFECT_BLUR)
+		return -1;
+
+	// compositor不支持背景模糊
+	if(!wl_background_effect ||
+		!(wl_background_effect_caps & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR))
+		return -1;
+
+	if(!win->background_effect)
+	{
+		win->background_effect=ext_background_effect_manager_v1_get_background_effect(
+			wl_background_effect,win->surface);
+		if(!win->background_effect)
+			return -1;
+	}
+	win->effect=effect;
+	w_win_update_effect_region(win);
+	wl_surface_commit(win->surface);
+
+	if(wl_debug)
+		fprintf(stderr, "[wui-wayland] window %p(%s) effect=%d\n",
+			(void*)win,win->title,effect);
+
+	return 0;
+}
 
 int w_win_tran(w_win_t win,int tran)
 {

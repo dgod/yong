@@ -287,10 +287,7 @@ static int serv_input(YBUS_CONNECT *yconn,YBUS_CLIENT *client,SERV_KEY *kev)
 	}
 	if(yconn->state && kev->status==0)
 	{
-		int ret;
-		//clock_t start=clock();
-		ret=ybus_on_key(&plugin,yconn->id,client->id,Key);
-		//printf("key %.3f\n",(clock()-start)*1.0/CLOCKS_PER_SEC);
+		int ret=ybus_on_key(&plugin,yconn->id,client->id,Key);
 		if(ret)
 		{
 			forward_key(kev,1);
@@ -412,12 +409,14 @@ static int serv_dispatch(LCallConn *conn,const char *name,LCallBuf *buf)
 	else if(!strcmp(name,"focus_in"))
 	{
 		guint client_id;
+		int dummy=0;
 		ret=l_call_buf_get_val(buf,client_id);
 		if(ret!=0) return -1;
+		l_call_buf_get_val(buf,dummy);
 		//printf("\t%u\n",client_id);
 		YBUS_CLIENT *client=ybus_add_client(yconn,client_id,sizeof(YBUS_CLIENT_PRIV));
 		init_client_priv(conn,client);
-		ybus_on_focus_in(&plugin,yconn->id,client_id);
+		ybus_on_focus_in(&plugin,yconn->id,client_id,dummy?true:false);
 	}
 	else if(!strcmp(name,"focus_out"))
 	{
@@ -464,6 +463,7 @@ static LCallUser serv_user={
 static int xim_init(void)
 {
 	serv=l_call_serv_new(NULL,&serv_user);
+	(void)serv;
 	return 0;
 }
 

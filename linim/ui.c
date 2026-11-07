@@ -706,6 +706,7 @@ static int ui_main_update(UI_MAIN *param)
 	if(MainWin_auto_tran && !MainWin_over)
 		tran=255-(255-tran)*2/3;
 	wui->win_tran(MainWin,tran);
+	wui->win_effect(MainWin,param->effect);
 	ui_main_show(-1);
 	wui->win_redraw(MainWin);
 	return 0;
@@ -1137,6 +1138,7 @@ static int ui_input_update(UI_INPUT *param)
 		}
 	}
 	wui->win_tran(InputWin,param->tran);
+	wui->win_effect(InputWin,param->effect);
 	if(InputTheme.noshow==2)
 		y_ui_input_draw();
 	
@@ -1578,6 +1580,8 @@ static int ui_input_show(int show)
 {
 	if(show)
 	{
+		if(ybus_ibus_input_draw(InputTheme.line)==0)
+			return 0;
 		int real_x=InputWin_X-InputTheme.shadow.len;
 		int real_y=InputWin_Y-InputTheme.shadow.len;
 		wui->win_move(InputWin,real_x,real_y);
@@ -1959,14 +1963,14 @@ static char *ui_get_select(int (*cb)(const char *))
 	int len=strlen(text);
 	if(len==0 || len>256)
 	{
-		free(text);
+		l_free(text);
 		if(cb)
 		cb(NULL);
 		return NULL;
 	}
 	char phrase[1024];
 	y_im_str_encode_r(text,phrase);
-	free(text);
+	l_free(text);
 	if(cb)
 	{
 		int ret=cb(phrase);

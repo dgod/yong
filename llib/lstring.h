@@ -28,6 +28,7 @@ typedef struct{
 typedef LString LBuffer;
 
 #define L_STRING_INIT (LString){.size=0}
+#define L_STRING_INIT_WITH(arr) (LString){.str=(char*)(arr),.size=countof(arr)}
 
 LString *l_string_new(int size);
 void l_string_init(LString *string,int size);
@@ -40,6 +41,7 @@ void l_string_clear(LString *string);
 void l_string_erase(LString *string,int pos,int len);
 
 #define L_BUFFER_INIT (LBuffer){.size=0}
+#define L_BUFFER_INIT_WITH(arr) (LBuffer){.data=(uint8_t*)(arr),.size=countof(arr)}
 #define l_buffer_new(size) l_string_new(size)
 #define l_buffer_free(buf) l_string_free(buf)
 #define l_buffer_expand(buf,len) l_string_expand((buf),(len))

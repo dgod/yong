@@ -41,6 +41,11 @@ typedef struct{
 	int z_index;
 }UI_PET;
 
+enum{
+	UI_EFFECT_NONE=0,
+	UI_EFFECT_BLUR,
+};
+
 typedef struct{
 	/* scale factor */
 	int scale;
@@ -66,6 +71,8 @@ typedef struct{
 	int force_scale;
 	/* shadow */
 	const char *shadow;
+	/* effect */
+	int effect;
 }UI_MAIN;
 
 typedef struct{
@@ -140,6 +147,8 @@ typedef struct{
 	const char *shadow;
 	/* shadow clor */
 	LPtrArray *pets;
+	/* effect */
+	int effect;
 }UI_INPUT;
 
 typedef struct{

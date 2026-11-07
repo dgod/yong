@@ -1374,7 +1374,7 @@ static int PipeSet(const char *s)
 		e->Priv2=(uintptr_t)pp;
 	}
 	pp->run=true;
-	if(0!=PipeRun(argv,s))
+	if(PipeRun(argv,s)<0)
 	{
 		PipeReset();
 		return 0;

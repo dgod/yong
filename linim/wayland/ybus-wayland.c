@@ -18,12 +18,12 @@
 #include "wui.h"
 
 // --- dlopen'd wayland function pointers ---
-static struct wl_display *(*p_wl_display_connect)(const char *name);
-static void (*p_wl_display_disconnect)(struct wl_display *display);
-static int (*p_wl_display_flush)(struct wl_display *display);
-static int (*p_wl_display_dispatch)(struct wl_display *display);
-static int (*p_wl_display_get_fd)(struct wl_display *display);
-static int (*p_wl_display_get_error)(struct wl_display *display);
+// static struct wl_display *(*p_wl_display_connect)(const char *name);
+// static void (*p_wl_display_disconnect)(struct wl_display *display);
+// static int (*p_wl_display_flush)(struct wl_display *display);
+// static int (*p_wl_display_dispatch)(struct wl_display *display);
+// static int (*p_wl_display_get_fd)(struct wl_display *display);
+// static int (*p_wl_display_get_error)(struct wl_display *display);
 static int (*p_wl_display_roundtrip)(struct wl_display *display);
 static int (*p_wl_proxy_add_listener)(struct wl_proxy *proxy,void (**implementation)(void), void *data);
 static void *(*p_wl_proxy_get_user_data)(struct wl_proxy *proxy);
@@ -907,12 +907,12 @@ int ybus_wayland_ui_init(W_INPUT_HOOK *input_hook)
 	if(getenv("YONG_WAYLAND_DEBUG"))
 		l_wayland_debug=true;
 
-	p_wl_display_connect=dlsym(l_so,"wl_display_connect");
-	p_wl_display_disconnect=dlsym(l_so,"wl_display_disconnect");
-	p_wl_display_flush=dlsym(l_so,"wl_display_flush");
-	p_wl_display_dispatch=dlsym(l_so,"wl_display_dispatch");
-	p_wl_display_get_fd=dlsym(l_so,"wl_display_get_fd");
-	p_wl_display_get_error=dlsym(l_so,"wl_display_get_error");
+	// p_wl_display_connect=dlsym(l_so,"wl_display_connect");
+	// p_wl_display_disconnect=dlsym(l_so,"wl_display_disconnect");
+	// p_wl_display_flush=dlsym(l_so,"wl_display_flush");
+	// p_wl_display_dispatch=dlsym(l_so,"wl_display_dispatch");
+	// p_wl_display_get_fd=dlsym(l_so,"wl_display_get_fd");
+	// p_wl_display_get_error=dlsym(l_so,"wl_display_get_error");
 	p_wl_display_roundtrip=dlsym(l_so,"wl_display_roundtrip");
 	p_wl_proxy_add_listener=dlsym(l_so,"wl_proxy_add_listener");
 	p_wl_proxy_get_user_data=dlsym(l_so,"wl_proxy_get_user_data");

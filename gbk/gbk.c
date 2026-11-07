@@ -47,29 +47,29 @@ static void GbkReset(void)
 	EIM.CodeLen=0;
 	EIM.CurCandPage=EIM.CandPageCount=EIM.CandWordCount=0;
 	EIM.SelectIndex=0;
+	EIM.WorkMode=EIM_WM_INSERT;
 }
 
 static char *GbkGetCandWord(int index)
 {
-	char *ret;
 	if(index>=EIM.CandWordCount || index<-1)
 		return 0;
 	if(index==-1)
 		index=EIM.SelectIndex;
-	ret=&EIM.CandTable[index][0];
+	char *ret=&EIM.CandTable[index][0];
 	strcpy(EIM.StringGet,ret);
 	return ret;
 }
 
 static int GbkGetCandWords(int mode)
 {
-	int i;
-	
 	if(mode==PAGE_ASSOC)
 		return IMR_PASS;
 
 	if(EIM.CandPageCount==0)
 		return IMR_PASS;
+	if(EIM.WorkMode==EIM_WM_QUERY)
+		return IMR_BLOCK;
 	if(mode==PAGE_FIRST) EIM.CurCandPage=0;
 	else if(mode==PAGE_NEXT && EIM.CurCandPage+1<EIM.CandPageCount)
 		EIM.CurCandPage++;
@@ -82,12 +82,14 @@ static int GbkGetCandWords(int mode)
 		EIM.CandWordCount=PhraseListCount-EIM.CandWordMax*(EIM.CandPageCount-1);
 	EIM.CandWordMaxReal=EIM.CandWordMax;
 
-	for(i=0;i<EIM.CandWordMax;i++)
+	for(int i=0;i<EIM.CandWordMax;i++)
 	{
 		EIM.CodeTips[i][1]=EIM.CodeTips[i][0]=0;
 	}
-
-	if(EIM.CodeLen>=4 || EIM.CodeLen==2)
+	if(EIM.CodeLen>0 && EIM.CodeInput[0]=='u')
+	{
+	}
+	else if(EIM.CodeLen>=4 || EIM.CodeLen==2)
 	{		
 		if(PhraseListCount>0)
 		{
@@ -99,7 +101,7 @@ static int GbkGetCandWords(int mode)
 	{
 		uint32_t t=strtoul(EIM.CodeInput,0,16)<<4;
 		int start=EIM.CandWordMax*EIM.CurCandPage;
-		for(i=0;i<EIM.CandWordCount;i++)
+		for(int i=0;i<EIM.CandWordCount;i++)
 		{
 			uint32_t tmp=t|(start+i);
 			EIM.CandTable[i][0]=(char)(tmp>>8);
@@ -112,7 +114,7 @@ static int GbkGetCandWords(int mode)
 	{
 		long t=strtol(EIM.CodeInput,0,16)<<4;
 		int start=EIM.CandWordMax*EIM.CurCandPage;
-		for(i=0;i<EIM.CandWordCount;i++)
+		for(int i=0;i<EIM.CandWordCount;i++)
 		{
 			EIM.CandTable[i][0]=(char)(t|(start+i));
 			EIM.CandTable[i][1]=0;
@@ -134,8 +136,9 @@ static int GbkOnVirtQuery(const char *ph)
 	if(!ph)
 		return IMR_BLOCK;
 	int len=l_gb_strlen(ph,-1);
-	if(len!= 1)
+	if(len!=1)
 		return IMR_BLOCK;
+	EIM.WorkMode=EIM_WM_QUERY;
 	strcpy(EIM.StringGet,EIM.Translate("·´²é£º"));
 	EIM.CodeTips[0][0]=EIM.CodeTips[1][0]=EIM.CodeTips[2][0]=0;
 	strcpy(EIM.CodeInput,ph);
@@ -184,10 +187,9 @@ static int GbkDoInput(int key)
 	{
 		if(key==YK_VIRT_QUERY)
 		{
-			char *ph;
 			if(EIM.CodeLen || !EIM.GetSelect)
 				return IMR_BLOCK;
-			ph=EIM.GetSelect(GbkOnVirtQuery);
+			char *ph=EIM.GetSelect(GbkOnVirtQuery);
 			if(ph)
 				return GbkOnVirtQuery(ph);
 			else
@@ -205,6 +207,7 @@ static int GbkDoInput(int key)
 		PhraseListCount=0;
 		EIM.CandPageCount=0;
 		EIM.CandWordCount=0;
+		EIM.CodeTips[0][0]=EIM.CodeTips[0][0]=0;
 		if(EIM.CodeLen>1)
 		{
 			uint32_t c=strtoul(EIM.CodeInput+1,0,16);

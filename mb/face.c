@@ -358,7 +358,7 @@ void y_mb_init_pinyin(struct y_mb *mb)
 
 static Y_BIHUA_INFO *TableGetBihuaConfig(void)
 {
-	if(mb->yong)
+	if(mb->yong && !mb->bihua[0])
 		return YongBihua;
 	if(strspn(mb->bihua,Y_BIHUA_KEY)==5)
 	{
@@ -381,7 +381,11 @@ static Y_BIHUA_INFO *TableGetBihuaConfig(void)
 
 static void load_auto_move_config(void)
 {
-	auto_move=TableGetConfigInt("IM","auto_move",mb->auto_move);
+	const char *temp=EIM.GetConfig(NULL,"auto_move");
+	if(temp && temp[0])
+		auto_move=atoi(temp);
+	else
+		auto_move=TableGetConfigInt("IM","auto_move",mb->auto_move);
 	if(auto_move)
 	{
 		const char *name=EIM.GetConfig("IM","auto_move_len");
@@ -543,6 +547,10 @@ static int TableInitReal(const char *arg)
 			EIM.Flag|=IM_FLAG_CAPITAL;
 		}
 		else if(mb->split=='\'' && mb->pinyin)
+		{
+			EIM.Flag|=IM_FLAG_CAPITAL;
+		}
+		else if(mb->yong==1 || mb->yong==2)
 		{
 			EIM.Flag|=IM_FLAG_CAPITAL;
 		}
@@ -898,7 +906,7 @@ static int TableUpdateAssoc(int *mode)
 			{
 				g->count=y_mb_get_assoc(
 					mb,from,strlen(from),
-					assoc_count,g->phrase,Y_MB_DATA_CALC);
+					assoc_count,g);
 			}
 		}
 		if(assoc_adjust)
@@ -925,7 +933,7 @@ static int TableUpdateAssoc(int *mode)
 			{
 				g->count=y_mb_get_assoc(
 					mb,temp,strlen(temp),
-					assoc_count,g->phrase,Y_MB_DATA_CALC);
+					assoc_count,g);
 			}
 		}
 		if(assoc_adjust)
@@ -1130,29 +1138,29 @@ static int TableGetCandWords(int mode)
 
 static int TableOnVirtQuery(const char *ph)
 {
-	int count;
-	char tmp[Y_MB_DATA_SIZE+1];
-	
 	if(!ph || strpbrk(ph,"\r\n\t\v\b") || strlen(ph)>64)
 	{
 		return IMR_BLOCK;
 	}
 	
-	count=l_gb_strlen(ph,-1);
-	strcpy(tmp,ph);
-
+	int count=l_gb_strlen(ph,-1);
 	CSET_GROUP_CALC *g=(CSET_GROUP_CALC*)cset_calc_group_new(&cs);
 	if(count==1)
-		g->count=y_mb_find_code(mb,tmp,g->phrase,Y_MB_DATA_CALC);
+	{
+		y_mb_find_code(mb,ph,g);
+	}
 	else if(count>1)
-		g->count=y_mb_get_exist_code(mb,tmp,g->phrase[0]);
-	else
-		g->count=0;
+	{
+		char code[Y_MB_KEY_SIZE+1];
+		int ret=y_mb_get_exist_code(mb,ph,code);
+		if(ret>0)
+			cset_calc_group_append(g,code);
+	}
 	if(g->count)
 	{
 		EIM.WorkMode=EIM_WM_QUERY;
 		strcpy(EIM.StringGet,EIM.Translate("·´²é£º"));
-		strcpy(EIM.CodeInput,tmp);
+		strcpy(EIM.CodeInput,ph);
 		EIM.CaretPos=-1;
 		PhraseListCount=g->count;
 		cset_prepend(&cs,(CSET_GROUP*)g);
@@ -1161,7 +1169,6 @@ static int TableOnVirtQuery(const char *ph)
 	}
 	else
 	{
-
 		return IMR_BLOCK;
 	}
 }
@@ -1175,19 +1182,18 @@ static int TableOnVirtAdd(const char *ph)
 	}
 	if(ph)
 	{
-		strcpy(g->phrase[g->count++],ph);
+		cset_calc_group_append(g,ph);
 	}
 	InsertWithSelect=(ph!=NULL);
 	if(EIM.DoInput==TableDoInput)
 	{
-		int i;
-		for(i=2;i<10;i++)
+		for(int i=2;i<10;i++)
 		{
 			const char *p=EIM.GetLast(i);
 			if(!p) break;
 			if(ph && !strcmp(ph,p))
 				continue;
-			strcpy(g->phrase[g->count++],p);
+			cset_calc_group_append(g,p);
 		}
 	}
 	
@@ -1263,7 +1269,7 @@ static int TableDoInput(int key)
 	int ret=IMR_DISPLAY;
 	struct y_mb *active_mb;
 	int bing,space=0;
-	
+
 	if(!TableReady || mb==NULL)
 		return IMR_NEXT;
 
@@ -1505,6 +1511,32 @@ static int TableDoInput(int key)
 			return IMR_NEXT;
 		goto commit_suffix;
 	}
+	else if(mb->yong && EIM.CodeLen==4 && y_mb_is_shift_key(mb,key))
+	{
+		strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
+		SuperCodeLen=4;
+		CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
+		g->count=y_mb_super_get(mb,g,key);
+		if(g->count>0)
+		{
+			EIM.CodeInput[EIM.CodeLen++]=y_mb_from_shift_key(mb,key);
+			EIM.CodeInput[EIM.CodeLen]=0;
+			cset_clear(&cs,CSET_TYPE_MB);
+			cset_clear(&cs,CSET_TYPE_SENTENCE);
+			if(g->count>0)
+				cset_prepend(&cs,(CSET_GROUP*)g);
+			PhraseListCount=cset_count(&cs);
+			TableGetCandWords(PAGE_FIRST);
+			if(mb->commit_mode==3 && PhraseListCount==1)
+			{
+				strcpy(EIM.StringGet,EIM.CandTable[0]);
+				return IMR_COMMIT;
+			}
+			return IMR_DISPLAY;
+		}
+
+		return IMR_BLOCK;
+	}
 	else if(key==mb->suffix && EIM.CurCandPage==0 && EIM.CodeLen>=1 && EIM.CodeLen<8 && !InsertMode)
 	{
 		char code[8];
@@ -1616,7 +1648,7 @@ commit_suffix:
 				strcpy(SuperPhrase,EIM.CandTable[EIM.SelectIndex]);
 				SuperCodeLen=4;
 				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-				g->count=y_mb_super_get(mb,g->phrase,Y_MB_DATA_CALC,key);
+				g->count=y_mb_super_get(mb,g,key);
 				CSET_GROUP *st=sentence_get(EIM.CodeInput,mb,key);
 				if(g->count>0 || st!=NULL)
 				{
@@ -2500,15 +2532,7 @@ static void ExtraZiFill(const char *code,int len,int res)
 		ret=y_mb_set(mb,code,len,hz_filter_temp);
 		if(ret>0)
 		{
-			if(mb->ctx.result_ci)
-			{
-				ExtraZi.arr=mb->ctx.result_ci;
-				mb->ctx.result_ci=NULL;
-			}
-			else
-			{
-				ExtraZi.zi=mb->ctx.result_first;
-			}
+			ExtraZi.zi=mb->ctx.result_first;
 		}
 		y_mb_pop_context(mb,&ctx);
 	}
@@ -2696,8 +2720,7 @@ static int PinyinPredict(CSET_GROUP_PREDICT *g,const char *code,int len,int filt
 	int count;
 	int space_index=array_index(code,len,(char)py_space);
 	int rlen=0;
-	char *res=g->phrase;
-	char *codetip=g->codetip;
+	char res[256];
 	if(space_index>0)
 	{
 		steps[0]=space_index;
@@ -2715,7 +2738,7 @@ static int PinyinPredict(CSET_GROUP_PREDICT *g,const char *code,int len,int filt
 		if(code[0]==py_space)
 			code++;
 		y_mb_set(mb,code,steps[i],filter);
-		struct y_mb_ci *c=y_mb_get_first(mb,NULL,codetip);
+		struct y_mb_ci *c=y_mb_get_first(mb,NULL,NULL);
 		if(auto_move && c->zi && steps[i]<8 && mb->zi_first)
 		{
 			char temp[8];
@@ -2739,6 +2762,7 @@ static int PinyinPredict(CSET_GROUP_PREDICT *g,const char *code,int len,int filt
 		code+=steps[i];
 	}
 	res[rlen]='\0';
+	cset_predict_group_append(g,res);
 	mb->ctx.result_match=saved_match;
 	return rlen;
 }
@@ -2911,7 +2935,7 @@ static int SPDoSearch(int adjust)
 			{
 				int end=(EIM.CodeLen==3?0:1);
 				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-				g->count=y_mb_assist_get(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
+				y_mb_assist_get(mb,g,EIM.CodeInput[EIM.CodeLen-1],end);
 				if(g->count)
 				{
 					cset_prepend(&cs,(CSET_GROUP*)g);
@@ -2941,7 +2965,7 @@ static int SPDoSearch(int adjust)
 			if(count>0)
 			{
 				CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-				g->count=y_mb_assist_get2(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput+2,0);
+				y_mb_assist_get2(mb,g,EIM.CodeInput+2,0);
 				if(g->count)
 				{
 					cset_prepend(&cs,(CSET_GROUP*)g);
@@ -3016,36 +3040,6 @@ static int SPDoSearch(int adjust)
 		}
 		
 	}
-#if 0
-	if(CodeGetLen==0 && EIM.CodeLen>=2 && EIM.CodeLen<=4)
-	{
-		struct y_mb_ci *c;
-		if(y_mb_set(mb,EIM.CodeInput,EIM.CodeLen,0)>0 && mb->ctx.result_first)
-		{
-			c=L_CPTR(mb->ctx.result_first->phrase);
-			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-			for(g->count=0;c!=NULL && g->count<=Y_MB_DATA_CALC;c=L_CPTR(c->next))
-			{
-				char *s=g->phrase[g->count];
-				y_mb_ci_string2(c,s);
-				if(strchr(s,'$'))
-				{
-					g->count++;
-				}
-			}
-			if(g->count>0)
-			{
-				cset_prepend(&cs,(CSET_GROUP*)g);
-				PhraseListCount=g->count;
-				EIM.CandPageCount=PhraseListCount/EIM.CandWordMax+
-						((PhraseListCount%EIM.CandWordMax)?1:0);
-				TableGetCandWords(PAGE_FIRST);
-				CodeMatch=EIM.CodeLen;
-				return PhraseListCount;
-			}
-		}
-	}
-#endif
 	
 	CodeReal=EIM.CaretPos?EIM.CaretPos:EIM.CodeLen;
 	if(CodeReal<=0)
@@ -3073,9 +3067,8 @@ static int SPDoSearch(int adjust)
 				code[--clen]=0;
 			}
 			int dlen=(len==2 && !strchr(code,'\''))?1:-1;
-			// uint64_t begin=l_ticks();
+			l_strncpy(mb->ctx.input_sp,temp,len);
 			CodeMatch=y_mb_max_match(mb,code,clen,dlen,hz_filter_temp,&good,NULL);
-			// printf("max match %d %d %d\n",(int)(l_ticks()-begin),CodeMatch,good);
 			if(len==0) CodeMatch=0;
 			GoodMatch=py2_pos_of_sp(temp,good);
 			if(CodeMatch==clen)
@@ -3122,7 +3115,7 @@ static int SPDoSearch(int adjust)
 		{
 			// uint64_t begin=l_ticks();
 			PhraseListCount=y_mb_set(mb,code,len,hz_filter_temp);	
-			// printf("set %d\n",(int)(l_ticks()-begin));
+			// printf("set %d %d\n",(int)(l_ticks()-begin),PhraseListCount);
 		}
 		cset_mb_group_set(&cs,mb,PhraseListCount);
 		PhraseListCount=cset_count(&cs);
@@ -3131,6 +3124,7 @@ static int SPDoSearch(int adjust)
 		EIM.CandWordMaxReal=max;
 		EIM.CandPageCount=PhraseListCount/max+((PhraseListCount%max)?1:0);
 	}
+
 	PinyinAddSpace();
 	PinyinGetCandwords(PAGE_FIRST);
 	CodeReal=EIM.CaretPos?EIM.CaretPos:EIM.CodeLen;
@@ -3188,9 +3182,9 @@ static int PinyinDoSearch(int adjust)
 	{
 		return PinyinAssistDoSearch(active);
 	}
-	
-	PySwitch=PySwitch || adjust;
-	if(adjust)
+	if(adjust!=PY_SWITCH_CUR)
+		PySwitch=PySwitch || adjust;
+	if(adjust && adjust!=PY_SWITCH_CUR)
 		l_predict_simple_mode=0;
 	if(SP==1)
 		return SPDoSearch(adjust);
@@ -3238,7 +3232,7 @@ static int PinyinDoSearch(int adjust)
 		if(count>0)
 		{
 			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-			g->count=y_mb_assist_get2(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput+2,0);
+			y_mb_assist_get2(mb,g,EIM.CodeInput+2,0);
 			if(g->count)
 			{
 				cset_prepend(&cs,(CSET_GROUP*)g);
@@ -3293,7 +3287,7 @@ static int PinyinDoSearch(int adjust)
 		{
 			int end=(EIM.CodeLen==mb->split+1?0:1);
 			CSET_GROUP_CALC *g=cset_calc_group_new(&cs);
-			g->count=y_mb_assist_get(mb,g->phrase,Y_MB_DATA_CALC,EIM.CodeInput[EIM.CodeLen-1],end);
+			y_mb_assist_get(mb,g,EIM.CodeInput[EIM.CodeLen-1],end);
 			if(g->count)
 			{
 				cset_prepend(&cs,(CSET_GROUP*)g);
@@ -3325,7 +3319,7 @@ static int PinyinDoSearch(int adjust)
 				len=CodeMatch;
 		}
 		do{
-			if(mb->split<=1)
+			if(mb->split<=1 || mb->none)
 			{
 				uint8_t steps[len];
 				int count=PinyinSegmentRecursive(EIM.CodeInput,len,hz_filter_temp,steps,NULL);
@@ -3374,16 +3368,15 @@ static int PinyinDoSearch(int adjust)
 		struct y_mb_context ctx;
 		y_mb_push_context(mb,&ctx);
 		CSET_GROUP_PREDICT *g=cset_predict_group_new(&cs);
-		if(mb->split>1 /*&& auto_move!=1*/)
+		if(mb->split<=1|| mb->none)
 		{
-			PREDICT_OPTIONS options={.py_switch=PySwitch!=0,.begin=CodeGetLen==0,};
-			g->count=y_mb_predict_by_learn(mb,EIM.CodeInput,
-						CodeReal,g,&options);
+			PinyinPredict(g,EIM.CodeInput,CodeReal,hz_filter_temp);
 		}
 		else
 		{
-			PinyinPredict(g,EIM.CodeInput,CodeReal,hz_filter_temp);
-			g->count=g->phrase[0]?1:0;
+			PREDICT_OPTIONS options={.py_switch=PySwitch!=0,.begin=CodeGetLen==0,};
+			y_mb_predict_by_learn(mb,EIM.CodeInput,
+						CodeReal,g,&options);
 		}
 		y_mb_pop_context(mb,&ctx);
 		if(g->count>0)
@@ -3736,7 +3729,7 @@ static int PinyinGetCandwords(int mode)
 		{
 			g->count=y_mb_get_assoc(
 				mb,from,strlen(from),
-				assoc_count,g->phrase,Y_MB_DATA_CALC);
+				assoc_count,g);
 		}
 		if(!assoc_hungry)
 			g->count+=EIM.QueryHistory(EIM.StringGet,g->phrase+g->count,Y_MB_DATA_CALC-g->count);
@@ -3883,23 +3876,20 @@ static int PinyinDoSearchAssistMode(int adjust)
 	CSET_GROUP_PREDICT *predict=cset_get_group_by_type(&cs,CSET_TYPE_PREDICT);
 	if(predict && predict->count>1)
 	{
-		for(int i=1;i<predict->count;i++)
+		for(int i=0;i<predict->count && g->count<Y_MB_DATA_CALC;i++)
 		{
-			const char *s=y_mb_predict_nth(predict->phrase,i);
+			const char *s=cset_predict_group_nth(predict,i);
 			uint32_t hz=l_gb_to_char((const uint8_t*)s);
-			if(!y_mb_assist_test_hz(mb,hz,AssistCode))
+			bool ret=y_mb_assist_test_hz(mb,hz,AssistCode);
+			if(!ret)
 				continue;
-			strcpy(&g->phrase[g->count][0],s);
-			g->count++;
+			cset_calc_group_append(g,s);
 		}
 	}
 	PredictCalcMark=g->count;
 	if(g->count<Y_MB_DATA_CALC)
 	{
-		g->count+=y_mb_assist_get2(mb,
-				g->phrase+g->count,
-				Y_MB_DATA_CALC-g->count,
-				AssistCode,0);
+		y_mb_assist_get2(mb,g,AssistCode,0);
 	}
 	ExtraZi.mark=g->count;
 	if(g->count<Y_MB_DATA_CALC && ExtraZi.count)

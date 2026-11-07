@@ -152,7 +152,7 @@ static void input_method_activate_v1(struct simple_im *keyboard,
 	p_wl_keyboard_add_listener(keyboard->keyboard,
 				 &input_method_keyboard_listener_v1,
 				 keyboard);
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,false);
 }
 
 static void input_method_deactivate_v1(struct simple_im *keyboard,

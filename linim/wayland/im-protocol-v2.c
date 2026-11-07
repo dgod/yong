@@ -178,7 +178,7 @@ static void input_method_activate(
 		simple_im.keyboard_grab_v2=zwp_input_method_v2_grab_keyboard(zwp_input_method_v2);
 		zwp_input_method_keyboard_grab_v2_add_listener(simple_im.keyboard_grab_v2,&input_method_keyboard_listener,keyboard);
 	}
-	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL);
+	ybus_on_focus_in(&plugin,(CONN_ID)keyboard->app_active,CLIENT_ID_VAL,false);
 }
 
 static void input_method_deactivate(

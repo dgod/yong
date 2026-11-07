@@ -1,11 +1,10 @@
-#ifndef _MB_H_
-#define _MB_H_
+#pragma once
 
 #include "llib.h"
-
 #include "yong.h"
 #include "pinyin.h"
 #include "bloom.h"
+#include "cset.h"
 
 #define Y_MB_KEY_SIZE		63
 #define Y_MB_DATA_SIZE		255
@@ -113,9 +112,13 @@ struct y_mb_context{
 	int result_wildcard;
 	int result_compact;
 	int result_has_next;
-	struct y_mb_item *result_first;
 	struct y_mb_index *result_index;
-	void *result_ci;
+	struct y_mb_item *result_first;
+	struct{
+		struct y_mb_index *index;
+		struct y_mb_item *item;
+		int at;
+	}result_current;
 	char input[Y_MB_KEY_SIZE+1];
 	char input_sp[Y_MB_KEY_SIZE+1];
 };
@@ -242,6 +245,7 @@ struct y_mb{
 	uint8_t auto_move;
 	uint8_t sloop;
 	uint8_t split;
+	uint8_t none;
 	
 	/*0: gb18030 1: utf-8 */
 	uint8_t encode;
@@ -317,11 +321,10 @@ int y_mb_set(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_get(struct y_mb *mb,int at,int num,
 	char cand[][MAX_CAND_LEN+1],char tip[][MAX_TIPS_LEN+1]);
 struct y_mb_ci *y_mb_get_first(struct y_mb *mb,char *cand,char *tip);
-int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,
-		int dlen,char calc[][MAX_CAND_LEN+1],int max);
-int y_mb_super_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super);
+int y_mb_get_assoc(struct y_mb *mb,const char *src,int slen,int dlen,CSET_GROUP_CALC *g);
+int y_mb_super_get(struct y_mb *mb,CSET_GROUP_CALC *g,int super);
 int y_mb_get_simple(struct y_mb *mb,char *code,char *data,int p);
-int y_mb_is_key(struct y_mb *mb,int c);
+bool y_mb_is_key(struct y_mb *mb,int c);
 int y_mb_is_keys(struct y_mb *mb,const char *s);
 int y_mb_is_full(struct y_mb *mb,int len);
 int y_mb_is_stop(struct y_mb *mb,int c,int pos);
@@ -331,7 +334,7 @@ int y_mb_move_phrase(struct y_mb *mb,const char *code,const char *phrase,int dir
 int y_mb_auto_move(struct y_mb *mb,const char *code,const char *phrase,int auto_move);
 int y_mb_add_phrase(struct y_mb *mb,const char *code,const char *phrase,int pos,int dic);
 int y_mb_del_phrase(struct y_mb *mb,const char *code,const char *phrase);
-int y_mb_find_code(struct y_mb *mb,const char *hz,char (*tab)[MAX_CAND_LEN+1],int max);
+int y_mb_find_code(struct y_mb *mb,const char *hz,CSET_GROUP_CALC *g);
 int y_mb_find_simple_code(struct y_mb *mb,const char *hz,const char *code,char *out,int filter,int total);
 int y_mb_get_full_code(struct y_mb *mb,const char *data,char *code);
 void y_mb_set_zi(struct y_mb *mb,int zi);
@@ -345,8 +348,8 @@ int y_mb_dump(struct y_mb *mb,FILE *fp,int option,int format,char *pre);
 int y_mb_get_exist_code(struct y_mb *mb,const char *data,char *code);
 void y_mb_push_context(struct y_mb *mb,struct y_mb_context *ctx);
 void y_mb_pop_context(struct y_mb *mb,struct y_mb_context *ctx);
-int y_mb_assist_get(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super,int end);
-int y_mb_assist_get2(struct y_mb *mb,char calc[][MAX_CAND_LEN+1],int max,char super[2],int end);
+int y_mb_assist_get(struct y_mb *mb,CSET_GROUP_CALC *g,char super,int end);
+int y_mb_assist_get2(struct y_mb *mb,CSET_GROUP_CALC *g,char super[2],int end);
 int y_mb_before_assist(struct y_mb *mb);
 struct y_mb_ci *y_mb_code_exist(struct y_mb *mb,const char *code,int len);
 int y_mb_code_cmp(const struct y_mb_code *c1,const struct y_mb_code *c2,int len);
@@ -355,7 +358,7 @@ struct y_mb_ci *y_mb_ci_exist(struct y_mb *mb,const char *data,int dic);
 int y_mb_is_good_code(struct y_mb *mb,const char *code,int clen,const char *s);
 char *y_mb_ci_string(struct y_mb_ci *ci);
 int y_mb_ci_string2(struct y_mb_ci *ci,char *out);
-int y_mb_predict_simple(struct y_mb *mb,const py_item_t *items,int count,char *out,int *out_len,int (*freq)(const char *));
+int y_mb_predict_simple(struct y_mb *mb,const py_item_t *items,int count,LArray *out,int (*freq)(const char *));
 struct y_mb_item *y_mb_get_zi(struct y_mb *mb,const char *s,int len,int filter);
 int y_mb_in_result(struct y_mb *mb,struct y_mb_ci *c);
 int y_mb_assist_test(struct y_mb *mb,struct y_mb_ci *c,char super,int n,int end);
@@ -369,13 +372,14 @@ int y_mb_load_fuzzy(struct y_mb *mb,const char *fuzzy);
 void y_mb_key_map_init(const char *key,int wildcard,char *map);
 int y_mb_zi_has_code(struct y_mb *mb,const char *zi,const char *code);
 int y_mb_error_init(struct y_mb *mb);
-int y_mb_error_add(struct y_mb *mb,const char *phrase);
+int y_mb_error_add(struct y_mb *mb,const char *phrase,int len);
 int y_mb_error_del(struct y_mb *mb,const char *phrase);
 bool y_mb_error_has(struct y_mb *mb,const char *phrase);
 const char *y_mb_skip_display(const char *s,int len);
-bool y_mb_match_jp(struct y_mb *mb,py_item_t *item,int count,const char *s);
 int y_mb_key_to_code(struct y_mb *mb,struct y_mb_index *index,struct y_mb_item *item,char out[Y_MB_KEY_SIZE+1]);
 bool y_mb_ci_py_match(struct y_mb *mb,struct y_mb_ci *c,py_item_t *input,int count);
+bool y_mb_is_shift_key(struct y_mb *mb,int c);
+int y_mb_from_shift_key(struct y_mb *mb,int c);
 
 /* yong only */
 void y_mb_calc_yong_tip(struct y_mb *mb,const char *code,const char *cand,char *tip);
@@ -399,4 +403,8 @@ static inline void y_mb_context_reset(struct y_mb *mb)
 	mb->ctx.result_count=0;
 }
 
-#endif/*_MB_H_*/
+void *y_mb_slice_alloc(int size);
+#define y_mb_slice_new(t) y_mb_slice_alloc(sizeof(t))
+void y_mb_slice_free(void *p,int size);
+
+

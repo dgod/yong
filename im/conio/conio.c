@@ -34,7 +34,7 @@ static gboolean client_input_key_async(guint id,int key,guint32 time)
 
 static void client_focus_in(guint id)
 {
-	l_call_client_call("focus_in",NULL,"i",id);
+	l_call_client_call("focus_in",NULL,"ii",id,1);
 }
 
 static int disp_func(const char *name,LCallBuf *buf)

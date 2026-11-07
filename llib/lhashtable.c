@@ -90,7 +90,8 @@ void l_hash_table_free(LHashTable *h,LFreeFunc func)
 
 void l_hash_table_clear(LHashTable *h,LFreeFunc func)
 {
-	if(!h) return;
+	if(!h || !h->count)
+		return;
 	for(int i=0;i<h->size;i++)
 	{
 		if(func)
@@ -180,11 +181,14 @@ static void _hash_resize(LHashTable *h)
 
 bool l_hash_table_insert(LHashTable *h,void *item)
 {
-	if(h->count>=h->size)
-		_hash_resize(h);
 	int index=_hash_index(h,item);
 	void *old=_slist_find_item(h->array[index],item,h);
 	if(old) return false;
+	if(h->count>=h->size)
+	{
+		_hash_resize(h);
+		index=_hash_index(h,item);
+	}
 	h->array[index]=l_slist_prepend(h->array[index],item);
 	h->count++;
 	return true;
@@ -237,15 +241,17 @@ void *l_hash_table_del(LHashTable *h,const void *key)
 
 void *l_hash_table_rand(LHashTable *h)
 {
+	if(h->count==0)
+		return NULL;
 	const int pos=l_rand(0,h->size-1);
 	for(int i=pos;;)
 	{
 		LSList *p=h->array[i];
 		if(p==NULL)
 		{
-			i=(i+1)%h->size;
-			if(i==pos)
-				break;
+			i++;
+			if(i==h->size)
+				i=0;
 			continue;
 		}
 		if(!p->next)
@@ -301,8 +307,61 @@ uint32_t l_str_hash (const void *v)
 	return h;
 }
 
+uint32_t l_str_hash2 (const void *v,int len)
+{
+	const uint8_t *p = v;
+	unsigned h = *p++;
+	for(int i=1;i<len;i++)
+		h = h*131 + *p++;
+	return h;
+}
+
 uint32_t l_int_hash(const void *v)
 {
 	return *(const uint32_t *)v;
 }
 
+// only support c str
+bool l_string_set_insert2(LHashTable *h,const char *s,int len)
+{
+	char *item;
+	int index;
+	uint32_t hash_val;
+	if(len<0)
+	{
+		len=strlen(s);
+		hash_val=l_str_hash2(s,len);
+		index=fast_mod_map(h,hash_val);
+		void *old=_slist_find_key(h->array[index],s,h);
+		if(old)
+		{
+			return false;
+		}
+		item=l_alloc(sizeof(void*)+len+1);
+		memcpy(item+sizeof(void*),s,len+1);
+		s=item+sizeof(void*);
+	}
+	else
+	{
+		item=l_alloc(sizeof(void*)+len+1);
+		memcpy(item+sizeof(void*),s,len);
+		item[sizeof(void*)+len]=0;
+		s=item+sizeof(void*);
+		hash_val=l_str_hash2(s,len);
+		index=fast_mod_map(h,hash_val);
+		void *old=_slist_find_key(h->array[index],s,h);
+		if(old)
+		{
+			l_free(item);
+			return false;
+		}
+	}
+	if(h->count>=h->size)
+	{
+		_hash_resize(h);
+		index=fast_mod_map(h,hash_val);
+	}
+	h->array[index]=l_slist_prepend(h->array[index],item);
+	h->count++;
+	return true;
+}

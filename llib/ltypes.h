@@ -38,6 +38,7 @@
 #define L_ARRAY_SIZE(arr) lengthof(arr)
 
 typedef void (*LEnumFunc)(void *data,void *user);
+typedef void *(*LAllocFunc)(size_t size);
 typedef void (*LFreeFunc)(void *data);
 typedef void (*LUserFunc)(void *data);
 typedef int (*LCmpFunc)(const void *p1,const void *p2);

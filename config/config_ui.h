@@ -134,6 +134,7 @@ int cu_ctrl_action_run(CUCtrl ctrl,CUAction action);
 void cu_ctrl_action_free(CUCtrl ctrl,CUAction action);
 
 int cu_confirm(CUCtrl p,const char *message);
+void cu_alert(CUCtrl p,const char *message);
 
 void cu_menu_popup(CUCtrl p,CUMenu m);
 void cu_menu_init_self(CUMenu m);

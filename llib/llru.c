@@ -11,7 +11,6 @@ LLRU *l_lru_new(LFreeFunc free)
 		return NULL;
 	lru->free=free;
 	lru->size=4;
-	lru->last_clear=l_ticks();
 	return lru;
 }
 
@@ -29,7 +28,11 @@ int l_lru_add(LLRU *lru,LLRU_ITEM *item)
 		return -1;
 	LLRU_ITEM *head=lru->head;
 	lru->head=l_list_prepend(head,item);
-	if(!head) lru->tail=item;
+	if(!head)
+	{
+		lru->tail=item;
+		lru->last_clear=l_ticks();
+	}
 	lru->length++;
 	if(lru->length>lru->size)
 	{

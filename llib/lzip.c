@@ -21,12 +21,9 @@
 enum{
 	COMP_Store=0,
 	COMP_Deflated=8,
-	COMP_Deflate64=9,
-	COMP_BZIP2=12,
-	COMP_LZMA=14,
-	COMP_PPMd=98,
 };
 
+#pragma pack(1)
 typedef struct{
 	uint32_t signature;
 	uint16_t version;
@@ -60,6 +57,9 @@ typedef struct{
 	uint16_t flag;
 	uint16_t comp;
 	uint16_t mtime;
+	uint32_t crc;
+	uint32_t size;
+	uint32_t usize;
 	uint16_t mdate;
 	uint16_t name;
 	uint16_t extra;
@@ -86,8 +86,7 @@ typedef struct{
 	uint16_t comment;		// Comment length (n)
 }LZipEndOfFile;
 
-#define r16(x) if(2!=fread(&x,1,2,fp)) goto out;
-#define r32(x) if(4!=fread(&x,1,4,fp)) goto out;
+#pragma pack()
 
 #if defined(_WIN32)
 #define skip(l) do{ \
@@ -116,7 +115,6 @@ static int l_zip_get_end_of_file(FILE *fp,LZipEndOfFile *e)
 		return -1;
 	for(i=0;i<=ret-22;i++)
 	{
-		// uint32_t sig=temp[i]|(temp[i+1]<<8)|(temp[i+2]<<16)|(temp[i+3]<<24);
 		uint32_t sig=l_read_u32le(temp+i);
 		if(sig==END_OF_FILE_SIGNATURE)
 		{
@@ -139,25 +137,14 @@ static int l_zip_get_central_file(FILE *fp,const LZipEndOfFile *e,const char *na
 	for(i=0;/*i<e->central_total*/;i++)
 	{
 		(void)i;
-		r32(c->signature);
+		if(sizeof(LZipCentralFile)!=fread(c,1,sizeof(LZipCentralFile),fp))
+		{
+			goto out;
+		}
 		if(c->signature!=CENTRAL_FILE_SIGNATURE)
 		{
 			goto out;
 		}
-		r16(c->v_made);
-		r16(c->v_extract);
-		r16(c->flag);
-		r16(c->comp);
-		r16(c->mtime);
-		r16(c->mdate);
-		skip(12);		// crc,size,usize
-		r16(c->name);
-		r16(c->extra);
-		r16(c->comment);
-		r16(c->disk);
-		r16(c->i_attr);
-		r32(c->e_attr);
-		r32(c->offset);
 		if(c->name==name_len)
 		{
 			char entry[name_len+1];
@@ -183,25 +170,18 @@ static int l_zip_get_local_file(FILE *fp,const char *name,LZipLocalFile *h)
 	size_t name_len=strlen(name);
 	while(1)
 	{
-		r32(h->signature);
+		if(sizeof(LZipLocalFile)!=fread(h,1,sizeof(*h),fp))
+		{
+			goto out;
+		}
 		if(h->signature!=LOCAL_FILE_SIGNATURE)
 		{
 			goto out;
 		}
-		r16(h->version);
-		r16(h->flag);
 		if((h->flag&FLAG_USE_DATA_DESC)!=0)
 		{
 			goto out;
 		}
-		r16(h->comp);
-		r16(h->mtime);
-		r16(h->mdate);
-		r32(h->crc);
-		r32(h->size);
-		r32(h->usize);
-		r16(h->name);
-		r16(h->extra);
 		if(h->name==name_len)
 		{
 			char entry[name_len+1];

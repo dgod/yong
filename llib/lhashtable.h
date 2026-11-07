@@ -26,6 +26,7 @@ void l_hash_iter_init(LHashIter *iter,LHashTable *h);
 void *l_hash_iter_next(LHashIter *iter);
 
 uint32_t l_str_hash (const void *v);
+uint32_t l_str_hash2 (const void *v,int len);
 uint32_t l_int_hash(const void *v);
 
 #define _L_HASH_DEREF_STRING(t,k) (			\
@@ -58,15 +59,11 @@ static inline LHashTable *l_string_set_new(int size)
 	return l_hash_table_new(l_str_hash,(LEqualFunc)strcmp,size,sizeof(void*));
 }
 
-static inline int l_string_set_add(LHashTable *h,const char *s)
+bool l_string_set_insert2(LHashTable *h,const char *s,int len);
+
+static inline bool l_string_set_insert(LHashTable *h,const char *s)
 {
-	if(l_hash_table_lookup(h,s))
-		return 1;
-	size_t len=strlen(s)+1;
-	char *item=l_alloc(sizeof(void*)+len);
-	memcpy(item+sizeof(void*),s,len);
-	l_hash_table_insert(h,item);
-	return 0;
+	return l_string_set_insert2(h,s,-1);
 }
 
 static inline bool l_string_set_has(LHashTable *h,const char *s)
@@ -83,6 +80,11 @@ static inline void l_string_set_del(LHashTable *h,const char *s)
 static inline void l_string_set_free(LHashTable *h)
 {
 	l_hash_table_free(h,l_free);
+}
+
+static inline void l_string_set_clear(LHashTable *h)
+{
+	l_hash_table_clear(h,l_free);
 }
 
 #endif/*_LHASHTABLE_H_*/

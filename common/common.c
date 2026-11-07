@@ -2589,7 +2589,7 @@ FILE *y_im_open_file(const char *fn,const char *mode)
 	return fp;
 }
 
-void y_im_remove_file(char *fn)
+void y_im_remove_file(const char *fn)
 {
 	char temp[256];
 
@@ -2608,6 +2608,7 @@ void y_im_remove_file(char *fn)
 	}
 }
 
+#define IM_URLS_BEGIN		9
 static char *y_im_urls[64]={
 	"www.",
 	"ftp.",
@@ -2615,6 +2616,8 @@ static char *y_im_urls[64]={
 	"mail.",
 	"blog.",
 	"http",
+	"http:",
+	"https:",
 	"*@",
 };
 static int urls_begin=0;
@@ -2629,8 +2632,7 @@ Y_USER_URL *y_im_user_urls(void)
 void y_im_free_urls(void)
 {
 	Y_USER_URL *p,*n;
-	int i;
-	for(i=7;i<64;i++)
+	for(int i=IM_URLS_BEGIN;i<64;i++)
 	{
 		if(!y_im_urls[i])
 			break;
@@ -2649,14 +2651,12 @@ void y_im_free_urls(void)
 
 void y_im_load_urls(void)
 {
-	FILE *fp;
-	int i;
 	char temp[256];
 	y_im_free_urls();
-	fp=l_file_open("urls.txt","rb",y_im_get_path("HOME"),
+	FILE *fp=l_file_open("urls.txt","rb",y_im_get_path("HOME"),
 				y_im_get_path("DATA"),NULL);
 	if(!fp) return;	
-	for(i=7;i<64;)
+	for(int i=IM_URLS_BEGIN;i<64;)
 	{
 		if(l_get_line(temp,256,fp)<0)
 			break;
@@ -2664,7 +2664,7 @@ void y_im_load_urls(void)
 			continue;
 		if(!strcmp(temp,"!zero"))
 		{
-			urls_begin=7;
+			urls_begin=IM_URLS_BEGIN;
 			continue;
 		}
 		else if(!strcmp(temp,"!english"))
@@ -2701,18 +2701,24 @@ char *y_im_find_url(const char *pre)
 
 char *y_im_find_url2(const char *pre,int next)
 {
-	int len;
-	int i;
 	if(!pre)
 		return NULL;
-	len=strlen(pre);
+	int len=strlen(pre);
 	if(len<=0)
 		return NULL;
-	for(i=urls_begin;i<64 && y_im_urls[i];i++)
+	if(strchr(pre,' '))
+	{
+		char *temp=l_strdupa(pre);
+		len=l_str_replace(temp,' ','\0');
+		pre=temp;
+	}
+	for(int i=urls_begin;i<64 && y_im_urls[i];i++)
 	{
 		char *url=y_im_urls[i];
 		if(!strncmp(pre,url,len) && next==url[len])
+		{
 			return url;
+		}
 		if(url[0]=='*' && url[1]==next && url[2]==0)
 		{
 			// 这时候last_code应该没有其他用途
@@ -3034,7 +3040,7 @@ int y_im_run_helper(char *argv[],const char *watch,void (*change_cb)(void),void 
 	{
 		struct im_helper *p=helper_list+i;
 		if(p->prog) continue;
-		if(0!=l_pread(argv,L_PREAD_SHOW,HelperExit,p))
+		if(l_pread(argv,L_PREAD_SHOW,HelperExit,p)<0)
 		{
 			l_free(prog);
 			return -1;

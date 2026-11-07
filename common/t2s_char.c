@@ -2917,10 +2917,11 @@ static const uint16_t t2s_m_2[][2]={
 static const uint16_t t2s_num_m[]={2900,9};
 static const void *t2s_m[]={t2s,t2s_m_2};
 
-static const uint16_t t2se_num=3;
+static const uint16_t t2se_num=4;
 static const uint32_t t2se[][2]={
 	{0x81308534, 0x0000a1a5},
 	{0x8136a634, 0x0000a1a4},
 	{0x81379830, 0x0000a3df},
+	{0x9a378638, 0x9a378637},
 };
 

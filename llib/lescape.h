@@ -9,6 +9,7 @@ typedef struct{
 	char from;
 	char to;
 }L_ESCAPE_ITEM;
+static_assert(sizeof(L_ESCAPE_ITEM)==2,"escape item not compact");
 
 typedef struct lescapeconfig{
 	char lead;

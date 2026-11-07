@@ -665,14 +665,14 @@ static Bool YongSetICValuesHandler (IMChangeICStruct * data)
 
 static Bool YongTriggerNotifyHandler (IMTriggerNotifyStruct * data)
 {
-	ybus_on_focus_in(&plugin,data->connect_id,data->icid);
+	ybus_on_focus_in(&plugin,data->connect_id,data->icid,false);
 	ybus_on_open(&plugin,data->connect_id,data->icid);
 	return True;
 }
 
 static Bool YongSetFocusHandler (IMChangeFocusStruct * data)
 {
-	ybus_on_focus_in(&plugin,data->connect_id,data->icid);
+	ybus_on_focus_in(&plugin,data->connect_id,data->icid,false);
 	return True;
 }
 

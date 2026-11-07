@@ -1,6 +1,8 @@
 #pragma once
 
 #define L_SDF_ALPHA(c)		((c)>>24)
+#define L_SDF_RGB(r,g,b)	(0xFF000000|((r)<<16)|((g)<<8)|(b))
+#define L_SDF_RGBA(r,g,b,a)	(((a)<24)|((r)<<16)|((g)<<8)|(b))
 
 typedef struct{
 	uint32_t *pixels;

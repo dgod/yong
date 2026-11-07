@@ -9,6 +9,7 @@ struct history_item{
 };
 
 static FILE *fp_hist;
+static char *file_hist;
 static int hist_dirty;
 
 static int auto_sentence;
@@ -51,6 +52,11 @@ void y_im_history_free(void)
 		fclose(fp_hist);
 		fp_hist=NULL;
 		hist_dirty=0;
+	}
+	if(file_hist)
+	{
+		l_free(file_hist);
+		file_hist=NULL;
 	}
 	l_queue_free(last_history);
 	last_history=NULL;
@@ -258,10 +264,9 @@ int y_im_history_query(const char *src,char out[][MAX_CAND_LEN+1],int max)
 {
 	int i;
 	struct history_item *p;
-	int slen;
 	if(!last_history || max<=0)
 		return 0;
-	slen=strlen(src);
+	int slen=strlen(src);
 	for(i=0,p=last_history->head;p!=NULL && i<max;p=p->next)
 	{
 		if(!memcmp(p->data,src,slen) && p->data[slen]!=0)
@@ -274,9 +279,8 @@ int y_im_history_query(const char *src,char out[][MAX_CAND_LEN+1],int max)
 
 const char *y_im_history_get_last(int len)
 {
-	int t;
 	temp_history[temp_len]=0;
-	t=l_gb_strlen(temp_history,-1);
+	int t=l_gb_strlen(temp_history,-1);
 	if(t<len)
 		return 0;
 	return l_gb_offset((const uint8_t*)temp_history,t-len);
@@ -349,6 +353,12 @@ void y_im_history_init(void)
 		if(!fp_hist) return;
 	}
 	fseek(fp_hist,0,SEEK_END);
+	file_hist=l_strdup(fn);
+}
+
+bool y_im_history_is_file(const char *s)
+{
+	return l_str_equal(s,file_hist);
 }
 
 int y_im_history_write(const char *s,bool flush)

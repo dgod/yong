@@ -27,6 +27,7 @@ static GtkClipboard *w_clipboard = NULL;
 static char *w_clipboard_mime_data = NULL;
 static int w_clipboard_mime_size = 0;
 static char *w_clipboard_mime_type = NULL;
+static char w_clipboard_text[512];
 static gint (*p_gdk_screen_get_monitor_scale_factor)(GdkScreen* screen,gint monitor_num);
 static gint (*p_gtk_widget_get_scale_factor)(GtkWidget* widget);
 
@@ -306,12 +307,30 @@ int w_set_options(const W_OPTIONS *options)
 	return 0;
 }
 
+static void on_get_select_cb(GtkClipboard* clipboard,const gchar* text)
+{
+	if(!text || !text[0] || strlen(text)>=sizeof(w_clipboard_text))
+	{
+		w_clipboard_text[0]=0;
+	}
+	else
+	{
+		strcpy(w_clipboard_text,text);
+	}
+}
+
+static void on_clipboard_owner_change (GtkClipboard* clipboard)
+{
+	gtk_clipboard_request_text(clipboard,(GtkClipboardTextReceivedFunc)on_get_select_cb,NULL);
+}
+
 int w_init(const char *id)
 {
 	if(w_initialized)
 		return 0;
 
 	w_app_id = id ? id : "wui";
+	(void)w_app_id;
 
 	g_setenv("GTK_CSD","0",TRUE);
 	g_setenv("GDK_BACKEND", "x11", TRUE);
@@ -327,13 +346,16 @@ int w_init(const char *id)
 	}
 
 	w_clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	g_signal_connect(w_clipboard,"owner-change",G_CALLBACK(on_clipboard_owner_change),NULL);
 
 	p_gdk_screen_get_monitor_scale_factor=dlsym(NULL,"gdk_screen_get_monitor_scale_factor");
 	p_gtk_widget_get_scale_factor=dlsym(NULL,"gtk_widget_get_scale_factor");
 
 	w_workarea_update(w_win_get_output(NULL));
 	
-	g_object_set(gtk_settings_get_default(), "gtk-dialogs-use-header", TRUE, NULL);
+	GtkSettings *settings = gtk_settings_get_default();
+	g_object_set(settings, "gtk-dialogs-use-header", TRUE, NULL);
+	g_object_set(settings, "gtk-enable-animations", FALSE, NULL);
 
 	GdkScreen *screen = gdk_screen_get_default();
 	g_signal_connect(G_OBJECT(screen),"size-changed",
@@ -370,7 +392,7 @@ w_win_t w_win_create(const char *title, const char *role, void *data)
 {
 	w_win_t win = (w_win_t)l_new0(struct w_window);
 
-	win->widget = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	win->widget = gtk_window_new(GTK_WINDOW_POPUP);
 	win->data = data;
 	win->scale = 1.0;
 	win->visible = false;
@@ -832,7 +854,9 @@ char *w_clipboard_get_text(void)
 {
 	if(!w_clipboard)
 		return NULL;
-	return gtk_clipboard_wait_for_text(w_clipboard);
+	if(!w_clipboard_text[0])
+		return NULL;
+	return l_strdup(w_clipboard_text);
 }
 
 int w_clipboard_set_text(const char *text)
@@ -1029,3 +1053,7 @@ int w_get_n_outputs(void)
 	return gdk_screen_get_n_monitors(screen);
 }
 
+int w_win_effect(w_win_t win,int effect)
+{
+	return -1;
+}

@@ -131,6 +131,25 @@ LKeyFile *y_im_load_config(char *fn)
 	return l_key_file_open(fn,1,y_im_get_path("HOME"),y_im_get_path("DATA"),NULL);
 }
 
+void y_im_remove_file(const char *fn)
+{
+	char temp[256];
+
+	if(!fn)
+		return;
+	
+	if(fn[0]=='/')
+	{
+		strcpy(temp,fn);
+		l_remove(temp);
+	}
+	else
+	{
+		sprintf(temp,"%s/%s",y_im_get_path("HOME"),fn);
+		l_remove(temp);
+	}
+}
+
 void y_im_backup_file(char *path,char *suffix)
 {
 	char temp[256];

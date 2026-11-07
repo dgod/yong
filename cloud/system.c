@@ -12,8 +12,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#define WAKEUP_SIGNAL		SIGUSR2
-
 typedef int SOCKET;
 #define INVALID_SOCKET (-1)
 #define closesocket(s) close(s)
@@ -336,23 +334,21 @@ static void sg_conn_set_cookie(sg_cache_t *c,const char *s,int len)
 
 static char *sg_conn_res(sg_cache_t *c,SOCKET s)
 {
-	fd_set fds;
 	int ret;
-	struct timeval tv;
 	char temp[4096];
 	char *p=0;
-	int i;
-	int retry;
 	int size=0;
-	for(retry=0;retry<16;retry++)
+	for(int retry=0;retry<16;retry++)
 	{
 		int max;
 		if(!size)
 			max=c->proxy?80:50;
 		else
 			max=5;
-		for(i=0;i<max;i++)
+		for(int i=0;i<max;i++)
 		{
+			fd_set fds;
+			struct timeval tv;
 			FD_ZERO(&fds);
 			FD_SET(s,&fds);
 			tv.tv_sec=0;tv.tv_usec=100*1000;

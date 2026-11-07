@@ -440,6 +440,8 @@ void update_main_window(void)
 		param.shadow=l_key_file_get_data(ConfigSkin,main_group,"shadow");
 	}
 
+	param.effect=y_im_get_config_int("main","effect");
+
 	y_ui_main_update(&param);
 	l_free(param.bg);
 	l_free(param.border);
@@ -819,6 +821,8 @@ void update_input_window(void)
 			param.pets=l_ptr_array_new(10);
 		l_ptr_array_append(param.pets,pet);
 	}
+
+	param.effect=y_im_get_config_int("input","effect");
 
 	y_ui_input_update(&param);
 	for(i=0;i<L_ARRAY_SIZE(param.bg);i++)
@@ -1959,7 +1963,7 @@ ENGLISH_MODE:
 				return 0;
 			}
 		}
-		if(url && (ret==IMR_NEXT || ret==IMR_COMMIT_DISPLAY || ret==IMR_BLOCK))
+		if(url && (ret==IMR_NEXT/* || ret==IMR_COMMIT_DISPLAY*/ || ret==IMR_BLOCK))
 		{
 			strcpy(eim->CodeInput,url);
 			YongSetLang(LANG_EN);
@@ -2657,10 +2661,11 @@ static void signal_handler(int sig)
 #ifdef SIGHUP
 		case SIGHUP:
 #endif
-		case SIGINT:
 #ifdef SIGPIPE
 		case SIGPIPE:
+			return;
 #endif
+		case SIGINT:
 		case SIGTERM:
 			YongDestroyIM();
 			break;
@@ -2810,17 +2815,11 @@ static void home_change_cb(const char *name)
 	{
 		if(!strcmp(name,"clipboard.txt"))
 			return;
+		if(y_im_history_is_file(name))
+			return;
 		int ret=y_im_run_tool("tool_may_write",(void*)name,NULL);
 		if(ret>0)
 			return;
-#if 0
-		void *out=NULL;
-		int ret=y_im_run_tool("tool_get_file","user",&out);
-		if(ret!=0 || !out)
-			return;
-		if(!strcmp(out,name))
-			return;
-#endif
 	}
 	else
 	{

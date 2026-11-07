@@ -29,30 +29,30 @@ static YBUS_PLUGIN plugin={
 	.send_string=xim_send_string,
 	.send_key=xim_send_key,
 };
-static int trigger=CTRL_SPACE;
+// static int trigger=CTRL_SPACE;
 static int onspot=0;
 static IBusBus *bus;
 static IBusFactory *factory=NULL;
 static void *ibus_so;
 static int ibus_menu;
 static int ibus_enable;
-static int ibus_assist;
+static bool use_ibus_input=true;
 
 static IBusBus *(*p_ibus_bus_new)(void);
-static IBusBus *(*p_ibus_bus_new_async)(void);
+// static IBusBus *(*p_ibus_bus_new_async)(void);
 static GDBusConnection *(*p_ibus_bus_get_connection)(IBusBus *bus);
 static guint (*p_ibus_bus_request_name)(IBusBus *bus,const gchar *name,guint flags);
-static gboolean (*p_ibus_bus_register_component)(IBusBus *bus,IBusComponent *component);
+// static gboolean (*p_ibus_bus_register_component)(IBusBus *bus,IBusComponent *component);
 static void (*p_ibus_component_output)(IBusComponent *component,GString *output,gint indent);
-static void (*p_ibus_component_output_engines)(IBusComponent *component,GString *output,gint indent);
+// static void (*p_ibus_component_output_engines)(IBusComponent *component,GString *output,gint indent);
 
 static GType (*p_ibus_engine_get_type)(void);
 #undef IBUS_TYPE_ENGINE
 #define IBUS_TYPE_ENGINE p_ibus_engine_get_type()
 
-static GType (*p_ibus_object_get_type)(void);
-#undef IBUS_TYPE_OBJECT
-#define IBUS_TYPE_OBJECT p_ibus_object_get_type()
+// static GType (*p_ibus_object_get_type)(void);
+// #undef IBUS_TYPE_OBJECT
+// #define IBUS_TYPE_OBJECT p_ibus_object_get_type()
 
 static IBusEngineDesc *(*p_ibus_engine_desc_new)(const gchar *name,
                                                  const gchar *longname,
@@ -79,12 +79,12 @@ static void (*p_ibus_engine_hide_preedit_text)(IBusEngine *engine);
 static void (*p_ibus_engine_commit_text)(IBusEngine *engine,IBusText *text);
 static void (*p_ibus_engine_forward_key_event)(IBusEngine *engine,guint keyval,gboolean is_press,guint state);
 static void (*p_ibus_engine_update_preedit_text)(IBusEngine *engine,IBusText *text,guint cursor_pos,gboolean visible);
-static void (*p_ibus_engine_get_content_type)(IBusEngine *engine,guint *purpose,guint *hints);
+// static void (*p_ibus_engine_get_content_type)(IBusEngine *engine,guint *purpose,guint *hints);
 static void (*p_ibus_component_add_engine)(IBusComponent *component,IBusEngineDesc *engine);
 
 static void (*p_ibus_text_append_attribute)(IBusText *text,guint type,guint value,guint start_index,gint end_index);
 static IBusText *(*p_ibus_text_new_from_string)(const gchar *str);																	 
-static IBusText *(*p_ibus_text_new_from_static_string)(const gchar *str);
+// static IBusText *(*p_ibus_text_new_from_static_string)(const gchar *str);
 static guint (*p_ibus_text_get_length)(IBusText *text);
 static void (*p_ibus_text_append_attribute)(IBusText *text,guint type,guint value,guint start_index,gint end_index);
 
@@ -92,10 +92,10 @@ static IBusFactory *(*p_ibus_factory_new)(GDBusConnection *connection);
 static void (*p_ibus_factory_add_engine)(IBusFactory *factory,const gchar *name,GType type);
 
 static void (*p_ibus_engine_update_auxiliary_text)(IBusEngine *engine,IBusText *text,gboolean visible);
-static void (*p_ibus_engine_show_auxiliary_text)(IBusEngine *engine);
+// static void (*p_ibus_engine_show_auxiliary_text)(IBusEngine *engine);
 static void (*p_ibus_engine_hide_auxiliary_text)(IBusEngine *engine);
 static void (*p_ibus_engine_update_lookup_table)(IBusEngine *engine,IBusLookupTable *lookup_table,gboolean visible);
-static void (*p_ibus_engine_show_lookup_table)(IBusEngine *engine);
+// static void (*p_ibus_engine_show_lookup_table)(IBusEngine *engine);
 static void (*p_ibus_engine_hide_lookup_table)(IBusEngine *engine);
 
 static IBusLookupTable *(*p_ibus_lookup_table_new)(guint page_size,guint cursor_pos,gboolean cursor_visible,gboolean round);
@@ -220,7 +220,7 @@ static gboolean ibus_yong_engine_process_key_event(IBusEngine *engine,guint keyv
 {
 	IBusYongEngine *yong=(IBusYongEngine*)engine;
 	int key;
-	
+
 	key=GetKey(keyval,modifiers);
 	if(!key)
 		return FALSE;
@@ -312,13 +312,13 @@ static void ibus_yong_engine_focus_in(IBusEngine *engine)
 	YBUS_CONNECT *active=NULL;
 	if(!ybus_get_active(&active,NULL) && active->plugin!=&plugin)
 	{
-		int64_t now=ybus_now();
-		if(llabs(now-active->alive)<50)
+		uint64_t now=l_ticks();
+		if(now-active->alive<50)
 		{
 			return;
 		}
 	}
-	//fprintf(stderr,"focus in\n");
+	// fprintf(stderr,"focus in\n");
 	ibus_yong_auto_switch(engine);
 	if(((IBusYongEngine*)engine)->first)
 	{
@@ -326,13 +326,13 @@ static void ibus_yong_engine_focus_in(IBusEngine *engine)
 			ybus_on_open(&plugin,(CONN_ID)engine,0);
 		((IBusYongEngine*)engine)->first=0;
 	}
-	ybus_on_focus_in(&plugin,(CONN_ID)engine,0);
+	ybus_on_focus_in(&plugin,(CONN_ID)engine,0,false);
 	parent_class->focus_in(engine);
 }
 
 static void ibus_yong_engine_focus_out(IBusEngine *engine)
 {
-	//fprintf(stderr,"focus out\n");
+	// fprintf(stderr,"focus out\n");
 	ybus_on_focus_out(&plugin,(CONN_ID)engine,0);
 	parent_class->focus_out (engine);
 }
@@ -392,8 +392,8 @@ static int xim_config(CONN_ID conn_id,CLIENT_ID client_id,const char *config,...
 	va_start(ap,config);
 	if(!strcmp(config,"trigger"))
 	{
-		int key=va_arg(ap,int);		
-		trigger=key;
+		// int key=va_arg(ap,int);		
+		// trigger=key;
 	}
 	else if(!strcmp(config,"onspot"))
 	{
@@ -519,15 +519,15 @@ static int xim_ibus_base_init(void)
 	onspot=y_im_get_config_int("IM","onspot");
 
 	p_ibus_bus_new=dlsym(ibus_so,"ibus_bus_new");
-	p_ibus_bus_new_async=dlsym(ibus_so,"ibus_bus_new_async");
+	// p_ibus_bus_new_async=dlsym(ibus_so,"ibus_bus_new_async");
 	p_ibus_bus_get_connection=dlsym(ibus_so,"ibus_bus_get_connection");
 	p_ibus_bus_request_name=dlsym(ibus_so,"ibus_bus_request_name");
-	p_ibus_bus_register_component=dlsym(ibus_so,"ibus_bus_register_component");
+	// p_ibus_bus_register_component=dlsym(ibus_so,"ibus_bus_register_component");
 	p_ibus_component_output=dlsym(ibus_so,"ibus_component_output");
-	p_ibus_component_output_engines=dlsym(ibus_so,"ibus_component_output_engines");
+	// p_ibus_component_output_engines=dlsym(ibus_so,"ibus_component_output_engines");
 
 	p_ibus_engine_get_type=dlsym(ibus_so,"ibus_engine_get_type");
-	p_ibus_object_get_type=dlsym(ibus_so,"ibus_object_get_type");
+	// p_ibus_object_get_type=dlsym(ibus_so,"ibus_object_get_type");
 	
 	p_ibus_engine_get_name=dlsym(ibus_so,"ibus_engine_get_name");
 	p_ibus_engine_desc_new=dlsym(ibus_so,"ibus_engine_desc_new");
@@ -536,11 +536,11 @@ static int xim_ibus_base_init(void)
 	p_ibus_engine_commit_text=dlsym(ibus_so,"ibus_engine_commit_text");
 	p_ibus_engine_update_preedit_text=dlsym(ibus_so,"ibus_engine_update_preedit_text");
 	p_ibus_engine_forward_key_event=dlsym(ibus_so,"ibus_engine_forward_key_event");
-	p_ibus_engine_get_content_type=dlsym(ibus_so,"ibus_engine_get_content_type");
+	// p_ibus_engine_get_content_type=dlsym(ibus_so,"ibus_engine_get_content_type");
 
 	p_ibus_text_append_attribute=dlsym(ibus_so,"ibus_text_append_attribute");
 	p_ibus_text_new_from_string=dlsym(ibus_so,"ibus_text_new_from_string");
-	p_ibus_text_new_from_static_string=dlsym(ibus_so,"ibus_text_new_from_static_string");
+	// p_ibus_text_new_from_static_string=dlsym(ibus_so,"ibus_text_new_from_static_string");
 	p_ibus_text_get_length=dlsym(ibus_so,"ibus_text_get_length");
 	p_ibus_text_append_attribute=dlsym(ibus_so,"ibus_text_append_attribute");
 	
@@ -551,10 +551,10 @@ static int xim_ibus_base_init(void)
 	p_ibus_factory_add_engine=dlsym(ibus_so,"ibus_factory_add_engine");
 
 	p_ibus_engine_update_auxiliary_text=dlsym(ibus_so,"ibus_engine_update_auxiliary_text");
-	p_ibus_engine_show_auxiliary_text=dlsym(ibus_so,"ibus_engine_show_auxiliary_text");
+	// p_ibus_engine_show_auxiliary_text=dlsym(ibus_so,"ibus_engine_show_auxiliary_text");
 	p_ibus_engine_hide_auxiliary_text=dlsym(ibus_so,"ibus_engine_hide_auxiliary_text");
 	p_ibus_engine_update_lookup_table=dlsym(ibus_so,"ibus_engine_update_lookup_table");
-	p_ibus_engine_show_lookup_table=dlsym(ibus_so,"ibus_engine_show_lookup_table");
+	// p_ibus_engine_show_lookup_table=dlsym(ibus_so,"ibus_engine_show_lookup_table");
 	p_ibus_engine_hide_lookup_table=dlsym(ibus_so,"ibus_engine_hide_lookup_table");
 
 	p_ibus_lookup_table_new=dlsym(ibus_so,"ibus_lookup_table_new");
@@ -606,6 +606,8 @@ static int xim_init(void)
 	{
 		fprintf(stderr,"ibus request name fail\n");
 	}
+	const char *temp=y_im_get_config_data("input","ibus");
+	if(temp) use_ibus_input=atoi(temp)?true:false;
 	return 0;
 }
 
@@ -758,7 +760,9 @@ int ybus_ibus_init(void)
 		return -1;
 	const char *temp=getenv("GTK_IM_MODULE");
 	if(temp && !strcmp(temp,"yong"))
-		ibus_assist=1;
+	{
+		use_ibus_input=false;
+	}
 	if(0!=xim_ibus_base_init())
 	{
 		fprintf(stderr,"ibus base init fail\n");
@@ -819,7 +823,7 @@ static IBusLookupTable *get_cand_list(const EXTRA_IM *eim,int line)
 int ybus_ibus_input_hide(void)
 {
 	YBUS_CONNECT *conn;
-	if(!ibus_enable || !ibus_assist)
+	if(!ibus_enable || !use_ibus_input)
 		return -1;
 	if(0!=ybus_get_active(&conn,NULL))
 		return -1;
@@ -835,7 +839,7 @@ int ybus_ibus_input_hide(void)
 int ybus_ibus_input_draw(int line)
 {
 	YBUS_CONNECT *conn;
-	if(!ibus_enable || !ibus_assist)
+	if(!ibus_enable || !use_ibus_input)
 		return -1;
 	if(0!=ybus_get_active(&conn,NULL))
 		return -1;

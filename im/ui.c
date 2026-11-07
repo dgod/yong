@@ -2219,14 +2219,10 @@ static gboolean YongSendClipboard_real(const char *utf8)
 
 void YongSendClipboard(const char *s)
 {
-	gchar *utf8;
-	int len;
-
 	if(y_ui_is_dummy())
 		return;
-	
-	len=strlen(s);
-	utf8=g_malloc(len*2+1);
+	int len=strlen(s);
+	gchar *utf8=g_malloc(len*2+1);
 	y_im_str_encode(s,utf8,0);
 	g_idle_add_full(G_PRIORITY_DEFAULT,(GSourceFunc)YongSendClipboard_real,utf8,g_free);
 }

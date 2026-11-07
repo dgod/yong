@@ -10,9 +10,14 @@ struct _slice{
 	int block;
 };
 
+#define BLOCK_MIN		8
+#define BLOCK_MAX		24
+#define BLOCK_STEP		4
+#define SLICE_COUNT		((BLOCK_MAX-BLOCK_MIN)/BLOCK_STEP+1)
+
 typedef struct _lslices{
 	int count;
-	SLICE slice[];
+	SLICE slice[SLICE_COUNT];
 }LSlices;
 
 struct _page{
@@ -20,32 +25,25 @@ struct _page{
 	uint8_t data[];
 };
 
-LSlices *l_slices_new(int n,...)
+static inline int size_to_index(int size)
 {
-	int size[n];
-	int count=0;
-	va_list ap;
-	va_start(ap,n);
-	for(int i=0;i<n;i++)
-	{
-		int temp=va_arg(ap,int);
-		int j=array_index(size,count,temp);
-		if(j>=0)
-			continue;
-		assert(temp<64);
-		size[count++]=temp;
-	}
-	va_end(ap);
-	qsort(size,count,sizeof(int),l_int_equal);
-	LSlices *r=l_alloc(sizeof(LSlices)+sizeof(SLICE)*count);
-	r->count=count;
-	for(int i=0;i<count;i++)
+	if(size<=BLOCK_MIN)
+		return 0;
+	size=(size+(BLOCK_STEP-1))&(~(BLOCK_STEP-1));
+	return (size-BLOCK_MIN)/BLOCK_STEP;
+}
+
+LSlices *l_slices_new(void)
+{
+	LSlices *r=l_alloc(sizeof(LSlices));
+	r->count=SLICE_COUNT;
+	for(int i=0;i<SLICE_COUNT;i++)
 	{
 		SLICE *s=r->slice+i;
 		s->page=NULL;
 		s->idle=NULL;
 		s->pos=L_PAGE_SIZE;
-		s->block=size[i];
+		s->block=BLOCK_MIN+BLOCK_STEP*i;
 	}
 	return r;
 }
@@ -89,11 +87,14 @@ static bool slice_not_idle(const SLICE *s,const void *mem)
 
 void *l_slice_alloc(LSlices *r,int size)
 {
-	for(int i=0;i<r->count;i++)
+	int i=size_to_index(size);
+	if(i<SLICE_COUNT)
 	{
 		SLICE *s=r->slice+i;
-		if(s->block<size)
-			continue;
+#ifdef L_MEM_DEBUG
+		assert(size<=s->block);
+		assert(size<BLOCK_MIN || size>s->block-BLOCK_STEP);
+#endif
 		LSList *ret=s->idle;
 		if(ret!=NULL)
 		{
@@ -121,11 +122,10 @@ void l_slice_free(LSlices *r,void *p,int size)
 {
 	if(!p)
 		return;
-	for(int i=0;i<r->count;i++)
+	int i=size_to_index(size);
+	if(i<SLICE_COUNT)
 	{
 		SLICE *s=r->slice+i;
-		if(s->block<size)
-			continue;
 #ifdef L_MEM_DEBUG
 		assert(slice_includes(s,p));
 		assert(slice_not_idle(s,p));
