@@ -1,9 +1,11 @@
 #ifndef _LTRICKY_H_
 #define _LTRICKY_H_
 
-#if defined(__GLIBC__) && (defined(__i386__) || defined(__x86_64__))
+#if defined(__GLIBC__)
 
 #include "ltypes.h"
+
+#if defined(__i386__) || defined(__x86_64__)
 
 #if L_WORD_SIZE==32
 __asm__(".symver __isoc99_sscanf,sscanf@GLIBC_2.0");
@@ -22,6 +24,16 @@ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 __asm__(".symver __isoc23_strtol,strtol@GLIBC_2.2.5");
 __asm__(".symver __isoc23_strtoul,strtoul@GLIBC_2.2.5");
 __asm__(".symver __isoc23_strtoll,strtoll@GLIBC_2.2.5");
+#endif
+
+#endif
+
+#if defined(__aarch64__)
+__asm__(".symver __isoc23_sscanf,sscanf@GLIBC_2.17");
+__asm__(".symver __isoc23_vsscanf,vsscanf@GLIBC_2.17");
+__asm__(".symver __isoc23_strtol,strtol@GLIBC_2.17");
+__asm__(".symver __isoc23_strtoul,strtoul@GLIBC_2.17");
+__asm__(".symver __isoc23_strtoll,strtoll@GLIBC_2.17");
 #endif
 
 #endif/*__GLIBC__*/
